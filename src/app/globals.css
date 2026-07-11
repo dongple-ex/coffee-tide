@@ -1,0 +1,126 @@
+/* 테마 팔레트 3종 — 다크(기본, doc/4-execution_plan.md Step 1), 라이트, 커피타이드.
+   전환: html[data-theme] 속성 + localStorage(ct_theme). */
+
+:root {
+  /* 🌙 다크 (기본) */
+  --bg: #0a0e17;
+  --card: #131924;
+  --card-hover: #182030;
+  --card-hover-border: #2f3b52;
+  --border: #232c3d;
+  --text: #e6ecf5;
+  --text-dim: #8b98ad;
+  --accent: #00d2ff;
+  --accent-dim: rgba(0, 210, 255, 0.12);
+  --accent-contrast: #04121a;
+  --danger: #ff5d73;
+  --warn: #ffb454;
+  --ok: #4ade80;
+  --radius: 14px;
+}
+
+:root[data-theme="light"] {
+  /* ☀️ 라이트 */
+  --bg: #f4f6fa;
+  --card: #ffffff;
+  --card-hover: #f1f5f9;
+  --card-hover-border: #b9c6da;
+  --border: #dde4ee;
+  --text: #1a2333;
+  --text-dim: #5d6b80;
+  --accent: #0891b2;
+  --accent-dim: rgba(8, 145, 178, 0.1);
+  --accent-contrast: #ffffff;
+  --danger: #dc2626;
+  --warn: #b45309;
+  --ok: #16a34a;
+}
+
+:root[data-theme="mega"] {
+  /* 💛 메가커피 — 옐로우+화이트+우드톤(인테리어), 네이비(로고 텍스트) */
+  --bg: #fbf8f0;
+  --card: #ffffff;
+  --card-hover: #f6efdd;
+  --card-hover-border: #cdb98f;
+  --border: #e3d9c2;
+  --text: #26304a;
+  --text-dim: #6b7185;
+  --accent: #1f2f5c;
+  --accent-dim: rgba(255, 212, 0, 0.22);
+  --accent-contrast: #ffd400;
+  --danger: #d64545;
+  --warn: #c07c10;
+  --ok: #2e7d32;
+}
+
+:root[data-theme="kustom"] {
+  /* 💙 커스텀커피 — 차콜 블랙 + 일렉트릭 블루 + 아이스 블루 화이트 (로고 팔레트) */
+  --bg: #14161c;
+  --card: #1b1e26;
+  --card-hover: #21252f;
+  --card-hover-border: #3d4552;
+  --border: #2c313c;
+  --text: #f4f9ff;
+  --text-dim: #939db0;
+  --accent: #1a54f5;
+  --accent-dim: rgba(26, 84, 245, 0.16);
+  --accent-contrast: #f4f9ff;
+  --danger: #ff5d73;
+  --warn: #ffb454;
+  --ok: #4ade80;
+}
+
+:root[data-theme="coffee"] {
+  /* 🥤 커피타이드 — 에스프레소 배경에 카라멜 포인트 */
+  --bg: #1b120c;
+  --card: #2a1d14;
+  --card-hover: #33241a;
+  --card-hover-border: #5d4636;
+  --border: #4a3628;
+  --text: #f3e9df;
+  --text-dim: #b3a091;
+  --accent: #d19a5b;
+  --accent-dim: rgba(209, 154, 91, 0.14);
+  --accent-contrast: #241205;
+  --danger: #ff6b5e;
+  --warn: #ffb454;
+  --ok: #8fce8f;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family:
+    "Segoe UI", "Malgun Gothic", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
+    Roboto, sans-serif;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  transition: background 0.25s ease, color 0.25s ease;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+input,
+textarea,
+select {
+  font-family: inherit;
+}
+
+::selection {
+  background: var(--accent-dim);
+}
