@@ -8,12 +8,26 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { applyRules, AutomationRule, ProcessedData } from "@/lib/automation/rules";
 import {
+  BROWSER_ID_PREFIX,
+  BrowserFolderInfo,
+  BrowserFolderKind,
+  captureBrowserObsidian,
+  completeBrowserObsidianTask,
+  pickBrowserFolder,
+  removeBrowserFolder,
+  requestBrowserPermissions,
+  scanBrowserFolders,
+  supportsFsAccess,
+} from "@/lib/browser/localFolders";
+import {
   CATEGORY_LABELS,
   ConnectionState,
   MailsResponse,
   SOURCE_LABELS,
+  UnifiedCategory,
   UnifiedData,
 } from "@/lib/types/unified";
+import { GoogleIcon, NotionIcon, ObsidianIcon, OutlookIcon } from "./components/brandIcons";
 import CafeWait from "./components/cafeWait";
 import IcedAmericano from "./components/icedAmericano";
 import MarkdownLite from "./components/markdownLite";
@@ -25,6 +39,7 @@ const LS_DISMISSED = "tp_dismissed_ids";
 const LS_FOLLOWUP = "tp_followup_hours";
 const LS_BRIEF_TIME = "ct_brief_time";
 const LS_THEME = "ct_theme";
+const LS_BROWSER_CAT = "ct_browser_categories";
 const POLL_MS = 30_000;
 
 type Theme = "dark" | "light" | "coffee" | "mega" | "kustom";
@@ -164,6 +179,12 @@ export default function Home() {
   const [llmPath, setLlmPath] = useState("");
 
   const [theme, setTheme] = useState<Theme>(() => loadLS<Theme>(LS_THEME, "dark"));
+  const [showConn, setShowConn] = useState(false);
+
+  // 브라우저 로컬 폴더 (File System Access API) — 원격 배포에서도 폴더 연동
+  const [fsaSupported, setFsaSupported] = useState(false);
+  const [browserFolders, setBrowserFolders] = useState<BrowserFolderInfo[]>([]);
+  const [browserItems, setBrowserItems] = useState<UnifiedData[]>([]);
 
   const [pushSupported, setPushSupported] = useState<boolean | null>(null);
   const [pushEndpoint, setPushEndpoint] = useState<string | null>(null);
@@ -207,11 +228,65 @@ export default function Home() {
       setAiError(Boolean(data.ai_error));
       setPhase("ready");
 
-      // D3: dismissed 배열을 현재 존재하는 외부 id로만 정리 (로컬 항목은 dismiss 대상이 아님)
+      // D3: dismissed 배열을 현재 존재하는 외부 id로만 정리 (로컬 항목은 dismiss 대상이 아님,
+      // 브라우저 폴더 항목(bfs-)은 scanBrowser에서 별도 정리)
       const validIds = new Set(data.mails.map((m) => m.id));
-      setDismissed((prev) => prev.filter((id) => validIds.has(id)));
+      setDismissed((prev) =>
+        prev.filter((id) => validIds.has(id) || id.startsWith(BROWSER_ID_PREFIX))
+      );
     } catch {
       if (!silent) setPhase((p) => (p === "loading" ? "landing" : p));
+    }
+  }, []);
+
+  // ── 브라우저 폴더 스캔 — 서버 /api/mails 파이프라인(수집→AI 분류→C1 캐시) 미러 ──
+  const scanBrowser = useCallback(async () => {
+    if (!supportsFsAccess()) return;
+    const { items, complete, folders } = await scanBrowserFolders();
+    setBrowserFolders(folders);
+
+    // 분류 캐시 적용 (llm 항목은 reference 고정이라 캐시 불필요)
+    const cache = loadLS<Record<string, { category?: UnifiedCategory; actionDirective?: string }>>(
+      LS_BROWSER_CAT,
+      {}
+    );
+    const withCat = items.map((i) =>
+      i.category || !cache[i.id] ? i : { ...i, ...cache[i.id] }
+    );
+    setBrowserItems(withCat);
+
+    // D3: 완전 스캔일 때만 사라진 브라우저 항목의 dismiss 정리
+    if (complete) {
+      const ids = new Set(items.map((i) => i.id));
+      setDismissed((prev) =>
+        prev.filter((id) => !id.startsWith(BROWSER_ID_PREFIX) || ids.has(id))
+      );
+    }
+
+    // 캐시에 없는 신규 항목만 AI 분류 (실패 시 다음 폴링에서 재시도)
+    const fresh = withCat.filter((i) => !i.category).slice(0, 20);
+    if (fresh.length === 0) return;
+    try {
+      const res = await fetch("/api/tasks/classify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: fresh }),
+      });
+      if (!res.ok) return;
+      const { items: classified } = (await res.json()) as { items: UnifiedData[] };
+      const nextCache: typeof cache = complete ? {} : { ...cache };
+      if (complete) {
+        for (const i of withCat) if (cache[i.id]) nextCache[i.id] = cache[i.id]; // 현재 항목으로 프루닝
+      }
+      for (const c of classified) {
+        nextCache[c.id] = { category: c.category, actionDirective: c.actionDirective };
+      }
+      saveLS(LS_BROWSER_CAT, nextCache);
+      setBrowserItems((prev) =>
+        prev.map((i) => (!i.category && nextCache[i.id] ? { ...i, ...nextCache[i.id] } : i))
+      );
+    } catch {
+      // 분류 실패해도 항목은 유지 (부분 실패 허용)
     }
   }, []);
 
@@ -221,6 +296,14 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void fetchMails();
   }, [fetchMails]);
+
+  // 브라우저 폴더 연동 복원 — FSA 지원 감지 + 저장 핸들 스캔 (권한 상태 포함)
+  useEffect(() => {
+    if (phase !== "ready") return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setFsaSupported(supportsFsAccess());
+    void scanBrowser();
+  }, [phase, scanBrowser]);
 
   // 영속화 — 외부 시스템(localStorage) 쓰기
   useEffect(() => {
@@ -242,6 +325,16 @@ export default function Home() {
     else document.documentElement.setAttribute("data-theme", theme);
     saveLS(LS_THEME, theme);
   }, [theme]);
+
+  // 연동 관리 오버레이 — ESC로 닫기
+  useEffect(() => {
+    if (!showConn) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setShowConn(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [showConn]);
 
   // 웹 푸시 — Service Worker 등록 + 기존 구독 복원 (H5)
   useEffect(() => {
@@ -266,7 +359,13 @@ export default function Home() {
   useEffect(() => {
     if (!pushEndpoint) return;
     const timer = setTimeout(() => {
-      const items = buildMergedView(manualItems, serverMails, dismissed, rules, followupHours)
+      const items = buildMergedView(
+        manualItems,
+        [...serverMails, ...browserItems],
+        dismissed,
+        rules,
+        followupHours
+      )
         .filter((i) => i.status !== "completed")
         .slice(0, 50);
       void fetch("/api/push/state", {
@@ -276,25 +375,37 @@ export default function Home() {
       });
     }, 2000);
     return () => clearTimeout(timer);
-  }, [manualItems, serverMails, dismissed, rules, followupHours, pushEndpoint]);
+  }, [manualItems, serverMails, browserItems, dismissed, rules, followupHours, pushEndpoint]);
 
   // 30초 폴링 — 백그라운드 탭에서는 중단, 복귀 시 즉시 갱신 (C2: 콜백 identity 안정화)
   useEffect(() => {
     if (phase !== "ready") return;
     const interval = setInterval(() => {
-      if (!document.hidden) void fetchMails(true);
+      if (!document.hidden) {
+        void fetchMails(true);
+        void scanBrowser();
+      }
     }, POLL_MS);
     const onVisible = () => {
-      if (!document.hidden) void fetchMails(true);
+      if (!document.hidden) {
+        void fetchMails(true);
+        void scanBrowser();
+      }
     };
     document.addEventListener("visibilitychange", onVisible);
     return () => {
       clearInterval(interval);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [phase, fetchMails]);
+  }, [phase, fetchMails, scanBrowser]);
 
-  const merged = buildMergedView(manualItems, serverMails, dismissed, rules, followupHours);
+  const merged = buildMergedView(
+    manualItems,
+    [...serverMails, ...browserItems],
+    dismissed,
+    rules,
+    followupHours
+  );
 
   const todoItems = merged.filter(
     (i) => TODO_CATS.has(i.category ?? "") && i.status !== "completed"
@@ -379,6 +490,20 @@ export default function Home() {
 
   // ── write-back 액션 (phase5) ────────────────
   async function completeExternal(item: UnifiedData) {
+    // 브라우저 연동(FSA) 항목은 서버를 거치지 않고 클라이언트에서 직접 노트 수정
+    if (item.id.startsWith(BROWSER_ID_PREFIX)) {
+      markBusy(item.id, true);
+      try {
+        await completeBrowserObsidianTask(item.id);
+        showToast("완료 도장 꾹 찍어뒀어요! (노트 체크박스도 갱신)");
+        void scanBrowser();
+      } catch (err) {
+        showToast(err instanceof Error && err.message ? err.message : "완료 처리 실패");
+      } finally {
+        markBusy(item.id, false);
+      }
+      return;
+    }
     markBusy(item.id, true);
     try {
       const res = await fetch("/api/tasks/update", {
@@ -421,6 +546,19 @@ export default function Home() {
   }
 
   async function capture(item: UnifiedData, target: "notion" | "obsidian") {
+    // 서버 볼트 미연동 + 브라우저 볼트 연동 상태면 클라이언트에서 직접 캡처
+    if (target === "obsidian" && !connections?.obsidian) {
+      markBusy(item.id, true);
+      try {
+        const note = await captureBrowserObsidian(item.title, item.content);
+        showToast(`Obsidian '${note}'에 담아뒀어요!`);
+      } catch (err) {
+        showToast(err instanceof Error && err.message ? err.message : "캡처 실패");
+      } finally {
+        markBusy(item.id, false);
+      }
+      return;
+    }
     markBusy(item.id, true);
     try {
       const res = await fetch("/api/tasks/capture", {
@@ -568,6 +706,29 @@ export default function Home() {
     });
     showToast("폴더 연결을 풀어뒀어요.");
     void fetchMails(true);
+  }
+
+  // ── 브라우저 폴더 연동 (File System Access API) ──
+  async function connectBrowserFolder(kind: BrowserFolderKind) {
+    try {
+      const name = await pickBrowserFolder(kind);
+      if (!name) return; // 사용자가 선택 취소
+      showToast(`'${name}' 폴더를 이 브라우저에서 챙겨볼게요!`);
+      void scanBrowser();
+    } catch (err) {
+      showToast(err instanceof Error && err.message ? err.message : "폴더 열기 실패");
+    }
+  }
+
+  async function disconnectBrowserFolder(key: string) {
+    await removeBrowserFolder(key);
+    showToast("브라우저 폴더 연결을 풀어뒀어요.");
+    void scanBrowser();
+  }
+
+  async function regrantBrowserFolders() {
+    await requestBrowserPermissions();
+    void scanBrowser();
   }
 
   async function pickFolder(setter: (path: string) => void) {
@@ -733,9 +894,18 @@ export default function Home() {
     );
   }
 
-  const isAnyConnected = connections
-    ? Object.values(connections).some((v) => v === true)
-    : false;
+  const isAnyConnected =
+    (connections ? Object.values(connections).some((v) => v === true) : false) ||
+    browserFolders.length > 0;
+  const browserObsidian = browserFolders.find((f) => f.kind === "obsidian");
+  const browserDocs = browserFolders.filter((f) => f.kind === "local_doc");
+  const browserLlm = browserFolders.find((f) => f.kind === "llm");
+  const browserNeedsPermission = browserFolders.some((f) => f.permission === "prompt");
+  const browserKinds = new Set(browserFolders.map((f) => f.kind));
+  const connectedCount = connections
+    ? Object.values(connections).filter((v) => v === true).length +
+      [...browserKinds].filter((k) => !connections[k]).length
+    : browserKinds.size;
 
   function renderItem(item: ProcessedData & { overdue: number }) {
     const isLocal = item.source === "manual" || item.source === "paste";
@@ -820,7 +990,7 @@ export default function Home() {
               ✅ 완료 처리
             </button>
           )}
-          {isLocal && connections?.obsidian && (
+          {isLocal && (connections?.obsidian || browserObsidian) && (
             <button className={styles.actionBtn} disabled={busy} onClick={() => capture(item, "obsidian")}>
               📥 Obsidian
             </button>
@@ -867,6 +1037,16 @@ export default function Home() {
           </span>
         </div>
         <div className={styles.headerRight}>
+          <button
+            className={styles.connMenuBtn}
+            onClick={() => setShowConn((v) => !v)}
+            aria-expanded={showConn}
+            aria-haspopup="dialog"
+            aria-label="서비스 연동 관리 열기/닫기"
+          >
+            🔌 연동 관리
+            <span className={styles.connCount}>{connectedCount}</span>
+          </button>
           <select
             className={styles.input}
             style={{ width: "auto", padding: "4px 8px" }}
@@ -910,6 +1090,21 @@ export default function Home() {
       {aiError && (
         <div className={styles.errorBanner} style={{ borderColor: "var(--warn)", color: "var(--warn)", background: "rgba(255,180,84,0.08)" }}>
           AI가 잠깐 자리를 비워서, 제 감(로컬 규칙)으로 분류해뒀어요.
+        </div>
+      )}
+      {browserNeedsPermission && (
+        <div
+          className={styles.errorBanner}
+          style={{ borderColor: "var(--accent)", color: "var(--text)", background: "var(--accent-dim)" }}
+        >
+          🔑 연동해둔 로컬 폴더의 브라우저 접근 권한이 만료됐어요.{" "}
+          <button
+            className={styles.btn}
+            style={{ padding: "2px 10px", fontSize: "0.76rem" }}
+            onClick={regrantBrowserFolders}
+          >
+            다시 허용
+          </button>
         </div>
       )}
 
@@ -1037,208 +1232,8 @@ export default function Home() {
           )}
         </section>
 
-        {/* 사이드: 연동 관리 + 규칙 */}
+        {/* 사이드: 규칙 + 알림 */}
         <div className={styles.colSide}>
-          <section className={styles.card}>
-            <div className={styles.cardTitle}>🔌 서비스 연동 관리 <small>전부 선택 사항이에요</small></div>
-            <div className={styles.connGrid}>
-              <div className={styles.connCard}>
-                <div className={styles.connHead}>
-                  📧 Outlook
-                  <span
-                    className={`${styles.connStatus} ${errors?.outlook ? styles.connErr : connections?.outlook ? styles.connOn : ""}`}
-                  >
-                    {errors?.outlook ? "재연동 필요" : connections?.outlook ? "연동됨" : "미연동"}
-                  </span>
-                </div>
-                {connections?.outlook ? (
-                  <button className={styles.btn} onClick={() => disconnect("outlook", "DELETE")}>
-                    해제
-                  </button>
-                ) : (
-                  <a className={styles.btn} href="/api/auth/outlook" style={{ textAlign: "center" }}>
-                    연동하기
-                  </a>
-                )}
-              </div>
-
-              <div className={styles.connCard}>
-                <div className={styles.connHead}>
-                  📮 Google
-                  <span
-                    className={`${styles.connStatus} ${errors?.google ? styles.connErr : connections?.google ? styles.connOn : ""}`}
-                  >
-                    {errors?.google ? "재연동 필요" : connections?.google ? "연동됨" : "미연동"}
-                  </span>
-                </div>
-                {connections?.google ? (
-                  <button className={styles.btn} onClick={() => disconnect("google/signin", "DELETE")}>
-                    해제
-                  </button>
-                ) : (
-                  <a className={styles.btn} href="/api/auth/google/signin" style={{ textAlign: "center" }}>
-                    연동하기
-                  </a>
-                )}
-              </div>
-
-              <div className={styles.connCard}>
-                <div className={styles.connHead}>
-                  📝 Notion
-                  <span className={`${styles.connStatus} ${connections?.notion ? styles.connOn : ""}`}>
-                    {connections?.notion ? "연동됨" : "미연동"}
-                  </span>
-                </div>
-                {connections?.notion ? (
-                  <button className={styles.btn} onClick={() => disconnect("notion")}>
-                    해제
-                  </button>
-                ) : (
-                  <>
-                    <input
-                      className={styles.input}
-                      placeholder="Integration Token"
-                      value={notionToken}
-                      onChange={(e) => setNotionToken(e.target.value)}
-                      aria-label="Notion Integration Token"
-                    />
-                    <div className={styles.connRow}>
-                      <input
-                        className={styles.input}
-                        placeholder="Database ID"
-                        value={notionDbId}
-                        onChange={(e) => setNotionDbId(e.target.value)}
-                        aria-label="Notion Database ID"
-                      />
-                      <button className={styles.btn} onClick={connectNotion}>
-                        연동
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-
-              <div className={styles.connCard}>
-                <div className={styles.connHead}>
-                  💎 Obsidian
-                  <span className={`${styles.connStatus} ${connections?.obsidian ? styles.connOn : ""}`}>
-                    {connections?.obsidian ? "연동됨" : "미연동"}
-                  </span>
-                </div>
-                {connections?.obsidian ? (
-                  <button className={styles.btn} onClick={() => disconnect("obsidian")}>
-                    해제
-                  </button>
-                ) : (
-                  <div className={styles.connRow}>
-                    <input
-                      className={styles.input}
-                      placeholder="볼트 폴더 경로"
-                      value={obsidianPath}
-                      onChange={(e) => setObsidianPath(e.target.value)}
-                      aria-label="Obsidian 볼트 폴더 경로"
-                    />
-                    <button
-                      className={styles.iconBtn}
-                      onClick={() => pickFolder(setObsidianPath)}
-                      aria-label="Obsidian 볼트 폴더 선택"
-                      title="폴더 선택"
-                    >
-                      📂
-                    </button>
-                    <button className={styles.btn} onClick={() => connectPath("obsidian", obsidianPath)}>
-                      연동
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              <div className={styles.connCard}>
-                <div className={styles.connHead}>
-                  📁 로컬 문서
-                  <span className={`${styles.connStatus} ${connections?.local_doc ? styles.connOn : ""}`}>
-                    {connections?.local_doc
-                      ? `연동됨 · ${connections?.localDocPaths?.length ?? 0}개 폴더`
-                      : "미연동"}
-                  </span>
-                </div>
-                {(connections?.localDocPaths ?? []).map((path) => (
-                  <div key={path} className={styles.folderRow}>
-                    <span className={styles.folderPath} title={path}>
-                      {path}
-                    </span>
-                    <button
-                      className={styles.iconBtn}
-                      onClick={() => removeLocalDocFolder(path)}
-                      aria-label={`'${path}' 폴더 연결 해제`}
-                      title="이 폴더 빼기"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))}
-                <div className={styles.connRow}>
-                  <input
-                    className={styles.input}
-                    placeholder="문서 폴더 경로 (.md/.txt)"
-                    value={localDocPath}
-                    onChange={(e) => setLocalDocPath(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && addLocalDocFolder()}
-                    aria-label="로컬 문서 폴더 경로"
-                  />
-                  <button
-                    className={styles.iconBtn}
-                    onClick={() => pickFolder(setLocalDocPath)}
-                    aria-label="로컬 문서 폴더 선택"
-                    title="폴더 선택"
-                  >
-                    📂
-                  </button>
-                  <button className={styles.btn} onClick={addLocalDocFolder}>
-                    ➕ 추가
-                  </button>
-                </div>
-                <p className={styles.connNote}>폴더는 5개까지 함께 살펴봐 드려요.</p>
-              </div>
-
-              <div className={styles.connCard}>
-                <div className={styles.connHead}>
-                  🧠 LLM 산출물
-                  <span className={`${styles.connStatus} ${connections?.llm ? styles.connOn : ""}`}>
-                    {connections?.llm ? "연동됨" : "미연동"}
-                  </span>
-                </div>
-                {connections?.llm ? (
-                  <button className={styles.btn} onClick={() => disconnect("llm")}>
-                    해제
-                  </button>
-                ) : (
-                  <div className={styles.connRow}>
-                    <input
-                      className={styles.input}
-                      placeholder="산출물 폴더 (예: ~/.claude/.../memory)"
-                      value={llmPath}
-                      onChange={(e) => setLlmPath(e.target.value)}
-                      aria-label="LLM 산출물 폴더 경로"
-                    />
-                    <button
-                      className={styles.iconBtn}
-                      onClick={() => pickFolder(setLlmPath)}
-                      aria-label="LLM 산출물 폴더 선택"
-                      title="폴더 선택"
-                    >
-                      📂
-                    </button>
-                    <button className={styles.btn} onClick={() => connectPath("llm", llmPath)}>
-                      연동
-                    </button>
-                  </div>
-                )}
-                <p className={styles.connNote}>Claude Code·Gemini 등의 작업 산출물 폴더 (데스크톱 전용)</p>
-              </div>
-            </div>
-          </section>
-
           <section className={styles.card}>
             <div className={styles.cardTitle}>⚙️ 자동화 규칙</div>
             <div className={styles.formRow}>
@@ -1348,7 +1343,7 @@ export default function Home() {
         </div>
 
         {/* 🧠 오늘의 LLM 작업 (phase6 §7) */}
-        {(llmItems.length > 0 || connections?.llm) && (
+        {(llmItems.length > 0 || connections?.llm || browserLlm) && (
           <section className={`${styles.card} ${styles.colFull}`}>
             <div className={styles.cardTitle}>
               🧠 오늘의 LLM 작업 <small>{llmItems.length}건</small>
@@ -1386,6 +1381,326 @@ export default function Home() {
           )}
         </section>
       </div>
+
+      {/* 서비스 연동 관리 — 상단 메뉴로 여닫는 오버레이 패널 */}
+      {showConn && (
+        <div className={`${styles.overlay} ${styles.overlayTop}`} onClick={() => setShowConn(false)}>
+          <div
+            className={`${styles.modal} ${styles.connPanel}`}
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label="서비스 연동 관리"
+          >
+            <div className={styles.cardTitle}>
+              🔌 서비스 연동 관리 <small>전부 선택 사항이에요</small>
+              <button
+                className={`${styles.iconBtn} ${styles.cardTitleBtn}`}
+                onClick={() => setShowConn(false)}
+                aria-label="연동 관리 닫기"
+              >
+                ✕
+              </button>
+            </div>
+            {browserNeedsPermission && (
+              <div className={styles.permRow}>
+                🔑 저장된 폴더의 접근 권한을 다시 허용해 주세요 (브라우저 보안 정책상 재방문
+                시 필요할 수 있어요)
+                <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={regrantBrowserFolders}>
+                  다시 허용
+                </button>
+              </div>
+            )}
+            <div className={styles.connGrid}>
+              <div className={styles.connCard}>
+                <div className={styles.connHead}>
+                  <OutlookIcon /> Outlook
+                  <span
+                    className={`${styles.connStatus} ${errors?.outlook ? styles.connErr : connections?.outlook ? styles.connOn : ""}`}
+                  >
+                    {errors?.outlook ? "재연동 필요" : connections?.outlook ? "연동됨" : "미연동"}
+                  </span>
+                </div>
+                {connections?.outlook ? (
+                  <button className={styles.btn} onClick={() => disconnect("outlook", "DELETE")}>
+                    해제
+                  </button>
+                ) : (
+                  <a className={styles.btn} href="/api/auth/outlook" style={{ textAlign: "center" }}>
+                    연동하기
+                  </a>
+                )}
+              </div>
+
+              <div className={styles.connCard}>
+                <div className={styles.connHead}>
+                  <GoogleIcon /> Google
+                  <span
+                    className={`${styles.connStatus} ${errors?.google ? styles.connErr : connections?.google ? styles.connOn : ""}`}
+                  >
+                    {errors?.google ? "재연동 필요" : connections?.google ? "연동됨" : "미연동"}
+                  </span>
+                </div>
+                {connections?.google ? (
+                  <button className={styles.btn} onClick={() => disconnect("google/signin", "DELETE")}>
+                    해제
+                  </button>
+                ) : (
+                  <a className={styles.btn} href="/api/auth/google/signin" style={{ textAlign: "center" }}>
+                    연동하기
+                  </a>
+                )}
+              </div>
+
+              <div className={styles.connCard}>
+                <div className={styles.connHead}>
+                  <NotionIcon /> Notion
+                  <span className={`${styles.connStatus} ${connections?.notion ? styles.connOn : ""}`}>
+                    {connections?.notion ? "연동됨" : "미연동"}
+                  </span>
+                </div>
+                {connections?.notion ? (
+                  <button className={styles.btn} onClick={() => disconnect("notion")}>
+                    해제
+                  </button>
+                ) : (
+                  <>
+                    <input
+                      className={styles.input}
+                      placeholder="Integration Token"
+                      value={notionToken}
+                      onChange={(e) => setNotionToken(e.target.value)}
+                      aria-label="Notion Integration Token"
+                    />
+                    <div className={styles.connRow}>
+                      <input
+                        className={styles.input}
+                        placeholder="Database ID"
+                        value={notionDbId}
+                        onChange={(e) => setNotionDbId(e.target.value)}
+                        aria-label="Notion Database ID"
+                      />
+                      <button className={styles.btn} onClick={connectNotion}>
+                        연동
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div className={styles.connCard}>
+                <div className={styles.connHead}>
+                  <ObsidianIcon /> Obsidian
+                  <span
+                    className={`${styles.connStatus} ${connections?.obsidian || browserObsidian ? styles.connOn : ""}`}
+                  >
+                    {connections?.obsidian ? "연동됨" : browserObsidian ? "브라우저 연동" : "미연동"}
+                  </span>
+                </div>
+                {connections?.obsidian ? (
+                  <button className={styles.btn} onClick={() => disconnect("obsidian")}>
+                    해제
+                  </button>
+                ) : (
+                  <>
+                    {browserObsidian ? (
+                      <div className={styles.folderRow}>
+                        <span className={styles.folderPath} title={browserObsidian.name}>
+                          📂 {browserObsidian.name}
+                        </span>
+                        <button
+                          className={styles.iconBtn}
+                          onClick={() => disconnectBrowserFolder(browserObsidian.key)}
+                          aria-label="브라우저 볼트 연결 해제"
+                          title="연결 해제"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ) : fsaSupported ? (
+                      <button className={styles.btn} onClick={() => connectBrowserFolder("obsidian")}>
+                        📂 브라우저에서 볼트 폴더 열기
+                      </button>
+                    ) : (
+                      <p className={styles.connNote}>
+                        이 브라우저는 폴더 열기를 지원하지 않아요 (Chrome/Edge 필요).
+                      </p>
+                    )}
+                    <details className={styles.connDetails}>
+                      <summary>서버(로컬 실행) 경로로 연동</summary>
+                      <div className={styles.connRow}>
+                        <input
+                          className={styles.input}
+                          placeholder="볼트 폴더 경로"
+                          value={obsidianPath}
+                          onChange={(e) => setObsidianPath(e.target.value)}
+                          aria-label="Obsidian 볼트 폴더 경로"
+                        />
+                        <button
+                          className={styles.iconBtn}
+                          onClick={() => pickFolder(setObsidianPath)}
+                          aria-label="Obsidian 볼트 폴더 선택"
+                          title="폴더 선택"
+                        >
+                          📂
+                        </button>
+                        <button className={styles.btn} onClick={() => connectPath("obsidian", obsidianPath)}>
+                          연동
+                        </button>
+                      </div>
+                    </details>
+                  </>
+                )}
+              </div>
+
+              <div className={styles.connCard}>
+                <div className={styles.connHead}>
+                  📁 로컬 문서
+                  <span
+                    className={`${styles.connStatus} ${connections?.local_doc || browserDocs.length > 0 ? styles.connOn : ""}`}
+                  >
+                    {connections?.local_doc
+                      ? `연동됨 · ${connections?.localDocPaths?.length ?? 0}개 폴더`
+                      : browserDocs.length > 0
+                        ? `브라우저 · ${browserDocs.length}개 폴더`
+                        : "미연동"}
+                  </span>
+                </div>
+                {browserDocs.map((folder) => (
+                  <div key={folder.key} className={styles.folderRow}>
+                    <span className={styles.folderPath} title={folder.name}>
+                      📂 {folder.name}
+                    </span>
+                    <button
+                      className={styles.iconBtn}
+                      onClick={() => disconnectBrowserFolder(folder.key)}
+                      aria-label={`'${folder.name}' 브라우저 폴더 연결 해제`}
+                      title="이 폴더 빼기"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+                {(connections?.localDocPaths ?? []).map((path) => (
+                  <div key={path} className={styles.folderRow}>
+                    <span className={styles.folderPath} title={path}>
+                      {path}
+                    </span>
+                    <button
+                      className={styles.iconBtn}
+                      onClick={() => removeLocalDocFolder(path)}
+                      aria-label={`'${path}' 폴더 연결 해제`}
+                      title="이 폴더 빼기"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+                {fsaSupported ? (
+                  <button className={styles.btn} onClick={() => connectBrowserFolder("local_doc")}>
+                    📂 브라우저에서 문서 폴더 열기
+                  </button>
+                ) : (
+                  <p className={styles.connNote}>
+                    이 브라우저는 폴더 열기를 지원하지 않아요 (Chrome/Edge 필요).
+                  </p>
+                )}
+                <details className={styles.connDetails}>
+                  <summary>서버(로컬 실행) 경로로 연동</summary>
+                  <div className={styles.connRow}>
+                    <input
+                      className={styles.input}
+                      placeholder="문서 폴더 경로 (.md/.txt)"
+                      value={localDocPath}
+                      onChange={(e) => setLocalDocPath(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && addLocalDocFolder()}
+                      aria-label="로컬 문서 폴더 경로"
+                    />
+                    <button
+                      className={styles.iconBtn}
+                      onClick={() => pickFolder(setLocalDocPath)}
+                      aria-label="로컬 문서 폴더 선택"
+                      title="폴더 선택"
+                    >
+                      📂
+                    </button>
+                    <button className={styles.btn} onClick={addLocalDocFolder}>
+                      ➕ 추가
+                    </button>
+                  </div>
+                </details>
+                <p className={styles.connNote}>폴더는 5개까지 함께 살펴봐 드려요.</p>
+              </div>
+
+              <div className={styles.connCard}>
+                <div className={styles.connHead}>
+                  🧠 LLM 산출물
+                  <span
+                    className={`${styles.connStatus} ${connections?.llm || browserLlm ? styles.connOn : ""}`}
+                  >
+                    {connections?.llm ? "연동됨" : browserLlm ? "브라우저 연동" : "미연동"}
+                  </span>
+                </div>
+                {connections?.llm ? (
+                  <button className={styles.btn} onClick={() => disconnect("llm")}>
+                    해제
+                  </button>
+                ) : (
+                  <>
+                    {browserLlm ? (
+                      <div className={styles.folderRow}>
+                        <span className={styles.folderPath} title={browserLlm.name}>
+                          📂 {browserLlm.name}
+                        </span>
+                        <button
+                          className={styles.iconBtn}
+                          onClick={() => disconnectBrowserFolder(browserLlm.key)}
+                          aria-label="브라우저 LLM 폴더 연결 해제"
+                          title="연결 해제"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ) : fsaSupported ? (
+                      <button className={styles.btn} onClick={() => connectBrowserFolder("llm")}>
+                        📂 브라우저에서 산출물 폴더 열기
+                      </button>
+                    ) : (
+                      <p className={styles.connNote}>
+                        이 브라우저는 폴더 열기를 지원하지 않아요 (Chrome/Edge 필요).
+                      </p>
+                    )}
+                    <details className={styles.connDetails}>
+                      <summary>서버(로컬 실행) 경로로 연동</summary>
+                      <div className={styles.connRow}>
+                        <input
+                          className={styles.input}
+                          placeholder="산출물 폴더 (예: ~/.claude/.../memory)"
+                          value={llmPath}
+                          onChange={(e) => setLlmPath(e.target.value)}
+                          aria-label="LLM 산출물 폴더 경로"
+                        />
+                        <button
+                          className={styles.iconBtn}
+                          onClick={() => pickFolder(setLlmPath)}
+                          aria-label="LLM 산출물 폴더 선택"
+                          title="폴더 선택"
+                        >
+                          📂
+                        </button>
+                        <button className={styles.btn} onClick={() => connectPath("llm", llmPath)}>
+                          연동
+                        </button>
+                      </div>
+                    </details>
+                  </>
+                )}
+                <p className={styles.connNote}>Claude Code·Gemini 등의 작업 산출물 폴더</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 답장 초안 모달 (phase5 §3) */}
       {draft && (

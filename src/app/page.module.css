@@ -56,6 +56,36 @@
   color: var(--text-dim);
 }
 
+/* 헤더 메뉴 — 서비스 연동 관리 토글 버튼 */
+.connMenuBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  padding: 5px 10px;
+  font-size: 0.8rem;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.connMenuBtn:hover,
+.connMenuBtn[aria-expanded="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.connCount {
+  background: var(--accent-dim);
+  color: var(--accent);
+  border-radius: 999px;
+  padding: 1px 7px;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
 /* ── 그리드/카드 ───────────────────────── */
 .grid {
   display: grid;
@@ -417,6 +447,40 @@
   color: var(--text-dim);
 }
 
+/* 서버(로컬 실행) 경로 연동 — 브라우저 폴더 열기의 보조 수단으로 접어둠 */
+.connDetails summary {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 2px 0;
+}
+
+.connDetails summary:hover {
+  color: var(--accent);
+}
+
+.connDetails[open] summary {
+  margin-bottom: 6px;
+}
+
+/* 브라우저 폴더 접근 권한 재허용 배너 (연동 패널 상단) */
+.permRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--accent-dim);
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 0.8rem;
+  margin-bottom: 12px;
+}
+
+.permRow button {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
 .folderRow {
   display: flex;
   align-items: center;
@@ -532,6 +596,28 @@
   width: min(640px, 100%);
   max-height: 80vh;
   overflow-y: auto;
+}
+
+/* 연동 관리 오버레이 — 헤더 메뉴 아래로 펼쳐지는 넓은 패널 */
+.overlayTop {
+  align-items: flex-start;
+  padding-top: 72px;
+}
+
+.connPanel {
+  width: min(920px, 100%);
+  animation: connPanelIn 0.18s ease-out;
+}
+
+@keyframes connPanelIn {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .draftText {
@@ -720,6 +806,10 @@
 @media (max-width: 480px) {
   .page {
     padding: 12px 12px 48px;
+  }
+
+  .overlayTop {
+    padding-top: 16px;
   }
 
   .headerRight {
