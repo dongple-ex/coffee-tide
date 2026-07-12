@@ -40,6 +40,20 @@ interface Backend {
   remove(endpoint: string): Promise<void>;
 }
 
+async function writeProfileFile(profiles: PushProfile[]): Promise<void> {
+  try {
+    await fs.mkdir(DATA_DIR, { recursive: true });
+    await fs.writeFile(FILE, JSON.stringify(profiles, null, 2), "utf8");
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "EROFS" || process.env.VERCEL) {
+      throw new Error(
+        "이 서버 환경은 파일 저장이 불가합니다 — Upstash Redis 환경변수(UPSTASH_REDIS_REST_URL/TOKEN)를 설정해 주세요"
+      );
+    }
+    throw err;
+  }
+}
+
 const fileBackend: Backend = {
   async list() {
     try {
@@ -58,13 +72,10 @@ const fileBackend: Backend = {
     const idx = profiles.findIndex((p) => p.endpoint === profile.endpoint);
     if (idx >= 0) profiles[idx] = profile;
     else profiles.push(profile);
-    await fs.mkdir(DATA_DIR, { recursive: true });
-    await fs.writeFile(FILE, JSON.stringify(profiles, null, 2), "utf8");
+    await writeProfileFile(profiles);
   },
   async remove(endpoint) {
-    const profiles = (await this.list()).filter((p) => p.endpoint !== endpoint);
-    await fs.mkdir(DATA_DIR, { recursive: true });
-    await fs.writeFile(FILE, JSON.stringify(profiles, null, 2), "utf8");
+    await writeProfileFile((await this.list()).filter((p) => p.endpoint !== endpoint));
   },
 };
 
@@ -86,13 +97,20 @@ function redisBackend(redis: Redis): Backend {
   };
 }
 
+// 대시보드에 따옴표째 붙여넣은 값도 동작하도록 흡수 (Vercel은 따옴표를 값의 일부로 저장함)
+function cleanEnv(value: string | undefined): string | undefined {
+  const v = value?.trim().replace(/^["']|["']$/g, "");
+  return v || undefined;
+}
+
 let backend: Backend | undefined;
 function getBackend(): Backend {
   if (!backend) {
-    backend =
-      process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
-        ? redisBackend(Redis.fromEnv())
-        : fileBackend;
+    // Vercel Marketplace 통합은 KV_REST_API_* 이름으로 주입하므로 함께 인식
+    const url = cleanEnv(process.env.UPSTASH_REDIS_REST_URL) ?? cleanEnv(process.env.KV_REST_API_URL);
+    const token =
+      cleanEnv(process.env.UPSTASH_REDIS_REST_TOKEN) ?? cleanEnv(process.env.KV_REST_API_TOKEN);
+    backend = url && token ? redisBackend(new Redis({ url, token })) : fileBackend;
   }
   return backend;
 }

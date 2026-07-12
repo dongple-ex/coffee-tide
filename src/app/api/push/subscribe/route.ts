@@ -31,18 +31,26 @@ export async function POST(request: NextRequest) {
   const briefTime = TIME_RE.test(body.briefTime ?? "") ? body.briefTime! : "08:30";
   const timezone = body.timezone || "Asia/Seoul";
 
-  const existing = await getProfile(sub.endpoint);
-  const today = new Date().toLocaleDateString("en-CA", { timeZone: timezone });
+  try {
+    const existing = await getProfile(sub.endpoint);
+    const today = new Date().toLocaleDateString("en-CA", { timeZone: timezone });
 
-  await upsertProfile({
-    endpoint: sub.endpoint,
-    subscription: sub,
-    briefTime,
-    timezone,
-    items: existing?.items ?? [],
-    lastSentDate: existing?.lastSentDate ?? today,
-    createdAt: existing?.createdAt ?? new Date().toISOString(),
-  });
+    await upsertProfile({
+      endpoint: sub.endpoint,
+      subscription: sub,
+      briefTime,
+      timezone,
+      items: existing?.items ?? [],
+      lastSentDate: existing?.lastSentDate ?? today,
+      createdAt: existing?.createdAt ?? new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error("[coffeeTide] 푸시 구독 저장 실패:", err);
+    return NextResponse.json(
+      { error: (err as Error).message || "구독 정보를 저장하지 못했습니다" },
+      { status: 500 }
+    );
+  }
 
   return NextResponse.json({ success: true, briefTime, timezone });
 }

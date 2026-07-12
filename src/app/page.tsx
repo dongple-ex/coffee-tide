@@ -769,8 +769,8 @@ export default function Home() {
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         }),
       });
-      const json = (await res.json()) as { error?: string };
-      if (!res.ok) throw new Error(json.error);
+      const json = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) throw new Error(json.error || `서버 오류 (HTTP ${res.status})`);
       setPushEndpoint(subscription.endpoint);
       showToast(`좋아요, 매일 ${briefTime}에 찾아뵐게요! 첫 브리핑은 내일부터 — 궁금하면 '테스트 발송'을 눌러보세요.`);
     } catch (err) {
@@ -812,8 +812,8 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ endpoint: pushEndpoint }),
       });
-      const json = (await res.json()) as { message?: string; error?: string };
-      showToast(json.message ?? json.error ?? "요청 실패");
+      const json = (await res.json().catch(() => ({}))) as { message?: string; error?: string };
+      showToast(json.message ?? json.error ?? `요청 실패 (HTTP ${res.status})`);
     } finally {
       setPushBusy(false);
     }
@@ -827,7 +827,7 @@ export default function Home() {
       const registration = await navigator.serviceWorker.ready;
       const subscription = await registration.pushManager.getSubscription();
       if (!subscription) return;
-      await fetch("/api/push/subscribe", {
+      const res = await fetch("/api/push/subscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -836,16 +836,18 @@ export default function Home() {
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         }),
       });
+      const json = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) throw new Error(json.error || `서버 오류 (HTTP ${res.status})`);
       showToast(`발송 시각 ${next}, 기억해뒀어요!`);
-    } catch {
-      showToast("발송 시각 변경 실패");
+    } catch (err) {
+      showToast(err instanceof Error && err.message ? err.message : "발송 시각 변경 실패");
     }
   }
 
   async function exportLlmDigest() {
     const res = await fetch("/api/tasks/llm-digest", { method: "POST" });
-    const json = (await res.json()) as { message?: string; error?: string };
-    showToast(json.message ?? json.error ?? "요청 실패");
+    const json = (await res.json().catch(() => ({}))) as { message?: string; error?: string };
+    showToast(json.message ?? json.error ?? `요청 실패 (HTTP ${res.status})`);
   }
 
   function toggleExpand(id: string) {

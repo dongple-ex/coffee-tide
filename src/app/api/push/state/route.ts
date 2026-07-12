@@ -24,6 +24,14 @@ export async function POST(request: NextRequest) {
     category: i.category,
     status: i.status,
   }));
-  const found = await updateProfile(body.endpoint, { items: slim });
-  return NextResponse.json({ success: found });
+  try {
+    const found = await updateProfile(body.endpoint, { items: slim });
+    return NextResponse.json({ success: found });
+  } catch (err) {
+    console.error("[coffeeTide] 업무 스냅샷 저장 실패:", err);
+    return NextResponse.json(
+      { error: (err as Error).message || "업무 스냅샷을 저장하지 못했습니다" },
+      { status: 500 }
+    );
+  }
 }

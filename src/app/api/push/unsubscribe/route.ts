@@ -10,6 +10,14 @@ export async function POST(request: NextRequest) {
   if (!body.endpoint) {
     return NextResponse.json({ error: "endpoint가 필요합니다" }, { status: 400 });
   }
-  await removeProfile(body.endpoint);
+  try {
+    await removeProfile(body.endpoint);
+  } catch (err) {
+    console.error("[coffeeTide] 푸시 구독 해제 실패:", err);
+    return NextResponse.json(
+      { error: (err as Error).message || "구독 해제에 실패했습니다" },
+      { status: 500 }
+    );
+  }
   return NextResponse.json({ success: true });
 }
