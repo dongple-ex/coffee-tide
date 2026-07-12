@@ -18,9 +18,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "endpoint와 items가 필요합니다" }, { status: 400 });
   }
 
+  // 외부 저장소(Upstash 등)에는 브리핑 생성에 필요한 최소 필드만 — 본문·작성자·URL 미저장
   const slim = body.items.slice(0, 50).map((i) => ({
-    ...i,
-    content: (i.content || "").slice(0, 200),
+    title: (i.title || "").slice(0, 120),
+    category: i.category,
+    status: i.status,
   }));
   const found = await updateProfile(body.endpoint, { items: slim });
   return NextResponse.json({ success: found });

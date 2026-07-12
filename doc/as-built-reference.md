@@ -105,7 +105,7 @@ coffeeTide는 여러 채널의 업무 데이터를 하나의 대시보드로 통
 - **팔로업**: 응답 필요 카테고리(urgent/approval/action)가 `tp_followup_hours` 초과 시 상단 에스컬레이션 + `⏰ N시간 경과` 배지.
 - **LLM 산출물 (phase6)**: 폴더 스캔(`LlmArtifactAdapter`, frontmatter 파싱·발췌 500자) + Obsidian 연동 시 동기화마다 오늘 항목을 `coffeeTide_LLM/YYYY-MM-DD.md`에 idempotent upsert(Q4=자동).
 - **폴링**: 30초, 백그라운드 탭에서 중단·복귀 시 즉시 갱신(C2·모바일 §5 반영).
-- **아침 브리핑 웹 푸시 (H5)**: `public/sw.js`(Service Worker) + VAPID. 구독 시 프로필(구독+발송시각+타임존+업무 스냅샷)을 `data/push-profiles.json`에 저장 — 세션이 쿠키에만 있어 스냅샷이 스케줄 발송의 데이터 소스. 셀프호스팅은 `src/instrumentation.ts`가 60초 주기 스케줄러 기동, 클라우드는 크론이 `/api/briefing/daily` 호출. 프로필 타임존 기준 발송시각 경과+당일 미발송이면 발송(등록 당일은 스킵, 테스트 발송으로 확인). 404/410 구독은 자동 제거. 알림 본문은 스냅샷에서 결정적 생성(우선순위 상위 3건), 클릭 시 대시보드 오픈.
+- **아침 브리핑 웹 푸시 (H5)**: `public/sw.js`(Service Worker) + VAPID. 구독 시 프로필(구독+발송시각+타임존+업무 스냅샷)을 저장 — 저장소는 `UPSTASH_REDIS_REST_*` 설정 시 Upstash Redis, 미설정 시 `data/push-profiles.json` 파일(서버리스 배포는 Redis 필수). 스냅샷은 브리핑 생성 최소 필드(title/category/status)만 저장(본문·작성자 미저장). 세션이 쿠키에만 있어 스냅샷이 스케줄 발송의 데이터 소스. 셀프호스팅은 `src/instrumentation.ts`가 60초 주기 스케줄러 기동, 클라우드는 크론이 `/api/briefing/daily` 호출(`vercel.json`에 10분 주기 Vercel Cron 등록됨 — Hobby 플랜은 일 1회 제한이라 스케줄 조정 필요). 프로필 타임존 기준 발송시각 경과+당일 미발송이면 발송(등록 당일은 스킵, 테스트 발송으로 확인). 404/410 구독은 자동 제거. 알림 본문은 스냅샷에서 결정적 생성(우선순위 상위 3건), 클릭 시 대시보드 오픈.
 
 ## 6. 환경 변수
 
@@ -120,7 +120,8 @@ coffeeTide는 여러 채널의 업무 데이터를 하나의 대시보드로 통
 | `NOTION_INTEGRATION_TOKEN` / `NOTION_DATABASE_ID` | Notion 기본값 (UI 세션별 입력 우선) |
 | `LLM_ARTIFACTS_DEFAULT_PATH` | (선택) LLM 산출물 기본 경로 |
 | `NEXT_PUBLIC_VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | 웹 푸시 3종 (`npx web-push generate-vapid-keys`). 미설정 시 알림 기능만 비활성 |
-| `CRON_SECRET` | (선택) `/api/briefing/daily` 외부 크론 인증 토큰 |
+| `CRON_SECRET` | (선택) `/api/briefing/daily` 외부 크론 인증 토큰 — Vercel Cron은 자동으로 Bearer 헤더에 첨부 |
+| `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | (선택) 푸시 프로필 저장소. 미설정 시 파일(`data/push-profiles.json`) — 서버리스 배포는 필수 |
 
 - OAuth 리다이렉트 URI: 로컬 `http://localhost:3000/api/auth/...`, 배포 `https://coffeeTide.dongple.kr/api/auth/...`.
 

@@ -2,8 +2,8 @@
 // 알림 본문은 저장된 스냅샷에서 결정적으로 생성(AI 의존 없음) — 클릭하면 대시보드에서 전체 브리핑.
 
 import webpush from "web-push";
-import { UnifiedCategory, UnifiedData } from "../types/unified";
-import { PushProfile, listProfiles, removeProfile, updateProfile } from "./store";
+import { UnifiedCategory } from "../types/unified";
+import { BriefingItem, PushProfile, listProfiles, removeProfile, updateProfile } from "./store";
 
 export function isPushConfigured(): boolean {
   return Boolean(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY);
@@ -35,7 +35,7 @@ const CATEGORY_RANK: Record<UnifiedCategory, number> = {
   ignore: 5,
 };
 
-export function buildBriefingPayload(items: UnifiedData[], timezone: string): PushPayload {
+export function buildBriefingPayload(items: BriefingItem[], timezone: string): PushPayload {
   const active = items.filter((i) => i.status !== "completed" && i.status !== "dismissed");
   const sorted = [...active].sort(
     (a, b) =>
