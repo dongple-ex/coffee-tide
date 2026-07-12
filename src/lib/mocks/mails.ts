@@ -31,9 +31,9 @@ export const MOCK_MAILS: UnifiedData[] = [
   {
     id: "mock-gmail-1",
     source: "gmail",
-    title: "coffeTide 프로젝트 미팅 일정 안내",
+    title: "coffeeTide 프로젝트 미팅 일정 안내",
     content:
-      "내일 오전 10시 대회의실에서 coffeTide 프로젝트 1차 킥오프 미팅이 예정되어 있으니 참석 부탁드립니다.",
+      "내일 오전 10시 대회의실에서 coffeeTide 프로젝트 1차 킥오프 미팅이 예정되어 있으니 참석 부탁드립니다.",
     created_at: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
     author: { name: "김철수 과장", email: "cskim@company.com" },
     url: "https://mail.google.com/mail/mock-gmail-1",
@@ -46,7 +46,7 @@ export const MOCK_NOTION_PAGES: UnifiedData[] = [
   {
     id: "mock-notion-1",
     source: "notion",
-    title: "coffeTide 제품 요구사항 정의서(PRD) 작성",
+    title: "coffeeTide 제품 요구사항 정의서(PRD) 작성",
     content:
       "Status: [진행 중] | 기한: 2026-07-14 | 우선순위: 상. 무연동 manual/paste 흐름 명세를 구체화하고 개발 태스크 카드를 할당하세요.",
     created_at: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
@@ -87,12 +87,12 @@ export const MOCK_LLM_ITEMS: UnifiedData[] = [
   {
     id: "mock-llm-1",
     source: "llm",
-    title: "coffetide-project-basics",
+    title: "coffeetide-project-basics",
     content:
-      "coffeTide 프로젝트 표기·상태 — 이름은 coffeTide, 도메인 coffeTide.dongple.kr. (Claude Code MEMORY 산출물 발췌)",
+      "coffeeTide 프로젝트 표기·상태 — 이름은 coffeeTide, 도메인 coffeeTide.dongple.kr. (Claude Code MEMORY 산출물 발췌)",
     created_at: new Date(Date.now() - 40 * 60 * 1000).toISOString(),
     author: { name: "Claude" },
-    url: "file:///mock/.claude/memory/coffetide-project-basics.md",
+    url: "file:///mock/.claude/memory/coffeetide-project-basics.md",
     category: "reference",
     status: "pending",
   },

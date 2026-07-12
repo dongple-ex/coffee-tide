@@ -1,6 +1,6 @@
 # Part 0: 사전 준비 및 가이드라인
 
-> ⚠️ **역사 문서 (Phase 1 · TimePilot 시절)** — 초기 Microsoft 단일 채널 설계 기록으로, 현재 coffeTide 정본과 다릅니다. 신규 작업 기준: [`00-current-state.md`](./00-current-state.md) 및 Phase 3 이후 문서.
+> ⚠️ **역사 문서 (Phase 1 · TimePilot 시절)** — 초기 Microsoft 단일 채널 설계 기록으로, 현재 coffeeTide 정본과 다릅니다. 신규 작업 기준: [`00-current-state.md`](./00-current-state.md) 및 Phase 3 이후 문서.
 
 본 파트에서는 TimePilot Phase 1 개발을 시작하기 전, 사용자가 외부 인프라(Microsoft Azure Portal)를 구축하고 로컬 자격 증명 환경을 세팅하기 위한 절차를 단계별로 명확히 안내합니다.
 

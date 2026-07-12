@@ -1,6 +1,6 @@
 # Part 2: 데이터 처리 및 정제 명세
 
-> ⚠️ **역사 문서 (Phase 1 · TimePilot 시절)** — 초기 Microsoft 단일 채널 설계 기록으로, 현재 coffeTide 정본과 다릅니다. 특히 `UnifiedData.source` 유니온은 이후 `local_doc`·`gmail`·`llm`·`manual`·`paste` 등으로 확장 예정([`00-current-state.md`](./00-current-state.md) §3 참조).
+> ⚠️ **역사 문서 (Phase 1 · TimePilot 시절)** — 초기 Microsoft 단일 채널 설계 기록으로, 현재 coffeeTide 정본과 다릅니다. 특히 `UnifiedData.source` 유니온은 이후 `local_doc`·`gmail`·`llm`·`manual`·`paste` 등으로 확장 예정([`00-current-state.md`](./00-current-state.md) §3 참조).
 
 본 파트에서는 외부 연동 리소스를 수용하는 공통 데이터 스키마와 정제 메커니즘을 상세히 다룹니다.
 

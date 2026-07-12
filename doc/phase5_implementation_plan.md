@@ -1,4 +1,4 @@
-# coffeTide Phase 5 구현 명세서: 양방향 쓰기(Write-Back) 연동 개발
+# coffeeTide Phase 5 구현 명세서: 양방향 쓰기(Write-Back) 연동 개발
 
 본 문서는 대시보드 내에서 협업 플랫폼(Notion, Outlook)으로 데이터를 역전송 및 변경하여 실제 업무 조치를 완결하는 **양방향 쓰기(Write-Back) 기능**의 구현 명세입니다.
 

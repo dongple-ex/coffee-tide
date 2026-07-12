@@ -1,10 +1,10 @@
-# coffeTide 문서 인덱스
+# coffeeTide 문서 인덱스
 
 **커피 한 잔 하면서 오늘을 정리하는 AI 개인 비서** (구 TimePilot)
 
 연동이 없어도 manual/paste로 바로 시작할 수 있는, 연결되면 더 강력해지는 시간 관리 비서입니다.
 
-- **서비스 도메인(예정)**: `coffeTide.dongple.kr`
+- **서비스 도메인(예정)**: `coffeeTide.dongple.kr`
 - **현재 상태**: **MVP 구현 완료 (2026-07-11).** 무연동 코어(G1~G6)와 6종 연동 구조가 이 저장소에 구현되어 있으며, 검증 3종 세트(tsc/lint/build)와 MOCK 런타임 스모크를 통과했습니다. 남은 격차는 [`7-backlog.md`](./7-backlog.md) 참조.
 
 ## 핵심 가치

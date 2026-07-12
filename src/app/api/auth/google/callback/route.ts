@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
   }
 
   const session = (await readSession()) ?? {
-    userEmail: "guest@coffetide.dongple.kr",
+    userEmail: "guest@coffeetide.dongple.kr",
     createdAt: new Date().toISOString(),
   };
 
@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
       googleEmail: tokens.email,
     });
   } catch (err) {
-    console.error("[coffeTide] Google 토큰 교환 실패", err);
+    console.error("[coffeeTide] Google 토큰 교환 실패", err);
     return NextResponse.redirect(new URL("/?error=google_token", request.url));
   }
 }

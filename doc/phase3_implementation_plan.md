@@ -1,6 +1,6 @@
-# coffeTide Phase 3 종합 구현 계획서: AI Action Engine & 독립 세션 개편
+# coffeeTide Phase 3 종합 구현 계획서: AI Action Engine & 독립 세션 개편
 
-본 문서는 coffeTide Phase 3(AI Action Engine 및 AI 비서 Copilot MVP 구현) 구현을 위한 최상위 마스터 계획서입니다. 
+본 문서는 coffeeTide Phase 3(AI Action Engine 및 AI 비서 Copilot MVP 구현) 구현을 위한 최상위 마스터 계획서입니다. 
 지적해주신 **"Outlook 비종속형 독립 세션 및 개별 커넥션 관리자(Connection Settings)"** 설계를 반영하여 아키텍처를 전면 리팩토링합니다.
 
 ---
@@ -10,7 +10,7 @@
 기존 로그인 흐름은 Microsoft OAuth 계정이 로그인 및 세션 생성의 필수 조건으로 묶여 있어, Outlook을 쓰지 않는 사용자가 Notion 등 다른 도구만 연동하려는 시나리오를 충족하지 못했습니다. 이를 개선하여 **독립형 게스트/로컬 로그인 및 개별 플랫폼 연동 구조**로 변경합니다.
 
 ```
-                  ┌────────────── [ coffeTide 시작 ] ──────────────┐
+                  ┌────────────── [ coffeeTide 시작 ] ──────────────┐
                   │               (게스트 세션 발급)               │
                   ▼                                                ▼
          [ 🔌 Outlook 커넥션 ]                             [ 🔌 Notion 커넥션 ]

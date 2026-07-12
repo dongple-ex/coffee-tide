@@ -1,6 +1,6 @@
 # Phase 3: AI Action Engine 및 AI 비서 기술 명세
 
-본 파트에서는 coffeTide Phase 3의 AI 처리 엔진(Action Engine) 및 비서 서비스(AI Copilot)의 연동 규격, 프롬프트 엔지니어링 설계, 그리고 데이터 연동 아키텍처를 정의합니다.
+본 파트에서는 coffeeTide Phase 3의 AI 처리 엔진(Action Engine) 및 비서 서비스(AI Copilot)의 연동 규격, 프롬프트 엔지니어링 설계, 그리고 데이터 연동 아키텍처를 정의합니다.
 
 ---
 

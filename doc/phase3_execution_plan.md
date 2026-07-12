@@ -1,6 +1,6 @@
 # Phase 3: 단계별 세부 개발 계획 (독립 세션 및 커넥션 매니저 개편)
 
-본 파트에서는 Outlook 계정 종속성을 탈피하고, 독립형 로컬 세션 및 다중 플랫폼 개별 연동 관리 시스템으로 coffeTide Phase 3을 전면 개편하기 위한 세부 작업을 단계별로 기술합니다.
+본 파트에서는 Outlook 계정 종속성을 탈피하고, 독립형 로컬 세션 및 다중 플랫폼 개별 연동 관리 시스템으로 coffeeTide Phase 3을 전면 개편하기 위한 세부 작업을 단계별로 기술합니다.
 
 ---
 
@@ -10,7 +10,7 @@
 *   **목적**: 최초 서비스 진입 시 Microsoft 인증을 강제하지 않고 로컬 독립 게스트 세션을 즉시 발급하며, Outlook 연동 경로는 전용 엔드포인트로 분리합니다.
 *   **작업 내용**:
     1. `src/app/api/auth/signin/route.ts` [MODIFY]:
-       - Microsoft OAuth 로그인 리다이렉트 대신, 즉시 게스트 계정(`userEmail: "guest@coffetide.dongple.kr"`)으로 암호화 세션 쿠키(`tp_session`)를 발급하고 메인 `/` 로 리다이렉트시킵니다.
+       - Microsoft OAuth 로그인 리다이렉트 대신, 즉시 게스트 계정(`userEmail: "guest@coffeetide.dongple.kr"`)으로 암호화 세션 쿠키(`tp_session`)를 발급하고 메인 `/` 로 리다이렉트시킵니다.
     2. `src/app/api/auth/outlook/route.ts` [NEW]:
        - 기존 signin 라우트의 Microsoft OAuth 로그인 URI 생성 및 PKCE verifier 쿠키 굽기 로직을 이관합니다. (Redirect URI: `http://localhost:3000/api/auth/outlook/callback` 또는 연동 맞춤)
     3. `src/app/api/auth/outlook/callback/route.ts` [NEW]:
@@ -23,7 +23,7 @@
        - 클라이언트로부터 `notionToken` 및 `notionDbId`를 POST로 수신합니다.
        - 세션을 복호화하여 Notion 연동 정보를 추가 기입하고 쿠키를 재갱신 발급합니다.
     2. `src/app/page.tsx` [MODIFY]:
-       - 로그인 화면 진입 시 "coffeTide 시작하기" 버튼을 노출하여 즉시 대시보드로 진입하게 합니다.
+       - 로그인 화면 진입 시 "coffeeTide 시작하기" 버튼을 노출하여 즉시 대시보드로 진입하게 합니다.
        - Bento Grid 내에 **"🔌 서비스 연동 관리"** 카드를 추가합니다.
          - **Outlook**: 현재 연동 상태(연동됨 / 미연동)와 함께 "연동하기" 버튼(또는 해제 버튼)을 연출합니다.
          - **Notion**: 토큰 및 DB ID 수동 입력 폼을 제공하고 "저장 및 연동" 버튼을 연출합니다.

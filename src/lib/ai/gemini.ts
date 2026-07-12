@@ -66,7 +66,7 @@ async function callGemini(systemInstruction: string, userText: string): Promise<
   );
   if (res.status === 429) {
     quotaCooldownUntil = Date.now() + COOLDOWN_MS;
-    console.warn("[coffeTide] Gemini 쿼터 초과 — 10분간 로컬 FallbackEngine으로 대체");
+    console.warn("[coffeeTide] Gemini 쿼터 초과 — 10분간 로컬 FallbackEngine으로 대체");
     throw new Error("quota exceeded");
   }
   if (!res.ok) throw new Error(`Gemini ${res.status}: ${await res.text()}`);

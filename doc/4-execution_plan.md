@@ -1,6 +1,6 @@
 # Part 4: 단계별 세부 작업 계획
 
-> ⚠️ **역사 문서 (Phase 1 · TimePilot 시절)** — 초기 Microsoft 단일 채널 설계 기록으로, 현재 coffeTide 정본과 다릅니다. 신규 작업 기준: [`00-current-state.md`](./00-current-state.md) 및 Phase 3 이후 문서.
+> ⚠️ **역사 문서 (Phase 1 · TimePilot 시절)** — 초기 Microsoft 단일 채널 설계 기록으로, 현재 coffeeTide 정본과 다릅니다. 신규 작업 기준: [`00-current-state.md`](./00-current-state.md) 및 Phase 3 이후 문서.
 
 본 파트에서는 TimePilot Phase 1을 완수하기 위해 실행해야 할 작업을 단계별로 분할하고 구체적으로 작성해야 할 소스 파일 경로와 목적을 정의합니다.
 

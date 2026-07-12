@@ -1,11 +1,11 @@
-# coffeTide
+# coffeeTide
 
 **커피 한 잔 하면서 오늘을 정리하는 AI 개인 비서**
 
 연동이 없어도 manual/paste로 바로 시작할 수 있는, 연결되면 더 강력해지는 시간 관리 비서입니다.
 
-- **서비스 도메인(예정)**: `coffeTide.dongple.kr`
-- **이전 프로젝트명**: TimePilot — 역사 문서의 TimePilot 표기는 coffeTide를 가리킵니다.
+- **서비스 도메인(예정)**: `coffeeTide.dongple.kr`
+- **이전 프로젝트명**: TimePilot — 역사 문서의 TimePilot 표기는 coffeeTide를 가리킵니다.
 - **현재 상태**: **MVP 구현 완료 (2026-07-11)** — 무연동 코어(manual/paste·Copilot·자동화 규칙)와 6종 연동(Outlook·Gmail·Notion·Obsidian·로컬 문서·LLM 산출물) 구조가 동작합니다. 외부 OAuth는 실계정 검증 전입니다(`doc/7-backlog.md` H 항목).
 
 ## 핵심 가치

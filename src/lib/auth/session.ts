@@ -30,7 +30,7 @@ export interface SessionData {
   llmArtifactsPath?: string;
 }
 
-const DEV_FALLBACK_SECRET = "coffetide-dev-only-secret-do-not-use-in-prod";
+const DEV_FALLBACK_SECRET = "coffeetide-dev-only-secret-do-not-use-in-prod";
 
 function getEncryptionKey(): Buffer {
   const secret = process.env.SESSION_ENCRYPTION_SECRET;
@@ -41,7 +41,7 @@ function getEncryptionKey(): Buffer {
         "SESSION_ENCRYPTION_SECRET is required in production. See .env.example."
       );
     }
-    console.warn("[coffeTide] SESSION_ENCRYPTION_SECRET 미설정 — 개발용 임시 키 사용 중");
+    console.warn("[coffeeTide] SESSION_ENCRYPTION_SECRET 미설정 — 개발용 임시 키 사용 중");
     return createHash("sha256").update(DEV_FALLBACK_SECRET).digest();
   }
   return createHash("sha256").update(secret).digest();

@@ -1,4 +1,4 @@
-// coffeTide Service Worker — 웹 푸시 수신 (백로그 H5)
+// coffeeTide Service Worker — 웹 푸시 수신 (백로그 H5)
 
 self.addEventListener("push", (event) => {
   let data = {};
@@ -8,9 +8,9 @@ self.addEventListener("push", (event) => {
     data = { body: event.data ? event.data.text() : "" };
   }
   event.waitUntil(
-    self.registration.showNotification(data.title || "🥤 coffeTide", {
+    self.registration.showNotification(data.title || "🥤 coffeeTide", {
       body: data.body || "",
-      tag: data.tag || "coffetide-briefing",
+      tag: data.tag || "coffeetide-briefing",
       icon: "/icon.svg",
       data: { url: data.url || "/" },
     })

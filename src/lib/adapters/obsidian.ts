@@ -7,8 +7,8 @@ import { UnifiedData } from "../types/unified";
 import { walkFiles } from "./fsScan";
 import { excerpt, fromBase64Url, toBase64Url } from "./textUtils";
 
-const CAPTURE_NOTE = "coffeTide_수집함.md";
-const LLM_DIGEST_DIR = "coffeTide_LLM";
+const CAPTURE_NOTE = "coffeeTide_수집함.md";
+const LLM_DIGEST_DIR = "coffeeTide_LLM";
 
 export class ObsidianAdapter {
   constructor(private vaultPath: string) {}
@@ -68,7 +68,7 @@ export class ObsidianAdapter {
     try {
       existing = await fs.readFile(notePath, "utf8");
     } catch {
-      existing = `# coffeTide 수집함\n`;
+      existing = `# coffeeTide 수집함\n`;
     }
     const line = `- [ ] ${title}${content ? ` — ${excerpt(content, 120)}` : ""}`;
     await fs.writeFile(notePath, `${existing.trimEnd()}\n${line}\n`, "utf8");

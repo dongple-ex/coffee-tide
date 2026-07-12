@@ -1,4 +1,4 @@
-// coffeTide 대시보드 — 정본 요구사항 반영:
+// coffeeTide 대시보드 — 정본 요구사항 반영:
 // G1 manual/paste 1급 소스, G2 무연동 빈 화면 안내, G3 무연동 Copilot,
 // G4 서버측 날짜/출처 근거, G6 MarkdownLite 렌더링, E1 aria-label,
 // 팔로업 에스컬레이션·dismiss(D3 정리)·규칙 빌더(as-built §5), 폴링 visibility 일시정지(8-mobile §5).
@@ -876,7 +876,7 @@ export default function Home() {
             <IcedAmericano size={72} />
           </div>
           <h1 className={styles.landingTitle}>
-            coffe<span>Tide</span>
+            coffee<span>Tide</span>
           </h1>
           <p className={styles.landingDesc}>
             커피 한 잔 하면서 오늘을 정리하는 AI 개인 비서예요.
@@ -884,7 +884,7 @@ export default function Home() {
             회원가입도, 연동도 없이 지금 바로 시작할 수 있어요.
           </p>
           <a className={styles.landingBtn} href="/api/auth/signin">
-            coffeTide 시작하기
+            coffeeTide 시작하기
           </a>
           <p className={styles.landingHint}>
             게스트로 조용히 입장해요. Outlook·Notion 연동은 내키실 때 하셔도 늦지 않아요.
@@ -1023,7 +1023,7 @@ export default function Home() {
     <main className={styles.page}>
       <header className={styles.header}>
         <div className={styles.logo}>
-          <IcedAmericano size={26} /> coffe<span>Tide</span>
+          <IcedAmericano size={26} /> coffee<span>Tide</span>
         </div>
         <div className={styles.stats}>
           <span className={styles.statChip}>

@@ -1,6 +1,6 @@
 # Part 3: 외부 연동 규격 및 환경 구성 명세
 
-> ⚠️ **역사 문서 (Phase 1 · TimePilot 시절)** — 초기 Microsoft 단일 채널 설계 기록으로, 현재 coffeTide 정본과 다릅니다. 특히 본문의 `/api/auth/signin`(MS OAuth 시작점)·`/api/auth/callback`(콜백) 설명은 현행 설계와 **정반대**입니다: 현행은 `signin`=게스트 세션 발급, Outlook OAuth=`/api/auth/outlook` → `/api/auth/outlook/callback`. 신규 작업 기준: [`00-current-state.md`](./00-current-state.md) 및 [`as-built-reference.md`](./as-built-reference.md).
+> ⚠️ **역사 문서 (Phase 1 · TimePilot 시절)** — 초기 Microsoft 단일 채널 설계 기록으로, 현재 coffeeTide 정본과 다릅니다. 특히 본문의 `/api/auth/signin`(MS OAuth 시작점)·`/api/auth/callback`(콜백) 설명은 현행 설계와 **정반대**입니다: 현행은 `signin`=게스트 세션 발급, Outlook OAuth=`/api/auth/outlook` → `/api/auth/outlook/callback`. 신규 작업 기준: [`00-current-state.md`](./00-current-state.md) 및 [`as-built-reference.md`](./as-built-reference.md).
 
 본 파트에서는 Microsoft Entra ID (구 Azure AD) 연동 스펙과 설정 정보, 그리고 이를 제어하기 위한 API Endpoint 정의를 설명합니다.
 

@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
   }
 
   const session = (await readSession()) ?? {
-    userEmail: "guest@coffetide.dongple.kr",
+    userEmail: "guest@coffeetide.dongple.kr",
     createdAt: new Date().toISOString(),
   };
 
@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
       outlookEmail: email || undefined,
     });
   } catch (err) {
-    console.error("[coffeTide] Outlook 토큰 교환 실패", err);
+    console.error("[coffeeTide] Outlook 토큰 교환 실패", err);
     return NextResponse.redirect(new URL("/?error=outlook_token", request.url));
   }
 }

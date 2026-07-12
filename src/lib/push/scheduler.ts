@@ -4,19 +4,19 @@
 import { isPushConfigured, sendDueBriefings } from "./sender";
 
 const globalState = globalThis as typeof globalThis & {
-  __coffetideBriefingTimer?: ReturnType<typeof setInterval>;
+  __coffeetideBriefingTimer?: ReturnType<typeof setInterval>;
 };
 
 export function startBriefingScheduler(): void {
-  if (globalState.__coffetideBriefingTimer) return;
+  if (globalState.__coffeetideBriefingTimer) return;
   if (!isPushConfigured()) {
-    console.log("[coffeTide] VAPID 키 미설정 — 브리핑 스케줄러 비활성");
+    console.log("[coffeeTide] VAPID 키 미설정 — 브리핑 스케줄러 비활성");
     return;
   }
-  globalState.__coffetideBriefingTimer = setInterval(() => {
+  globalState.__coffeetideBriefingTimer = setInterval(() => {
     sendDueBriefings().catch((err) =>
-      console.warn("[coffeTide] 브리핑 스케줄러 오류:", err)
+      console.warn("[coffeeTide] 브리핑 스케줄러 오류:", err)
     );
   }, 60_000);
-  console.log("[coffeTide] 아침 브리핑 스케줄러 시작 (60초 주기)");
+  console.log("[coffeeTide] 아침 브리핑 스케줄러 시작 (60초 주기)");
 }

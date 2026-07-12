@@ -7,7 +7,7 @@ import { readSession, unauthorized } from "@/lib/auth/cookies";
 const PS_SCRIPT = `
 Add-Type -AssemblyName System.Windows.Forms
 $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
-$dialog.Description = 'coffeTide - 폴더 선택'
+$dialog.Description = 'coffeeTide - 폴더 선택'
 if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { Write-Output $dialog.SelectedPath }
 `;
 

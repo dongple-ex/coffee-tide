@@ -1,6 +1,6 @@
 # Part 5: 예외 처리 및 검증 로직 명세
 
-> ⚠️ **역사 문서 (Phase 1 · TimePilot 시절)** — 초기 Microsoft 단일 채널 설계 기록으로, 현재 coffeTide 정본과 다릅니다. 신규 작업 기준: [`00-current-state.md`](./00-current-state.md) 및 Phase 3 이후 문서.
+> ⚠️ **역사 문서 (Phase 1 · TimePilot 시절)** — 초기 Microsoft 단일 채널 설계 기록으로, 현재 coffeeTide 정본과 다릅니다. 신규 작업 기준: [`00-current-state.md`](./00-current-state.md) 및 Phase 3 이후 문서.
 
 본 파트에서는 통합 개발 이후 시스템의 안정성과 데이터 무결성을 보장하기 위한 오작동 대응 전략 및 단계별 검증 시나리오를 정의합니다.
 

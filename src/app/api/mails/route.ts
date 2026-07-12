@@ -41,7 +41,7 @@ async function refreshChannel(
       };
     }
   } catch (err) {
-    console.warn(`[coffeTide] ${channel} 토큰 리프레시 실패`, err);
+    console.warn(`[coffeeTide] ${channel} 토큰 리프레시 실패`, err);
   }
   return null;
 }
@@ -125,7 +125,7 @@ export async function GET(request: NextRequest) {
     try {
       await ObsidianAdapter.writeLlmDigest(session.obsidianVaultPath, dateKey, todayLlm);
     } catch (err) {
-      console.warn("[coffeTide] LLM 다이제스트 미러링 실패 (수집은 계속)", err);
+      console.warn("[coffeeTide] LLM 다이제스트 미러링 실패 (수집은 계속)", err);
     }
   }
 

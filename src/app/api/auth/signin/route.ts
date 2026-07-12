@@ -6,7 +6,7 @@ import { writeSession } from "@/lib/auth/cookies";
 export async function GET(request: NextRequest) {
   const res = NextResponse.redirect(new URL("/", request.url));
   return writeSession(res, {
-    userEmail: "guest@coffetide.dongple.kr",
+    userEmail: "guest@coffeetide.dongple.kr",
     createdAt: new Date().toISOString(),
   });
 }

@@ -1,6 +1,6 @@
 # TimePilot Phase 1 종합 구현 계획서
 
-> ⚠️ **역사 문서 (Phase 1 · TimePilot 시절)** — 본 문서와 `doc/0~5`는 초기 **Phase 1(Microsoft 단일 채널)** 설계 기준이라 현재 coffeTide 정본과 다릅니다. 제품 정본은 **[doc/00-current-state.md](./00-current-state.md)**, 프로토타입 기술 레퍼런스는 **[doc/as-built-reference.md](./as-built-reference.md)**, 개선 백로그는 **[doc/7-backlog.md](./7-backlog.md)** 를 참조하세요.
+> ⚠️ **역사 문서 (Phase 1 · TimePilot 시절)** — 본 문서와 `doc/0~5`는 초기 **Phase 1(Microsoft 단일 채널)** 설계 기준이라 현재 coffeeTide 정본과 다릅니다. 제품 정본은 **[doc/00-current-state.md](./00-current-state.md)**, 프로토타입 기술 레퍼런스는 **[doc/as-built-reference.md](./as-built-reference.md)**, 개선 백로그는 **[doc/7-backlog.md](./7-backlog.md)** 를 참조하세요.
 
 본 문서는 TimePilot Phase 1(Microsoft OAuth, Graph API 연동 및 최근 메일 조회) 구현을 위한 최상위 마스터 계획서입니다. 세부 설계 및 작업 내용은 파트별 분할 문서로 작성되었으며, 본문 하단의 링크를 통해 참조하실 수 있습니다.
 

@@ -1,5 +1,5 @@
 // 브라우저 로컬 폴더 연동 — File System Access API (Chromium 전용).
-// 원격 배포(coffeTide.dongple.kr)에서는 서버가 사용자 PC가 아니므로,
+// 원격 배포(coffeeTide.dongple.kr)에서는 서버가 사용자 PC가 아니므로,
 // 서버 어댑터(obsidian/localDoc/llmArtifact)의 스캔 규칙을 브라우저에서 미러링한다.
 // 폴더 핸들은 IndexedDB에 영속 — 재방문 시 queryPermission으로 권한을 확인하고,
 // 만료됐으면 사용자 제스처에서 requestPermission으로 복구한다.
@@ -25,9 +25,9 @@ export interface BrowserScanResult {
 /** 브라우저 항목 id 접두사 — 서버 항목과 구분해 write-back/dismiss 정리 경로를 분기 */
 export const BROWSER_ID_PREFIX = "bfs-";
 
-const DB_NAME = "coffeTide-fs";
+const DB_NAME = "coffeeTide-fs";
 const STORE = "folders";
-const CAPTURE_NOTE = "coffeTide_수집함.md";
+const CAPTURE_NOTE = "coffeeTide_수집함.md";
 const MAX_LOCAL_DOC_FOLDERS = 5;
 
 // fsScan.ts와 동일한 스캔 상수 (서버 규칙 미러)
@@ -181,7 +181,7 @@ export async function pickBrowserFolder(kind: BrowserFolderKind): Promise<string
 
   let handle: FileSystemDirectoryHandle;
   try {
-    handle = await picker.call(window, { id: `coffetide-${kind}`, mode: modeFor(kind) });
+    handle = await picker.call(window, { id: `coffeetide-${kind}`, mode: modeFor(kind) });
   } catch (err) {
     if (err instanceof DOMException && err.name === "AbortError") return null; // 사용자가 취소
     throw err;
@@ -444,7 +444,7 @@ export async function captureBrowserObsidian(title: string, content?: string): P
   await ensureWritePermission(vault.handle);
   const fileHandle = await vault.handle.getFileHandle(CAPTURE_NOTE, { create: true });
   let existing = await (await fileHandle.getFile()).text();
-  if (!existing.trim()) existing = "# coffeTide 수집함\n";
+  if (!existing.trim()) existing = "# coffeeTide 수집함\n";
   const line = `- [ ] ${title}${content ? ` — ${excerpt(content, 120)}` : ""}`;
   const writable = await (fileHandle as unknown as WritableFileHandle).createWritable();
   await writable.write(`${existing.trimEnd()}\n${line}\n`);

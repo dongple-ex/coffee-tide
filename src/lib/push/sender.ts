@@ -13,7 +13,7 @@ let vapidReady = false;
 function ensureVapid(): void {
   if (vapidReady) return;
   webpush.setVapidDetails(
-    process.env.VAPID_SUBJECT || "mailto:admin@coffetide.dongple.kr",
+    process.env.VAPID_SUBJECT || "mailto:admin@coffeetide.dongple.kr",
     process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
     process.env.VAPID_PRIVATE_KEY!
   );
@@ -77,9 +77,9 @@ export async function sendPush(profile: PushProfile, payload: PushPayload): Prom
     const status = (err as { statusCode?: number }).statusCode;
     if (status === 404 || status === 410) {
       await removeProfile(profile.endpoint);
-      console.warn("[coffeTide] 만료된 푸시 구독 제거:", profile.endpoint.slice(0, 60));
+      console.warn("[coffeeTide] 만료된 푸시 구독 제거:", profile.endpoint.slice(0, 60));
     } else {
-      console.warn("[coffeTide] 푸시 발송 실패:", status, (err as Error).message);
+      console.warn("[coffeeTide] 푸시 발송 실패:", status, (err as Error).message);
     }
     return false;
   }

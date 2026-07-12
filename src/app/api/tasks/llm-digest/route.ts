@@ -33,7 +33,7 @@ export async function POST() {
     return NextResponse.json({
       success: true,
       message: written
-        ? `coffeTide_LLM/${dateKey}.md에 ${items.length}건 정리해뒀어요`
+        ? `coffeeTide_LLM/${dateKey}.md에 ${items.length}건 정리해뒀어요`
         : "이미 최신이에요 — 손댈 게 없었어요",
     });
   } catch (err) {

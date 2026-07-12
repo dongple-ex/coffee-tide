@@ -1,13 +1,13 @@
 # Part 8: 모바일 전략
 
-> **결정: coffeTide는 웹 우선(Web-First)으로 진행합니다.** 별도 네이티브 앱은 현재 계획에 없습니다.
+> **결정: coffeeTide는 웹 우선(Web-First)으로 진행합니다.** 별도 네이티브 앱은 현재 계획에 없습니다.
 > 관련 문서: [`00-current-state.md`](./00-current-state.md)(정본 기획), [`phase6_llm_artifacts_spec.md`](./phase6_llm_artifacts_spec.md) §13(데스크톱 전용 제약), [`7-backlog.md`](./7-backlog.md) E3(반응형 점검).
 
 ---
 
 ## 1. 기본 방침
 
-1. **웹이 기본 플랫폼**: `coffeTide.dongple.kr`에서 동작하는 반응형 웹 앱 하나로 데스크톱과 모바일을 모두 커버합니다.
+1. **웹이 기본 플랫폼**: `coffeeTide.dongple.kr`에서 동작하는 반응형 웹 앱 하나로 데스크톱과 모바일을 모두 커버합니다.
 2. **모바일은 축소판이 아니라 "입력·확인 중심 뷰"**: 모바일에서는 업무를 빠르게 넣고(manual/paste), 브리핑을 확인하고, 완료 처리하는 흐름을 우선합니다.
 3. **네이티브 앱·앱스토어 배포는 비범위(Non-Goal)**: 필요성이 검증되면 PWA → 네이티브 순으로 재검토합니다.
 
@@ -40,7 +40,7 @@
 현재 설계는 Next.js 단일 앱이 로컬 파일까지 읽는 구조라, 배포 형태에 따라 기능 집합이 달라집니다.
 
 - **셀프호스팅 (사용자 PC에서 실행)**: 전 기능 동작. 로컬 파일 연동(local_doc/obsidian/llm) 포함. 같은 네트워크의 모바일 브라우저에서 접속하면 모바일에서도 로컬 연동 *결과*는 볼 수 있음.
-- **클라우드 배포 (`coffeTide.dongple.kr`)**: 로컬 파일 연동 3종은 **비활성**. manual/paste + 외부 API 연동(outlook/notion/gmail)만 제공.
+- **클라우드 배포 (`coffeeTide.dongple.kr`)**: 로컬 파일 연동 3종은 **비활성**. manual/paste + 외부 API 연동(outlook/notion/gmail)만 제공.
 
 → 정본의 "무연동 우선(manual/paste 1급 소스)" 원칙(G1)이 지켜지면 클라우드 배포판도 그 자체로 완결된 제품이 됩니다. **모바일 전략의 성립 조건이 곧 G1 구현**입니다.
 
