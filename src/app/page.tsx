@@ -1024,21 +1024,43 @@ export default function Home() {
   return (
     <main className={styles.page}>
       <header className={styles.header}>
-        <div className={styles.logo}>
-          <IcedAmericano size={26} /> coffee<span>Tide</span>
+        <div className={styles.headerRow}>
+          <div className={styles.logo}>
+            <IcedAmericano size={26} /> coffee<span>Tide</span>
+          </div>
+          <div className={styles.headerActionsRight}>
+            <span className={styles.userEmail} title={connections?.googleEmail || connections?.outlookEmail || "게스트"}>
+              {connections?.googleEmail || connections?.outlookEmail || "게스트"}
+            </span>
+            <select
+              className={styles.input}
+              style={{ width: "auto", padding: "4px 8px" }}
+              value={theme}
+              onChange={(e) => setTheme(e.target.value as Theme)}
+              aria-label="테마 선택"
+            >
+              <option value="dark">🌙 다크</option>
+              <option value="light">☀️ 라이트</option>
+              <option value="coffee">🥤 커피타이드</option>
+              <option value="mega">💛 메가커피</option>
+              <option value="kustom">💙 커스텀커피</option>
+            </select>
+          </div>
         </div>
-        <div className={styles.stats}>
-          <span className={styles.statChip}>
-            대기 <b>{activeCount}</b>
-          </span>
-          <span className={styles.statChip}>
-            긴급 <b>{urgentCount}</b>
-          </span>
-          <span className={styles.statChip}>
-            오늘 완료 <b>{doneCount}</b>
-          </span>
+        <div className={styles.headerRowStart}>
+          <div className={styles.stats}>
+            <span className={styles.statChip}>
+              대기 <b>{activeCount}</b>
+            </span>
+            <span className={styles.statChip}>
+              긴급 <b>{urgentCount}</b>
+            </span>
+            <span className={styles.statChip}>
+              오늘 완료 <b>{doneCount}</b>
+            </span>
+          </div>
         </div>
-        <div className={styles.headerRight}>
+        <div className={styles.headerRowStart}>
           <button
             className={styles.connMenuBtn}
             onClick={() => setShowConn((v) => !v)}
@@ -1049,19 +1071,6 @@ export default function Home() {
             🔌 연동 관리
             <span className={styles.connCount}>{connectedCount}</span>
           </button>
-          <select
-            className={styles.input}
-            style={{ width: "auto", padding: "4px 8px" }}
-            value={theme}
-            onChange={(e) => setTheme(e.target.value as Theme)}
-            aria-label="테마 선택"
-          >
-            <option value="dark">🌙 다크</option>
-            <option value="light">☀️ 라이트</option>
-            <option value="coffee">🥤 커피타이드</option>
-            <option value="mega">💛 메가커피</option>
-            <option value="kustom">💙 커스텀커피</option>
-          </select>
           <label>
             팔로업 기준{" "}
             <select
@@ -1076,9 +1085,6 @@ export default function Home() {
               <option value={48}>48시간</option>
             </select>
           </label>
-          <span className={styles.userEmail} title={connections?.googleEmail || connections?.outlookEmail || "게스트"}>
-            {connections?.googleEmail || connections?.outlookEmail || "게스트"}
-          </span>
           <a href="/api/auth/signout" style={{ whiteSpace: "nowrap" }}>퇴근하기</a>
         </div>
       </header>

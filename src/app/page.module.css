@@ -9,10 +9,25 @@
 /* ── 헤더 ─────────────────────────────── */
 .header {
   display: flex;
-  align-items: center;
-  gap: 14px;
+  flex-direction: column;
+  gap: 12px;
   padding: 10px 0 20px;
+}
+
+.headerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   flex-wrap: wrap;
+  gap: 10px;
+}
+
+.headerRowStart {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .logo {
@@ -47,8 +62,7 @@
   color: var(--accent);
 }
 
-.headerRight {
-  margin-left: auto;
+.headerActionsRight {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -822,9 +836,8 @@
     padding-top: 16px;
   }
 
-  .headerRight {
+  .headerActionsRight {
     width: 100%;
-    margin-left: 0;
   }
 
   .itemActions .actionBtn {
