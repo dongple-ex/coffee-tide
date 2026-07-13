@@ -65,19 +65,28 @@
 .headerActionsRight {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 0.82rem;
+  gap: 8px;
+  font-size: 0.75rem;
   color: var(--text-dim);
   flex-wrap: wrap;
 }
 
 .userEmail {
-  max-width: 120px;
+  max-width: 130px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   display: inline-block;
   vertical-align: middle;
+  font-size: 0.75rem;
+}
+
+.logoutBtnSmall {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  text-decoration: underline;
+  white-space: nowrap;
+  padding: 2px 4px;
 }
 
 /* 헤더 메뉴 — 서비스 연동 관리 토글 버튼 */

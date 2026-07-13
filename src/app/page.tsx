@@ -1034,7 +1034,7 @@ export default function Home() {
             </span>
             <select
               className={styles.input}
-              style={{ width: "auto", padding: "4px 8px" }}
+              style={{ width: "auto", padding: "2px 6px", fontSize: "0.75rem" }}
               value={theme}
               onChange={(e) => setTheme(e.target.value as Theme)}
               aria-label="테마 선택"
@@ -1045,6 +1045,7 @@ export default function Home() {
               <option value="mega">💛 메가커피</option>
               <option value="kustom">💙 커스텀커피</option>
             </select>
+            <a href="/api/auth/signout" className={styles.logoutBtnSmall}>퇴근하기</a>
           </div>
         </div>
         <div className={styles.headerRowStart}>
@@ -1066,10 +1067,15 @@ export default function Home() {
             onClick={() => setShowConn((v) => !v)}
             aria-expanded={showConn}
             aria-haspopup="dialog"
-            aria-label="서비스 연동 관리 열기/닫기"
+            aria-label="설정 열기/닫기"
+            style={{ display: "inline-flex", alignItems: "center" }}
           >
-            🔌 연동 관리
-            <span className={styles.connCount}>{connectedCount}</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 6 }}>
+              <path d="m12 14 4-4"/>
+              <path d="M3.34 19a10 10 0 1 1 17.32 0"/>
+            </svg>
+            설정
+            <span className={styles.connCount} style={{ marginLeft: 6 }}>{connectedCount}</span>
           </button>
           <label>
             팔로업 기준{" "}
@@ -1085,7 +1091,6 @@ export default function Home() {
               <option value={48}>48시간</option>
             </select>
           </label>
-          <a href="/api/auth/signout" style={{ whiteSpace: "nowrap" }}>퇴근하기</a>
         </div>
       </header>
 
@@ -1163,10 +1168,7 @@ export default function Home() {
               </div>
             </div>
           )}
-          <p className={styles.connNote} style={{ marginTop: 10 }}>
-            연동 없어도 괜찮아요 — 여기 적은 업무는 이 브라우저에 고이 저장해두고,
-            분류부터 브리핑까지 똑같이 챙겨드려요.
-          </p>
+
         </section>
 
         {/* G3/G6: Copilot — 무연동에서도 활성, MarkdownLite 렌더링 */}
@@ -1212,8 +1214,13 @@ export default function Home() {
               className={`${styles.btn} ${styles.btnPrimary}`}
               onClick={() => askCopilot()}
               disabled={copilotBusy}
+              title="질문"
+              style={{ padding: "8px 12px", display: "flex", alignItems: "center", justifyContent: "center" }}
             >
-              질문
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="9 10 4 15 9 20"></polyline>
+                <path d="M20 4v7a4 4 0 0 1-4 4H4"></path>
+              </svg>
             </button>
             <button
               className={styles.btn}
@@ -1242,115 +1249,7 @@ export default function Home() {
           )}
         </section>
 
-        {/* 사이드: 규칙 + 알림 */}
-        <div className={styles.colSide}>
-          <section className={styles.card}>
-            <div className={styles.cardTitle}>⚙️ 자동화 규칙</div>
-            <div className={styles.formRow}>
-              <input
-                className={styles.input}
-                placeholder='예: "제목에 긴급 있으면 맨 위로"'
-                value={ruleInput}
-                onChange={(e) => setRuleInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && addRule()}
-                aria-label="자연어 규칙 입력"
-              />
-              <button className={styles.btn} disabled={ruleBusy} onClick={addRule}>
-                {ruleBusy ? "레시피 적는 중…" : "추가"}
-              </button>
-            </div>
-            <div className={styles.list}>
-              {rules.length === 0 && (
-                <p className={styles.connNote}>
-                  “뉴스레터는 숨겨줘”처럼 말씀만 하세요 — 제가 규칙으로 만들어
-                  적용할게요. (고정·긴급·음소거·숨김)
-                </p>
-              )}
-              {rules.map((rule, i) => (
-                <div key={i} className={styles.ruleRow}>
-                  <button
-                    className={styles.iconBtn}
-                    onClick={() =>
-                      setRules((prev) =>
-                        prev.map((r, j) => (j === i ? { ...r, enabled: !r.enabled } : r))
-                      )
-                    }
-                    aria-label={rule.enabled ? "규칙 끄기" : "규칙 켜기"}
-                    title={rule.enabled ? "켜짐" : "꺼짐"}
-                  >
-                    {rule.enabled ? "●" : "○"}
-                  </button>
-                  <span className={styles.ruleText}>
-                    <b>{rule.field}</b>에 &lsquo;{rule.value}&rsquo; → <b>{rule.action}</b>
-                  </span>
-                  <button
-                    className={styles.iconBtn}
-                    onClick={() => setRules((prev) => prev.filter((_, j) => j !== i))}
-                    aria-label="규칙 삭제"
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
-            </div>
-          </section>
 
-          <section className={styles.card}>
-            <div className={styles.cardTitle}>
-              🔔 아침 브리핑 알림
-              <small>{pushEndpoint ? "켜짐" : "꺼짐"}</small>
-            </div>
-            {pushSupported === false ? (
-              <p className={styles.connNote}>
-                이 브라우저는 웹 푸시를 지원하지 않아요. (iOS는 홈 화면에 추가한 뒤 사용 가능)
-              </p>
-            ) : (
-              <>
-                <div className={styles.formRow}>
-                  <label className={styles.connNote} style={{ display: "flex", alignItems: "center", gap: 8, flex: 1 }}>
-                    발송 시각
-                    <input
-                      type="time"
-                      className={styles.input}
-                      style={{ flex: 1 }}
-                      value={briefTime}
-                      onChange={(e) => void saveBriefTime(e.target.value)}
-                      aria-label="아침 브리핑 발송 시각"
-                    />
-                  </label>
-                </div>
-                <div className={styles.formRow}>
-                  {pushEndpoint ? (
-                    <>
-                      <button className={styles.btn} disabled={pushBusy} onClick={testPush}>
-                        📨 테스트 발송
-                      </button>
-                      <button
-                        className={`${styles.btn} ${styles.btnDanger}`}
-                        disabled={pushBusy}
-                        onClick={unsubscribePush}
-                      >
-                        알림 끄기
-                      </button>
-                    </>
-                  ) : (
-                    <button
-                      className={`${styles.btn} ${styles.btnPrimary}`}
-                      disabled={pushBusy || pushSupported === null}
-                      onClick={subscribePush}
-                    >
-                      {pushBusy ? "알림벨 다는 중…" : "🔔 알림 켜기"}
-                    </button>
-                  )}
-                </div>
-                <p className={styles.connNote}>
-                  매일 {briefTime}, 탭을 닫아두셔도 브리핑을 들고 찾아갈게요.
-                  (브라우저는 켜져 있어야 해요)
-                </p>
-              </>
-            )}
-          </section>
-        </div>
 
         {/* 🧠 오늘의 LLM 작업 (phase6 §7) */}
         {(llmItems.length > 0 || connections?.llm || browserLlm) && (
@@ -1392,7 +1291,7 @@ export default function Home() {
         </section>
       </div>
 
-      {/* 서비스 연동 관리 — 상단 메뉴로 여닫는 오버레이 패널 */}
+      {/* 설정 — 상단 메뉴로 여닫는 오버레이 패널 */}
       {showConn && (
         <div className={`${styles.overlay} ${styles.overlayTop}`} onClick={() => setShowConn(false)}>
           <div
@@ -1400,17 +1299,131 @@ export default function Home() {
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
-            aria-label="서비스 연동 관리"
+            aria-label="설정"
           >
-            <div className={styles.cardTitle}>
-              🔌 서비스 연동 관리 <small>전부 선택 사항이에요</small>
+            <div className={styles.cardTitle} style={{ display: "flex", alignItems: "center" }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 6 }}>
+                <path d="m12 14 4-4"/>
+                <path d="M3.34 19a10 10 0 1 1 17.32 0"/>
+              </svg>
+              설정
               <button
                 className={`${styles.iconBtn} ${styles.cardTitleBtn}`}
                 onClick={() => setShowConn(false)}
-                aria-label="연동 관리 닫기"
+                aria-label="설정 닫기"
               >
                 ✕
               </button>
+            </div>
+
+            <section className={styles.card} style={{ border: "none", padding: "10px 0" }}>
+              <div className={styles.cardTitle}>⚙️ 자동화 규칙</div>
+              <div className={styles.formRow}>
+                <input
+                  className={styles.input}
+                  placeholder='예: "제목에 긴급 있으면 맨 위로"'
+                  value={ruleInput}
+                  onChange={(e) => setRuleInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && addRule()}
+                  aria-label="자연어 규칙 입력"
+                />
+                <button className={styles.btn} disabled={ruleBusy} onClick={addRule}>
+                  {ruleBusy ? "레시피 적는 중…" : "추가"}
+                </button>
+              </div>
+              <div className={styles.list}>
+                {rules.length === 0 && (
+                  <p className={styles.connNote}>
+                    “뉴스레터는 숨겨줘”처럼 말씀만 하세요 — 제가 규칙으로 만들어
+                    적용할게요. (고정·긴급·음소거·숨김)
+                  </p>
+                )}
+                {rules.map((rule, i) => (
+                  <div key={i} className={styles.ruleRow}>
+                    <button
+                      className={styles.iconBtn}
+                      onClick={() =>
+                        setRules((prev) =>
+                          prev.map((r, j) => (j === i ? { ...r, enabled: !r.enabled } : r))
+                        )
+                      }
+                      aria-label={rule.enabled ? "규칙 끄기" : "규칙 켜기"}
+                      title={rule.enabled ? "켜짐" : "꺼짐"}
+                    >
+                      {rule.enabled ? "●" : "○"}
+                    </button>
+                    <span className={styles.ruleText}>
+                      <b>{rule.field}</b>에 &lsquo;{rule.value}&rsquo; → <b>{rule.action}</b>
+                    </span>
+                    <button
+                      className={styles.iconBtn}
+                      onClick={() => setRules((prev) => prev.filter((_, j) => j !== i))}
+                      aria-label="규칙 삭제"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className={styles.card} style={{ border: "none", padding: "10px 0" }}>
+              <div className={styles.cardTitle}>
+                🔔 아침 브리핑 알림
+                <small>{pushEndpoint ? "켜짐" : "꺼짐"}</small>
+              </div>
+              {pushSupported === false ? (
+                <p className={styles.connNote}>
+                  이 브라우저는 웹 푸시를 지원하지 않아요. (iOS는 홈 화면에 추가한 뒤 사용 가능)
+                </p>
+              ) : (
+                <>
+                  <div className={styles.formRow}>
+                    <label className={styles.connNote} style={{ display: "flex", alignItems: "center", gap: 8, flex: 1 }}>
+                      발송 시각
+                      <input
+                        type="time"
+                        className={styles.input}
+                        style={{ flex: 1 }}
+                        value={briefTime}
+                        onChange={(e) => void saveBriefTime(e.target.value)}
+                        aria-label="아침 브리핑 발송 시각"
+                      />
+                    </label>
+                  </div>
+                  <div className={styles.formRow}>
+                    {pushEndpoint ? (
+                      <>
+                        <button className={styles.btn} disabled={pushBusy} onClick={testPush}>
+                          📨 테스트 발송
+                        </button>
+                        <button
+                          className={`${styles.btn} ${styles.btnDanger}`}
+                          disabled={pushBusy}
+                          onClick={unsubscribePush}
+                        >
+                          알림 끄기
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        className={`${styles.btn} ${styles.btnPrimary}`}
+                        disabled={pushBusy || pushSupported === null}
+                        onClick={subscribePush}
+                      >
+                        {pushBusy ? "알림벨 다는 중…" : "🔔 알림 켜기"}
+                      </button>
+                    )}
+                  </div>
+                  <p className={styles.connNote}>
+                    매일 {briefTime}, 탭을 닫아두셔도 브리핑을 들고 찾아갈게요.
+                    (브라우저는 켜져 있어야 해요)
+                  </p>
+                </>
+              )}
+            </section>
+            <div className={styles.cardTitle} style={{ marginTop: 20 }}>
+              🔌 서비스 연동 <small>전부 선택 사항이에요</small>
             </div>
             {browserNeedsPermission && (
               <div className={styles.permRow}>
