@@ -1076,8 +1076,10 @@ export default function Home() {
               <option value={48}>48시간</option>
             </select>
           </label>
-          <span>{connections?.googleEmail || connections?.outlookEmail || "게스트"}</span>
-          <a href="/api/auth/signout">퇴근하기</a>
+          <span className={styles.userEmail} title={connections?.googleEmail || connections?.outlookEmail || "게스트"}>
+            {connections?.googleEmail || connections?.outlookEmail || "게스트"}
+          </span>
+          <a href="/api/auth/signout" style={{ whiteSpace: "nowrap" }}>퇴근하기</a>
         </div>
       </header>
 

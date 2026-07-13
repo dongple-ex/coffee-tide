@@ -54,6 +54,16 @@
   gap: 10px;
   font-size: 0.82rem;
   color: var(--text-dim);
+  flex-wrap: wrap;
+}
+
+.userEmail {
+  max-width: 120px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: inline-block;
+  vertical-align: middle;
 }
 
 /* 헤더 메뉴 — 서비스 연동 관리 토글 버튼 */
