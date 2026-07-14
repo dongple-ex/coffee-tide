@@ -17,7 +17,7 @@ const THEME_INIT = `try{var t=JSON.parse(localStorage.getItem("ct_theme"));if(t=
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ko">
+    <html lang="ko" suppressHydrationWarning>
       <body>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT }} />
         {children}

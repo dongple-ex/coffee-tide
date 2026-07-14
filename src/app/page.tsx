@@ -169,6 +169,10 @@ export default function Home() {
   const [copilotInput, setCopilotInput] = useState("");
   const [copilotBusy, setCopilotBusy] = useState(false);
 
+  const [saveToDrive, setSaveToDrive] = useState(true);
+  const [uploadBusy, setUploadBusy] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [ruleInput, setRuleInput] = useState("");
   const [ruleBusy, setRuleBusy] = useState(false);
 
@@ -607,6 +611,41 @@ export default function Home() {
       setCopilotBusy(false);
     }
   }
+
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadBusy(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("saveToDrive", saveToDrive.toString());
+
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: form,
+      });
+
+      if (!res.ok) {
+        const error = await res.json();
+        showToast("업로드 실패: " + (error.error || "알 수 없는 오류"));
+        return;
+      }
+
+      const doc = await res.json();
+      setManualItems((prev) => [doc, ...prev]);
+      showToast(`'${file.name}' 업로드 완료!`);
+    } catch (err: any) {
+      showToast("업로드 중 오류 발생: " + err.message);
+    } finally {
+      setUploadBusy(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  }
+
 
   // ── 자동화 규칙 ─────────────────────────────
   async function addRule() {
@@ -1202,12 +1241,35 @@ export default function Home() {
           </div>
           <div className={styles.copilotForm}>
             <input
+              type="file"
+              ref={fileInputRef}
+              style={{ display: "none" }}
+              onChange={handleFileUpload}
+            />
+            <button
+              className={styles.btn}
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploadBusy}
+              title="파일 첨부"
+              style={{ padding: "8px 10px", flexShrink: 0 }}
+            >
+              📎
+            </button>
+            <button
+              className={styles.btn}
+              onClick={() => setSaveToDrive(!saveToDrive)}
+              title={saveToDrive ? "구글 드라이브 영구 저장" : "일회성 분석 (임시)"}
+              style={{ padding: "8px 10px", flexShrink: 0, fontSize: "1.1rem" }}
+            >
+              {saveToDrive ? "☁️" : "⏳"}
+            </button>
+            <input
               className={styles.input}
               placeholder="오늘 뭐 해야 해?"
               value={copilotInput}
               onChange={(e) => setCopilotInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && askCopilot()}
-              disabled={copilotBusy}
+              disabled={copilotBusy || uploadBusy}
               aria-label="Copilot 질문 입력"
             />
             <button

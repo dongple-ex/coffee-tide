@@ -7,6 +7,7 @@ export const GOOGLE_SCOPES = [
   "https://www.googleapis.com/auth/gmail.readonly",
   "https://www.googleapis.com/auth/calendar.readonly",
   "https://www.googleapis.com/auth/drive.metadata.readonly",
+  "https://www.googleapis.com/auth/drive.file",
 ];
 
 const CLIENT_ID = () => process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
