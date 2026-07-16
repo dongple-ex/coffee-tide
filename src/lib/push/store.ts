@@ -43,7 +43,10 @@ interface Backend {
 async function writeProfileFile(profiles: PushProfile[]): Promise<void> {
   try {
     await fs.mkdir(DATA_DIR, { recursive: true });
-    await fs.writeFile(FILE, JSON.stringify(profiles, null, 2), "utf8");
+    // 원자적 쓰기: temp에 완성 후 rename — 중간 크래시가 기존 파일(전체 구독 목록)을 파손시키지 않게
+    const tmp = `${FILE}.tmp`;
+    await fs.writeFile(tmp, JSON.stringify(profiles, null, 2), "utf8");
+    await fs.rename(tmp, FILE);
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === "EROFS" || process.env.VERCEL) {
       throw new Error(
@@ -56,11 +59,19 @@ async function writeProfileFile(profiles: PushProfile[]): Promise<void> {
 
 const fileBackend: Backend = {
   async list() {
+    let raw: string;
     try {
-      const raw = await fs.readFile(FILE, "utf8");
+      raw = await fs.readFile(FILE, "utf8");
+    } catch {
+      return []; // 파일 없음 — 최초 상태
+    }
+    try {
       const parsed = JSON.parse(raw);
       return Array.isArray(parsed) ? (parsed as PushProfile[]) : [];
     } catch {
+      // 파손 파일은 조용히 버리지 않고 보존 — 이후 set()이 빈 목록으로 덮어써도 복구 여지를 남긴다
+      console.error("[coffeeTide] push-profiles.json 파싱 실패 — .corrupt로 백업 후 빈 목록으로 시작");
+      await fs.rename(FILE, `${FILE}.corrupt-${Date.now()}`).catch(() => {});
       return [];
     }
   },
@@ -103,16 +114,34 @@ function cleanEnv(value: string | undefined): string | undefined {
   return v || undefined;
 }
 
-let backend: Backend | undefined;
+// 백엔드 캐시와 쓰기 락은 반드시 globalThis에 둔다 — Next는 instrumentation(스케줄러)과
+// 라우트 핸들러를 별도 모듈 인스턴스로 컴파일하므로, 모듈 스코프 변수로는 둘이 락을
+// 공유하지 못한다 (scheduler.ts의 __coffeetideBriefingTimer와 같은 패턴).
+const g = globalThis as typeof globalThis & {
+  __coffeetidePushBackend?: Backend;
+  __coffeetidePushOpLock?: Promise<unknown>;
+};
+
 function getBackend(): Backend {
-  if (!backend) {
+  if (!g.__coffeetidePushBackend) {
     // Vercel Marketplace 통합은 KV_REST_API_* 이름으로 주입하므로 함께 인식
     const url = cleanEnv(process.env.UPSTASH_REDIS_REST_URL) ?? cleanEnv(process.env.KV_REST_API_URL);
     const token =
       cleanEnv(process.env.UPSTASH_REDIS_REST_TOKEN) ?? cleanEnv(process.env.KV_REST_API_TOKEN);
-    backend = url && token ? redisBackend(new Redis({ url, token })) : fileBackend;
+    g.__coffeetidePushBackend = url && token ? redisBackend(new Redis({ url, token })) : fileBackend;
   }
-  return backend;
+  return g.__coffeetidePushBackend;
+}
+
+// 프로세스 내 쓰기 직렬화 — 스케줄러(60초 틱)와 HTTP 라우트의 read-modify-write가
+// 겹칠 때 마지막 쓰기가 앞선 갱신을 지우는 lost update를 막는다.
+// (파일 백엔드는 전체 배열 재작성이라 특히 취약. 서버리스 다중 인스턴스 간 경쟁은 Redis hset의
+// 필드 단위 원자성으로 완화됨.)
+function serialize<T>(fn: () => Promise<T>): Promise<T> {
+  const lock = g.__coffeetidePushOpLock ?? Promise.resolve();
+  const run = lock.then(fn, fn);
+  g.__coffeetidePushOpLock = run.catch(() => {});
+  return run;
 }
 
 export function listProfiles(): Promise<PushProfile[]> {
@@ -123,32 +152,36 @@ export function getProfile(endpoint: string): Promise<PushProfile | undefined> {
   return getBackend().get(endpoint);
 }
 
-export async function upsertProfile(profile: PushProfile): Promise<void> {
-  const store = getBackend();
-  const existing = await store.get(profile.endpoint);
-  if (existing) {
-    // 기존 스냅샷·발송 기록은 유지하고 설정만 갱신
-    await store.set({
-      ...existing,
-      ...profile,
-      items: profile.items.length > 0 ? profile.items : existing.items,
-    });
-  } else {
-    await store.set(profile);
-  }
+export function upsertProfile(profile: PushProfile): Promise<void> {
+  return serialize(async () => {
+    const store = getBackend();
+    const existing = await store.get(profile.endpoint);
+    if (existing) {
+      // 기존 스냅샷·발송 기록·생성일은 락 안에서 읽은 값을 우선 유지 — 호출부가 락 밖에서
+      // 읽은 낡은 lastSentDate로 스케줄러의 발송 기록을 덮어쓰지 못하게 한다
+      await store.set({
+        ...existing,
+        ...profile,
+        items: profile.items.length > 0 ? profile.items : existing.items,
+        lastSentDate: existing.lastSentDate ?? profile.lastSentDate,
+        createdAt: existing.createdAt ?? profile.createdAt,
+      });
+    } else {
+      await store.set(profile);
+    }
+  });
 }
 
-export async function updateProfile(
-  endpoint: string,
-  patch: Partial<PushProfile>
-): Promise<boolean> {
-  const store = getBackend();
-  const existing = await store.get(endpoint);
-  if (!existing) return false;
-  await store.set({ ...existing, ...patch });
-  return true;
+export function updateProfile(endpoint: string, patch: Partial<PushProfile>): Promise<boolean> {
+  return serialize(async () => {
+    const store = getBackend();
+    const existing = await store.get(endpoint);
+    if (!existing) return false;
+    await store.set({ ...existing, ...patch });
+    return true;
+  });
 }
 
-export async function removeProfile(endpoint: string): Promise<void> {
-  await getBackend().remove(endpoint);
+export function removeProfile(endpoint: string): Promise<void> {
+  return serialize(() => getBackend().remove(endpoint));
 }

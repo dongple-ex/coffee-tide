@@ -65,23 +65,25 @@ export function buildBriefingPayload(items: BriefingItem[], timezone: string): P
   return { title: `🥤 오늘의 브리핑 (${dateLabel})`, body, url: "/" };
 }
 
-/** 발송. 구독이 만료(404/410)면 프로필 자동 제거. */
-export async function sendPush(profile: PushProfile, payload: PushPayload): Promise<boolean> {
+export type PushSendResult = "sent" | "gone" | "permanent" | "transient";
+
+/** 발송. 구독이 만료(404/410)면 프로필 자동 제거. 그 외 4xx는 영구, 5xx/네트워크는 일시 실패로 분류. */
+export async function sendPush(profile: PushProfile, payload: PushPayload): Promise<PushSendResult> {
   ensureVapid();
   try {
     await webpush.sendNotification(profile.subscription, JSON.stringify(payload), {
       TTL: 3600,
     });
-    return true;
+    return "sent";
   } catch (err) {
     const status = (err as { statusCode?: number }).statusCode;
     if (status === 404 || status === 410) {
       await removeProfile(profile.endpoint);
       console.warn("[coffeeTide] 만료된 푸시 구독 제거:", profile.endpoint.slice(0, 60));
-    } else {
-      console.warn("[coffeeTide] 푸시 발송 실패:", status, (err as Error).message);
+      return "gone";
     }
-    return false;
+    console.warn("[coffeeTide] 푸시 발송 실패:", status, (err as Error).message);
+    return status && status >= 400 && status < 500 ? "permanent" : "transient";
   }
 }
 
@@ -104,10 +106,16 @@ export async function sendDueBriefings(): Promise<{ checked: number; sent: numbe
     const today = now.toLocaleDateString("en-CA", { timeZone: tz });
 
     if (hhmm >= profile.briefTime && profile.lastSentDate !== today) {
-      const ok = await sendPush(profile, buildBriefingPayload(profile.items, tz));
-      // 실패해도 당일 재시도 루프를 막기 위해 발송일 기록 (410 제거 케이스는 프로필이 이미 없음)
-      await updateProfile(profile.endpoint, { lastSentDate: today });
-      if (ok) sent++;
+      const result = await sendPush(profile, buildBriefingPayload(profile.items, tz));
+      if (result === "sent") {
+        await updateProfile(profile.endpoint, { lastSentDate: today });
+        sent++;
+      } else if (result === "permanent") {
+        // 영구 실패(4xx — 예: VAPID 키 교체 후 403)는 당일 1회로 제한해 무한 재시도를 막는다
+        await updateProfile(profile.endpoint, { lastSentDate: today });
+      }
+      // transient(5xx/네트워크)는 기록하지 않는다 — 다음 틱(60초)에 자동 재시도.
+      // gone(404/410)은 sendPush가 프로필을 이미 제거했으므로 재시도 루프가 생기지 않는다.
     }
   }
   return { checked: profiles.length, sent };

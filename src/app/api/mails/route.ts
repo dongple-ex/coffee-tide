@@ -59,7 +59,22 @@ export async function GET(request: NextRequest) {
         ) {
           const refreshed = await refreshChannel(channel, session!);
           if (refreshed) {
-            session = refreshed;
+            // 두 채널이 같은 요청에서 동시에 리프레시되면 refreshed(스냅샷 기반 전체 세션)로
+            // 통째로 덮을 때 다른 채널의 회전된 토큰이 유실된다 — 해당 채널 필드만 병합한다.
+            session =
+              channel === "outlook"
+                ? {
+                    ...session!,
+                    outlookToken: refreshed.outlookToken,
+                    outlookRefreshToken: refreshed.outlookRefreshToken,
+                    outlookTokenExpiry: refreshed.outlookTokenExpiry,
+                  }
+                : {
+                    ...session!,
+                    googleToken: refreshed.googleToken,
+                    googleRefreshToken: refreshed.googleRefreshToken,
+                    googleTokenExpiry: refreshed.googleTokenExpiry,
+                  };
             sessionChanged = true;
             try {
               return await collect(channel, refreshed);

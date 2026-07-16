@@ -5,7 +5,7 @@
 
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { applyRules, AutomationRule, ProcessedData } from "@/lib/automation/rules";
 import {
   BROWSER_ID_PREFIX,
@@ -155,6 +155,56 @@ const ACTION_LABEL: Record<AutomationRule["action"], string> = {
 };
 
 type ViewItem = ProcessedData & { overdue: number };
+
+/** 모달 접근성 — 열릴 때 포커스 이동, Tab 순환 유지(포커스 트랩), ESC 닫기, 닫힐 때 포커스 복원 */
+function useModalA11y(
+  open: boolean,
+  containerRef: RefObject<HTMLDivElement | null>,
+  onClose: () => void
+) {
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+  useEffect(() => {
+    if (!open) return;
+    const prevFocus = document.activeElement as HTMLElement | null;
+    containerRef.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onCloseRef.current();
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const container = containerRef.current;
+      if (!container) return;
+      // 닫힌 <details> 안의 요소 등 실제로 포커스 불가능한 것은 제외해야 트랩이 끊기지 않는다
+      const focusables = Array.from(
+        container.querySelectorAll<HTMLElement>(
+          'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), summary, [tabindex]:not([tabindex="-1"])'
+        )
+      ).filter((el) =>
+        typeof el.checkVisibility === "function" ? el.checkVisibility() : el.offsetParent !== null
+      );
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement;
+      if (e.shiftKey && (active === first || active === container)) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      prevFocus?.focus();
+    };
+  }, [open, containerRef]);
+}
 
 /** 병합 파이프라인 (00-current-state §4.3) — 수동+외부 병합 → 규칙 → 팔로업 에스컬레이션 */
 function buildMergedView(
@@ -395,15 +445,29 @@ export default function Home() {
     saveLS(LS_THEME, theme);
   }, [theme]);
 
-  // 연동 관리 오버레이 — ESC로 닫기
+  // 모달 접근성 — 설정 패널·답장 초안 모달 (포커스 이동/트랩/복원 + ESC 닫기)
+  const connPanelRef = useRef<HTMLDivElement>(null);
+  const draftModalRef = useRef<HTMLDivElement>(null);
+  useModalA11y(showConn, connPanelRef, () => setShowConn(false));
+  useModalA11y(Boolean(draft), draftModalRef, () => setDraft(null));
+
+  // 탭 간 동기화 — 다른 탭이 저장한 localStorage 변경을 반영 (storage 이벤트는 다른 탭에서만 발생.
+  // 반영값을 persist effect가 동일 문자열로 재저장하므로 이벤트 루프는 생기지 않는다)
   useEffect(() => {
-    if (!showConn) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setShowConn(false);
+    const onStorage = (e: StorageEvent) => {
+      if (e.newValue === null) return;
+      try {
+        if (e.key === LS_MANUAL) setManualItems(JSON.parse(e.newValue));
+        else if (e.key === LS_RULES) setRules(JSON.parse(e.newValue));
+        else if (e.key === LS_DISMISSED) setDismissed(JSON.parse(e.newValue));
+        else if (e.key === LS_FOLLOWUP) setFollowupHours(JSON.parse(e.newValue));
+      } catch {
+        // 손상된 값은 무시 — 다음 정상 저장에서 수렴
+      }
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [showConn]);
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
 
   // 드라이브 영구 저장은 Google 연동 시에만 기본 ON (정본 원칙 3: 연동은 증강 기능 —
   // 무연동 사용자의 기본 업로드 경로가 '연동하라'는 에러로 시작되면 안 된다).
@@ -501,12 +565,12 @@ export default function Home() {
     };
   }, [phase, fetchMails, scanBrowser]);
 
-  const merged = buildMergedView(
-    manualItems,
-    [...serverMails, ...browserItems],
-    dismissed,
-    rules,
-    followupHours
+  // 병합 파이프라인은 규칙 적용+정렬이 있어 키 입력마다 재계산하지 않도록 메모이제이션
+  // (overdue 시각은 30초 폴링이 serverMails를 갱신할 때마다 재계산돼 충분히 신선하다)
+  const merged = useMemo(
+    () =>
+      buildMergedView(manualItems, [...serverMails, ...browserItems], dismissed, rules, followupHours),
+    [manualItems, serverMails, browserItems, dismissed, rules, followupHours]
   );
 
   const todoItems = merged.filter(
@@ -1191,8 +1255,8 @@ export default function Home() {
               {connections?.googleEmail || connections?.outlookEmail || "게스트"}
             </span>
             <select
-              className={styles.input}
-              style={{ width: "auto", padding: "2px 6px", fontSize: "0.75rem" }}
+              className={`${styles.input} ${styles.selectCompact}`}
+              style={{ width: "auto", padding: "2px 6px" }}
               value={theme}
               onChange={(e) => setTheme(e.target.value as Theme)}
               aria-label="테마 선택"
@@ -1203,7 +1267,19 @@ export default function Home() {
               <option value="mega">💛 메가커피</option>
               <option value="kustom">💙 커스텀커피</option>
             </select>
-            <a href="/api/auth/signout" className={styles.logoutBtnSmall}>퇴근하기</a>
+            <button
+              className={styles.logoutBtnSmall}
+              onClick={async () => {
+                try {
+                  await fetch("/api/auth/signout", { method: "POST" });
+                } catch {
+                  // 네트워크 오류여도 화면은 랜딩으로 — 쿠키는 다음 입장 시 재발급되며 덮어써진다
+                }
+                setPhase("landing");
+              }}
+            >
+              퇴근하기
+            </button>
           </div>
         </div>
         <div className={styles.headerRowStart}>
@@ -1554,6 +1630,8 @@ export default function Home() {
       {showConn && (
         <div className={`${styles.overlay} ${styles.overlayTop}`} onClick={() => setShowConn(false)}>
           <div
+            ref={connPanelRef}
+            tabIndex={-1}
             className={`${styles.modal} ${styles.connPanel}`}
             onClick={(e) => e.stopPropagation()}
             role="dialog"
@@ -1988,7 +2066,15 @@ export default function Home() {
       {/* 답장 초안 모달 (phase5 §3) */}
       {draft && (
         <div className={styles.overlay} onClick={() => setDraft(null)}>
-          <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+          <div
+            ref={draftModalRef}
+            tabIndex={-1}
+            className={styles.modal}
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label={`답장 초안 — ${draft.title}`}
+          >
             <div className={styles.cardTitle}>✍️ 답장 초안 — {draft.title}</div>
             {draft.message && <p className={styles.connNote}>{draft.message}</p>}
             <div className={styles.draftText}>{draft.text}</div>

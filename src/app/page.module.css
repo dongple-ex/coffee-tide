@@ -82,6 +82,10 @@
 }
 
 .logoutBtnSmall {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font: inherit;
   font-size: 0.75rem;
   color: var(--text-dim);
   text-decoration: underline;
@@ -141,7 +145,6 @@
 .colInput { grid-column: span 5; }
 .colCopilot { grid-column: span 7; display: flex; flex-direction: column; }
 .colTodo { grid-column: span 7; }
-.colSide { grid-column: span 5; display: flex; flex-direction: column; gap: 16px; }
 .colFull { grid-column: span 12; }
 
 .cardTitle {
@@ -179,6 +182,12 @@
 .input:focus,
 .textarea:focus {
   border-color: var(--accent);
+}
+
+/* 헤더 등 좁은 자리의 컴팩트 셀렉트 — .input 뒤에 선언해야 캐스케이드에서 이긴다
+   (모바일에서는 파일 하단 미디어 쿼리가 16px로 승격 — iOS 자동 줌 방지) */
+.selectCompact {
+  font-size: 0.75rem;
 }
 
 .textarea {
@@ -897,7 +906,6 @@
   .colInput,
   .colCopilot,
   .colTodo,
-  .colSide,
   .colFull {
     grid-column: span 12;
   }
@@ -927,5 +935,12 @@
 
   .formRow {
     flex-direction: column;
+  }
+
+  /* iOS Safari는 16px 미만 입력 포커스 시 뷰포트를 자동 확대 — 모바일에서만 16px로 승격 */
+  .input,
+  .textarea,
+  .selectCompact {
+    font-size: 16px;
   }
 }

@@ -1,3 +1,8 @@
+// NOTE: 푸시 endpoint는 세션과 소유권을 묶지 않는다 (의도된 설계).
+// endpoint 자체가 브라우저 푸시 서비스가 발급한 고엔트로피 비밀 URL(capability)이고,
+// 세션 identity는 모든 게스트가 공유(guest@)라 묶을 주체가 없으며, 세션 ID에 묶으면
+// 7일 만료 후 재입장한 사용자가 자기 구독을 해제/동기화하지 못하게 된다.
+
 import { NextRequest, NextResponse } from "next/server";
 import { readSession, unauthorized } from "@/lib/auth/cookies";
 import { removeProfile } from "@/lib/push/store";

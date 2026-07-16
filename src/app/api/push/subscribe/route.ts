@@ -4,7 +4,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readSession, unauthorized } from "@/lib/auth/cookies";
 import { isPushConfigured } from "@/lib/push/sender";
-import { StoredSubscription, getProfile, upsertProfile } from "@/lib/push/store";
+import { StoredSubscription, upsertProfile } from "@/lib/push/store";
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
@@ -32,17 +32,18 @@ export async function POST(request: NextRequest) {
   const timezone = body.timezone || "Asia/Seoul";
 
   try {
-    const existing = await getProfile(sub.endpoint);
     const today = new Date().toLocaleDateString("en-CA", { timeZone: timezone });
 
+    // 기존 프로필의 items/lastSentDate/createdAt은 upsertProfile이 락 안에서 읽어 우선 유지한다
+    // — 여기 값들은 신규 프로필일 때만 쓰인다 (lastSentDate=오늘: 등록 당일 발송 스킵)
     await upsertProfile({
       endpoint: sub.endpoint,
       subscription: sub,
       briefTime,
       timezone,
-      items: existing?.items ?? [],
-      lastSentDate: existing?.lastSentDate ?? today,
-      createdAt: existing?.createdAt ?? new Date().toISOString(),
+      items: [],
+      lastSentDate: today,
+      createdAt: new Date().toISOString(),
     });
   } catch (err) {
     console.error("[coffeeTide] 푸시 구독 저장 실패:", err);
