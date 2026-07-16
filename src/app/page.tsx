@@ -1224,11 +1224,11 @@ export default function Home() {
 
         {/* G3/G6: Copilot — 무연동에서도 활성, MarkdownLite 렌더링 */}
         <section className={`${styles.card} ${styles.colCopilot}`}>
-          <div className={styles.cardTitle}>🤖 AI Copilot</div>
+          <div className={styles.cardTitle}>☕ AI 바리스타</div>
           <div className={styles.copilotBody}>
             {copilotMessages.length === 0 ? (
               <div className={styles.msgHint}>
-                “오늘 뭐 해야 해?”라고 편하게 물어보세요.
+                “오늘 뭐 해야 해?”라고 주문하듯 편하게 물어보세요 ☕
                 {merged.length === 0 &&
                   " 아직 아는 업무가 없어서 브리핑이 좀 심심할 거예요 — 위에서 몇 개만 알려주세요!"}
               </div>
@@ -1317,7 +1317,7 @@ export default function Home() {
               onChange={(e) => setCopilotInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && askCopilot()}
               disabled={copilotBusy || uploadBusy}
-              aria-label="Copilot 질문 입력"
+              aria-label="AI 바리스타 질문 입력"
             />
             <button
               className={`${styles.btn} ${styles.btnPrimary}`}
