@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
 import { readSession, unauthorized, writeSession } from "@/lib/auth/cookies";
 import { buildGoogleAuthUrl, isGoogleConfigured } from "@/lib/auth/google";
+import { OAUTH_STATE_COOKIE } from "@/lib/auth/session";
 
 export async function GET() {
   if (!isGoogleConfigured()) {
@@ -12,7 +13,7 @@ export async function GET() {
   }
   const state = randomBytes(16).toString("hex");
   const res = NextResponse.redirect(buildGoogleAuthUrl(state));
-  res.cookies.set("tp_oauth_state", state, {
+  res.cookies.set(OAUTH_STATE_COOKIE, state, {
     httpOnly: true,
     sameSite: "lax",
     path: "/",

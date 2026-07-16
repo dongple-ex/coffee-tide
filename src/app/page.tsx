@@ -34,9 +34,9 @@ import MarkdownLite from "./components/markdownLite";
 import styles from "./page.module.css";
 
 const LS_MANUAL = "ct_manual_items";
-const LS_RULES = "tp_automation_rules";
-const LS_DISMISSED = "tp_dismissed_ids";
-const LS_FOLLOWUP = "tp_followup_hours";
+const LS_RULES = "ct_automation_rules";
+const LS_DISMISSED = "ct_dismissed_ids";
+const LS_FOLLOWUP = "ct_followup_hours";
 const LS_BRIEF_TIME = "ct_brief_time";
 const LS_THEME = "ct_theme";
 const LS_BROWSER_CAT = "ct_browser_categories";
@@ -80,21 +80,42 @@ interface CopilotMessage {
   fallback?: boolean;
 }
 
+// 구 프로젝트명(TimePilot) 시절 tp_ 키 → ct_ 키 1회성 마이그레이션 맵 (판독 시 이관)
+const LEGACY_LS_KEYS: Record<string, string> = {
+  [LS_RULES]: "tp_automation_rules",
+  [LS_DISMISSED]: "tp_dismissed_ids",
+  [LS_FOLLOWUP]: "tp_followup_hours",
+};
+
 function loadLS<T>(key: string, fallback: T): T {
   if (typeof window === "undefined") return fallback;
   try {
-    const raw = localStorage.getItem(key);
+    let raw = localStorage.getItem(key);
+    const legacy = LEGACY_LS_KEYS[key];
+    if (raw === null && legacy) {
+      raw = localStorage.getItem(legacy);
+      if (raw !== null) {
+        try {
+          localStorage.setItem(key, raw);
+          localStorage.removeItem(legacy);
+        } catch {
+          // 이관 쓰기가 실패해도(용량 초과 등) 이번 세션은 구 키 값으로 동작 — 다음 로드에서 재시도
+        }
+      }
+    }
     return raw ? (JSON.parse(raw) as T) : fallback;
   } catch {
     return fallback;
   }
 }
 
-function saveLS(key: string, value: unknown) {
+function saveLS(key: string, value: unknown): boolean {
   try {
     localStorage.setItem(key, JSON.stringify(value));
+    return true;
   } catch {
-    // 저장 실패는 치명적이지 않음
+    // 저장 실패(용량 초과 등)는 치명적이지 않지만, 호출부가 사용자에게 알릴 수 있게 결과를 돌려준다
+    return false;
   }
 }
 
@@ -110,6 +131,28 @@ function timeAgo(iso: string): string {
 
 const RESPONSE_NEEDED = new Set(["urgent", "approval_required", "action_required"]);
 const TODO_CATS = new Set(["urgent", "approval_required", "action_required", "meeting"]);
+
+// 수집 오류 배너용 소스 한글 라벨 — errors 키(google 등)는 SOURCE_LABELS와 집합이 달라 보강
+const ERROR_SOURCE_LABELS: Record<string, string> = {
+  ...SOURCE_LABELS,
+  google: "Google",
+  llm: "LLM 산출물",
+};
+
+// 자동화 규칙의 field/action enum 한글 라벨 (토스트·규칙 목록 공용)
+const FIELD_LABEL: Record<AutomationRule["field"], string> = {
+  any: "아무 곳",
+  source: "출처",
+  sender: "보낸 사람",
+  title: "제목",
+  content: "내용",
+};
+const ACTION_LABEL: Record<AutomationRule["action"], string> = {
+  pin: "맨 위 고정",
+  urgent: "긴급 표시",
+  mute: "음소거",
+  hide: "숨김",
+};
 
 type ViewItem = ProcessedData & { overdue: number };
 
@@ -154,6 +197,9 @@ export default function Home() {
   const [connections, setConnections] = useState<ConnectionState | null>(null);
   const [errors, setErrors] = useState<MailsResponse["errors"]>();
   const [aiError, setAiError] = useState(false);
+  // 원칙 4(부분 실패 허용): 수집 API 실패·세션 만료는 화면을 막지 않고 배너로 안내
+  const [fetchFailed, setFetchFailed] = useState(false);
+  const [sessionExpired, setSessionExpired] = useState(false);
   const [rules, setRules] = useState<AutomationRule[]>(() =>
     loadLS<AutomationRule[]>(LS_RULES, [])
   );
@@ -169,10 +215,13 @@ export default function Home() {
   const [copilotInput, setCopilotInput] = useState("");
   const [copilotBusy, setCopilotBusy] = useState(false);
 
-  const [saveToDrive, setSaveToDrive] = useState(true);
+  const [saveToDrive, setSaveToDrive] = useState(false);
   const [uploadBusy, setUploadBusy] = useState(false);
   const [plusOpen, setPlusOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const plusBtnRef = useRef<HTMLButtonElement>(null);
+  const plusFirstItemRef = useRef<HTMLButtonElement>(null);
+  const copilotBodyRef = useRef<HTMLDivElement>(null);
 
   const [ruleInput, setRuleInput] = useState("");
   const [ruleBusy, setRuleBusy] = useState(false);
@@ -222,7 +271,9 @@ export default function Home() {
     try {
       const res = await fetch("/api/mails");
       if (res.status === 401) {
-        setPhase("landing");
+        // 사용 중(silent 폴링) 세션 만료는 화면을 유지한 채 배너로 안내 — 작성 중인 내용을 지키기 위함
+        if (silent) setSessionExpired(true);
+        else setPhase("landing");
         return;
       }
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -231,6 +282,8 @@ export default function Home() {
       setConnections(data.connections);
       setErrors(data.errors);
       setAiError(Boolean(data.ai_error));
+      setSessionExpired(false);
+      setFetchFailed(false);
       setPhase("ready");
 
       // D3: dismissed 배열을 현재 존재하는 외부 id로만 정리 (로컬 항목은 dismiss 대상이 아님,
@@ -240,7 +293,10 @@ export default function Home() {
         prev.filter((id) => validIds.has(id) || id.startsWith(BROWSER_ID_PREFIX))
       );
     } catch {
-      if (!silent) setPhase((p) => (p === "loading" ? "landing" : p));
+      // 원칙 4(부분 실패 허용): 수집 API가 죽어도 무연동 기능(직접 추가·붙여넣기·바리스타)은 막지 않는다.
+      // 401은 위에서 처리 — 여기 오는 실패는 네트워크/서버 오류이므로 대시보드로 진입시키고 배너로 알린다.
+      setFetchFailed(true);
+      setPhase((p) => (p === "loading" ? "ready" : p));
     }
   }, []);
 
@@ -310,10 +366,18 @@ export default function Home() {
     void scanBrowser();
   }, [phase, scanBrowser]);
 
-  // 영속화 — 외부 시스템(localStorage) 쓰기
+  // 영속화 — 외부 시스템(localStorage) 쓰기.
+  // manual 항목은 1급 소스(정본 원칙 2)라 저장 실패(용량 초과)를 조용히 삼키면 데이터 유실로 이어진다.
+  const quotaWarnedRef = useRef(false);
   useEffect(() => {
-    saveLS(LS_MANUAL, manualItems);
-  }, [manualItems]);
+    const ok = saveLS(LS_MANUAL, manualItems);
+    if (!ok && !quotaWarnedRef.current) {
+      quotaWarnedRef.current = true;
+      showToast("앗, 저장 공간이 가득 차서 새 항목을 못 담고 있어요. 큰 업로드 항목을 몇 개 삭제해 주세요.");
+    } else if (ok) {
+      quotaWarnedRef.current = false;
+    }
+  }, [manualItems, showToast]);
   useEffect(() => {
     saveLS(LS_RULES, rules);
   }, [rules]);
@@ -340,6 +404,39 @@ export default function Home() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [showConn]);
+
+  // 드라이브 영구 저장은 Google 연동 시에만 기본 ON (정본 원칙 3: 연동은 증강 기능 —
+  // 무연동 사용자의 기본 업로드 경로가 '연동하라'는 에러로 시작되면 안 된다).
+  // 연동 상태가 바뀔 때만 기본값을 재동기화 (렌더 중 상태 조정 패턴).
+  // 단, 사용자가 직접 토글한 뒤에는 폴링 중 일시적 연동 오류(플랩)가 선택을 덮어쓰지 않게 한다.
+  const googleConnected = connections?.google === true;
+  const userSetDriveRef = useRef(false);
+  const [prevGoogleConnected, setPrevGoogleConnected] = useState(googleConnected);
+  if (prevGoogleConnected !== googleConnected) {
+    setPrevGoogleConnected(googleConnected);
+    if (!googleConnected) setSaveToDrive(false);
+    else if (!userSetDriveRef.current) setSaveToDrive(true);
+  }
+
+  // + 메뉴 — ESC로 닫기 + 열릴 때 첫 항목으로 포커스 이동 (키보드 접근성)
+  useEffect(() => {
+    if (!plusOpen) return;
+    plusFirstItemRef.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setPlusOpen(false);
+        plusBtnRef.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [plusOpen]);
+
+  // 바리스타 대화 — 새 메시지가 접히지 않게 항상 맨 아래로 스크롤
+  useEffect(() => {
+    const el = copilotBodyRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [copilotMessages, copilotBusy]);
 
   // 웹 푸시 — Service Worker 등록 + 기존 구독 복원 (H5)
   useEffect(() => {
@@ -431,7 +528,7 @@ export default function Home() {
     if (!title) return;
     setQuickTitle("");
     const item: UnifiedData = {
-      id: `manual-${Date.now()}`,
+      id: `manual-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       source: "manual",
       title,
       content: title,
@@ -507,7 +604,7 @@ export default function Home() {
         showToast("완료 도장 꾹 찍어뒀어요! (노트 체크박스도 갱신)");
         void scanBrowser();
       } catch (err) {
-        showToast(err instanceof Error && err.message ? err.message : "완료 처리 실패");
+        showToast(err instanceof Error && err.message ? err.message : "앗, 완료 도장을 못 찍었어요. 잠시 후 다시 시도해 주세요.");
       } finally {
         markBusy(item.id, false);
       }
@@ -526,7 +623,7 @@ export default function Home() {
       dismissItem(item.id);
       void fetchMails(true);
     } catch (err) {
-      showToast(err instanceof Error && err.message ? err.message : "완료 처리 실패");
+      showToast(err instanceof Error && err.message ? err.message : "앗, 완료 도장을 못 찍었어요. 잠시 후 다시 시도해 주세요.");
     } finally {
       markBusy(item.id, false);
     }
@@ -548,7 +645,7 @@ export default function Home() {
       if (!json.draftText) throw new Error(json.error);
       setDraft({ title: item.title, text: json.draftText, message: json.message ?? "" });
     } catch (err) {
-      showToast(err instanceof Error && err.message ? err.message : "초안 생성 실패");
+      showToast(err instanceof Error && err.message ? err.message : "앗, 초안을 미처 못 적었어요. 한 번만 다시 눌러주세요.");
     } finally {
       markBusy(item.id, false);
     }
@@ -562,7 +659,7 @@ export default function Home() {
         const note = await captureBrowserObsidian(item.title, item.content);
         showToast(`Obsidian '${note}'에 담아뒀어요!`);
       } catch (err) {
-        showToast(err instanceof Error && err.message ? err.message : "캡처 실패");
+        showToast(err instanceof Error && err.message ? err.message : "앗, 담다가 흘렸어요. 한 번만 다시 눌러주세요.");
       } finally {
         markBusy(item.id, false);
       }
@@ -577,9 +674,9 @@ export default function Home() {
       });
       const json = (await res.json()) as { message?: string; error?: string };
       if (!res.ok) throw new Error(json.error);
-      showToast(json.message ?? "저장했습니다");
+      showToast(json.message ?? "잘 담아뒀어요!");
     } catch (err) {
-      showToast(err instanceof Error && err.message ? err.message : "캡처 실패");
+      showToast(err instanceof Error && err.message ? err.message : "앗, 담다가 흘렸어요. 한 번만 다시 눌러주세요.");
     } finally {
       markBusy(item.id, false);
     }
@@ -605,7 +702,7 @@ export default function Home() {
       const json = (await res.json()) as { answer?: string; ai_fallback?: boolean };
       setCopilotMessages((prev) => [
         ...prev,
-        { role: "ai", text: json.answer ?? "응답을 생성하지 못했습니다.", fallback: json.ai_fallback },
+        { role: "ai", text: json.answer ?? "앗, 주문이 밀렸나 봐요 ☕ 잠시 후 다시 물어봐 주세요.", fallback: json.ai_fallback },
       ]);
     } catch {
       setCopilotMessages((prev) => [
@@ -640,17 +737,22 @@ export default function Home() {
 
       if (!res.ok) {
         const error = await res.json();
-        showToast("업로드 실패: " + (error.error || "알 수 없는 오류"));
+        showToast("앗, 파일을 받다가 놓쳤어요 (" + (error.error || "원인을 알 수 없어요") + "). 다시 한 번 건네주세요!");
         return;
       }
 
-      const doc = (await res.json()) as UnifiedData;
-      setManualItems((prev) => [doc, ...prev]);
-      showToast(`'${file.name}' 업로드 완료!`);
-      classifyManualItem(doc);
+      // 원칙 4(부분 실패 허용): Drive 저장이 안 돼도 항목 등록은 성공 — driveNotice로 상황만 알린다
+      const json = (await res.json()) as {
+        doc: UnifiedData;
+        driveSaved?: boolean;
+        driveNotice?: string;
+      };
+      setManualItems((prev) => [json.doc, ...prev]);
+      showToast(json.driveNotice ?? `'${file.name}' 잘 받았어요! 금방 살펴볼게요.`);
+      classifyManualItem(json.doc);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "알 수 없는 오류";
-      showToast("업로드 중 오류 발생: " + message);
+      const message = err instanceof Error && err.message ? err.message : "원인은 아직 찾는 중이에요";
+      showToast(`앗, 파일을 옮기다 살짝 엎질렀어요 (${message}). 한 번만 다시 부탁드려요!`);
     } finally {
       setUploadBusy(false);
       if (fileInputRef.current) {
@@ -674,9 +776,9 @@ export default function Home() {
       if (!json.rule) throw new Error(json.error);
       setRules((prev) => [...prev, json.rule!]);
       setRuleInput("");
-      showToast(`규칙 접수! ${json.rule.field}에 '${json.rule.value}' → ${json.rule.action}`);
+      showToast(`규칙 접수! ${FIELD_LABEL[json.rule.field]}에 '${json.rule.value}' → ${ACTION_LABEL[json.rule.action]}`);
     } catch (err) {
-      showToast(err instanceof Error && err.message ? err.message : "규칙 해석 실패");
+      showToast(err instanceof Error && err.message ? err.message : "앗, 레시피를 못 알아들었어요. 조금 다르게 말씀해 주실래요?");
     } finally {
       setRuleBusy(false);
     }
@@ -695,7 +797,7 @@ export default function Home() {
     });
     const json = (await res.json()) as { error?: string };
     if (!res.ok) {
-      showToast(json.error ?? "연동 실패");
+      showToast(json.error ?? "앗, 연결이 잘 안 됐어요. 잠시 후 다시 시도해 주세요.");
       return;
     }
     showToast("연결 완료! 이제 여기 소식도 챙겨올게요.");
@@ -720,7 +822,7 @@ export default function Home() {
     });
     const json = (await res.json()) as { error?: string };
     if (!res.ok) {
-      showToast(json.error ?? "Notion 연동 실패");
+      showToast(json.error ?? "앗, Notion과 연결이 잘 안 됐어요 — 토큰과 Database ID를 한 번만 확인해 주세요.");
       return;
     }
     setNotionToken("");
@@ -741,7 +843,7 @@ export default function Home() {
     });
     const json = (await res.json()) as { error?: string };
     if (!res.ok) {
-      showToast(json.error ?? "폴더 추가 실패");
+      showToast(json.error ?? "앗, 폴더를 못 담았어요. 경로를 확인해 주세요.");
       return;
     }
     setLocalDocPath("");
@@ -767,7 +869,7 @@ export default function Home() {
       showToast(`'${name}' 폴더를 이 브라우저에서 챙겨볼게요!`);
       void scanBrowser();
     } catch (err) {
-      showToast(err instanceof Error && err.message ? err.message : "폴더 열기 실패");
+      showToast(err instanceof Error && err.message ? err.message : "앗, 폴더가 안 열리네요. 다시 시도해 주세요.");
     }
   }
 
@@ -789,21 +891,22 @@ export default function Home() {
       if (json.path) setter(json.path);
       else if (json.error) showToast(json.error);
     } catch {
-      showToast("폴더 선택기를 열 수 없습니다. 경로를 직접 입력해 주세요.");
+      showToast("폴더 선택 창이 안 열리네요. 경로를 직접 적어 주시면 챙겨볼게요.");
     }
   }
 
   // ── 웹 푸시 (H5) ────────────────────────────
   async function subscribePush() {
     if (!VAPID_PUBLIC_KEY) {
-      showToast("서버에 VAPID 키가 설정되지 않았습니다 (.env.example 참조)");
+      console.warn("웹 푸시 미설정: NEXT_PUBLIC_VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY 환경변수가 필요합니다 (.env.example 참조)");
+      showToast("이 서버는 아직 알림을 내릴 준비가 안 됐어요 — 관리자에게 문의해 주세요.");
       return;
     }
     setPushBusy(true);
     try {
       const permission = await Notification.requestPermission();
       if (permission !== "granted") {
-        showToast("브라우저 알림 권한이 허용되지 않았습니다");
+        showToast("알림 권한이 꺼져 있어요 — 주소창 옆 자물쇠(사이트 설정)에서 허용해 주시면 바로 찾아뵐게요!");
         return;
       }
       const registration = await navigator.serviceWorker.ready;
@@ -821,11 +924,15 @@ export default function Home() {
         }),
       });
       const json = (await res.json().catch(() => ({}))) as { error?: string };
-      if (!res.ok) throw new Error(json.error || `서버 오류 (HTTP ${res.status})`);
+      if (!res.ok) throw new Error(json.error || `서버가 잠시 말이 없네요 (HTTP ${res.status}). 조금 뒤 다시 시도해 주세요.`);
       setPushEndpoint(subscription.endpoint);
       showToast(`좋아요, 매일 ${briefTime}에 찾아뵐게요! 첫 브리핑은 내일부터 — 궁금하면 '테스트 발송'을 눌러보세요.`);
     } catch (err) {
-      showToast(err instanceof Error && err.message ? err.message : "알림 설정 실패");
+      showToast(
+        err instanceof Error && err.message
+          ? `앗, 알림벨을 달다 놓쳤어요 (${err.message})`
+          : "앗, 알림벨을 달다 놓쳤어요. 잠시 후 다시 시도해 주세요."
+      );
     } finally {
       setPushBusy(false);
     }
@@ -848,7 +955,7 @@ export default function Home() {
       setPushEndpoint(null);
       showToast("알겠어요, 당분간 조용히 있을게요.");
     } catch {
-      showToast("알림 해제 실패");
+      showToast("앗, 알림을 끄지 못했어요. 잠시 후 다시 눌러주세요.");
     } finally {
       setPushBusy(false);
     }
@@ -864,7 +971,7 @@ export default function Home() {
         body: JSON.stringify({ endpoint: pushEndpoint }),
       });
       const json = (await res.json().catch(() => ({}))) as { message?: string; error?: string };
-      showToast(json.message ?? json.error ?? `요청 실패 (HTTP ${res.status})`);
+      showToast(json.message ?? json.error ?? `서버가 잠시 말이 없네요 (HTTP ${res.status}). 조금 뒤 다시 시도해 주세요.`);
     } finally {
       setPushBusy(false);
     }
@@ -888,17 +995,17 @@ export default function Home() {
         }),
       });
       const json = (await res.json().catch(() => ({}))) as { error?: string };
-      if (!res.ok) throw new Error(json.error || `서버 오류 (HTTP ${res.status})`);
+      if (!res.ok) throw new Error(json.error || `서버가 잠시 말이 없네요 (HTTP ${res.status}). 조금 뒤 다시 시도해 주세요.`);
       showToast(`발송 시각 ${next}, 기억해뒀어요!`);
     } catch (err) {
-      showToast(err instanceof Error && err.message ? err.message : "발송 시각 변경 실패");
+      showToast(err instanceof Error && err.message ? err.message : "앗, 발송 시각을 못 적어뒀어요. 다시 골라주세요.");
     }
   }
 
   async function exportLlmDigest() {
     const res = await fetch("/api/tasks/llm-digest", { method: "POST" });
     const json = (await res.json().catch(() => ({}))) as { message?: string; error?: string };
-    showToast(json.message ?? json.error ?? `요청 실패 (HTTP ${res.status})`);
+    showToast(json.message ?? json.error ?? `서버가 잠시 말이 없네요 (HTTP ${res.status}). 조금 뒤 다시 시도해 주세요.`);
   }
 
   function toggleExpand(id: string) {
@@ -932,7 +1039,7 @@ export default function Home() {
             coffee<span>Tide</span>
           </h1>
           <p className={styles.landingDesc}>
-            커피 한 잔 하면서 오늘을 정리하는 AI 개인 비서예요.
+            커피 한 잔 하면서 오늘을 정리하는 AI 업무 비서예요.
             <br />
             회원가입도, 연동도 없이 지금 바로 시작할 수 있어요.
           </p>
@@ -989,7 +1096,7 @@ export default function Home() {
             </span>
           )}
           {item.overdue > 0 && (
-            <span className={styles.overdueBadge}>⏰ {item.overdue}시간 경과</span>
+            <span className={styles.overdueBadge}>⏰ {item.overdue}시간째 기다리는 중</span>
           )}
           {item.status === "held" && <span className={styles.cat}>보류 중</span>}
         </div>
@@ -1145,12 +1252,51 @@ export default function Home() {
         </div>
       </header>
 
+      {sessionExpired && (
+        <div
+          className={styles.errorBanner}
+          style={{ borderColor: "var(--warn)", color: "var(--warn)", background: "rgba(255,180,84,0.08)" }}
+        >
+          자리를 오래 비우셨네요 — 세션이 만료됐어요. 화면의 내용은 그대로 있으니, 준비되시면 다시
+          입장해 주세요.{" "}
+          <button
+            className={styles.btn}
+            style={{ padding: "2px 10px", fontSize: "0.76rem" }}
+            onClick={() => setPhase("landing")}
+          >
+            다시 입장하기
+          </button>
+        </div>
+      )}
+      {fetchFailed && !sessionExpired && (
+        <div
+          className={styles.errorBanner}
+          style={{ borderColor: "var(--warn)", color: "var(--warn)", background: "rgba(255,180,84,0.08)" }}
+        >
+          외부 소식은 잠시 못 가져왔어요. 직접 추가·붙여넣기·바리스타는 그대로 쓸 수 있어요.{" "}
+          <button
+            className={styles.btn}
+            style={{ padding: "2px 10px", fontSize: "0.76rem" }}
+            onClick={() => void fetchMails(true)}
+          >
+            다시 가져오기
+          </button>
+        </div>
+      )}
       {errors && Object.keys(errors).length > 0 && (
         <div className={styles.errorBanner}>
           몇 군데서 소식을 못 받아왔어요 (나머지는 멀쩡해요):{" "}
           {Object.entries(errors)
-            .map(([k, v]) => `${k}: ${v}`)
-            .join(" · ")}
+            .map(([k, v]) => `${ERROR_SOURCE_LABELS[k] ?? k}: ${v}`)
+            .join(" · ")}{" "}
+          <button
+            className={styles.btn}
+            style={{ padding: "2px 10px", fontSize: "0.76rem" }}
+            onClick={() => setShowConn(true)}
+          >
+            설정에서 재연동
+          </button>{" "}
+          그동안 직접 추가·붙여넣기는 계속 쓸 수 있어요.
         </div>
       )}
       {aiError && (
@@ -1225,7 +1371,7 @@ export default function Home() {
         {/* G3/G6: Copilot — 무연동에서도 활성, MarkdownLite 렌더링 */}
         <section className={`${styles.card} ${styles.colCopilot}`}>
           <div className={styles.cardTitle}>☕ AI 바리스타</div>
-          <div className={styles.copilotBody}>
+          <div className={styles.copilotBody} ref={copilotBodyRef}>
             {copilotMessages.length === 0 ? (
               <div className={styles.msgHint}>
                 “오늘 뭐 해야 해?”라고 주문하듯 편하게 물어보세요 ☕
@@ -1259,11 +1405,23 @@ export default function Home() {
               style={{ display: "none" }}
               onChange={handleFileUpload}
             />
+            <button
+              ref={plusBtnRef}
+              className={`${styles.btn} ${styles.plusBtn} ${plusOpen ? styles.plusBtnOpen : ""}`}
+              onClick={() => setPlusOpen((v) => !v)}
+              disabled={uploadBusy}
+              title="첨부·옵션"
+              aria-label="첨부 및 옵션 메뉴"
+              aria-expanded={plusOpen}
+            >
+              +
+            </button>
             {plusOpen && (
               <>
                 <div className={styles.plusBackdrop} onClick={() => setPlusOpen(false)} />
                 <div className={styles.plusMenu} role="menu">
                   <button
+                    ref={plusFirstItemRef}
                     className={styles.plusMenuItem}
                     role="menuitem"
                     onClick={() => {
@@ -1277,13 +1435,22 @@ export default function Home() {
                   <button
                     className={styles.plusMenuItem}
                     role="menuitem"
-                    onClick={() => setSaveToDrive(!saveToDrive)}
+                    onClick={() => {
+                      userSetDriveRef.current = true;
+                      setSaveToDrive(!saveToDrive);
+                    }}
+                    disabled={!googleConnected}
+                    title={
+                      googleConnected
+                        ? undefined
+                        : "Google 연동 후 드라이브 영구 저장을 쓸 수 있어요. 지금은 일회성 분석으로 업로드돼요."
+                    }
                   >
                     {saveToDrive ? "☁️ 드라이브 영구 저장" : "⏳ 일회성 분석 (임시)"}
                     <span
                       className={`${styles.plusMenuState} ${saveToDrive ? "" : styles.plusMenuStateOff}`}
                     >
-                      {saveToDrive ? "ON" : "OFF"}
+                      {saveToDrive ? "켜짐" : "꺼짐"}
                     </span>
                   </button>
                   <button
@@ -1300,23 +1467,13 @@ export default function Home() {
                 </div>
               </>
             )}
-            <button
-              className={`${styles.btn} ${styles.plusBtn} ${plusOpen ? styles.plusBtnOpen : ""}`}
-              onClick={() => setPlusOpen((v) => !v)}
-              disabled={uploadBusy}
-              title="첨부·옵션"
-              aria-label="첨부 및 옵션 메뉴"
-              aria-expanded={plusOpen}
-            >
-              +
-            </button>
             <input
               className={styles.input}
               placeholder="오늘 뭐 해야 해?"
               value={copilotInput}
               onChange={(e) => setCopilotInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && askCopilot()}
-              disabled={copilotBusy || uploadBusy}
+              disabled={copilotBusy}
               aria-label="AI 바리스타 질문 입력"
             />
             <button
@@ -1455,7 +1612,8 @@ export default function Home() {
                       {rule.enabled ? "●" : "○"}
                     </button>
                     <span className={styles.ruleText}>
-                      <b>{rule.field}</b>에 &lsquo;{rule.value}&rsquo; → <b>{rule.action}</b>
+                      <b>{FIELD_LABEL[rule.field]}</b>에 &lsquo;{rule.value}&rsquo; →{" "}
+                      <b>{ACTION_LABEL[rule.action]}</b>
                     </span>
                     <button
                       className={styles.iconBtn}

@@ -10,7 +10,11 @@ export async function POST(request: NextRequest) {
   if (!session) return unauthorized();
 
   if (!isPushConfigured()) {
-    return NextResponse.json({ error: "서버에 VAPID 키가 설정되지 않았습니다" }, { status: 501 });
+    console.warn("웹 푸시 미설정: VAPID 키 환경변수 누락 (.env.example 참조)");
+    return NextResponse.json(
+      { error: "이 서버는 아직 알림을 내릴 준비가 안 됐어요 — 관리자에게 문의해 주세요." },
+      { status: 501 }
+    );
   }
 
   const body = (await request.json().catch(() => ({}))) as { endpoint?: string };

@@ -17,7 +17,7 @@ export async function GET() {
 
   if (process.platform !== "win32") {
     return NextResponse.json(
-      { error: "폴더 선택기는 Windows 데스크톱에서만 지원됩니다. 경로를 직접 입력해 주세요." },
+      { error: "폴더 선택 창은 Windows 데스크톱에서만 열려요. 경로를 직접 적어 주시면 챙겨볼게요." },
       { status: 501 }
     );
   }

@@ -4,6 +4,7 @@ import { randomBytes } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { readSession, unauthorized, writeSession } from "@/lib/auth/cookies";
 import { buildOutlookAuthUrl, isOutlookConfigured } from "@/lib/auth/msal";
+import { OAUTH_STATE_COOKIE } from "@/lib/auth/session";
 
 export async function GET(request: NextRequest) {
   if (!isOutlookConfigured()) {
@@ -14,7 +15,7 @@ export async function GET(request: NextRequest) {
   }
   const state = randomBytes(16).toString("hex");
   const res = NextResponse.redirect(buildOutlookAuthUrl(state));
-  res.cookies.set("tp_oauth_state", state, {
+  res.cookies.set(OAUTH_STATE_COOKIE, state, {
     httpOnly: true,
     sameSite: "lax",
     path: "/",

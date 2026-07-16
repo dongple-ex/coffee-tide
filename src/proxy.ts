@@ -1,12 +1,19 @@
 // 인증 가드 — Next 16 규약(proxy.ts). doc/as-built-reference.md §2.
-// 공개 경로 외 요청에 세션 쿠키를 요구. 만료 판독은 평문 보조 쿠키(tp_session_expiry).
+// 공개 경로 외 요청에 세션 쿠키를 요구. 만료 판독은 평문 보조 쿠키(SESSION_EXPIRY_COOKIE).
 
 import { NextRequest, NextResponse } from "next/server";
+import { SESSION_COOKIE, SESSION_EXPIRY_COOKIE } from "@/lib/auth/cookieNames";
 
 const PUBLIC_PATHS = [
   "/",
   "/sw.js", // Service Worker (웹 푸시)
   "/icon.svg", // 파비콘 (세션 없는 첫 방문에서도 로드)
+  "/manifest.webmanifest", // PWA 매니페스트 (설치 시 세션 없이 로드)
+  "/icon-192.png", // 매니페스트·알림 아이콘
+  "/icon-512.png",
+  "/icon-512-maskable.png",
+  "/badge-72.png", // 알림 상태바 badge
+  "/apple-icon.png", // iOS 홈 화면 아이콘 (Next 파일 규약)
   "/api/auth/signin",
   "/api/auth/outlook",
   "/api/auth/outlook/callback",
@@ -26,8 +33,8 @@ export default function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const session = request.cookies.get("tp_session")?.value;
-  const expiry = request.cookies.get("tp_session_expiry")?.value;
+  const session = request.cookies.get(SESSION_COOKIE)?.value;
+  const expiry = request.cookies.get(SESSION_EXPIRY_COOKIE)?.value;
   const expired = expiry ? Number(expiry) < Date.now() : false;
 
   if (!session || expired) {

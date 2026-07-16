@@ -11,8 +11,11 @@ import { UnifiedData } from "@/lib/types/unified";
 const MAX_FILE_BYTES = 1 * 1024 * 1024;
 const TEXT_EXTENSIONS = [".txt", ".md", ".markdown", ".csv", ".json", ".log"];
 
-const RELOGIN_MESSAGE =
-  "Google Drive 권한이 없거나 만료되었습니다. 설정에서 Google을 다시 연동해주세요.";
+// 원칙 4(부분 실패 허용): Drive는 증강 기능 — 어떤 저장 실패도 업로드(일회성 분석) 자체를 막지 않는다
+const DRIVE_SKIP_NOTICE =
+  "Drive 저장은 못 했어요 — 일회성 항목으로 등록했어요. 영구 저장은 설정에서 Google을 다시 연동한 뒤 가능해요.";
+const DRIVE_RETRY_NOTICE =
+  "Drive 저장은 못 했어요 — 일회성 항목으로 등록했어요. 잠시 후 다시 올려주시면 영구 저장할게요.";
 
 function isTextFile(file: File): boolean {
   if (file.type.startsWith("text/") || file.type === "application/json") return true;
@@ -34,19 +37,21 @@ export async function POST(req: NextRequest) {
     }
     if (file.size > MAX_FILE_BYTES) {
       return NextResponse.json(
-        { error: "파일이 너무 큽니다. 1MB 이하의 텍스트 파일만 업로드할 수 있어요." },
+        { error: "1MB 이하의 텍스트 파일만 받을 수 있어요" },
         { status: 413 }
       );
     }
     if (!isTextFile(file)) {
       return NextResponse.json(
-        { error: "텍스트 파일(.txt, .md, .csv, .json 등)만 업로드할 수 있어요." },
+        { error: "텍스트 파일(.txt, .md, .csv, .json 등)만 받을 수 있어요" },
         { status: 415 }
       );
     }
 
     const textContent = await file.text();
     let sessionChanged = false;
+    let driveSaved = false;
+    let driveNotice: string | undefined;
 
     if (saveToDrive) {
       // 선제 리프레시 — 만료 임박(60초 이내) 시 갱신
@@ -57,27 +62,34 @@ export async function POST(req: NextRequest) {
       }
 
       if (!session.googleToken) {
-        return NextResponse.json({ error: RELOGIN_MESSAGE }, { status: 401 });
-      }
-
-      try {
-        await saveToDriveFolder(session.googleToken, file);
-      } catch (err) {
-        // 반응형 리프레시: 401/403이면 1회 갱신 후 재시도 (백로그 A3)
-        if (!(err instanceof AuthExpiredError)) throw err;
-        const retried = await refreshChannel("google", session);
-        if (!retried) {
-          return NextResponse.json({ error: RELOGIN_MESSAGE }, { status: 401 });
-        }
-        session = retried;
-        sessionChanged = true;
+        driveNotice = DRIVE_SKIP_NOTICE;
+      } else {
         try {
-          await saveToDriveFolder(session.googleToken!, file);
-        } catch (retryErr) {
-          if (retryErr instanceof AuthExpiredError) {
-            return NextResponse.json({ error: RELOGIN_MESSAGE }, { status: 401 });
+          await saveToDriveFolder(session.googleToken, file);
+          driveSaved = true;
+        } catch (err) {
+          if (err instanceof AuthExpiredError) {
+            // 반응형 리프레시: 401/403이면 1회 갱신 후 재시도 (백로그 A3)
+            const retried = await refreshChannel("google", session);
+            if (retried) {
+              session = retried;
+              sessionChanged = true;
+              try {
+                await saveToDriveFolder(session.googleToken!, file);
+                driveSaved = true;
+              } catch (retryErr) {
+                console.error("Drive save failed after refresh:", retryErr);
+                driveNotice =
+                  retryErr instanceof AuthExpiredError ? DRIVE_SKIP_NOTICE : DRIVE_RETRY_NOTICE;
+              }
+            } else {
+              driveNotice = DRIVE_SKIP_NOTICE;
+            }
+          } else {
+            // Drive 5xx·네트워크 오류도 업로드를 막지 않는다 — 항목 등록은 계속
+            console.error("Drive save failed:", err);
+            driveNotice = DRIVE_RETRY_NOTICE;
           }
-          throw retryErr;
         }
       }
     }
@@ -93,11 +105,15 @@ export async function POST(req: NextRequest) {
       status: "pending",
     };
 
-    const res = NextResponse.json(doc);
+    const res = NextResponse.json({
+      doc,
+      driveSaved: saveToDrive ? driveSaved : undefined,
+      driveNotice,
+    });
     return sessionChanged ? writeSession(res, session) : res;
   } catch (error) {
     console.error("Upload error:", error);
-    return NextResponse.json({ error: "업로드에 실패했어요. 다시 시도해주세요." }, { status: 500 });
+    return NextResponse.json({ error: "서버에서 문제가 생겼어요" }, { status: 500 });
   }
 }
 

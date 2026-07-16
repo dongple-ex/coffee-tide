@@ -1,11 +1,11 @@
 // 세션 쿠키 암호화/복호화 — doc/as-built-reference.md §2.
 // tp_session: AES-256-GCM 암호화 페이로드(HttpOnly), tp_session_expiry: proxy 만료 판독용 평문 보조 쿠키.
+// 쿠키 이름은 cookieNames.ts가 단일 정의처 (proxy.ts와 공유 — tp_ 접두사 유지 사유도 그곳 참조).
 // 백로그 B1 반영: 프로덕션에서 SESSION_ENCRYPTION_SECRET 미설정이면 부팅 실패.
 
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 
-export const SESSION_COOKIE = "tp_session";
-export const SESSION_EXPIRY_COOKIE = "tp_session_expiry";
+export { SESSION_COOKIE, SESSION_EXPIRY_COOKIE, OAUTH_STATE_COOKIE } from "./cookieNames";
 export const SESSION_MAX_AGE_SEC = 7 * 24 * 3600; // 7일 (백로그 B2: 롤링 연장은 후속)
 
 export interface SessionData {

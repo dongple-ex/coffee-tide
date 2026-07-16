@@ -50,7 +50,13 @@ export class ObsidianAdapter {
     const sep = decoded.lastIndexOf("|");
     const relPath = decoded.slice(0, sep);
     const lineNo = Number(decoded.slice(sep + 1));
-    const fullPath = path.join(this.vaultPath, relPath);
+    const fullPath = path.resolve(this.vaultPath, relPath);
+
+    // id는 클라이언트가 임의 조작 가능 — 볼트 밖 경로(../ 탈출)로의 읽기/쓰기를 차단
+    const vaultRoot = path.resolve(this.vaultPath);
+    if (fullPath !== vaultRoot && !fullPath.startsWith(vaultRoot + path.sep)) {
+      throw new Error("대상 체크박스를 찾을 수 없습니다 (노트가 수정되었을 수 있음)");
+    }
 
     const text = await fs.readFile(fullPath, "utf8");
     const lines = text.split(/\r?\n/);

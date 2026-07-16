@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readSession, writeSession } from "@/lib/auth/cookies";
 import { exchangeOutlookCode, fetchOutlookProfile } from "@/lib/auth/msal";
+import { OAUTH_STATE_COOKIE } from "@/lib/auth/session";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   const code = searchParams.get("code");
   const state = searchParams.get("state");
-  const savedState = request.cookies.get("tp_oauth_state")?.value;
+  const savedState = request.cookies.get(OAUTH_STATE_COOKIE)?.value;
 
   const home = NextResponse.redirect(new URL("/", request.url));
-  home.cookies.set("tp_oauth_state", "", { path: "/", maxAge: 0 });
+  home.cookies.set(OAUTH_STATE_COOKIE, "", { path: "/", maxAge: 0 });
 
   if (!code || !state || state !== savedState) {
     return NextResponse.redirect(new URL("/?error=outlook_auth", request.url));

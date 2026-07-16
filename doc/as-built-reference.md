@@ -68,9 +68,9 @@ coffeeTide는 여러 채널의 업무 데이터를 하나의 대시보드로 통
 
 ### 클라이언트 저장 (localStorage)
 - `ct_manual_items`: manual/paste 항목 (UnifiedData[], 완료/보류 상태 포함)
-- `tp_automation_rules`: 자동화 규칙
-- `tp_dismissed_ids`: 숨긴 외부 항목 id — 동기화 시 현존 id와 교집합으로 자동 정리(D3 반영)
-- `tp_followup_hours`: 팔로업 기준 시간(12/24/48)
+- `ct_automation_rules`: 자동화 규칙 (구 `tp_automation_rules` — loadLS가 판독 시 1회 이관)
+- `ct_dismissed_ids`: 숨긴 외부 항목 id — 동기화 시 현존 id와 교집합으로 자동 정리(D3 반영) (구 `tp_dismissed_ids`)
+- `ct_followup_hours`: 팔로업 기준 시간(12/24/48) (구 `tp_followup_hours`)
 
 ## 4. API 엔드포인트
 
@@ -102,7 +102,7 @@ coffeeTide는 여러 채널의 업무 데이터를 하나의 대시보드로 통
 - **분류 (C1 반영)**: `src/lib/ai/gemini.ts` — ① 콘텐츠 해시(`id`+title/content) 서버 메모리 캐시로 신규·변경 항목만 전송, ② 429 시 10분 쿨다운 동안 `FallbackEngine` 대체, ③ `DISABLE_AI_CLASSIFY=true` 킬스위치. 키 미설정 시 전 기능 로컬 대체.
 - **Copilot (G4 반영)**: 기준일·타임존을 시스템 프롬프트에 주입, "날짜 추정 금지 + 출처 표기" 강제. 응답은 `MarkdownLite`로 카드/섹션 렌더링(G6).
 - **규칙**: `{ field: any|source|sender|title|content, value, action: pin|urgent|mute|hide, enabled }` — `applyRules` 위→아래 순차, pin 안정 정렬.
-- **팔로업**: 응답 필요 카테고리(urgent/approval/action)가 `tp_followup_hours` 초과 시 상단 에스컬레이션 + `⏰ N시간 경과` 배지.
+- **팔로업**: 응답 필요 카테고리(urgent/approval/action)가 `ct_followup_hours` 초과 시 상단 에스컬레이션 + `⏰ N시간째 기다리는 중` 배지.
 - **LLM 산출물 (phase6)**: 폴더 스캔(`LlmArtifactAdapter`, frontmatter 파싱·발췌 500자) + Obsidian 연동 시 동기화마다 오늘 항목을 `coffeeTide_LLM/YYYY-MM-DD.md`에 idempotent upsert(Q4=자동).
 - **폴링**: 30초, 백그라운드 탭에서 중단·복귀 시 즉시 갱신(C2·모바일 §5 반영).
 - **아침 브리핑 웹 푸시 (H5)**: `public/sw.js`(Service Worker) + VAPID. 구독 시 프로필(구독+발송시각+타임존+업무 스냅샷)을 저장 — 저장소는 `UPSTASH_REDIS_REST_*` 설정 시 Upstash Redis, 미설정 시 `data/push-profiles.json` 파일(서버리스 배포는 Redis 필수). 스냅샷은 브리핑 생성 최소 필드(title/category/status)만 저장(본문·작성자 미저장). 세션이 쿠키에만 있어 스냅샷이 스케줄 발송의 데이터 소스. 셀프호스팅은 `src/instrumentation.ts`가 60초 주기 스케줄러 기동, 클라우드는 크론이 `/api/briefing/daily` 호출(`vercel.json`에 10분 주기 Vercel Cron 등록됨 — Hobby 플랜은 일 1회 제한이라 스케줄 조정 필요). 프로필 타임존 기준 발송시각 경과+당일 미발송이면 발송(등록 당일은 스킵, 테스트 발송으로 확인). 404/410 구독은 자동 제거. 알림 본문은 스냅샷에서 결정적 생성(우선순위 상위 3건), 클릭 시 대시보드 오픈.

@@ -11,7 +11,9 @@ self.addEventListener("push", (event) => {
     self.registration.showNotification(data.title || "🥤 coffeeTide", {
       body: data.body || "",
       tag: data.tag || "coffeetide-briefing",
-      icon: "/icon.svg",
+      // Android Chrome 등은 알림 icon에 SVG를 지원하지 않음 — PNG + 단색 badge로 브랜드 유지
+      icon: "/icon-192.png",
+      badge: "/badge-72.png",
       data: { url: data.url || "/" },
     })
   );

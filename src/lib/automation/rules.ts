@@ -1,6 +1,6 @@
 // 자동화 규칙 엔진 — doc/as-built-reference.md §5.
 // 규칙은 위→아래 순차 적용. hide=제거, pin=상단 고정(안정 정렬), urgent=카테고리 승격, mute=ignore 강등.
-// 클라이언트 localStorage(tp_automation_rules)에 영속 — 서버/클라 공용 순수 모듈.
+// 클라이언트 localStorage(ct_automation_rules)에 영속 — 서버/클라 공용 순수 모듈.
 
 import { UnifiedData } from "../types/unified";
 

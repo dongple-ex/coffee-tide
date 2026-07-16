@@ -1,13 +1,15 @@
 // AI 답장 초안 생성 + Outlook 임시보관함 저장 — doc/phase5 §2.2
+// /api/mails·/api/upload와 동일하게 선제(만료 임박) + 반응형(401 시 1회) 토큰 리프레시 적용.
 
 import { NextRequest, NextResponse } from "next/server";
 import { isMockMode } from "@/lib/adapters/factory";
-import { OutlookAdapter } from "@/lib/adapters/outlook";
+import { AuthExpiredError, OutlookAdapter } from "@/lib/adapters/outlook";
 import { generateReplyDraft } from "@/lib/ai/gemini";
-import { readSession, unauthorized } from "@/lib/auth/cookies";
+import { readSession, unauthorized, writeSession } from "@/lib/auth/cookies";
+import { REFRESH_WINDOW_MS, refreshChannel } from "@/lib/auth/refresh";
 
 export async function POST(request: NextRequest) {
-  const session = await readSession();
+  let session = await readSession();
   if (!session) return unauthorized();
 
   const body = (await request.json().catch(() => ({}))) as {
@@ -35,18 +37,47 @@ export async function POST(request: NextRequest) {
     });
   }
 
+  // 선제 리프레시 — 만료 임박(60초 이내) 시 갱신
+  let sessionChanged = false;
+  if (
+    session.outlookRefreshToken &&
+    session.outlookTokenExpiry &&
+    session.outlookTokenExpiry - Date.now() < REFRESH_WINDOW_MS
+  ) {
+    const refreshed = await refreshChannel("outlook", session);
+    if (refreshed) {
+      session = refreshed;
+      sessionChanged = true;
+    }
+  }
+
   try {
-    const adapter = new OutlookAdapter(session.outlookToken);
-    await adapter.saveReplyDraft(body.id, draftText);
-    return NextResponse.json({
+    try {
+      await new OutlookAdapter(session.outlookToken!).saveReplyDraft(body.id, draftText);
+    } catch (err) {
+      // 반응형 리프레시: 401이면 1회 갱신 후 재시도 (백로그 A3)
+      if (!(err instanceof AuthExpiredError)) throw err;
+      const retried = await refreshChannel("outlook", session);
+      if (!retried) throw err;
+      session = retried;
+      sessionChanged = true;
+      await new OutlookAdapter(session.outlookToken!).saveReplyDraft(body.id, draftText);
+    }
+    const res = NextResponse.json({
       success: true,
       message: "답장 초안을 Outlook 임시보관함에 넣어뒀어요. 검토 후 전송만 눌러주세요!",
       draftText,
     });
+    return sessionChanged ? writeSession(res, session) : res;
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "초안 저장 실패", draftText },
-      { status: 500 }
-    );
+    // 원칙 4(부분 실패 허용): Graph 저장이 안 돼도 초안 텍스트는 전달한다
+    const reason =
+      err instanceof AuthExpiredError
+        ? "Outlook 세션이 만료돼 임시보관함엔 못 넣었어요 — 설정에서 재연동해 주세요. 초안은 아래 있어요!"
+        : err instanceof Error && err.message
+          ? err.message
+          : "앗, 임시보관함에 넣다 놓쳤어요. 초안은 아래 있어요!";
+    const res = NextResponse.json({ success: true, message: reason, draftText });
+    return sessionChanged ? writeSession(res, session) : res;
   }
 }
