@@ -411,6 +411,7 @@
 }
 
 .copilotForm {
+  position: relative;
   display: flex;
   gap: 8px;
   margin-top: 12px;
@@ -418,6 +419,76 @@
 
 .copilotForm .input {
   flex: 1;
+  min-width: 0;
+}
+
+.plusBtn {
+  flex-shrink: 0;
+  padding: 8px 13px;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.plusBtn.plusBtnOpen {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.plusBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 25;
+}
+
+.plusMenu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  z-index: 26;
+  min-width: 220px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+
+.plusMenuItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 10px;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 0.85rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.plusMenuItem:hover:not(:disabled) {
+  background: var(--card-hover);
+}
+
+.plusMenuItem:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.plusMenuState {
+  margin-left: auto;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.plusMenuStateOff {
+  color: var(--text-dim);
 }
 
 /* ── 연동 관리 ─────────────────────────── */

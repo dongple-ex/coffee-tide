@@ -171,6 +171,7 @@ export default function Home() {
 
   const [saveToDrive, setSaveToDrive] = useState(true);
   const [uploadBusy, setUploadBusy] = useState(false);
+  const [plusOpen, setPlusOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [ruleInput, setRuleInput] = useState("");
@@ -1258,22 +1259,56 @@ export default function Home() {
               style={{ display: "none" }}
               onChange={handleFileUpload}
             />
+            {plusOpen && (
+              <>
+                <div className={styles.plusBackdrop} onClick={() => setPlusOpen(false)} />
+                <div className={styles.plusMenu} role="menu">
+                  <button
+                    className={styles.plusMenuItem}
+                    role="menuitem"
+                    onClick={() => {
+                      setPlusOpen(false);
+                      fileInputRef.current?.click();
+                    }}
+                    disabled={uploadBusy}
+                  >
+                    📎 파일 첨부
+                  </button>
+                  <button
+                    className={styles.plusMenuItem}
+                    role="menuitem"
+                    onClick={() => setSaveToDrive(!saveToDrive)}
+                  >
+                    {saveToDrive ? "☁️ 드라이브 영구 저장" : "⏳ 일회성 분석 (임시)"}
+                    <span
+                      className={`${styles.plusMenuState} ${saveToDrive ? "" : styles.plusMenuStateOff}`}
+                    >
+                      {saveToDrive ? "ON" : "OFF"}
+                    </span>
+                  </button>
+                  <button
+                    className={styles.plusMenuItem}
+                    role="menuitem"
+                    onClick={() => {
+                      setPlusOpen(false);
+                      askCopilot("오늘 해야 할 일을 브리핑해줘");
+                    }}
+                    disabled={copilotBusy}
+                  >
+                    📋 오늘 브리핑
+                  </button>
+                </div>
+              </>
+            )}
             <button
-              className={styles.btn}
-              onClick={() => fileInputRef.current?.click()}
+              className={`${styles.btn} ${styles.plusBtn} ${plusOpen ? styles.plusBtnOpen : ""}`}
+              onClick={() => setPlusOpen((v) => !v)}
               disabled={uploadBusy}
-              title="파일 첨부"
-              style={{ padding: "8px 10px", flexShrink: 0 }}
+              title="첨부·옵션"
+              aria-label="첨부 및 옵션 메뉴"
+              aria-expanded={plusOpen}
             >
-              📎
-            </button>
-            <button
-              className={styles.btn}
-              onClick={() => setSaveToDrive(!saveToDrive)}
-              title={saveToDrive ? "구글 드라이브 영구 저장" : "일회성 분석 (임시)"}
-              style={{ padding: "8px 10px", flexShrink: 0, fontSize: "1.1rem" }}
-            >
-              {saveToDrive ? "☁️" : "⏳"}
+              +
             </button>
             <input
               className={styles.input}
@@ -1289,19 +1324,12 @@ export default function Home() {
               onClick={() => askCopilot()}
               disabled={copilotBusy}
               title="질문"
-              style={{ padding: "8px 12px", display: "flex", alignItems: "center", justifyContent: "center" }}
+              style={{ padding: "8px 12px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="9 10 4 15 9 20"></polyline>
                 <path d="M20 4v7a4 4 0 0 1-4 4H4"></path>
               </svg>
-            </button>
-            <button
-              className={styles.btn}
-              onClick={() => askCopilot("오늘 해야 할 일을 브리핑해줘")}
-              disabled={copilotBusy}
-            >
-              오늘 브리핑
             </button>
           </div>
         </section>
