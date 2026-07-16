@@ -8,43 +8,11 @@ import { AuthExpiredError } from "@/lib/adapters/outlook";
 import { ObsidianAdapter } from "@/lib/adapters/obsidian";
 import { classifyTasks } from "@/lib/ai/gemini";
 import { readSession, unauthorized, writeSession } from "@/lib/auth/cookies";
-import { refreshGoogleToken } from "@/lib/auth/google";
-import { refreshAccessToken } from "@/lib/auth/msal";
+import { REFRESH_WINDOW_MS, refreshChannel } from "@/lib/auth/refresh";
 import { SessionData } from "@/lib/auth/session";
 import { UnifiedData } from "@/lib/types/unified";
 
-const REFRESH_WINDOW_MS = 60 * 1000;
-
 type Channel = "outlook" | "google" | "notion" | "obsidian" | "local_doc" | "llm";
-
-async function refreshChannel(
-  channel: "outlook" | "google",
-  session: SessionData
-): Promise<SessionData | null> {
-  try {
-    if (channel === "outlook" && session.outlookRefreshToken) {
-      const t = await refreshAccessToken(session.outlookRefreshToken);
-      return {
-        ...session,
-        outlookToken: t.accessToken,
-        outlookRefreshToken: t.refreshToken ?? session.outlookRefreshToken,
-        outlookTokenExpiry: t.expiresAt,
-      };
-    }
-    if (channel === "google" && session.googleRefreshToken) {
-      const t = await refreshGoogleToken(session.googleRefreshToken);
-      return {
-        ...session,
-        googleToken: t.accessToken,
-        googleRefreshToken: t.refreshToken ?? session.googleRefreshToken,
-        googleTokenExpiry: t.expiresAt,
-      };
-    }
-  } catch (err) {
-    console.warn(`[coffeeTide] ${channel} 토큰 리프레시 실패`, err);
-  }
-  return null;
-}
 
 export async function GET(request: NextRequest) {
   let session = await readSession();

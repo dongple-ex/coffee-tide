@@ -440,6 +440,10 @@ export default function Home() {
       status: "pending",
     };
     setManualItems((prev) => [item, ...prev]);
+    await classifyManualItem(item);
+  }
+
+  async function classifyManualItem(item: UnifiedData) {
     try {
       const res = await fetch("/api/tasks/classify", {
         method: "POST",
@@ -616,6 +620,12 @@ export default function Home() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (file.size > 1024 * 1024) {
+      showToast("1MB 이하의 텍스트 파일만 업로드할 수 있어요.");
+      e.target.value = "";
+      return;
+    }
+
     setUploadBusy(true);
     try {
       const form = new FormData();
@@ -633,11 +643,13 @@ export default function Home() {
         return;
       }
 
-      const doc = await res.json();
+      const doc = (await res.json()) as UnifiedData;
       setManualItems((prev) => [doc, ...prev]);
       showToast(`'${file.name}' 업로드 완료!`);
-    } catch (err: any) {
-      showToast("업로드 중 오류 발생: " + err.message);
+      classifyManualItem(doc);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "알 수 없는 오류";
+      showToast("업로드 중 오류 발생: " + message);
     } finally {
       setUploadBusy(false);
       if (fileInputRef.current) {
@@ -645,7 +657,6 @@ export default function Home() {
       }
     }
   }
-
 
   // ── 자동화 규칙 ─────────────────────────────
   async function addRule() {
@@ -1243,6 +1254,7 @@ export default function Home() {
             <input
               type="file"
               ref={fileInputRef}
+              accept="text/*,.txt,.md,.markdown,.csv,.json,.log,application/json"
               style={{ display: "none" }}
               onChange={handleFileUpload}
             />
