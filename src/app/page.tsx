@@ -1189,6 +1189,43 @@ export default function Home() {
     }
   }
 
+  const toggleNotification = useCallback(async (enable: boolean) => {
+    setPushBusy(true);
+    try {
+      if (enable) {
+        const res = await requestNotificationPermission();
+        setNotifPerm(res);
+        if (res === "granted") {
+          if (pushSupported && VAPID_PUBLIC_KEY && !pushEndpoint) {
+            try {
+              await subscribePush();
+            } catch (err) {
+              console.warn("Push subscribe error:", err);
+            }
+          } else {
+            showToast("🔔 데스크톱 알림 권한이 허용되었습니다!");
+          }
+        } else {
+          showToast("알림 권한이 거부되어 있습니다. 브라우저 설정에서 허용해주세요.");
+        }
+      } else {
+        if (pushEndpoint) {
+          try {
+            await unsubscribePush();
+          } catch (err) {
+            console.warn("Unsubscribe push error:", err);
+          }
+        }
+        setPushEndpoint(null);
+        showToast("알림을 껐습니다.");
+      }
+    } catch (err) {
+      console.warn("Toggle notification error:", err);
+    } finally {
+      setPushBusy(false);
+    }
+  }, [pushSupported, pushEndpoint, showToast]);
+
   async function testPush() {
     if (!pushEndpoint) return;
     setPushBusy(true);
@@ -1497,23 +1534,6 @@ export default function Home() {
               <path d="M3.34 19a10 10 0 1 1 17.32 0"/>
             </svg>
             설정
-            <span className={styles.connCount} style={{ marginLeft: 6 }}>{connectedCount}</span>
-          </button>
-          <button
-            className={styles.connMenuBtn}
-            onClick={async () => {
-              const res = await requestNotificationPermission();
-              setNotifPerm(res);
-              if (res === "granted") {
-                showToast("🔔 브라우저 데스크톱 알림이 활성화되었습니다!");
-              } else {
-                showToast("알림 권한이 거부되어 있습니다. 브라우저 설정에서 허용해주세요.");
-              }
-            }}
-            style={{ marginLeft: 8 }}
-            title="긴급 업무 및 방치된 업무를 데스크톱 알림으로 받아봅니다"
-          >
-            {notifPerm === "granted" ? "🔔 알림 켜짐" : "🔕 알림 켜기"}
           </button>
           <label>
             팔로업 기준{" "}
@@ -1843,19 +1863,36 @@ export default function Home() {
             aria-modal="true"
             aria-label="설정"
           >
-            <div className={styles.cardTitle} style={{ display: "flex", alignItems: "center" }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 6 }}>
-                <path d="m12 14 4-4"/>
-                <path d="M3.34 19a10 10 0 1 1 17.32 0"/>
-              </svg>
-              설정
-              <button
-                className={`${styles.iconBtn} ${styles.cardTitleBtn}`}
-                onClick={() => setShowConn(false)}
-                aria-label="설정 닫기"
-              >
-                ✕
-              </button>
+            <div className={styles.stickyModalHeader}>
+              <div className={styles.cardTitle} style={{ margin: 0, display: "flex", alignItems: "center" }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 6 }}>
+                  <path d="m12 14 4-4"/>
+                  <path d="M3.34 19a10 10 0 1 1 17.32 0"/>
+                </svg>
+                설정
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <button
+                  className={`${styles.btn} ${styles.btnDanger}`}
+                  style={{ padding: "4px 10px", fontSize: "0.78rem" }}
+                  onClick={async () => {
+                    try {
+                      await fetch("/api/auth/signout", { method: "POST" });
+                    } catch {}
+                    setPhase("landing");
+                  }}
+                >
+                  로그아웃 (접속 종료)
+                </button>
+                <button
+                  className={styles.iconBtn}
+                  onClick={() => setShowConn(false)}
+                  aria-label="설정 닫기"
+                  style={{ fontSize: "1.1rem", padding: "4px 8px" }}
+                >
+                  ✕
+                </button>
+              </div>
             </div>
 
             <section className={styles.card} style={{ border: "none", padding: "10px 0" }}>
@@ -1911,9 +1948,19 @@ export default function Home() {
             </section>
 
             <section className={styles.card} style={{ border: "none", padding: "10px 0" }}>
-              <div className={styles.cardTitle}>
-                🔔 아침 브리핑 알림
-                <small>{pushEndpoint ? "켜짐" : "꺼짐"}</small>
+              <div className={styles.cardTitle} style={{ display: "flex", alignItems: "center" }}>
+                <span>🔔 브리핑 & 데스크톱 알림</span>
+                <label className={`${styles.switchLabel} ${pushBusy ? styles.switchDisabled : ""}`}>
+                  <span>{notifPerm === "granted" || Boolean(pushEndpoint) ? "ON" : "OFF"}</span>
+                  <input
+                    type="checkbox"
+                    className={styles.switchInput}
+                    checked={notifPerm === "granted" || Boolean(pushEndpoint)}
+                    disabled={pushBusy}
+                    onChange={(e) => void toggleNotification(e.target.checked)}
+                  />
+                  <span className={styles.switchSlider} />
+                </label>
               </div>
               {pushSupported === false ? (
                 <p className={styles.connNote}>
@@ -1921,7 +1968,7 @@ export default function Home() {
                 </p>
               ) : (
                 <>
-                  <div className={styles.formRow}>
+                  <div className={styles.formRow} style={{ marginTop: 8 }}>
                     <label className={styles.connNote} style={{ display: "flex", alignItems: "center", gap: 8, flex: 1 }}>
                       발송 시각
                       <input
@@ -1933,82 +1980,46 @@ export default function Home() {
                         aria-label="아침 브리핑 발송 시각"
                       />
                     </label>
-                  </div>
-                  <div className={styles.formRow}>
-                    {pushEndpoint ? (
-                      <>
-                        <button className={styles.btn} disabled={pushBusy} onClick={testPush}>
-                          📨 테스트 발송
-                        </button>
-                        <button
-                          className={`${styles.btn} ${styles.btnDanger}`}
-                          disabled={pushBusy}
-                          onClick={unsubscribePush}
-                        >
-                          알림 끄기
-                        </button>
-                      </>
-                    ) : (
-                      <button
-                        className={`${styles.btn} ${styles.btnPrimary}`}
-                        disabled={pushBusy || pushSupported === null}
-                        onClick={subscribePush}
-                      >
-                        {pushBusy ? "알림벨 다는 중…" : "🔔 알림 켜기"}
+                    {pushEndpoint && (
+                      <button className={styles.btn} disabled={pushBusy} onClick={testPush} style={{ padding: "4px 10px", fontSize: "0.78rem" }}>
+                        📨 테스트 발송
                       </button>
                     )}
                   </div>
                   <p className={styles.connNote}>
-                    매일 {briefTime}, 탭을 닫아두셔도 브리핑을 들고 찾아갈게요.
-                    (브라우저는 켜져 있어야 해요)
+                    매일 {briefTime}, 탭을 닫아두셔도 브리핑을 들고 찾아갈게요. (브라우저는 켜져 있어야 해요)
                   </p>
                 </>
               )}
             </section>
 
             <section className={styles.card} style={{ border: "none", padding: "10px 0" }}>
-              <div className={styles.cardTitle}>
-                📍 위치 & 날씨 브리핑
-                <small>{weatherEnabled ? (weatherData ? `${weatherData.city} (${weatherData.temp}°C)` : "켜짐") : "꺼짐"}</small>
+              <div className={styles.cardTitle} style={{ display: "flex", alignItems: "center" }}>
+                <span>📍 위치 & 날씨 브리핑</span>
+                {weatherData && weatherEnabled && (
+                  <small style={{ marginLeft: 6 }}>{weatherData.city} ({weatherData.temp}°C)</small>
+                )}
+                <label className={`${styles.switchLabel} ${weatherBusy ? styles.switchDisabled : ""}`}>
+                  <span>{weatherEnabled ? "ON" : "OFF"}</span>
+                  <input
+                    type="checkbox"
+                    className={styles.switchInput}
+                    checked={weatherEnabled}
+                    disabled={weatherBusy}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        enableWeatherLocation();
+                      } else {
+                        disableWeatherLocation();
+                      }
+                    }}
+                  />
+                  <span className={styles.switchSlider} />
+                </label>
               </div>
               <p className={styles.connNote}>
                 위치 권한을 허용하면 계신 곳의 기상청 날씨와 맞춤 웰컴 메시지를 브리핑해 드립니다.
               </p>
-              <div className={styles.formRow}>
-                {weatherEnabled ? (
-                  <button
-                    className={`${styles.btn} ${styles.btnDanger}`}
-                    disabled={weatherBusy}
-                    onClick={disableWeatherLocation}
-                  >
-                    날씨 끄기
-                  </button>
-                ) : (
-                  <button
-                    className={`${styles.btn} ${styles.btnPrimary}`}
-                    disabled={weatherBusy}
-                    onClick={enableWeatherLocation}
-                  >
-                    {weatherBusy ? "위치 권한 요청 중…" : "📍 위치 허용 및 날씨 켜기"}
-                  </button>
-                )}
-              </div>
-            </section>
-            
-            <section className={styles.card} style={{ border: "none", padding: "10px 0", marginTop: "10px" }}>
-              <div className={styles.formRow} style={{ justifyContent: "flex-end" }}>
-                <button
-                  className={`${styles.btn} ${styles.btnDanger}`}
-                  onClick={async () => {
-                    try {
-                      await fetch("/api/auth/signout", { method: "POST" });
-                    } catch {}
-                    setPhase("landing");
-                  }}
-                >
-                  로그아웃 (접속 종료)
-                </button>
-              </div>
             </section>
 
             <div className={styles.cardTitle} style={{ marginTop: 20 }}>

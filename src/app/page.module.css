@@ -734,6 +734,19 @@
   animation: connPanelIn 0.18s ease-out;
 }
 
+.stickyModalHeader {
+  position: sticky;
+  top: -20px;
+  background: var(--card);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  margin: -20px -20px 12px -20px;
+  border-bottom: 1px solid var(--border);
+}
+
 @keyframes connPanelIn {
   from {
     opacity: 0;
@@ -743,6 +756,60 @@
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+/* 타이틀 옆 ON/OFF 토글 스위치 */
+.switchLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  margin-left: auto;
+  font-weight: 600;
+}
+
+.switchInput {
+  display: none;
+}
+
+.switchSlider {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  background-color: var(--border);
+  border-radius: 999px;
+  transition: background-color 0.22s ease;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.switchSlider::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  background-color: #ffffff;
+  border-radius: 50%;
+  transition: transform 0.22s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.switchInput:checked + .switchSlider {
+  background-color: var(--accent);
+}
+
+.switchInput:checked + .switchSlider::before {
+  transform: translateX(18px);
+}
+
+.switchDisabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .draftText {
