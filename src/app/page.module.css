@@ -144,7 +144,7 @@
 
 .colInput { grid-column: span 5; }
 .colCopilot { grid-column: span 7; display: flex; flex-direction: column; }
-.colTodo { grid-column: span 7; }
+.colTodo { grid-column: span 12; }
 .colFull { grid-column: span 12; }
 
 .cardTitle {

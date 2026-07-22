@@ -1773,7 +1773,7 @@ export default function Home() {
         </section>
 
         {/* 오늘의 행동 지침 */}
-        <section className={`${styles.card} ${styles.colTodo}`}>
+        <section className={`${styles.card} ${styles.colFull}`}>
           <div className={styles.cardTitle}>
             🎯 오늘의 행동 지침 <small>{todoItems.length}건</small>
           </div>
