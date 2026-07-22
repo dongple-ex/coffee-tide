@@ -122,7 +122,7 @@ coffeeTide는 여러 채널의 업무 데이터를 하나의 대시보드로 통
 | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `NEXT_PUBLIC_GOOGLE_REDIRECT_URI` | Google OAuth 3종 |
 | `NOTION_INTEGRATION_TOKEN` / `NOTION_DATABASE_ID` | Notion 기본값 (UI 세션별 입력 우선) |
 | `LLM_ARTIFACTS_DEFAULT_PATH` | (선택) LLM 산출물 기본 경로 |
-| `WEATHER_API_KEY` | (선택) OpenWeatherMap API 키. 미설정 시 그리팅이 시간대 기반으로 폴백 |
+| `WEATHER_API_KEY` | (선택) 날씨 정보 API 키. 공공데이터포털 기상청 단기예보 인증키 (또는 OpenWeatherMap 키). 미설정 시 시간대 기반 인사말 폴백 |
 | `NEXT_PUBLIC_VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | 웹 푸시 3종 (`npx web-push generate-vapid-keys`). 미설정 시 알림 기능만 비활성 |
 | `CRON_SECRET` | (선택) `/api/briefing/daily` 외부 크론 인증 토큰 — Vercel Cron은 자동으로 Bearer 헤더에 첨부 |
 | `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | (선택) 푸시 프로필 저장소. 미설정 시 파일(`data/push-profiles.json`) — 서버리스 배포는 필수 |
