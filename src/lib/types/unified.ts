@@ -37,6 +37,7 @@ export interface UnifiedData {
   category?: UnifiedCategory;
   actionDirective?: string;
   status?: UnifiedStatus;
+  delegatable?: boolean; // 로컬 LLM 도구로 넘길 만한 업무 (Phase 7)
 }
 
 export interface ConnectionState {

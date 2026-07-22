@@ -5,7 +5,7 @@
 연동이 없어도 manual/paste로 바로 시작할 수 있는, 연결되면 더 강력해지는 시간 관리 비서입니다.
 
 - **서비스 도메인(예정)**: `coffeeTide.dongple.kr`
-- **현재 상태**: **MVP 구현 완료 (2026-07-11).** 무연동 코어(G1~G6)와 6종 연동 구조가 이 저장소에 구현되어 있으며, 검증 3종 세트(tsc/lint/build)와 MOCK 런타임 스모크를 통과했습니다. 남은 격차는 [`7-backlog.md`](./7-backlog.md) 참조.
+- **현재 상태**: **MVP 구현 완료 (2026-07-11) + Phase 7 Copilot 브리핑 고도화 완료 (2026-07-22).** 무연동 코어(G1~G6)와 6종 연동 구조, 웰컴 그리팅·날씨·위임 태그(I1~I4)가 이 저장소에 구현되어 있으며, 검증 3종 세트(tsc/lint/build)와 MOCK 런타임 스모크를 통과했습니다. 남은 격차는 [`7-backlog.md`](./7-backlog.md) 참조.
 
 ## 핵심 가치
 - 무연동 우선 설계
@@ -28,17 +28,22 @@
    - 완료 처리, 답장 초안 등 양방향 쓰기(write-back) 설계.
 6. [`phase6_llm_artifacts_spec.md`](./phase6_llm_artifacts_spec.md)
    - LLM 산출물(Claude/Gemini `MEMORY.md` 등) 수집 + Obsidian 미러링 기획. **미구현**.
-7. [`8-mobile_strategy.md`](./8-mobile_strategy.md)
+7. [`phase7_copilot_briefing_spec.md`](./phase7_copilot_briefing_spec.md)
+   - Copilot 브리핑 고도화 — 웰컴 그리팅(시간·날씨), `/api/weather`, `delegatable` 위임 태그. **구현 완료 (2026-07-22)**.
+8. [`8-mobile_strategy.md`](./8-mobile_strategy.md)
    - 모바일 전략. 기본은 웹으로 진행하며, 로컬 파일 기반 연동의 데스크톱 전용 제약을 정의합니다.
-8. [`as-built-reference.md`](./as-built-reference.md)
-   - **현재 구현 코드 기준** 기술 레퍼런스(API 엔드포인트·환경변수·데이터모델·인증). "지금 코드가 하는 일"의 정본.
+9. [`hybrid_app_release_guide.md`](./hybrid_app_release_guide.md)
+   - Capacitor 기반 하이브리드 앱(스토어 출시) 가이드. 모바일 전략의 실행 문서.
+10. [`as-built-reference.md`](./as-built-reference.md)
+    - **현재 구현 코드 기준** 기술 레퍼런스(API 엔드포인트·환경변수·데이터모델·인증). "지금 코드가 하는 일"의 정본.
 
 ## 문서 명명 규칙
 
 - `0-*.md` ~ `5-*.md`, `implementation_plan.md` : **Phase 1 역사 문서** (Outlook 단일 채널 설계) — 참고용, 현재 설계와 불일치.
 - `phase2_*.md` : **Phase 2 역사 문서** (Notion 초기 연동 설계) — 참고용.
-- `phase3_*.md`, `phase5_*.md`, `phase6_*.md` : 단계별 설계 문서 — **정본**.
-- `00-current-state.md`, `7-backlog.md`, `8-mobile_strategy.md`, `as-built-reference.md` : 살아있는 문서 — 항상 최신 유지.
+- `phase3_*.md`, `phase5_*.md`, `phase6_*.md`, `phase7_*.md` : 단계별 설계 문서 — **정본**.
+- `00-current-state.md`, `7-backlog.md`, `8-mobile_strategy.md`, `hybrid_app_release_guide.md`, `as-built-reference.md` : 살아있는 문서 — 항상 최신 유지.
+- `timepilot_ai_os_architecture.md` : **장기 비전 문서** (구명칭 TimePilot 시절의 AI Work OS 구상) — 현재 coffeeTide 구현·설계와 무관하며 정본이 아닙니다.
 
 ## 문서 상태
 

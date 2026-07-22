@@ -1,6 +1,6 @@
 # As-Built 기술 레퍼런스 (구현 현황)
 
-> **기준: 2026-07-11 구현 코드.** 본 문서는 이 저장소에 실제 구현된 코드의 기술 레퍼런스(엔드포인트·환경변수·데이터모델·인증)입니다 — "지금 코드가 하는 일"의 정본.
+> **기준: 2026-07-22 구현 코드.** 본 문서는 이 저장소에 실제 구현된 코드의 기술 레퍼런스(엔드포인트·환경변수·데이터모델·인증)입니다 — "지금 코드가 하는 일"의 정본.
 >
 > **문서 역할 구분**:
 > - 제품 **정본 비전/기획**은 [`00-current-state.md`](./00-current-state.md).
@@ -41,11 +41,12 @@ coffeeTide는 여러 채널의 업무 데이터를 하나의 대시보드로 통
 ## 3. 데이터 모델
 
 ### UnifiedData (`src/lib/types/unified.ts`)
-`id, source, title, content, created_at, author, url, category?, actionDirective?, status?`
+`id, source, title, content, created_at, author, url, category?, actionDirective?, status?, delegatable?`
 
 - `source`: `manual | paste | local_doc | obsidian | outlook | gmail | notion | llm` (A1 반영: Gmail 별도 배지)
 - `category`: `urgent | approval_required | meeting | action_required | reference | ignore`
 - `status`: `pending | held | completed | dismissed`
+- `delegatable?`: 로컬 LLM 도구로 넘길 만한 업무 표식 (phase7). AI 분류 시에만 채워지며 `FallbackEngine`은 채우지 않음 — `undefined`는 "위임 불가"가 아니라 "판별 안 됨"
 
 ### ProcessedData (`src/lib/automation/rules.ts`)
 `UnifiedData` + `pinned?`, `automated?`(적용된 규칙 태그 목록).
@@ -89,6 +90,7 @@ coffeeTide는 여러 채널의 업무 데이터를 하나의 대시보드로 통
 | `/api/tasks/update` | POST | Notion 페이지 완료 / Obsidian 체크박스 완료 write-back |
 | `/api/tasks/capture` | POST | 항목을 Notion 페이지/Obsidian 수집함으로 저장 |
 | `/api/tasks/llm-digest` | POST | 오늘 LLM 산출물 → Obsidian `coffeeTide_LLM/YYYY-MM-DD.md` 수동 내보내기 |
+| `/api/weather` | GET | 좌표(`lat`/`lon`) → OpenWeatherMap 현재 날씨. 좌표 소수점 2자리 절삭 후 서버 메모리 캐시 20분, 좌표 미저장. `WEATHER_API_KEY` 미설정 시 `success:false` (그리팅은 시간대 폴백) |
 | `/api/rules/parse` | POST | 자연어 → 자동화 규칙 변환 |
 | `/api/mails/reply-draft` | POST | AI 답장 초안 (+ Outlook 임시보관함 저장; Gmail은 초안 텍스트만) |
 | `/api/util/select-folder` | GET | 네이티브 폴더 선택 (Windows 전용, PowerShell 다이얼로그) |
@@ -99,7 +101,8 @@ coffeeTide는 여러 채널의 업무 데이터를 하나의 대시보드로 통
 
 ## 5. AI & 자동화
 
-- **분류 (C1 반영)**: `src/lib/ai/gemini.ts` — ① 콘텐츠 해시(`id`+title/content) 서버 메모리 캐시로 신규·변경 항목만 전송, ② 429 시 10분 쿨다운 동안 `FallbackEngine` 대체, ③ `DISABLE_AI_CLASSIFY=true` 킬스위치. 키 미설정 시 전 기능 로컬 대체.
+- **분류 (C1·phase7 반영)**: `src/lib/ai/gemini.ts` — ① 콘텐츠 해시(`PROMPT_VERSION`+`id`+title/content) 서버 메모리 캐시로 신규·변경 항목만 전송(프롬프트 버전이 캐시 키에 포함되어 프롬프트 변경 시 낡은 응답 재사용 방지), ② 429 시 10분 쿨다운 동안 `FallbackEngine` 대체, ③ `DISABLE_AI_CLASSIFY=true` 킬스위치. 키 미설정 시 전 기능 로컬 대체. 분류 시 `delegatable`(로컬 LLM 도구 위임 후보) 판별 포함 — 대시보드에 배지 표시.
+- **웰컴 그리팅 (phase7)**: `src/app/components/WelcomeCard.tsx` — 시간대(오전/오후/저녁) 테마 + 날씨 문구를 **템플릿 기반**으로 생성(LLM 미사용, 비용 0). 위치는 브라우저 `navigator.geolocation`으로 획득해 `/api/weather` 호출. 3단계 폴백: 날씨+시간대 → (위치 거부/조회 실패 시) 시간대만 → (그리팅 실패 시) 미표시·브리핑 정상.
 - **Copilot (G4 반영)**: 기준일·타임존을 시스템 프롬프트에 주입, "날짜 추정 금지 + 출처 표기" 강제. 응답은 `MarkdownLite`로 카드/섹션 렌더링(G6).
 - **규칙**: `{ field: any|source|sender|title|content, value, action: pin|urgent|mute|hide, enabled }` — `applyRules` 위→아래 순차, pin 안정 정렬.
 - **팔로업**: 응답 필요 카테고리(urgent/approval/action)가 `ct_followup_hours` 초과 시 상단 에스컬레이션 + `⏰ N시간째 기다리는 중` 배지.
@@ -119,6 +122,7 @@ coffeeTide는 여러 채널의 업무 데이터를 하나의 대시보드로 통
 | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `NEXT_PUBLIC_GOOGLE_REDIRECT_URI` | Google OAuth 3종 |
 | `NOTION_INTEGRATION_TOKEN` / `NOTION_DATABASE_ID` | Notion 기본값 (UI 세션별 입력 우선) |
 | `LLM_ARTIFACTS_DEFAULT_PATH` | (선택) LLM 산출물 기본 경로 |
+| `WEATHER_API_KEY` | (선택) OpenWeatherMap API 키. 미설정 시 그리팅이 시간대 기반으로 폴백 |
 | `NEXT_PUBLIC_VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | 웹 푸시 3종 (`npx web-push generate-vapid-keys`). 미설정 시 알림 기능만 비활성 |
 | `CRON_SECRET` | (선택) `/api/briefing/daily` 외부 크론 인증 토큰 — Vercel Cron은 자동으로 Bearer 헤더에 첨부 |
 | `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | (선택) 푸시 프로필 저장소. 미설정 시 파일(`data/push-profiles.json`) — 서버리스 배포는 필수 |

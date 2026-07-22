@@ -357,6 +357,18 @@
 .badge_obsidian { background: rgba(124, 58, 237, 0.22); color: #b795ff; }
 .badge_local_doc { background: rgba(255, 180, 84, 0.16); color: var(--warn); }
 .badge_llm { background: rgba(0, 210, 255, 0.14); color: var(--accent); }
+.delegatableBadge {
+  background: linear-gradient(135deg, rgba(147, 51, 234, 0.25) 0%, rgba(79, 70, 229, 0.25) 100%);
+  color: #c084fc;
+  border: 1px solid rgba(192, 132, 252, 0.3);
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.73rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
 
 .cat {
   font-size: 0.68rem;

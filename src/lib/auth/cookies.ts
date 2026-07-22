@@ -28,6 +28,11 @@ export function writeSession<T extends NextResponse>(res: T, session: SessionDat
   return res;
 }
 
+/** 활성 사용자 세션 롤링 연장 (B2: 요청 시 세션 만료일 +7일 연장) */
+export function touchSession<T extends NextResponse>(res: T, session: SessionData): T {
+  return writeSession(res, session);
+}
+
 export function clearSession<T extends NextResponse>(res: T): T {
   res.cookies.set(SESSION_COOKIE, "", { path: "/", maxAge: 0 });
   res.cookies.set(SESSION_EXPIRY_COOKIE, "", { path: "/", maxAge: 0 });

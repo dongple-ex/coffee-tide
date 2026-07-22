@@ -3,13 +3,13 @@
 import { promises as fs } from "node:fs";
 import { UnifiedData } from "../types/unified";
 import { walkFiles } from "./fsScan";
-import { toBase64Url } from "./textUtils";
+import { cleanHtmlContent, toBase64Url } from "./textUtils";
 
 export class LocalDocAdapter {
   constructor(private rootPath: string) {}
 
   async fetchRecent(limit = 10): Promise<UnifiedData[]> {
-    const files = await walkFiles(this.rootPath, [".md", ".txt"], 100);
+    const files = await walkFiles(this.rootPath, [".md", ".txt", ".html", ".htm", ".xml"], 100);
     const items: UnifiedData[] = [];
 
     for (const file of files) {
@@ -20,6 +20,12 @@ export class LocalDocAdapter {
       } catch {
         continue;
       }
+
+      const ext = file.relPath.slice(file.relPath.lastIndexOf(".")).toLowerCase();
+      if (ext === ".html" || ext === ".htm" || ext === ".xml") {
+        text = cleanHtmlContent(text);
+      }
+
       const lines = text.split(/\r?\n/);
       for (let i = 0; i < lines.length && items.length < limit; i++) {
         const todo =

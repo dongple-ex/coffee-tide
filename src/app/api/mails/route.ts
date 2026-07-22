@@ -7,7 +7,7 @@ import { buildFetchers, connectionState, isMockMode } from "@/lib/adapters/facto
 import { AuthExpiredError } from "@/lib/adapters/outlook";
 import { ObsidianAdapter } from "@/lib/adapters/obsidian";
 import { classifyTasks } from "@/lib/ai/gemini";
-import { readSession, unauthorized, writeSession } from "@/lib/auth/cookies";
+import { readSession, touchSession, unauthorized } from "@/lib/auth/cookies";
 import { REFRESH_WINDOW_MS, refreshChannel } from "@/lib/auth/refresh";
 import { SessionData } from "@/lib/auth/session";
 import { UnifiedData } from "@/lib/types/unified";
@@ -18,8 +18,6 @@ export async function GET(request: NextRequest) {
   let session = await readSession();
   if (!session) return unauthorized();
   void request;
-
-  let sessionChanged = false;
 
   // 선제 리프레시 — 만료 임박(60초 이내) 채널만
   if (!isMockMode()) {
@@ -32,7 +30,6 @@ export async function GET(request: NextRequest) {
         const refreshed = await refreshChannel(channel, session);
         if (refreshed) {
           session = refreshed;
-          sessionChanged = true;
         }
       }
     }
@@ -75,7 +72,6 @@ export async function GET(request: NextRequest) {
                     googleRefreshToken: refreshed.googleRefreshToken,
                     googleTokenExpiry: refreshed.googleTokenExpiry,
                   };
-            sessionChanged = true;
             try {
               return await collect(channel, refreshed);
             } catch {
@@ -123,5 +119,5 @@ export async function GET(request: NextRequest) {
     errors: Object.keys(errors).length > 0 ? errors : undefined,
     ai_error: merged.length > 0 && !aiUsed ? true : undefined,
   });
-  return sessionChanged ? writeSession(res, session) : res;
+  return touchSession(res, session);
 }

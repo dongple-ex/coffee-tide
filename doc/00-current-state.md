@@ -48,6 +48,8 @@ coffeeTide는 **커피 한 잔 하면서 오늘을 정리하는 AI 업무 비서
 | `gmail` | Google Gmail·Calendar·Drive | 선택 | 읽기 전용 (답장 초안은 백로그) |
 | `llm` | 로컬 LLM 도구 산출물(`MEMORY.md` 등) 폴더 스캔 | 선택 | Obsidian 일일 다이제스트 미러링 ([`phase6_llm_artifacts_spec.md`](./phase6_llm_artifacts_spec.md)) |
 
+소스와 무관하게, AI 분류 시 각 항목에 **`delegatable`(위임 가능) 표식**이 부여될 수 있습니다 — "로컬 LLM 도구(Claude Code 등)로 넘길 만한 업무"를 가리키는 힌트이며 실행 버튼이 아닙니다. AI 없이 동작할 때는 채워지지 않으며, 이때 `undefined`는 "위임 불가"가 아니라 "판별 안 됨"입니다. ([`phase7_copilot_briefing_spec.md`](./phase7_copilot_briefing_spec.md) §2.4)
+
 ## 4. 사용자 흐름 정본
 
 ### 4.1 첫 진입

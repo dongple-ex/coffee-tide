@@ -20,6 +20,11 @@ import {
   supportsFsAccess,
 } from "@/lib/browser/localFolders";
 import {
+  getNotificationPermission,
+  requestNotificationPermission,
+  triggerTaskNotifications,
+} from "@/lib/push/browserNotification";
+import {
   CATEGORY_LABELS,
   ConnectionState,
   MailsResponse,
@@ -31,6 +36,7 @@ import { GoogleIcon, NotionIcon, ObsidianIcon, OutlookIcon } from "./components/
 import CafeWait from "./components/cafeWait";
 import IcedAmericano from "./components/icedAmericano";
 import MarkdownLite from "./components/markdownLite";
+import { WelcomeCard } from "./components/WelcomeCard";
 import styles from "./page.module.css";
 
 const LS_MANUAL = "ct_manual_items";
@@ -44,23 +50,101 @@ const POLL_MS = 30_000;
 
 type Theme = "dark" | "light" | "coffee" | "mega" | "kustom";
 
-// 카페 주문 컨셉 대기 멘트 (cafeWait.tsx가 순차 재생)
-const LOADING_WAIT_STEPS = [
-  "주문 접수! ☕ 아아 내리는 중…",
-  "🧊 얼음 넣는 중…",
-  "🔔 곧 나옵니다!",
-];
-const COPILOT_WAIT_STEPS = [
-  "주문 받았어요! ☕ 원두 가는 중…",
-  "샷 내리는 중…",
-  "🧊 얼음 동동 띄우는 중…",
-  "🔔 다 되면 바로 갖다드릴게요!",
-];
-const PASTE_WAIT_STEPS = [
-  "☕ 원두 고르는 중…",
-  "할 일만 쏙 담는 중…",
-  "🔔 곧 나와요!",
-];
+export interface DynamicCafeContext {
+  taskCount?: number;
+  urgentCount?: number;
+  type?: "loading" | "copilot" | "paste";
+}
+
+export function getDynamicCafeSteps(ctx: DynamicCafeContext): string[] {
+  const { taskCount = 0, urgentCount = 0, type = "loading" } = ctx;
+  const hours = new Date().getHours();
+
+  // 1. 작업량이 폭발적으로 많은 경우 (할 일 8건 이상 또는 긴급 2건 이상)
+  if (taskCount >= 8 || urgentCount >= 2) {
+    if (type === "copilot") {
+      return [
+        "🚨 우와, 오늘 할 일이 빽빽하네요!",
+        "정신 바짝 차리게 에스프레소 투샷 내리는 중 ☕⚡",
+        "고카페인 200% 특제 롱블랙 쉐이킹 중 💥",
+        "바리스타 전원 동원해서 리듬감 있게 얼음 띄우는 중 🧊",
+        "🔔 카페인 충전 완료! 오늘 업무 싹 깨부숴봅시다!",
+      ];
+    }
+    if (type === "paste") {
+      return [
+        "📋 붙여넣은 할 일이 한 보따리네요!",
+        "진한 Espresso 샷 추가해서 골라내는 중 ☕",
+        "우선순위 쏙쏙 잘라 컵에 담는 중 ✂️",
+        "🧊 시원하게 저어 정리 마무리 중…",
+        "🔔 대용량 할 일 콤보 준비 완료!",
+      ];
+    }
+    return [
+      "☕ 주문 접수! 오늘 작업량이 엄청 묵직하네요!",
+      "에스프레소 투샷 찐하게 내리는 중 ☕⚡",
+      "각얼음 콰직콰직 가득 담는 중 🧊",
+      "특제 고카페인 아메리카노 완성 직전 🔥",
+      "🔔 오늘 업무 싹 클리어할 준비 완료!",
+    ];
+  }
+
+  // 2. 시간대별 & 대기 타입별 재미있고 유쾌한 카페 멘트
+  if (hours >= 5 && hours < 12) {
+    if (type === "copilot") {
+      return [
+        "☕ 상쾌한 아침 주문 접수! 바리스타 출근 완료!",
+        "갓 볶은 모닝 싱글오리진 원두 곱게 가는 중 🌾",
+        "황금빛 크레마 에스프레소 진하게 추출 중 ☕✨",
+        "갓 구운 크루아상 냄새 풍기며 각얼음 띄우는 중 🥐🧊",
+        "🔔 모닝 에너제틱 브리핑 대령이오!",
+      ];
+    }
+    return [
+      "☕ 상쾌한 아침 시작! 원두 볶는 중…",
+      "에스프레소 샷 내리는 중 ☕",
+      "각얼음 콰직콰직 띄우는 중 🧊",
+      "🔔 아침의 커피가 거의 다 됐어요!",
+    ];
+  }
+
+  if (hours >= 12 && hours < 18) {
+    if (type === "copilot") {
+      return [
+        "🥱 나른한 오후시간! 식곤증 퇴치 특공대 출동!",
+        "정신 번쩍 들게 콜드브루 원액 방울방울 내리는 중 💧",
+        "달콤 쌉싸름한 바닐라 크림 폼 듬뿍 얹는 중 🍦",
+        "시원한 시나몬 파우더 톡톡 뿌리는 중 ✨",
+        "🔔 오후 피로 싹 날려버릴 브리핑 나왔습니다!",
+      ];
+    }
+    return [
+      "☀️ 오후의 주문 접수! 시원함 장전 중!",
+      "에스프레소 투샷 템핑하는 중 ☕",
+      "각얼음 듬뿍 넣어 흔드는 중 🧊🌀",
+      "🔔 정신 번쩍 들 커피 준비 완료!",
+    ];
+  }
+
+  // 저녁/밤
+  if (type === "copilot") {
+    return [
+      "🌙 오늘 하루도 정말 수고 많으셨어요!",
+      "부담 없는 디카페인 원두로 부드럽게 추출 중 ☕",
+      "오늘의 결실을 편안하게 컵에 담는 중 🍵",
+      "따스하고 부드럽게 마무리 저어주는 중 🥄",
+      "🔔 오늘도 무사히 마무리! 편안하게 확인해보세요!",
+    ];
+  }
+
+  return [
+    "🌙 하루를 정돈하는 밤의 카페 주문 접수!",
+    "부드러운 디카페인 아메리카노 내리는 중 ☕",
+    "마음 편안해지는 수증기 피어오르는 중 ♨️",
+    "🔔 하루를 아름답게 매듭지어 드릴게요!",
+  ];
+}
+
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "";
 
 function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
@@ -255,6 +339,7 @@ export default function Home() {
   );
   const [dismissed, setDismissed] = useState<string[]>(() => loadLS<string[]>(LS_DISMISSED, []));
   const [followupHours, setFollowupHours] = useState(() => loadLS<number>(LS_FOLLOWUP, 24));
+  const [notifPerm, setNotifPerm] = useState<NotificationPermission>(getNotificationPermission);
 
   const [quickTitle, setQuickTitle] = useState("");
   const [showPaste, setShowPaste] = useState(false);
@@ -572,6 +657,13 @@ export default function Home() {
       buildMergedView(manualItems, [...serverMails, ...browserItems], dismissed, rules, followupHours),
     [manualItems, serverMails, browserItems, dismissed, rules, followupHours]
   );
+
+  // H4: 데스크톱 브라우저 알림 (긴급/팔로업 초과 업무 발생 시)
+  useEffect(() => {
+    if (merged.length > 0 && notifPerm === "granted") {
+      triggerTaskNotifications(merged, followupHours);
+    }
+  }, [merged, followupHours, notifPerm]);
 
   const todoItems = merged.filter(
     (i) => TODO_CATS.has(i.category ?? "") && i.status !== "completed"
@@ -1081,12 +1173,25 @@ export default function Home() {
     });
   }
 
+  const dynamicLoadingSteps = useMemo(
+    () => getDynamicCafeSteps({ taskCount: merged.length, urgentCount, type: "loading" }),
+    [merged.length, urgentCount]
+  );
+  const dynamicCopilotSteps = useMemo(
+    () => getDynamicCafeSteps({ taskCount: merged.length, urgentCount, type: "copilot" }),
+    [merged.length, urgentCount]
+  );
+  const dynamicPasteSteps = useMemo(
+    () => getDynamicCafeSteps({ taskCount: merged.length, urgentCount, type: "paste" }),
+    [merged.length, urgentCount]
+  );
+
   // ── 렌더링 ─────────────────────────────────
   if (phase === "loading") {
     return (
       <main className={styles.landing}>
         <div className={styles.landingCard}>
-          <IcedAmericano size={28} /> <CafeWait steps={LOADING_WAIT_STEPS} interval={1100} />
+          <IcedAmericano size={28} /> <CafeWait steps={dynamicLoadingSteps} interval={1100} />
         </div>
       </main>
     );
@@ -1157,6 +1262,14 @@ export default function Home() {
           {item.category && (
             <span className={`${styles.cat} ${styles[`cat_${item.category}`] ?? ""}`}>
               {CATEGORY_LABELS[item.category]}
+            </span>
+          )}
+          {item.delegatable && (
+            <span
+              className={styles.delegatableBadge}
+              title="Claude Code 등 로컬 LLM 도구로 초안/분석을 작성하기에 적합한 업무입니다"
+            >
+              🤖 AI 위임 가능
             </span>
           )}
           {item.overdue > 0 && (
@@ -1270,12 +1383,15 @@ export default function Home() {
             <button
               className={styles.logoutBtnSmall}
               onClick={async () => {
+                const pendingItems = merged.filter((i) => i.status !== "completed");
+                const summary = pendingItems.map((i) => `- [ ] ${i.title}`).join('\n');
+                const text = `# ☕ coffeeTide Hand-off\n\n## 🚧 내일 이어서 할 일\n${summary}`;
                 try {
-                  await fetch("/api/auth/signout", { method: "POST" });
+                  await navigator.clipboard.writeText(text);
+                  showToast("남은 할 일을 정리해서 클립보드에 복사했어요! (HANDOFF.md에 붙여넣으세요)");
                 } catch {
-                  // 네트워크 오류여도 화면은 랜딩으로 — 쿠키는 다음 입장 시 재발급되며 덮어써진다
+                  showToast("클립보드 복사에 실패했어요. 브라우저 권한(HTTPS 접속)을 확인해주세요.");
                 }
-                setPhase("landing");
               }}
             >
               퇴근하기
@@ -1310,6 +1426,22 @@ export default function Home() {
             </svg>
             설정
             <span className={styles.connCount} style={{ marginLeft: 6 }}>{connectedCount}</span>
+          </button>
+          <button
+            className={styles.connMenuBtn}
+            onClick={async () => {
+              const res = await requestNotificationPermission();
+              setNotifPerm(res);
+              if (res === "granted") {
+                showToast("🔔 브라우저 데스크톱 알림이 활성화되었습니다!");
+              } else {
+                showToast("알림 권한이 거부되어 있습니다. 브라우저 설정에서 허용해주세요.");
+              }
+            }}
+            style={{ marginLeft: 8 }}
+            title="긴급 업무 및 방치된 업무를 데스크톱 알림으로 받아봅니다"
+          >
+            {notifPerm === "granted" ? "🔔 알림 켜짐" : "🔕 알림 켜기"}
           </button>
           <label>
             팔로업 기준{" "}
@@ -1436,7 +1568,7 @@ export default function Home() {
                   disabled={pasteBusy || !pasteText.trim()}
                   onClick={importPaste}
                 >
-                  {pasteBusy ? <CafeWait steps={PASTE_WAIT_STEPS} interval={1200} /> : "할 일 골라내기"}
+                  {pasteBusy ? <CafeWait steps={dynamicPasteSteps} interval={1200} /> : "할 일 골라내기"}
                 </button>
               </div>
             </div>
@@ -1447,6 +1579,7 @@ export default function Home() {
         {/* G3/G6: Copilot — 무연동에서도 활성, MarkdownLite 렌더링 */}
         <section className={`${styles.card} ${styles.colCopilot}`}>
           <div className={styles.cardTitle}>☕ AI 바리스타</div>
+          <WelcomeCard compact />
           <div className={styles.copilotBody} ref={copilotBodyRef}>
             {copilotMessages.length === 0 ? (
               <div className={styles.msgHint}>
@@ -1469,7 +1602,7 @@ export default function Home() {
             )}
             {copilotBusy && (
               <div className={styles.msgHint}>
-                <CafeWait steps={COPILOT_WAIT_STEPS} />
+                <CafeWait steps={dynamicCopilotSteps} interval={1200} />
               </div>
             )}
           </div>
@@ -1760,6 +1893,23 @@ export default function Home() {
                 </>
               )}
             </section>
+            
+            <section className={styles.card} style={{ border: "none", padding: "10px 0", marginTop: "10px" }}>
+              <div className={styles.formRow} style={{ justifyContent: "flex-end" }}>
+                <button
+                  className={`${styles.btn} ${styles.btnDanger}`}
+                  onClick={async () => {
+                    try {
+                      await fetch("/api/auth/signout", { method: "POST" });
+                    } catch {}
+                    setPhase("landing");
+                  }}
+                >
+                  로그아웃 (접속 종료)
+                </button>
+              </div>
+            </section>
+
             <div className={styles.cardTitle} style={{ marginTop: 20 }}>
               🔌 서비스 연동 <small>전부 선택 사항이에요</small>
             </div>
