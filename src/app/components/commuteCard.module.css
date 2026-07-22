@@ -1,0 +1,114 @@
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px;
+  transition: border-color 0.2s;
+}
+
+.card:hover {
+  border-color: var(--card-hover-border);
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.titleGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.modeBadge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 3px 10px;
+}
+
+.morningBadge {
+  background: rgba(255, 180, 84, 0.16);
+  color: var(--warn);
+  border: 1px solid rgba(255, 180, 84, 0.3);
+}
+
+.eveningBadge {
+  background: rgba(124, 58, 237, 0.22);
+  color: #b795ff;
+  border: 1px solid rgba(124, 58, 237, 0.3);
+}
+
+.routeContainer {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.stationBlock {
+  display: flex;
+  flex-direction: column;
+}
+
+.stationLabel {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+}
+
+.stationName {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--text);
+  margin-top: 2px;
+}
+
+.arrowIcon {
+  font-size: 1.2rem;
+  color: var(--accent);
+}
+
+.infoRow {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  line-height: 1.45;
+  margin-bottom: 12px;
+}
+
+.infoRow b {
+  color: var(--text);
+}
+
+.btnGroup {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.mapBtn {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-dim);
+  padding: 6px 12px;
+  font-size: 0.78rem;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s;
+}
+
+.mapBtn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}

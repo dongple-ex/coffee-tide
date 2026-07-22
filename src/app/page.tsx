@@ -37,6 +37,8 @@ import CafeWait from "./components/cafeWait";
 import IcedAmericano from "./components/icedAmericano";
 import MarkdownLite from "./components/markdownLite";
 import { WelcomeCard, WeatherData } from "./components/WelcomeCard";
+import { CommuteCard } from "./components/CommuteCard";
+import { CommuteConfig } from "@/lib/types/commute";
 import styles from "./page.module.css";
 
 const LS_MANUAL = "ct_manual_items";
@@ -47,6 +49,7 @@ const LS_BRIEF_TIME = "ct_brief_time";
 const LS_THEME = "ct_theme";
 const LS_WEATHER_ENABLED = "ct_weather_enabled";
 const LS_WEATHER_COORDS = "ct_weather_coords";
+const LS_COMMUTE_CONFIG = "ct_commute_config";
 const LS_BROWSER_CAT = "ct_browser_categories";
 const POLL_MS = 30_000;
 
@@ -388,6 +391,14 @@ export default function Home() {
   );
   const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
   const [weatherBusy, setWeatherBusy] = useState(false);
+
+  const [commuteConfig, setCommuteConfig] = useState<CommuteConfig>(() =>
+    loadLS<CommuteConfig>(LS_COMMUTE_CONFIG, {
+      enabled: false,
+      homeStation: "서울역",
+      workStation: "수원역",
+    })
+  );
 
   const [toast, setToast] = useState("");
   const [draft, setDraft] = useState<{ title: string; text: string; message: string } | null>(null);
@@ -1792,6 +1803,16 @@ export default function Home() {
           </div>
         </section>
 
+        {/* 🚇 스마트 길찾기 카드 (옵트인) */}
+        {commuteConfig.enabled && (
+          <section className={styles.colFull} style={{ padding: 0 }}>
+            <CommuteCard
+              homeStation={commuteConfig.homeStation || "서울역"}
+              workStation={commuteConfig.workStation || "수원역"}
+            />
+          </section>
+        )}
+
         {/* 오늘의 행동 지침 */}
         <section className={`${styles.card} ${styles.colFull}`}>
           <div className={styles.cardTitle}>
@@ -2019,6 +2040,53 @@ export default function Home() {
               </div>
               <p className={styles.connNote}>
                 위치 권한을 허용하면 계신 곳의 기상청 날씨와 맞춤 웰컴 메시지를 브리핑해 드립니다.
+              </p>
+            </section>
+
+            <section className={styles.card} style={{ border: "none", padding: "10px 0" }}>
+              <div className={styles.cardTitle} style={{ display: "flex", alignItems: "center" }}>
+                <span>🚇 출퇴근 길찾기 브리핑</span>
+                <label className={styles.switchLabel}>
+                  <span>{commuteConfig.enabled ? "ON" : "OFF"}</span>
+                  <input
+                    type="checkbox"
+                    className={styles.switchInput}
+                    checked={commuteConfig.enabled}
+                    onChange={(e) => {
+                      const next = { ...commuteConfig, enabled: e.target.checked };
+                      setCommuteConfig(next);
+                      saveLS(LS_COMMUTE_CONFIG, next);
+                    }}
+                  />
+                  <span className={styles.switchSlider} />
+                </label>
+              </div>
+              <div className={styles.formRow} style={{ marginTop: 8 }}>
+                <input
+                  className={styles.input}
+                  placeholder="집/출발역 (예: 서울역)"
+                  value={commuteConfig.homeStation}
+                  onChange={(e) => {
+                    const next = { ...commuteConfig, homeStation: e.target.value };
+                    setCommuteConfig(next);
+                    saveLS(LS_COMMUTE_CONFIG, next);
+                  }}
+                  aria-label="집/출발역"
+                />
+                <input
+                  className={styles.input}
+                  placeholder="회사/도착역 (예: 수원역)"
+                  value={commuteConfig.workStation}
+                  onChange={(e) => {
+                    const next = { ...commuteConfig, workStation: e.target.value };
+                    setCommuteConfig(next);
+                    saveLS(LS_COMMUTE_CONFIG, next);
+                  }}
+                  aria-label="회사/도착역"
+                />
+              </div>
+              <p className={styles.connNote}>
+                시간대에 따라 오전(출근 모드), 오후(퇴근 모드)로 자동 전환하여 대시보드 스마트 카드로 보여드립니다.
               </p>
             </section>
 
