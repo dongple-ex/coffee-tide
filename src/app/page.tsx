@@ -420,6 +420,7 @@ export default function Home() {
       enabled: false,
       homeStation: "서울역",
       workStation: "수원역",
+      transportType: "public",
     })
   );
 
@@ -1860,6 +1861,7 @@ export default function Home() {
             <CommuteCard
               homeStation={commuteConfig.homeStation || "서울역"}
               workStation={commuteConfig.workStation || "수원역"}
+              transportType={commuteConfig.transportType || "public"}
             />
           </section>
         )}
@@ -2111,6 +2113,32 @@ export default function Home() {
                   />
                   <span className={styles.switchSlider} />
                 </label>
+              </div>
+              <div className={styles.formRow} style={{ marginTop: 8 }}>
+                <button
+                  type="button"
+                  className={`${styles.btn} ${commuteConfig.transportType !== "car" ? styles.btnPrimary : ""}`}
+                  onClick={() => {
+                    const next: CommuteConfig = { ...commuteConfig, transportType: "public" };
+                    setCommuteConfig(next);
+                    saveLS(LS_COMMUTE_CONFIG, next);
+                  }}
+                  style={{ flex: 1 }}
+                >
+                  🚌 / 🚇 대중교통
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.btn} ${commuteConfig.transportType === "car" ? styles.btnPrimary : ""}`}
+                  onClick={() => {
+                    const next: CommuteConfig = { ...commuteConfig, transportType: "car" };
+                    setCommuteConfig(next);
+                    saveLS(LS_COMMUTE_CONFIG, next);
+                  }}
+                  style={{ flex: 1 }}
+                >
+                  🚗 자동차 (자차)
+                </button>
               </div>
               <div className={styles.formRow} style={{ marginTop: 8 }}>
                 <input

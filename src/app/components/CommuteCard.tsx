@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { CommuteInfo } from "@/lib/types/commute";
 import { KakaoMapIcon, NaverMapIcon } from "./brandIcons";
 import styles from "./commuteCard.module.css";
@@ -8,34 +8,55 @@ import styles from "./commuteCard.module.css";
 interface CommuteCardProps {
   homeStation: string;
   workStation: string;
+  transportType?: "public" | "car";
 }
 
-export function CommuteCard({ homeStation, workStation }: CommuteCardProps) {
+const REFRESH_QUOTES = [
+  "최신 열차 시각과 도로 교통 상황을 다시 조회했어요 ☕",
+  "실시간 길찾기 정보를 갓 추출해 따끈따끈하게 갱신했습니다! ☕",
+  "지금 시간대 최적의 이동 경로를 따스하게 새로고침했어요!",
+  "도로 및 철도 구간의 실시간 소통 현황을 갱신 완료했습니다 ☕",
+];
+
+export function CommuteCard({ homeStation, workStation, transportType = "public" }: CommuteCardProps) {
   const [commute, setCommute] = useState<CommuteInfo | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [noticeText, setNoticeText] = useState("");
+
+  const fetchCommuteData = useCallback(
+    async (isManualRefresh = false) => {
+      if (isManualRefresh) setRefreshing(true);
+      else setLoading(true);
+
+      try {
+        const res = await fetch(
+          `/api/commute?home=${encodeURIComponent(homeStation)}&work=${encodeURIComponent(
+            workStation
+          )}&type=${transportType}&t=${Date.now()}`
+        );
+        const data = await res.json();
+        if (data.success && data.commute) {
+          setCommute(data.commute);
+          if (isManualRefresh) {
+            const randomQuote = REFRESH_QUOTES[Math.floor(Math.random() * REFRESH_QUOTES.length)];
+            setNoticeText(randomQuote);
+            setTimeout(() => setNoticeText(""), 4000);
+          }
+        }
+      } catch (err) {
+        console.warn("[coffeeTide] Commute fetch error:", err);
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [homeStation, workStation, transportType]
+  );
 
   useEffect(() => {
-    let isMounted = true;
-    setLoading(true);
-
-    fetch(`/api/commute?home=${encodeURIComponent(homeStation)}&work=${encodeURIComponent(workStation)}`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (isMounted && data.success && data.commute) {
-          setCommute(data.commute);
-        }
-      })
-      .catch((err) => {
-        console.warn("[coffeeTide] Commute fetch error:", err);
-      })
-      .finally(() => {
-        if (isMounted) setLoading(false);
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [homeStation, workStation]);
+    void fetchCommuteData(false);
+  }, [fetchCommuteData]);
 
   const openAppOrWeb = (appScheme: string, webUrl: string) => {
     if (typeof window === "undefined") return;
@@ -67,17 +88,59 @@ export function CommuteCard({ homeStation, workStation }: CommuteCardProps) {
   if (!commute) return null;
 
   const isMorning = commute.mode === "morning";
+  const isCar = commute.transportType === "car";
 
   return (
     <div className={styles.card}>
       <div className={styles.cardHeader}>
         <div className={styles.titleGroup}>
-          <span>🚇 스마트 길찾기</span>
+          <span>{isCar ? "🚗 자차 길찾기" : "🚇 대중교통 길찾기"}</span>
           <span className={`${styles.modeBadge} ${isMorning ? styles.morningBadge : styles.eveningBadge}`}>
             {isMorning ? "🌅 출근길 모드" : "🌆 퇴근길 모드"}
           </span>
         </div>
+        <button
+          className={styles.iconBtn}
+          disabled={refreshing}
+          onClick={() => void fetchCommuteData(true)}
+          title="실시간 교통/열차 정보 다시 조회"
+          aria-label="실시간 길찾기 새로고침"
+        >
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.3"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{
+              transition: "transform 0.5s ease",
+              transform: refreshing ? "rotate(360deg)" : "none",
+            }}
+          >
+            <path d="M21.5 2v6h-6" />
+            <path d="M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
+          </svg>
+        </button>
       </div>
+
+      {noticeText && (
+        <div
+          style={{
+            fontSize: "0.78rem",
+            color: "var(--accent)",
+            background: "var(--accent-dim)",
+            padding: "6px 10px",
+            borderRadius: "8px",
+            marginBottom: "10px",
+            fontWeight: 500,
+          }}
+        >
+          {noticeText}
+        </div>
+      )}
 
       <div className={styles.routeContainer}>
         <div className={styles.stationBlock}>
@@ -94,33 +157,23 @@ export function CommuteCard({ homeStation, workStation }: CommuteCardProps) {
       <div className={styles.infoRow}>
         {commute.statusText}
         <br />
-        <b>권장 노선:</b> {commute.lineInfo} (예상 소요 약 {commute.durationMinutes}분)
+        <b>추천 경로:</b> {commute.lineInfo} (예상 소요 약 {commute.durationMinutes}분)
       </div>
 
       <div className={styles.btnGroup}>
         <button
           className={styles.mapBtn}
           style={{ cursor: "pointer" }}
-          onClick={() =>
-            openAppOrWeb(
-              `kakaomap://route?ep=${encodeURIComponent(commute.destination)}`,
-              commute.kakaoMapUrl
-            )
-          }
+          onClick={() => openAppOrWeb(commute.kakaoAppScheme, commute.kakaoMapUrl)}
         >
-          <KakaoMapIcon size={18} /> 카카오맵 앱 실행
+          <KakaoMapIcon size={18} /> 카카오맵 실행 ({commute.origin} ➔ {commute.destination})
         </button>
         <button
           className={styles.mapBtn}
           style={{ cursor: "pointer" }}
-          onClick={() =>
-            openAppOrWeb(
-              `nmap://route/public?dname=${encodeURIComponent(commute.destination)}&appname=coffeetide`,
-              commute.naverMapUrl
-            )
-          }
+          onClick={() => openAppOrWeb(commute.naverAppScheme, commute.naverMapUrl)}
         >
-          <NaverMapIcon size={18} /> 네이버지도 앱 실행
+          <NaverMapIcon size={18} /> 네이버지도 실행 ({commute.origin} ➔ {commute.destination})
         </button>
       </div>
     </div>

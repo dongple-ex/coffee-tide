@@ -44,6 +44,23 @@
   border: 1px solid rgba(124, 58, 237, 0.3);
 }
 
+.iconBtn {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  border-radius: 8px;
+  padding: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.iconBtn:hover:not(:disabled) {
+  color: var(--accent);
+  background: var(--accent-dim);
+}
+
 .routeContainer {
   background: var(--bg);
   border: 1px solid var(--border);
