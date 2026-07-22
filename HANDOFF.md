@@ -14,10 +14,13 @@
   - `00-current-state.md` — §3에 `delegatable` 표식 반영
   - `timepilot_ai_os_architecture.md` — 장기 비전 문서임을 명시하는 상태 배너 추가
 
+- **위치 & 날씨 설정을 '설정' 모달 패널로 이동 (`I5` 완료)**
+  - 대시보드 마운트 시 자동 팝업 제거 ➡️ 설정 모달 내 `📍 위치 & 날씨 브리핑` 카드 추가
+  - `📍 위치 허용 및 날씨 켜기` 옵트인(Opt-in) 동의 후 날씨 브리핑 활성화 (`ct_weather_enabled` localStorage 영속화)
+
 ## 🚧 다 못한 일 (이어서 할 일)
-- [ ] 위 변경사항 커밋 (phase7 구현 + 문서 정리)
-- [ ] 검증 3종 세트 (`npx tsc --noEmit` · `npm run lint` · `npm run build`) 통과 확인 후 커밋
-- [ ] **I5**: 위치 권한 요청 시점 — 현재 첫 진입 즉시 요청. 앱 심사 전 옵트인("날씨 켜기" 버튼) 전환 검토 (`7-backlog.md` I5)
+- [ ] 위치/날씨 설정 모달 이관 커밋 & 푸시
+- [ ] 외부 연동(Outlook/Google/Notion) 실계정 E2E 검증 (`7-backlog.md` H1)
 
 ## 💡 주요 이슈 및 참고 사항
 - 위치 획득이 스펙(§2.1)의 `@capacitor/geolocation`이 아닌 `navigator.geolocation` 직접 호출로 구현됨 — 웹 배포에서는 동일 동작, 하이브리드 앱 착수 시 교체 필요 (스펙 구현 노트 참조)

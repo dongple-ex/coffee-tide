@@ -36,7 +36,7 @@ import { GoogleIcon, NotionIcon, ObsidianIcon, OutlookIcon } from "./components/
 import CafeWait from "./components/cafeWait";
 import IcedAmericano from "./components/icedAmericano";
 import MarkdownLite from "./components/markdownLite";
-import { WelcomeCard } from "./components/WelcomeCard";
+import { WelcomeCard, WeatherData } from "./components/WelcomeCard";
 import styles from "./page.module.css";
 
 const LS_MANUAL = "ct_manual_items";
@@ -45,6 +45,7 @@ const LS_DISMISSED = "ct_dismissed_ids";
 const LS_FOLLOWUP = "ct_followup_hours";
 const LS_BRIEF_TIME = "ct_brief_time";
 const LS_THEME = "ct_theme";
+const LS_WEATHER_ENABLED = "ct_weather_enabled";
 const LS_BROWSER_CAT = "ct_browser_categories";
 const POLL_MS = 30_000;
 
@@ -380,6 +381,10 @@ export default function Home() {
   const [pushBusy, setPushBusy] = useState(false);
   const [briefTime, setBriefTime] = useState(() => loadLS<string>(LS_BRIEF_TIME, "08:30"));
 
+  const [weatherEnabled, setWeatherEnabled] = useState(() => loadLS<boolean>(LS_WEATHER_ENABLED, false));
+  const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
+  const [weatherBusy, setWeatherBusy] = useState(false);
+
   const [toast, setToast] = useState("");
   const [draft, setDraft] = useState<{ title: string; text: string; message: string } | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -400,6 +405,59 @@ export default function Home() {
       else next.delete(id);
       return next;
     });
+
+  const fetchWeatherData = useCallback(async (lat: number, lon: number) => {
+    try {
+      const res = await fetch(`/api/weather?lat=${lat}&lon=${lon}`);
+      const data = await res.json();
+      if (data.success && data.weather) {
+        setWeatherData(data.weather);
+      }
+    } catch (err) {
+      console.warn("[coffeeTide] Weather fetch failed:", err);
+    }
+  }, []);
+
+  const enableWeatherLocation = useCallback(() => {
+    if (typeof window === "undefined" || !("geolocation" in navigator)) {
+      showToast("이 브라우저는 위치 정보를 지원하지 않아요.");
+      return;
+    }
+    setWeatherBusy(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setWeatherBusy(false);
+        setWeatherEnabled(true);
+        saveLS(LS_WEATHER_ENABLED, true);
+        void fetchWeatherData(position.coords.latitude, position.coords.longitude);
+        showToast("📍 위치 허용 완료! 날씨 브리핑이 활성화되었습니다.");
+      },
+      (error) => {
+        setWeatherBusy(false);
+        showToast(`위치 권한 오류: ${error.message}`);
+      },
+      { timeout: 10000 }
+    );
+  }, [fetchWeatherData, showToast]);
+
+  const disableWeatherLocation = useCallback(() => {
+    setWeatherEnabled(false);
+    setWeatherData(null);
+    saveLS(LS_WEATHER_ENABLED, false);
+    showToast("날씨 브리핑을 껐습니다.");
+  }, [showToast]);
+
+  useEffect(() => {
+    if (weatherEnabled && typeof window !== "undefined" && "geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          void fetchWeatherData(position.coords.latitude, position.coords.longitude);
+        },
+        () => {},
+        { timeout: 8000 }
+      );
+    }
+  }, [weatherEnabled, fetchWeatherData]);
 
   // ── 서버 동기화 ──────────────────────────────
   const fetchMails = useCallback(async (silent = false) => {
@@ -1579,7 +1637,7 @@ export default function Home() {
         {/* G3/G6: Copilot — 무연동에서도 활성, MarkdownLite 렌더링 */}
         <section className={`${styles.card} ${styles.colCopilot}`}>
           <div className={styles.cardTitle}>☕ AI 바리스타</div>
-          <WelcomeCard compact />
+          <WelcomeCard compact weather={weatherData} />
           <div className={styles.copilotBody} ref={copilotBodyRef}>
             {copilotMessages.length === 0 ? (
               <div className={styles.msgHint}>
@@ -1892,6 +1950,35 @@ export default function Home() {
                   </p>
                 </>
               )}
+            </section>
+
+            <section className={styles.card} style={{ border: "none", padding: "10px 0" }}>
+              <div className={styles.cardTitle}>
+                📍 위치 & 날씨 브리핑
+                <small>{weatherEnabled ? (weatherData ? `${weatherData.city} (${weatherData.temp}°C)` : "켜짐") : "꺼짐"}</small>
+              </div>
+              <p className={styles.connNote}>
+                위치 권한을 허용하면 계신 곳의 기상청 날씨와 맞춤 웰컴 메시지를 브리핑해 드립니다.
+              </p>
+              <div className={styles.formRow}>
+                {weatherEnabled ? (
+                  <button
+                    className={`${styles.btn} ${styles.btnDanger}`}
+                    disabled={weatherBusy}
+                    onClick={disableWeatherLocation}
+                  >
+                    날씨 끄기
+                  </button>
+                ) : (
+                  <button
+                    className={`${styles.btn} ${styles.btnPrimary}`}
+                    disabled={weatherBusy}
+                    onClick={enableWeatherLocation}
+                  >
+                    {weatherBusy ? "위치 권한 요청 중…" : "📍 위치 허용 및 날씨 켜기"}
+                  </button>
+                )}
+              </div>
             </section>
             
             <section className={styles.card} style={{ border: "none", padding: "10px 0", marginTop: "10px" }}>

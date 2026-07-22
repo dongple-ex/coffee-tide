@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import styles from "./welcomeCard.module.css";
 
-interface WeatherData {
+export interface WeatherData {
   temp: number;
   description: string;
   main: string;
@@ -12,6 +12,7 @@ interface WeatherData {
 
 interface WelcomeCardProps {
   compact?: boolean;
+  weather?: WeatherData | null;
 }
 
 function getTimeState(): "morning" | "afternoon" | "evening" {
@@ -29,33 +30,9 @@ function getDateLabel(): string {
   });
 }
 
-export function WelcomeCard({ compact = false }: WelcomeCardProps) {
+export function WelcomeCard({ compact = false, weather }: WelcomeCardProps) {
   const [timeState] = useState<"morning" | "afternoon" | "evening">(getTimeState);
   const [dateLabel] = useState<string>(getDateLabel);
-  const [weather, setWeather] = useState<WeatherData | null>(null);
-
-  useEffect(() => {
-    if (typeof window !== "undefined" && "geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          fetch(`/api/weather?lat=${position.coords.latitude}&lon=${position.coords.longitude}`)
-            .then((res) => res.json())
-            .then((data) => {
-              if (data.success && data.weather) {
-                setWeather(data.weather);
-              }
-            })
-            .catch((err) => {
-              console.warn("Weather fetch failed:", err);
-            });
-        },
-        (error) => {
-          console.warn("Geolocation permission error:", error.message);
-        },
-        { timeout: 8000 }
-      );
-    }
-  }, []);
 
   const getTimeTheme = () => {
     switch (timeState) {
