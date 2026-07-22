@@ -46,6 +46,7 @@ const LS_FOLLOWUP = "ct_followup_hours";
 const LS_BRIEF_TIME = "ct_brief_time";
 const LS_THEME = "ct_theme";
 const LS_WEATHER_ENABLED = "ct_weather_enabled";
+const LS_WEATHER_COORDS = "ct_weather_coords";
 const LS_BROWSER_CAT = "ct_browser_categories";
 const POLL_MS = 30_000;
 
@@ -382,6 +383,9 @@ export default function Home() {
   const [briefTime, setBriefTime] = useState(() => loadLS<string>(LS_BRIEF_TIME, "08:30"));
 
   const [weatherEnabled, setWeatherEnabled] = useState(() => loadLS<boolean>(LS_WEATHER_ENABLED, false));
+  const [weatherCoords, setWeatherCoords] = useState<{ lat: number; lon: number } | null>(() =>
+    loadLS<{ lat: number; lon: number } | null>(LS_WEATHER_COORDS, null)
+  );
   const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
   const [weatherBusy, setWeatherBusy] = useState(false);
 
@@ -427,9 +431,12 @@ export default function Home() {
     navigator.geolocation.getCurrentPosition(
       (position) => {
         setWeatherBusy(false);
+        const coords = { lat: position.coords.latitude, lon: position.coords.longitude };
+        setWeatherCoords(coords);
         setWeatherEnabled(true);
         saveLS(LS_WEATHER_ENABLED, true);
-        void fetchWeatherData(position.coords.latitude, position.coords.longitude);
+        saveLS(LS_WEATHER_COORDS, coords);
+        void fetchWeatherData(coords.lat, coords.lon);
         showToast("📍 위치 허용 완료! 날씨 브리핑이 활성화되었습니다.");
       },
       (error) => {
@@ -448,16 +455,23 @@ export default function Home() {
   }, [showToast]);
 
   useEffect(() => {
-    if (weatherEnabled && typeof window !== "undefined" && "geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          void fetchWeatherData(position.coords.latitude, position.coords.longitude);
-        },
-        () => {},
-        { timeout: 8000 }
-      );
+    if (weatherEnabled) {
+      if (weatherCoords) {
+        void fetchWeatherData(weatherCoords.lat, weatherCoords.lon);
+      } else if (typeof window !== "undefined" && "geolocation" in navigator) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const coords = { lat: position.coords.latitude, lon: position.coords.longitude };
+            setWeatherCoords(coords);
+            saveLS(LS_WEATHER_COORDS, coords);
+            void fetchWeatherData(coords.lat, coords.lon);
+          },
+          () => {},
+          { timeout: 8000 }
+        );
+      }
     }
-  }, [weatherEnabled, fetchWeatherData]);
+  }, [weatherEnabled, weatherCoords, fetchWeatherData]);
 
   // ── 서버 동기화 ──────────────────────────────
   const fetchMails = useCallback(async (silent = false) => {
