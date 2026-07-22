@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { CommuteInfo } from "@/lib/types/commute";
+import { KakaoMapIcon, NaverMapIcon } from "./brandIcons";
 import styles from "./commuteCard.module.css";
 
 interface CommuteCardProps {
@@ -35,6 +36,22 @@ export function CommuteCard({ homeStation, workStation }: CommuteCardProps) {
       isMounted = false;
     };
   }, [homeStation, workStation]);
+
+  const openAppOrWeb = (appScheme: string, webUrl: string) => {
+    if (typeof window === "undefined") return;
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    if (isMobile) {
+      const start = Date.now();
+      window.location.href = appScheme;
+      setTimeout(() => {
+        if (Date.now() - start < 1500) {
+          window.open(webUrl, "_blank");
+        }
+      }, 800);
+    } else {
+      window.open(webUrl, "_blank");
+    }
+  };
 
   if (loading) {
     return (
@@ -81,22 +98,30 @@ export function CommuteCard({ homeStation, workStation }: CommuteCardProps) {
       </div>
 
       <div className={styles.btnGroup}>
-        <a
+        <button
           className={styles.mapBtn}
-          href={commute.kakaoMapUrl}
-          target="_blank"
-          rel="noopener noreferrer"
+          style={{ cursor: "pointer" }}
+          onClick={() =>
+            openAppOrWeb(
+              `kakaomap://route?ep=${encodeURIComponent(commute.destination)}`,
+              commute.kakaoMapUrl
+            )
+          }
         >
-          🟡 카카오맵 길찾기
-        </a>
-        <a
+          <KakaoMapIcon size={18} /> 카카오맵 앱 실행
+        </button>
+        <button
           className={styles.mapBtn}
-          href={commute.naverMapUrl}
-          target="_blank"
-          rel="noopener noreferrer"
+          style={{ cursor: "pointer" }}
+          onClick={() =>
+            openAppOrWeb(
+              `nmap://route/public?dname=${encodeURIComponent(commute.destination)}&appname=coffeetide`,
+              commute.naverMapUrl
+            )
+          }
         >
-          🟢 네이버지도 길찾기
-        </a>
+          <NaverMapIcon size={18} /> 네이버지도 앱 실행
+        </button>
       </div>
     </div>
   );

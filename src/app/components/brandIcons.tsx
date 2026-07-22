@@ -65,3 +65,27 @@ export function ObsidianIcon({ size = 18 }: BrandIconProps) {
     </svg>
   );
 }
+
+export function KakaoMapIcon({ size = 18 }: BrandIconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" role="img" aria-label="카카오맵">
+      <rect width="24" height="24" rx="5" fill="#FEE500" />
+      <path
+        fill="#000000"
+        d="M12 4.5c-4.14 0-7.5 2.65-7.5 5.92 0 2.1 1.38 3.94 3.47 4.97l-.88 3.23c-.08.28.24.51.48.35l3.85-2.55c.19.02.39.03.58.03 4.14 0 7.5-2.65 7.5-5.92S16.14 4.5 12 4.5z"
+      />
+    </svg>
+  );
+}
+
+export function NaverMapIcon({ size = 18 }: BrandIconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" role="img" aria-label="네이버지도">
+      <rect width="24" height="24" rx="5" fill="#03CF5D" />
+      <path
+        fill="#FFFFFF"
+        d="M14.8 17.5l-4.7-6.9v6.9H7V6.5h3.2l4.7 6.9V6.5h3.1v11h-3.2z"
+      />
+    </svg>
+  );
+}
