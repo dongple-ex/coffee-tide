@@ -39,6 +39,7 @@ import MarkdownLite from "./components/markdownLite";
 import { WelcomeCard, WeatherData } from "./components/WelcomeCard";
 import { CommuteCard } from "./components/CommuteCard";
 import { CommuteConfig } from "@/lib/types/commute";
+import { AppShortcut } from "@/lib/types/appShortcut";
 import styles from "./page.module.css";
 
 const LS_MANUAL = "ct_manual_items";
@@ -50,8 +51,30 @@ const LS_THEME = "ct_theme";
 const LS_WEATHER_ENABLED = "ct_weather_enabled";
 const LS_WEATHER_COORDS = "ct_weather_coords";
 const LS_COMMUTE_CONFIG = "ct_commute_config";
+const LS_APP_SHORTCUTS = "ct_app_shortcuts";
 const LS_BROWSER_CAT = "ct_browser_categories";
 const POLL_MS = 30_000;
+
+const DEFAULT_APP_SHORTCUTS: AppShortcut[] = [
+  {
+    id: "preset-google-anti",
+    keyword: "구글안티",
+    target: "C:\\Users\\tstar\\AppData\\Local\\Programs\\Antigravity\\Antigravity.exe",
+    enabled: true,
+  },
+  {
+    id: "preset-kakaotalk",
+    keyword: "카카오톡",
+    target: "kakaotalk://",
+    enabled: true,
+  },
+  {
+    id: "preset-notion",
+    keyword: "노션",
+    target: "notion://",
+    enabled: true,
+  },
+];
 
 type Theme = "dark" | "light" | "coffee" | "mega" | "kustom";
 
@@ -399,6 +422,12 @@ export default function Home() {
       workStation: "수원역",
     })
   );
+
+  const [appShortcuts, setAppShortcuts] = useState<AppShortcut[]>(() =>
+    loadLS<AppShortcut[]>(LS_APP_SHORTCUTS, DEFAULT_APP_SHORTCUTS)
+  );
+  const [shortcutKeywordInput, setShortcutKeywordInput] = useState("");
+  const [shortcutTargetInput, setShortcutTargetInput] = useState("");
 
   const [toast, setToast] = useState("");
   const [draft, setDraft] = useState<{ title: string; text: string; message: string } | null>(null);
@@ -924,9 +953,31 @@ export default function Home() {
   // ── Copilot (G3: 무연동에서도 동작) ──────────
   async function askCopilot(preset?: string) {
     const question = (preset ?? copilotInput).trim();
-    if (!question || copilotBusy) return;
     setCopilotInput("");
     setCopilotMessages((prev) => [...prev, { role: "user", text: question }]);
+
+    // 단어-앱 바로가기 레시피 자동 탐지
+    const matchedShortcut = appShortcuts.find(
+      (s) => s.enabled && (question.includes(s.keyword) || question === s.keyword)
+    );
+
+    if (matchedShortcut) {
+      void fetch("/api/util/exec-app", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ target: matchedShortcut.target }),
+      });
+
+      setCopilotMessages((prev) => [
+        ...prev,
+        {
+          role: "ai",
+          text: `🚀 **'${matchedShortcut.keyword}'** 명령 확인! **[${matchedShortcut.target}]** 프로그램을 바로 띄워드렸습니다 ☕`,
+        },
+      ]);
+      return;
+    }
+
     setCopilotBusy(true);
     try {
       const res = await fetch("/api/copilot", {
@@ -2088,6 +2139,82 @@ export default function Home() {
               <p className={styles.connNote}>
                 시간대에 따라 오전(출근 모드), 오후(퇴근 모드)로 자동 전환하여 대시보드 스마트 카드로 보여드립니다.
               </p>
+            </section>
+
+            <section className={styles.card} style={{ border: "none", padding: "10px 0" }}>
+              <div className={styles.cardTitle}>
+                🔗 단어-앱 바로가기 레시피 <small>{appShortcuts.length}개 등록됨</small>
+              </div>
+              <div className={styles.formRow}>
+                <input
+                  className={styles.input}
+                  placeholder='호출 단어 (예: "구글안티")'
+                  value={shortcutKeywordInput}
+                  onChange={(e) => setShortcutKeywordInput(e.target.value)}
+                  style={{ flex: 1 }}
+                />
+                <input
+                  className={styles.input}
+                  placeholder='실행 경로/URL (예: "Antigravity.exe" 또는 "kakaotalk://")'
+                  value={shortcutTargetInput}
+                  onChange={(e) => setShortcutTargetInput(e.target.value)}
+                  style={{ flex: 2 }}
+                />
+                <button
+                  className={styles.btn}
+                  onClick={() => {
+                    if (!shortcutKeywordInput.trim() || !shortcutTargetInput.trim()) return;
+                    const next: AppShortcut[] = [
+                      ...appShortcuts,
+                      {
+                        id: `sc-${Date.now()}`,
+                        keyword: shortcutKeywordInput.trim(),
+                        target: shortcutTargetInput.trim(),
+                        enabled: true,
+                      },
+                    ];
+                    setAppShortcuts(next);
+                    saveLS(LS_APP_SHORTCUTS, next);
+                    setShortcutKeywordInput("");
+                    setShortcutTargetInput("");
+                    showToast(`🔗 '${shortcutKeywordInput.trim()}' 바로가기 레시피가 등록되었습니다.`);
+                  }}
+                >
+                  추가
+                </button>
+              </div>
+              <div className={styles.list} style={{ marginTop: 8 }}>
+                {appShortcuts.map((sc, i) => (
+                  <div key={sc.id} className={styles.ruleRow}>
+                    <button
+                      className={styles.iconBtn}
+                      onClick={() => {
+                        const next = appShortcuts.map((item, j) =>
+                          j === i ? { ...item, enabled: !item.enabled } : item
+                        );
+                        setAppShortcuts(next);
+                        saveLS(LS_APP_SHORTCUTS, next);
+                      }}
+                      title={sc.enabled ? "켜짐" : "꺼짐"}
+                    >
+                      {sc.enabled ? "●" : "○"}
+                    </button>
+                    <span className={styles.ruleText}>
+                      <b>&lsquo;{sc.keyword}&rsquo;</b> ➔ <small style={{ color: "var(--accent)" }}>{sc.target}</small>
+                    </span>
+                    <button
+                      className={styles.iconBtn}
+                      onClick={() => {
+                        const next = appShortcuts.filter((_, j) => j !== i);
+                        setAppShortcuts(next);
+                        saveLS(LS_APP_SHORTCUTS, next);
+                      }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
             </section>
 
             <div className={styles.cardTitle} style={{ marginTop: 20 }}>
