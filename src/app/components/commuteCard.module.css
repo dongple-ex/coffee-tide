@@ -129,3 +129,81 @@
   border-color: var(--accent);
   color: var(--accent);
 }
+
+/* 풍부한 길찾기 정보 지표 그리드 & 칩 추가 */
+.metricsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.metricItem {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+}
+
+.metricLabel {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+}
+
+.metricValue {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-top: 2px;
+}
+
+.routeOptionsSection {
+  margin-bottom: 12px;
+}
+
+.routeOptionsHeader {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+}
+
+.routeOptionsList {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.routeOptionChip {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 0.78rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.routeOptionBadge {
+  background: var(--accent-dim);
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.smartTipBox {
+  background: rgba(43, 91, 238, 0.08);
+  border: 1px solid rgba(43, 91, 238, 0.25);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--text);
+  margin-bottom: 12px;
+}

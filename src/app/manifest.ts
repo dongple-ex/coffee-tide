@@ -5,8 +5,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "coffeeTide — 커피 한 잔 하면서 오늘을 정리하는 AI 업무 비서",
-    short_name: "coffeeTide",
+    name: "Coffee Tide",
+    short_name: "Coffee Tide",
     description:
       "연동이 없어도 직접 입력과 붙여넣기로 바로 시작하고, 연결되면 더 강력해지는 AI 업무 비서",
     start_url: "/",

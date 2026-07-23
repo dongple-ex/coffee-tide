@@ -2,13 +2,12 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  // 정본 한 줄 정의(doc/00-current-state.md §1)와 동일 문구 — landing 히어로·README와 함께 유지
-  title: "coffeeTide — 커피 한 잔 하면서 오늘을 정리하는 AI 업무 비서",
+  title: "Coffee Tide",
   description:
     "연동이 없어도 직접 입력과 붙여넣기로 바로 시작하고, 연결되면 더 강력해지는 AI 업무 비서",
   appleWebApp: {
     capable: true,
-    title: "coffeeTide",
+    title: "Coffee Tide",
     statusBarStyle: "black-translucent",
   },
 };

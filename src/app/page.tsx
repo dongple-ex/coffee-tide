@@ -377,6 +377,11 @@ export default function Home() {
   const [copilotMessages, setCopilotMessages] = useState<CopilotMessage[]>([]);
   const [copilotInput, setCopilotInput] = useState("");
   const [copilotBusy, setCopilotBusy] = useState(false);
+  const [welcomeCardCollapsed, setWelcomeCardCollapsed] = useState(false);
+  const [collapsedQaKeys, setCollapsedQaKeys] = useState<Set<string>>(new Set());
+  const [todoSectionCollapsed, setTodoSectionCollapsed] = useState(false);
+  const [llmSectionCollapsed, setLlmSectionCollapsed] = useState(false);
+  const [restSectionCollapsed, setRestSectionCollapsed] = useState(false);
 
   const [saveToDrive, setSaveToDrive] = useState(false);
   const [uploadBusy, setUploadBusy] = useState(false);
@@ -605,6 +610,24 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void fetchMails();
   }, [fetchMails]);
+
+  const [isDataRefreshing, setIsDataRefreshing] = useState(false);
+
+  const handleRefreshAll = useCallback(async () => {
+    if (isDataRefreshing) return;
+    setIsDataRefreshing(true);
+    try {
+      await fetchMails(true);
+      if (weatherEnabled && weatherCoords) {
+        await fetchWeatherData(weatherCoords.lat, weatherCoords.lon);
+      }
+      showToast("연결된 최신 데이터를 불러왔습니다. ☕");
+    } catch {
+      showToast("데이터를 불러오는 중 오류가 발생했습니다.");
+    } finally {
+      setIsDataRefreshing(false);
+    }
+  }, [isDataRefreshing, fetchMails, weatherEnabled, weatherCoords, fetchWeatherData, showToast]);
 
   // 브라우저 폴더 연동 복원 — FSA 지원 감지 + 저장 핸들 스캔 (권한 상태 포함)
   useEffect(() => {
@@ -953,6 +976,7 @@ export default function Home() {
 
   // ── Copilot (G3: 무연동에서도 동작) ──────────
   async function askCopilot(preset?: string) {
+    setWelcomeCardCollapsed(true);
     const question = (preset ?? copilotInput).trim();
     setCopilotInput("");
     setCopilotMessages((prev) => [...prev, { role: "user", text: question }]);
@@ -1570,7 +1594,7 @@ export default function Home() {
             </button>
           </div>
         </div>
-        <div className={styles.headerRowStart}>
+        <div className={styles.headerRowStart} style={{ justifyContent: "space-between", alignItems: "center", width: "100%" }}>
           <div className={styles.stats}>
             <span className={styles.statChip}>
               대기 <b>{activeCount}</b>
@@ -1582,6 +1606,28 @@ export default function Home() {
               오늘 완료 <b>{doneCount}</b>
             </span>
           </div>
+          <button
+            className={styles.refreshBtn}
+            onClick={() => void handleRefreshAll()}
+            disabled={isDataRefreshing}
+            aria-label="연결 데이터 새로고침"
+            title="연결 데이터 새로고침"
+          >
+            <svg
+              className={isDataRefreshing ? styles.spinIcon : ""}
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M21.5 2v6h-6M2.5 22v-6h6" />
+              <path d="M2 11.5a10 10 0 0 1 18.8-4.3L21.5 8M22 12.5a10 10 0 0 1-18.8 4.3L2.5 16" />
+            </svg>
+          </button>
         </div>
         <div className={styles.headerRowStart}>
           <button
@@ -1734,27 +1780,95 @@ export default function Home() {
         {/* G3/G6: Copilot — 무연동에서도 활성, MarkdownLite 렌더링 */}
         <section className={`${styles.card} ${styles.colCopilot}`}>
           <div className={styles.cardTitle}>☕ AI 바리스타</div>
-          <WelcomeCard compact weather={weatherData} />
+          <WelcomeCard
+            compact
+            weather={weatherData}
+            collapsed={welcomeCardCollapsed}
+            onToggleCollapsed={setWelcomeCardCollapsed}
+          />
           <div className={styles.copilotBody} ref={copilotBodyRef}>
-            {copilotMessages.length === 0 ? (
-              <div className={styles.msgHint}>
-                “오늘 뭐 해야 해?”라고 주문하듯 편하게 물어보세요 ☕
-                {merged.length === 0 &&
-                  " 아직 아는 업무가 없어서 브리핑이 좀 심심할 거예요 — 위에서 몇 개만 알려주세요!"}
-              </div>
-            ) : (
-              copilotMessages.map((msg, i) =>
-                msg.role === "user" ? (
-                  <div key={i} className={styles.msgUser}>
-                    {msg.text}
+            {(() => {
+              if (copilotMessages.length === 0) {
+                return (
+                  <div className={styles.msgHint}>
+                    “오늘 뭐 해야 해?”라고 주문하듯 편하게 물어보세요 ☕
+                    {merged.length === 0 &&
+                      " 아직 아는 업무가 없어서 브리핑이 좀 심심할 거예요 — 위에서 몇 개만 알려주세요!"}
                   </div>
-                ) : (
-                  <div key={i} className={styles.msgAi}>
-                    <MarkdownLite text={msg.text} />
+                );
+              }
+
+              const pairs: Array<{ id: string; userText?: string; aiText?: string; fallback?: boolean }> = [];
+              let currentPair: { id: string; userText?: string; aiText?: string; fallback?: boolean } | null = null;
+
+              copilotMessages.forEach((msg, idx) => {
+                if (msg.role === "user") {
+                  currentPair = { id: `qa-${idx}`, userText: msg.text };
+                  pairs.push(currentPair);
+                } else {
+                  if (currentPair && !currentPair.aiText) {
+                    currentPair.aiText = msg.text;
+                    currentPair.fallback = msg.fallback;
+                  } else {
+                    currentPair = { id: `qa-ai-${idx}`, aiText: msg.text, fallback: msg.fallback };
+                    pairs.push(currentPair);
+                  }
+                }
+              });
+
+              return pairs.map((pair) => {
+                const isCollapsed = collapsedQaKeys.has(pair.id);
+                const toggleCollapse = () => {
+                  setCollapsedQaKeys((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(pair.id)) next.delete(pair.id);
+                    else next.add(pair.id);
+                    return next;
+                  });
+                };
+
+                return (
+                  <div key={pair.id} className={styles.chatQaGroup}>
+                    {pair.userText && (
+                      <div className={styles.chatQuestionHeader} onClick={toggleCollapse}>
+                        <div className={styles.chatQuestionTitle}>
+                          <span style={{ fontSize: "0.95rem" }}>💬</span>
+                          <span>{pair.userText}</span>
+                        </div>
+                        <button
+                          type="button"
+                          className={styles.chatQaToggleBtn}
+                          aria-label={isCollapsed ? "응답 펼치기" : "응답 접기"}
+                          title={isCollapsed ? "응답 펼치기" : "응답 접기"}
+                        >
+                          <svg
+                            width="14"
+                            height="14"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            style={{
+                              transform: isCollapsed ? "rotate(180deg)" : "rotate(0deg)",
+                              transition: "transform 0.2s ease",
+                            }}
+                          >
+                            <polyline points="18 15 12 9 6 15" />
+                          </svg>
+                        </button>
+                      </div>
+                    )}
+                    {!isCollapsed && pair.aiText && (
+                      <div className={styles.chatAnswerScroll}>
+                        <MarkdownLite text={pair.aiText} />
+                      </div>
+                    )}
                   </div>
-                )
-              )
-            )}
+                );
+              });
+            })()}
             {copilotBusy && (
               <div className={styles.msgHint}>
                 <CafeWait steps={dynamicCopilotSteps} interval={1200} />
@@ -1836,6 +1950,7 @@ export default function Home() {
               placeholder="오늘 뭐 해야 해?"
               value={copilotInput}
               onChange={(e) => setCopilotInput(e.target.value)}
+              onFocus={() => setWelcomeCardCollapsed(true)}
               onKeyDown={(e) => e.key === "Enter" && askCopilot()}
               disabled={copilotBusy}
               aria-label="AI 바리스타 질문 입력"
@@ -1868,59 +1983,132 @@ export default function Home() {
 
         {/* 오늘의 행동 지침 */}
         <section className={`${styles.card} ${styles.colFull}`}>
-          <div className={styles.cardTitle}>
-            🎯 오늘의 행동 지침 <small>{todoItems.length}건</small>
+          <div
+            className={`${styles.cardTitle} ${styles.cardTitleToggleable}`}
+            onClick={() => setTodoSectionCollapsed((prev) => !prev)}
+          >
+            <span>🎯 오늘의 행동 지침</span>
+            <small>{todoItems.length}건</small>
+            <span className={styles.folderToggleIcon} title={todoSectionCollapsed ? "섹션 펼치기" : "섹션 접기"}>
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                style={{
+                  transform: todoSectionCollapsed ? "rotate(180deg)" : "rotate(0deg)",
+                  transition: "transform 0.2s ease",
+                }}
+              >
+                <polyline points="18 15 12 9 6 15" />
+              </svg>
+            </span>
           </div>
-          {todoItems.length === 0 ? (
-            <div className={styles.emptyState}>
-              {/* G2: 연동 전제가 아닌 입력 우선 안내 */}
-              오늘은 아직 조용하네요. <b>위에서 업무를 추가하거나 메모를 붙여넣어
-              보세요.</b>
-              {!isAnyConnected && " Outlook/Notion 연동은 나중에 해도 충분해요."}
-            </div>
-          ) : (
-            <div className={styles.list}>{todoItems.map(renderItem)}</div>
+          {!todoSectionCollapsed && (
+            todoItems.length === 0 ? (
+              <div className={styles.emptyState}>
+                {/* G2: 연동 전제가 아닌 입력 우선 안내 */}
+                오늘은 아직 조용하네요. <b>위에서 업무를 추가하거나 메모를 붙여넣어
+                보세요.</b>
+                {!isAnyConnected && " Outlook/Notion 연동은 나중에 해도 충분해요."}
+              </div>
+            ) : (
+              <div className={styles.list}>{todoItems.map(renderItem)}</div>
+            )
           )}
         </section>
-
-
 
         {/* 🧠 오늘의 LLM 작업 (phase6 §7) */}
         {(llmItems.length > 0 || connections?.llm || browserLlm) && (
           <section className={`${styles.card} ${styles.colFull}`}>
-            <div className={styles.cardTitle}>
-              🧠 오늘의 LLM 작업 <small>{llmItems.length}건</small>
+            <div
+              className={`${styles.cardTitle} ${styles.cardTitleToggleable}`}
+              onClick={() => setLlmSectionCollapsed((prev) => !prev)}
+            >
+              <span>🧠 오늘의 LLM 작업</span>
+              <small>{llmItems.length}건</small>
               {connections?.obsidian && (
                 <button
                   className={`${styles.btn} ${styles.cardTitleBtn}`}
-                  onClick={exportLlmDigest}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    exportLlmDigest();
+                  }}
                 >
                   📥 Obsidian에 오늘 요약 내보내기
                 </button>
               )}
+              <span className={styles.folderToggleIcon} title={llmSectionCollapsed ? "섹션 펼치기" : "섹션 접기"}>
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  style={{
+                    transform: llmSectionCollapsed ? "rotate(180deg)" : "rotate(0deg)",
+                    transition: "transform 0.2s ease",
+                  }}
+                >
+                  <polyline points="18 15 12 9 6 15" />
+                </svg>
+              </span>
             </div>
-            {llmItems.length === 0 ? (
-              <div className={styles.emptyState}>
-                오늘은 AI 동료들이 조용하네요. 산출물이 생기면 여기 모아드릴게요.
-              </div>
-            ) : (
-              <div className={styles.list}>{llmItems.map(renderItem)}</div>
+            {!llmSectionCollapsed && (
+              llmItems.length === 0 ? (
+                <div className={styles.emptyState}>
+                  오늘은 AI 동료들이 조용하네요. 산출물이 생기면 여기 모아드릴게요.
+                </div>
+              ) : (
+                <div className={styles.list}>{llmItems.map(renderItem)}</div>
+              )
             )}
           </section>
         )}
 
         {/* 전체 목록 */}
         <section className={`${styles.card} ${styles.colFull}`}>
-          <div className={styles.cardTitle}>
-            📚 받은 항목 전체 <small>{restItems.length}건</small>
+          <div
+            className={`${styles.cardTitle} ${styles.cardTitleToggleable}`}
+            onClick={() => setRestSectionCollapsed((prev) => !prev)}
+          >
+            <span>📚 받은 항목 전체</span>
+            <small>{restItems.length}건</small>
+            <span className={styles.folderToggleIcon} title={restSectionCollapsed ? "섹션 펼치기" : "섹션 접기"}>
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                style={{
+                  transform: restSectionCollapsed ? "rotate(180deg)" : "rotate(0deg)",
+                  transition: "transform 0.2s ease",
+                }}
+              >
+                <polyline points="18 15 12 9 6 15" />
+              </svg>
+            </span>
           </div>
-          {restItems.length === 0 ? (
-            <div className={styles.emptyState}>
-              참고용 소식이 모이는 자리예요. 아직은 텅 — 업무를 추가하거나 문서를
-              가져오면 채워드릴게요.
-            </div>
-          ) : (
-            <div className={styles.list}>{restItems.map(renderItem)}</div>
+          {!restSectionCollapsed && (
+            restItems.length === 0 ? (
+              <div className={styles.emptyState}>
+                참고용 소식이 모이는 자리예요. 아직은 텅 — 업무를 추가하거나 문서를
+                가져오면 채워드릴게요.
+              </div>
+            ) : (
+              <div className={styles.list}>{restItems.map(renderItem)}</div>
+            )
           )}
         </section>
       </div>

@@ -12,10 +12,10 @@ interface CommuteCardProps {
 }
 
 const REFRESH_QUOTES = [
-  "최신 열차 시각과 도로 교통 상황을 다시 조회했어요 ☕",
-  "실시간 길찾기 정보를 갓 추출해 따끈따끈하게 갱신했습니다! ☕",
-  "지금 시간대 최적의 이동 경로를 따스하게 새로고침했어요!",
-  "도로 및 철도 구간의 실시간 소통 현황을 갱신 완료했습니다 ☕",
+  "최신 열차 시각과 실시간 도로 교통 상황을 갓 추출해 갱신했어요 ☕",
+  "실시간 배차 간격 및 정체 구간 정보를 따스하게 새로고침했습니다!",
+  "지금 시간대 최적의 이동 경로와 환승 꿀팁을 갱신했어요 ☕",
+  "도로 및 철도 구간의 실시간 혼잡도 현황을 갱신 완료했습니다!",
 ];
 
 export function CommuteCard({ homeStation, workStation, transportType = "public" }: CommuteCardProps) {
@@ -142,23 +142,71 @@ export function CommuteCard({ homeStation, workStation, transportType = "public"
         </div>
       )}
 
+      {/* 출발 및 도착 메인 카드 */}
       <div className={styles.routeContainer}>
         <div className={styles.stationBlock}>
-          <span className={styles.stationLabel}>출발</span>
+          <span className={styles.stationLabel}>출발 ({commute.nextDepartureTime} 출발)</span>
           <span className={styles.stationName}>{commute.origin}</span>
         </div>
         <div className={styles.arrowIcon}>➔</div>
         <div className={styles.stationBlock} style={{ textAlign: "right" }}>
-          <span className={styles.stationLabel}>도착</span>
+          <span className={styles.stationLabel}>예상 도착 ({commute.expectedArrivalTime})</span>
           <span className={styles.stationName}>{commute.destination}</span>
         </div>
       </div>
 
-      <div className={styles.infoRow}>
-        {commute.statusText}
-        <br />
-        <b>추천 경로:</b> {commute.lineInfo} (예상 소요 약 {commute.durationMinutes}분)
+      {/* 핵심 실시간 지표 4개 그리드 */}
+      <div className={styles.metricsGrid}>
+        <div className={styles.metricItem}>
+          <span className={styles.metricLabel}>⏱️ 소요 시간</span>
+          <span className={styles.metricValue}>약 {commute.durationMinutes}분</span>
+        </div>
+        <div className={styles.metricItem}>
+          <span className={styles.metricLabel}>
+            {isCar ? "🚦 도로 상황" : "👥 승강장 혼잡도"}
+          </span>
+          <span className={styles.metricValue}>{commute.congestionText}</span>
+        </div>
+        <div className={styles.metricItem}>
+          <span className={styles.metricLabel}>
+            {isCar ? "⛽ 예상 비용" : "💳 예상 요금"}
+          </span>
+          <span className={styles.metricValue}>{commute.fareInfo}</span>
+        </div>
+        <div className={styles.metricItem}>
+          <span className={styles.metricLabel}>
+            {isCar ? "🛣️ 추천 경로" : "🕒 다다음 열차"}
+          </span>
+          <span className={styles.metricValue}>
+            {isCar ? "고속도로 우선" : commute.nextSubsequentDepartureTime}
+          </span>
+        </div>
       </div>
+
+      {/* 실시간 경로 옵션 칩 비교 */}
+      {commute.routeOptions && commute.routeOptions.length > 0 && (
+        <div className={styles.routeOptionsSection}>
+          <div className={styles.routeOptionsHeader}>🧭 실시간 경로 옵션 및 소요시간 비교</div>
+          <div className={styles.routeOptionsList}>
+            {commute.routeOptions.map((opt, i) => (
+              <div key={i} className={styles.routeOptionChip}>
+                <span className={styles.routeOptionBadge}>{opt.badgeText}</span>
+                <span>{opt.name}</span>
+                <span style={{ color: "var(--text-dim)", fontSize: "0.74rem" }}>
+                  ({opt.duration}분 | {opt.fare})
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* AI 바리스타 실시간 이동 꿀팁 */}
+      {commute.smartTip && (
+        <div className={styles.smartTipBox}>
+          {commute.smartTip.replace(/\*\*/g, "")}
+        </div>
+      )}
 
       <div className={styles.btnGroup}>
         <button

@@ -13,6 +13,8 @@ export interface WeatherData {
 interface WelcomeCardProps {
   compact?: boolean;
   weather?: WeatherData | null;
+  collapsed?: boolean;
+  onToggleCollapsed?: (collapsed: boolean) => void;
 }
 
 function getTimeState(): "morning" | "afternoon" | "evening" {
@@ -30,9 +32,26 @@ function getDateLabel(): string {
   });
 }
 
-export function WelcomeCard({ compact = false, weather }: WelcomeCardProps) {
+export function WelcomeCard({ compact = false, weather, collapsed, onToggleCollapsed }: WelcomeCardProps) {
   const [timeState] = useState<"morning" | "afternoon" | "evening">(getTimeState);
   const [dateLabel] = useState<string>(getDateLabel);
+  const [internalCollapsed, setInternalCollapsed] = useState(false);
+
+  const isCollapsed = collapsed !== undefined ? collapsed : internalCollapsed;
+
+  const handleSetCollapsed = (nextVal: boolean) => {
+    setInternalCollapsed(nextVal);
+    onToggleCollapsed?.(nextVal);
+  };
+
+  useEffect(() => {
+    // 30초 후 자동으로 한 줄로 접히는 웰컴 효과
+    const timer = setTimeout(() => {
+      handleSetCollapsed(true);
+    }, 30000);
+
+    return () => clearTimeout(timer);
+  }, []);
 
   const getTimeTheme = () => {
     switch (timeState) {
@@ -70,7 +89,14 @@ export function WelcomeCard({ compact = false, weather }: WelcomeCardProps) {
   };
 
   return (
-    <div className={`${styles.welcomeCard} ${theme.bgClass} ${compact ? styles.compactCard : ""}`}>
+    <div
+      className={`${styles.welcomeCard} ${theme.bgClass} ${compact ? styles.compactCard : ""} ${
+        isCollapsed ? styles.collapsedCard : ""
+      }`}
+      onClick={() => isCollapsed && handleSetCollapsed(false)}
+      style={{ cursor: isCollapsed ? "pointer" : "default" }}
+      title={isCollapsed ? "클릭하여 브리핑 펼치기" : undefined}
+    >
       <div className={styles.cardHeader}>
         <div className={styles.badgeGroup}>
           <span className={styles.timeBadge}>
@@ -78,13 +104,42 @@ export function WelcomeCard({ compact = false, weather }: WelcomeCardProps) {
           </span>
           <span className={styles.dateText}>{dateLabel}</span>
         </div>
-        {weather && (
-          <div className={styles.weatherBadge}>
-            <span>📍 {weather.city}</span>
-            <span className={styles.weatherDot}>•</span>
-            <span>{weather.temp}°C {weather.description}</span>
-          </div>
-        )}
+        <div className={styles.headerRightGroup}>
+          {weather && (
+            <div className={styles.weatherBadge}>
+              <span>📍 {weather.city}</span>
+              <span className={styles.weatherDot}>•</span>
+              <span>{weather.temp}°C {weather.description}</span>
+            </div>
+          )}
+          <button
+            type="button"
+            className={styles.toggleBtn}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleSetCollapsed(!isCollapsed);
+            }}
+            aria-label={isCollapsed ? "브리핑 펼치기" : "브리핑 접기"}
+            title={isCollapsed ? "브리핑 펼치기" : "브리핑 접기"}
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{
+                transform: isCollapsed ? "rotate(180deg)" : "rotate(0deg)",
+                transition: "transform 0.3s ease",
+              }}
+            >
+              <polyline points="18 15 12 9 6 15" />
+            </svg>
+          </button>
+        </div>
       </div>
 
       <div className={styles.cardBody}>
