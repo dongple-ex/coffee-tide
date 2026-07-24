@@ -73,6 +73,57 @@ export function CalculatorWidget() {
     }
   };
 
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const activeEl = document.activeElement;
+      if (
+        activeEl &&
+        (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA" || (activeEl as HTMLElement).isContentEditable)
+      ) {
+        return;
+      }
+
+      const key = e.key;
+
+      if (key >= "0" && key <= "9") {
+        e.preventDefault();
+        handleNum(key);
+      } else if (key === ".") {
+        e.preventDefault();
+        handleDot();
+      } else if (key === "+") {
+        e.preventDefault();
+        handleOp("+");
+      } else if (key === "-") {
+        e.preventDefault();
+        handleOp("-");
+      } else if (key === "*") {
+        e.preventDefault();
+        handleOp("×");
+      } else if (key === "/") {
+        e.preventDefault();
+        handleOp("÷");
+      } else if (key === "Enter" || key === "=") {
+        e.preventDefault();
+        handleEqual();
+      } else if (key === "Backspace") {
+        e.preventDefault();
+        handleBackspace();
+      } else if (key === "Escape" || key.toLowerCase() === "c") {
+        e.preventDefault();
+        handleClear();
+      } else if (key === "%") {
+        e.preventDefault();
+        handlePercent();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [display, expression, newNumber]);
+
   return (
     <div className={styles.container}>
       <div className={styles.header}>
