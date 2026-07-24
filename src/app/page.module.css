@@ -244,15 +244,15 @@
 .widgetChip {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 20px;
-  padding: 6px 14px;
-  font-size: 0.82rem;
+  border-radius: 14px;
+  padding: 4px 10px;
+  font-size: 0.76rem;
   font-weight: 600;
   color: var(--text);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   transition: all 0.2s ease;
   flex-shrink: 0;
   white-space: nowrap;

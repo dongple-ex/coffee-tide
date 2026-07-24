@@ -41,6 +41,7 @@ import { CommuteCard } from "./components/CommuteCard";
 import { TimerWidget } from "./components/TimerWidget";
 import { CalculatorWidget } from "./components/CalculatorWidget";
 import { ShortcutsWidget } from "./components/ShortcutsWidget";
+import { WeatherWidget } from "./components/WeatherWidget";
 import { CommuteConfig } from "@/lib/types/commute";
 import { AppShortcut } from "@/lib/types/appShortcut";
 import styles from "./page.module.css";
@@ -2083,6 +2084,15 @@ export default function Home() {
           onMouseUp={handleWidgetMouseLeaveOrUp}
           onMouseMove={handleWidgetMouseMove}
         >
+          <button
+            type="button"
+            className={`${styles.widgetChip} ${activeWidget === "weather" ? styles.widgetChipActive : ""}`}
+            onClick={() => setActiveWidget((prev) => (prev === "weather" ? null : "weather"))}
+            title="실시간 날씨 정보 및 브리핑 열기/닫기"
+          >
+            <span>🌤️</span>
+            <span>실시간 날씨</span>
+          </button>
           {commuteConfig.enabled && (
             <button
               type="button"
@@ -2124,6 +2134,21 @@ export default function Home() {
         </div>
 
         {/* 선택된 위젯 패널 */}
+        {activeWidget === "weather" && (
+          <div className={styles.widgetPanel}>
+            <WeatherWidget
+              weather={weatherData}
+              enabled={weatherEnabled}
+              onEnableLocation={enableWeatherLocation}
+              onRefreshWeather={() => {
+                if (weatherCoords) {
+                  void fetchWeatherData(weatherCoords.lat, weatherCoords.lon);
+                  showToast("실시간 날씨 정보가 갱신되었습니다 🌤️");
+                }
+              }}
+            />
+          </div>
+        )}
         {activeWidget === "commute" && commuteConfig.enabled && (
           <div className={styles.widgetPanel}>
             <CommuteCard
