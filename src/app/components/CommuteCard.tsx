@@ -155,49 +155,35 @@ export function CommuteCard({ homeStation, workStation, transportType = "public"
         </div>
       </div>
 
-      {/* 핵심 실시간 지표 4개 그리드 */}
-      <div className={styles.metricsGrid}>
-        <div className={styles.metricItem}>
-          <span className={styles.metricLabel}>⏱️ 소요 시간</span>
-          <span className={styles.metricValue}>약 {commute.durationMinutes}분</span>
-        </div>
-        <div className={styles.metricItem}>
-          <span className={styles.metricLabel}>
-            {isCar ? "🚦 도로 상황" : "👥 승강장 혼잡도"}
-          </span>
-          <span className={styles.metricValue}>{commute.congestionText}</span>
-        </div>
-        <div className={styles.metricItem}>
-          <span className={styles.metricLabel}>
-            {isCar ? "⛽ 예상 비용" : "💳 예상 요금"}
-          </span>
-          <span className={styles.metricValue}>{commute.fareInfo}</span>
-        </div>
-        <div className={styles.metricItem}>
-          <span className={styles.metricLabel}>
-            {isCar ? "🛣️ 추천 경로" : "🕒 다다음 열차"}
-          </span>
-          <span className={styles.metricValue}>
-            {isCar ? "고속도로 우선" : commute.nextSubsequentDepartureTime}
-          </span>
-        </div>
-      </div>
-
-      {/* 실시간 경로 옵션 칩 비교 */}
+      {/* 수단별(지하철, 기차, 버스 / 자차 도로) 실시간 경로 카드 그리드 */}
       {commute.routeOptions && commute.routeOptions.length > 0 && (
-        <div className={styles.routeOptionsSection}>
-          <div className={styles.routeOptionsHeader}>🧭 실시간 경로 옵션 및 소요시간 비교</div>
-          <div className={styles.routeOptionsList}>
-            {commute.routeOptions.map((opt, i) => (
-              <div key={i} className={styles.routeOptionChip}>
-                <span className={styles.routeOptionBadge}>{opt.badgeText}</span>
-                <span>{opt.name}</span>
-                <span style={{ color: "var(--text-dim)", fontSize: "0.74rem" }}>
-                  ({opt.duration}분 | {opt.fare})
-                </span>
+        <div className={styles.modeRouteGrid}>
+          {commute.routeOptions.map((opt, i) => (
+            <div key={i} className={styles.modeRouteCard}>
+              <div className={styles.modeRouteHeader}>
+                <div className={styles.modeRouteTitle}>
+                  <span>{opt.icon}</span>
+                  <span>{opt.name}</span>
+                </div>
+                <span className={styles.modeRouteBadge}>{opt.badgeText}</span>
               </div>
-            ))}
-          </div>
+              <div className={styles.modeRouteDuration}>약 {opt.duration}분</div>
+              <div className={styles.modeRouteDetails}>
+                <div className={styles.modeRouteDetailsRow}>
+                  <span>🕒 출발</span>
+                  <span style={{ fontWeight: 600, color: "var(--text)" }}>{opt.departureTime}</span>
+                </div>
+                <div className={styles.modeRouteDetailsRow}>
+                  <span>💳 요금</span>
+                  <span style={{ fontWeight: 600, color: "var(--text)" }}>{opt.fare}</span>
+                </div>
+                <div className={styles.modeRouteDetailsRow}>
+                  <span>🚦 상태</span>
+                  <span style={{ fontWeight: 600, color: "var(--text)" }}>{opt.congestion}</span>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 

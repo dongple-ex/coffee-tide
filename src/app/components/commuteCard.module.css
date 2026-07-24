@@ -130,71 +130,75 @@
   color: var(--accent);
 }
 
-/* 풍부한 길찾기 정보 지표 그리드 & 칩 추가 */
-.metricsGrid {
+/* 풍부한 길찾기 수단별(지하철, 기차, 버스) 실시간 카드 그리드 */
+.modeRouteGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
   margin-bottom: 12px;
 }
 
-.metricItem {
+.modeRouteCard {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 8px 10px;
+  border-radius: 12px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+  transition: all 0.2s ease;
 }
 
-.metricLabel {
-  font-size: 0.7rem;
-  color: var(--text-dim);
+.modeRouteCard:hover {
+  border-color: var(--accent);
+  background: rgba(255, 255, 255, 0.07);
 }
 
-.metricValue {
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: var(--text);
-  margin-top: 2px;
-}
-
-.routeOptionsSection {
-  margin-bottom: 12px;
-}
-
-.routeOptionsHeader {
-  font-size: 0.78rem;
-  font-weight: 700;
-  color: var(--text-dim);
-  margin-bottom: 6px;
-}
-
-.routeOptionsList {
+.modeRouteHeader {
   display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
 }
 
-.routeOptionChip {
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 6px 10px;
-  font-size: 0.78rem;
+.modeRouteTitle {
   display: flex;
   align-items: center;
   gap: 6px;
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: var(--text);
 }
 
-.routeOptionBadge {
+.modeRouteBadge {
   background: var(--accent-dim);
   color: var(--accent);
   border: 1px solid var(--accent);
   font-size: 0.68rem;
   font-weight: 700;
-  padding: 1px 5px;
+  padding: 1px 6px;
   border-radius: 4px;
+}
+
+.modeRouteDuration {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--text);
+  margin: 2px 0;
+}
+
+.modeRouteDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 0.74rem;
+  color: var(--text-dim);
+}
+
+.modeRouteDetailsRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .smartTipBox {

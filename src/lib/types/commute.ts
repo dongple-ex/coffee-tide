@@ -6,11 +6,15 @@ export interface CommuteConfig {
 }
 
 export interface CommuteRouteOption {
+  icon: string;
+  category: string;
   name: string;
   duration: number;
-  type: string;
+  departureTime: string;
+  arrivalTime: string;
+  fare: string;
   badgeText: string;
-  fare?: string;
+  congestion: string;
 }
 
 export interface CommuteInfo {

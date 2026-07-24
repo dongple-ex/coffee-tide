@@ -53,7 +53,20 @@ const LS_WEATHER_COORDS = "ct_weather_coords";
 const LS_COMMUTE_CONFIG = "ct_commute_config";
 const LS_APP_SHORTCUTS = "ct_app_shortcuts";
 const LS_BROWSER_CAT = "ct_browser_categories";
+const LS_HANDOFF_STATE = "ct_handoff_state";
 const POLL_MS = 30_000;
+
+export interface HandoffState {
+  savedAt: string;
+  pendingCount: number;
+  todoSectionCollapsed: boolean;
+  llmSectionCollapsed: boolean;
+  restSectionCollapsed: boolean;
+  welcomeCardCollapsed: boolean;
+  copilotMessages: CopilotMessage[];
+  manualItems: UnifiedData[];
+  dismissedIds: string[];
+}
 
 const DEFAULT_APP_SHORTCUTS: AppShortcut[] = [
   {
@@ -382,6 +395,28 @@ export default function Home() {
   const [todoSectionCollapsed, setTodoSectionCollapsed] = useState(false);
   const [llmSectionCollapsed, setLlmSectionCollapsed] = useState(false);
   const [restSectionCollapsed, setRestSectionCollapsed] = useState(false);
+  const [handoffRestoredInfo, setHandoffRestoredInfo] = useState<{
+    savedAt: string;
+    pendingCount: number;
+  } | null>(null);
+
+  // 마운트 시 이전 퇴근 핸드오프 저장 상태가 있으면 UI 설정 및 대화/항목 상태 복원
+  useEffect(() => {
+    const handoff = loadLS<HandoffState | null>(LS_HANDOFF_STATE, null);
+    if (handoff) {
+      setTodoSectionCollapsed(handoff.todoSectionCollapsed ?? false);
+      setLlmSectionCollapsed(handoff.llmSectionCollapsed ?? false);
+      setRestSectionCollapsed(handoff.restSectionCollapsed ?? false);
+      setWelcomeCardCollapsed(handoff.welcomeCardCollapsed ?? false);
+      if (handoff.copilotMessages && handoff.copilotMessages.length > 0) {
+        setCopilotMessages(handoff.copilotMessages);
+      }
+      setHandoffRestoredInfo({
+        savedAt: handoff.savedAt,
+        pendingCount: handoff.pendingCount,
+      });
+    }
+  }, []);
 
   const [saveToDrive, setSaveToDrive] = useState(false);
   const [uploadBusy, setUploadBusy] = useState(false);
@@ -428,6 +463,7 @@ export default function Home() {
       transportType: "public",
     })
   );
+  const [activeWidget, setActiveWidget] = useState<string | null>(null);
 
   const [appShortcuts, setAppShortcuts] = useState<AppShortcut[]>(() =>
     loadLS<AppShortcut[]>(LS_APP_SHORTCUTS, DEFAULT_APP_SHORTCUTS)
@@ -612,16 +648,18 @@ export default function Home() {
   }, [fetchMails]);
 
   const [isDataRefreshing, setIsDataRefreshing] = useState(false);
+  const [welcomeCardRefreshKey, setWelcomeCardRefreshKey] = useState(0);
 
   const handleRefreshAll = useCallback(async () => {
     if (isDataRefreshing) return;
     setIsDataRefreshing(true);
+    setWelcomeCardRefreshKey((prev) => prev + 1);
     try {
       await fetchMails(true);
       if (weatherEnabled && weatherCoords) {
         await fetchWeatherData(weatherCoords.lat, weatherCoords.lon);
       }
-      showToast("연결된 최신 데이터를 불러왔습니다. ☕");
+      showToast("날짜·시간대 및 연결 최신 데이터를 불러왔습니다. ☕");
     } catch {
       showToast("데이터를 불러오는 중 오류가 발생했습니다.");
     } finally {
@@ -793,6 +831,52 @@ export default function Home() {
       buildMergedView(manualItems, [...serverMails, ...browserItems], dismissed, rules, followupHours),
     [manualItems, serverMails, browserItems, dismissed, rules, followupHours]
   );
+
+  const handleLogoutHandoff = useCallback(async () => {
+    const pendingItems = merged.filter((i) => i.status !== "completed");
+    const summary = pendingItems.map((i) => `- [ ] ${i.title}`).join("\n");
+    const text = `# ☕ coffeeTide Hand-off\n\n## 🚧 내일 이어서 할 일\n${summary}`;
+
+    const now = new Date();
+    const formattedDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(
+      2,
+      "0"
+    )}-${String(now.getDate()).padStart(2, "0")} ${String(now.getHours()).padStart(
+      2,
+      "0"
+    )}:${String(now.getMinutes()).padStart(2, "0")}`;
+
+    const handoffData: HandoffState = {
+      savedAt: formattedDate,
+      pendingCount: pendingItems.length,
+      todoSectionCollapsed,
+      llmSectionCollapsed,
+      restSectionCollapsed,
+      welcomeCardCollapsed,
+      copilotMessages,
+      manualItems,
+      dismissedIds: dismissed,
+    };
+
+    saveLS(LS_HANDOFF_STATE, handoffData);
+
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast(`☕ 퇴근 완료! 보존된 업무(${pendingItems.length}건) 상태가 기록 관리되었습니다.`);
+    } catch {
+      showToast(`☕ 퇴근 완료! 보존된 업무(${pendingItems.length}건) 상태가 안전하게 저장되었습니다.`);
+    }
+  }, [
+    merged,
+    todoSectionCollapsed,
+    llmSectionCollapsed,
+    restSectionCollapsed,
+    welcomeCardCollapsed,
+    copilotMessages,
+    manualItems,
+    dismissed,
+    showToast,
+  ]);
 
   // H4: 데스크톱 브라우저 알림 (긴급/팔로업 초과 업무 발생 시)
   useEffect(() => {
@@ -1578,17 +1662,7 @@ export default function Home() {
             </select>
             <button
               className={styles.logoutBtnSmall}
-              onClick={async () => {
-                const pendingItems = merged.filter((i) => i.status !== "completed");
-                const summary = pendingItems.map((i) => `- [ ] ${i.title}`).join('\n');
-                const text = `# ☕ coffeeTide Hand-off\n\n## 🚧 내일 이어서 할 일\n${summary}`;
-                try {
-                  await navigator.clipboard.writeText(text);
-                  showToast("남은 할 일을 정리해서 클립보드에 복사했어요! (HANDOFF.md에 붙여넣으세요)");
-                } catch {
-                  showToast("클립보드 복사에 실패했어요. 브라우저 권한(HTTPS 접속)을 확인해주세요.");
-                }
-              }}
+              onClick={() => void handleLogoutHandoff()}
             >
               퇴근하기
             </button>
@@ -1661,6 +1735,24 @@ export default function Home() {
         </div>
       </header>
 
+      {handoffRestoredInfo && (
+        <div className={styles.handoffBanner}>
+          <div className={styles.handoffBannerContent}>
+            <span style={{ fontSize: "1.1rem" }}>🌅</span>
+            <span>
+              <b>지난 퇴근 보존 상태 복원:</b> {handoffRestoredInfo.savedAt} 퇴근 시 기록된 업무 ({handoffRestoredInfo.pendingCount}건) 및 UI 상태가 그대로 유지되었습니다.
+            </span>
+          </div>
+          <button
+            type="button"
+            className={styles.handoffBannerBtn}
+            onClick={() => setHandoffRestoredInfo(null)}
+          >
+            확인 ✕
+          </button>
+        </div>
+      )}
+
       {sessionExpired && (
         <div
           className={styles.errorBanner}
@@ -1728,6 +1820,53 @@ export default function Home() {
           </button>
         </div>
       )}
+      {/* 🧩 확장형 빠른 위젯 바 (Widget Toolbar) */}
+      <div className={styles.widgetBarSection}>
+        <div className={styles.widgetBarHeader}>
+          <span className={styles.widgetBarTitle}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="7" height="7"></rect>
+              <rect x="14" y="3" width="7" height="7"></rect>
+              <rect x="14" y="14" width="7" height="7"></rect>
+              <rect x="3" y="14" width="7" height="7"></rect>
+            </svg>
+            빠른 위젯 도구함
+          </span>
+        </div>
+        <div className={styles.widgetList}>
+          {commuteConfig.enabled && (
+            <button
+              type="button"
+              className={`${styles.widgetChip} ${activeWidget === "commute" ? styles.widgetChipActive : ""}`}
+              onClick={() => setActiveWidget((prev) => (prev === "commute" ? null : "commute"))}
+              title="출퇴근 길찾기 위젯 열기/닫기"
+            >
+              <span>🚇</span>
+              <span>스마트 길찾기</span>
+            </button>
+          )}
+          <button
+            type="button"
+            className={`${styles.widgetChip} ${styles.widgetChipAdd}`}
+            onClick={() => showToast("추가 위젯(메모장, 타이머, 실시간 날씨 등)을 계속해서 확장할 수 있어요! ☕")}
+            title="신규 위젯 추가"
+          >
+            <span>➕</span>
+            <span>위젯 추가</span>
+          </button>
+        </div>
+
+        {/* 선택된 위젯 패널 */}
+        {activeWidget === "commute" && commuteConfig.enabled && (
+          <div className={styles.widgetPanel}>
+            <CommuteCard
+              homeStation={commuteConfig.homeStation || "서울역"}
+              workStation={commuteConfig.workStation || "수원역"}
+              transportType={commuteConfig.transportType || "public"}
+            />
+          </div>
+        )}
+      </div>
 
       <div className={styles.grid}>
         {/* G1: 빠른 업무 추가 + 붙여넣기 — 입력 경로가 최우선 (00-current-state §4.1) */}
@@ -1785,6 +1924,7 @@ export default function Home() {
             weather={weatherData}
             collapsed={welcomeCardCollapsed}
             onToggleCollapsed={setWelcomeCardCollapsed}
+            refreshKey={welcomeCardRefreshKey}
           />
           <div className={styles.copilotBody} ref={copilotBodyRef}>
             {(() => {
@@ -1970,16 +2110,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* 🚇 스마트 길찾기 카드 (옵트인) */}
-        {commuteConfig.enabled && (
-          <section className={styles.colFull} style={{ padding: 0 }}>
-            <CommuteCard
-              homeStation={commuteConfig.homeStation || "서울역"}
-              workStation={commuteConfig.workStation || "수원역"}
-              transportType={commuteConfig.transportType || "public"}
-            />
-          </section>
-        )}
+
 
         {/* 오늘의 행동 지침 */}
         <section className={`${styles.card} ${styles.colFull}`}>

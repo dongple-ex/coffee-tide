@@ -160,6 +160,128 @@
   font-weight: 700;
 }
 
+/* 퇴근 핸드오프 복원 안내 배너 */
+.handoffBanner {
+  background: linear-gradient(135deg, rgba(14, 116, 144, 0.15) 0%, rgba(30, 58, 138, 0.18) 100%);
+  border: 1px solid rgba(14, 116, 144, 0.35);
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--text);
+  font-size: 0.85rem;
+}
+
+.handoffBannerContent {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.handoffBannerBtn {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 0.76rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.handoffBannerBtn:hover {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* 확장형 빠른 위젯 바 (Widget Toolbar) */
+.widgetBarSection {
+  margin-bottom: 14px;
+}
+
+.widgetBarHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.widgetBarTitle {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.widgetList {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.widgetChip {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.widgetChip:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--accent);
+}
+
+.widgetChipActive {
+  background: var(--accent-dim) !important;
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+  box-shadow: 0 0 12px rgba(43, 91, 238, 0.25);
+}
+
+.widgetChipAdd {
+  border-style: dashed;
+  color: var(--text-dim);
+  opacity: 0.7;
+}
+
+.widgetChipAdd:hover {
+  opacity: 1;
+  color: var(--text);
+}
+
+.widgetPanel {
+  margin-top: 10px;
+  margin-bottom: 14px;
+  animation: slideDown 0.25s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* ── 그리드/카드 ───────────────────────── */
 .grid {
   display: grid;

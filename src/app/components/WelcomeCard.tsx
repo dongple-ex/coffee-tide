@@ -15,6 +15,7 @@ interface WelcomeCardProps {
   weather?: WeatherData | null;
   collapsed?: boolean;
   onToggleCollapsed?: (collapsed: boolean) => void;
+  refreshKey?: number;
 }
 
 function getTimeState(): "morning" | "afternoon" | "evening" {
@@ -32,9 +33,15 @@ function getDateLabel(): string {
   });
 }
 
-export function WelcomeCard({ compact = false, weather, collapsed, onToggleCollapsed }: WelcomeCardProps) {
-  const [timeState] = useState<"morning" | "afternoon" | "evening">(getTimeState);
-  const [dateLabel] = useState<string>(getDateLabel);
+export function WelcomeCard({
+  compact = false,
+  weather,
+  collapsed,
+  onToggleCollapsed,
+  refreshKey = 0,
+}: WelcomeCardProps) {
+  const [timeState, setTimeState] = useState<"morning" | "afternoon" | "evening">(getTimeState);
+  const [dateLabel, setDateLabel] = useState<string>(getDateLabel);
   const [internalCollapsed, setInternalCollapsed] = useState(false);
 
   const isCollapsed = collapsed !== undefined ? collapsed : internalCollapsed;
@@ -43,6 +50,21 @@ export function WelcomeCard({ compact = false, weather, collapsed, onToggleColla
     setInternalCollapsed(nextVal);
     onToggleCollapsed?.(nextVal);
   };
+
+  // refreshKey 변경 시 날짜와 시간대 실시간 갱신
+  useEffect(() => {
+    setTimeState(getTimeState());
+    setDateLabel(getDateLabel());
+  }, [refreshKey]);
+
+  // 1분 주기로 날짜 및 시간대 변경 자동 감지
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTimeState(getTimeState());
+      setDateLabel(getDateLabel());
+    }, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     // 30초 후 자동으로 한 줄로 접히는 웰컴 효과
