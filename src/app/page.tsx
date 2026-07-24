@@ -38,6 +38,9 @@ import IcedAmericano from "./components/icedAmericano";
 import MarkdownLite from "./components/markdownLite";
 import { WelcomeCard, WeatherData } from "./components/WelcomeCard";
 import { CommuteCard } from "./components/CommuteCard";
+import { TimerWidget } from "./components/TimerWidget";
+import { CalculatorWidget } from "./components/CalculatorWidget";
+import { ShortcutsWidget } from "./components/ShortcutsWidget";
 import { CommuteConfig } from "@/lib/types/commute";
 import { AppShortcut } from "@/lib/types/appShortcut";
 import styles from "./page.module.css";
@@ -1847,12 +1850,30 @@ export default function Home() {
           )}
           <button
             type="button"
-            className={`${styles.widgetChip} ${styles.widgetChipAdd}`}
-            onClick={() => showToast("추가 위젯(메모장, 타이머, 실시간 날씨 등)을 계속해서 확장할 수 있어요! ☕")}
-            title="신규 위젯 추가"
+            className={`${styles.widgetChip} ${activeWidget === "timer" ? styles.widgetChipActive : ""}`}
+            onClick={() => setActiveWidget((prev) => (prev === "timer" ? null : "timer"))}
+            title="집중 몰입 타이머 열기/닫기"
           >
-            <span>➕</span>
-            <span>위젯 추가</span>
+            <span>⏱️</span>
+            <span>몰입 타이머</span>
+          </button>
+          <button
+            type="button"
+            className={`${styles.widgetChip} ${activeWidget === "calc" ? styles.widgetChipActive : ""}`}
+            onClick={() => setActiveWidget((prev) => (prev === "calc" ? null : "calc"))}
+            title="빠른 수치 계산기 열기/닫기"
+          >
+            <span>🧮</span>
+            <span>빠른 계산기</span>
+          </button>
+          <button
+            type="button"
+            className={`${styles.widgetChip} ${activeWidget === "shortcuts" ? styles.widgetChipActive : ""}`}
+            onClick={() => setActiveWidget((prev) => (prev === "shortcuts" ? null : "shortcuts"))}
+            title="앱/레시피 바로가기 즐겨찾기 열기/닫기"
+          >
+            <span>⭐</span>
+            <span>바로가기 즐겨찾기</span>
           </button>
         </div>
 
@@ -1863,6 +1884,24 @@ export default function Home() {
               homeStation={commuteConfig.homeStation || "서울역"}
               workStation={commuteConfig.workStation || "수원역"}
               transportType={commuteConfig.transportType || "public"}
+            />
+          </div>
+        )}
+        {activeWidget === "timer" && (
+          <div className={styles.widgetPanel}>
+            <TimerWidget onCompleteToast={showToast} />
+          </div>
+        )}
+        {activeWidget === "calc" && (
+          <div className={styles.widgetPanel}>
+            <CalculatorWidget />
+          </div>
+        )}
+        {activeWidget === "shortcuts" && (
+          <div className={styles.widgetPanel}>
+            <ShortcutsWidget
+              shortcuts={appShortcuts}
+              onOpenSettings={() => setShowConn(true)}
             />
           </div>
         )}

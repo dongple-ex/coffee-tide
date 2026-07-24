@@ -1,0 +1,98 @@
+.container {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 280px;
+}
+
+.header {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.display {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 10px 12px;
+  text-align: right;
+  min-height: 54px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.expression {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  min-height: 16px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text);
+  font-family: monospace, sans-serif;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.keypad {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.btn {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 10px 0;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--accent);
+}
+
+.btnOperator {
+  background: rgba(43, 91, 238, 0.15);
+  color: var(--accent);
+  border-color: rgba(43, 91, 238, 0.3);
+}
+
+.btnOperator:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+.btnEqual {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+  grid-column: span 2;
+}
+
+.btnEqual:hover {
+  opacity: 0.9;
+}
