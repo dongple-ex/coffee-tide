@@ -656,9 +656,11 @@ export default function Home() {
       // D3: dismissed 배열을 현재 존재하는 외부 id로만 정리 (로컬 항목은 dismiss 대상이 아님,
       // 브라우저 폴더 항목(bfs-)은 scanBrowser에서 별도 정리)
       const validIds = new Set(data.mails.map((m) => m.id));
-      setDismissed((prev) =>
-        prev.filter((id) => validIds.has(id) || id.startsWith(BROWSER_ID_PREFIX))
-      );
+      setDismissed((prev) => {
+        const next = prev.filter((id) => validIds.has(id) || id.startsWith(BROWSER_ID_PREFIX));
+        if (next.length !== prev.length) saveLS(LS_DISMISSED, next);
+        return next;
+      });
     } catch {
       // 원칙 4(부분 실패 허용): 수집 API가 죽어도 무연동 기능(직접 추가·붙여넣기·바리스타)은 막지 않는다.
       // 401은 위에서 처리 — 여기 오는 실패는 네트워크/서버 오류이므로 대시보드로 진입시키고 배너로 알린다.
@@ -686,9 +688,11 @@ export default function Home() {
     // D3: 완전 스캔일 때만 사라진 브라우저 항목의 dismiss 정리
     if (complete) {
       const ids = new Set(items.map((i) => i.id));
-      setDismissed((prev) =>
-        prev.filter((id) => !id.startsWith(BROWSER_ID_PREFIX) || ids.has(id))
-      );
+      setDismissed((prev) => {
+        const next = prev.filter((id) => !id.startsWith(BROWSER_ID_PREFIX) || ids.has(id));
+        if (next.length !== prev.length) saveLS(LS_DISMISSED, next);
+        return next;
+      });
     }
 
     // 캐시에 없는 신규 항목만 AI 분류 (실패 시 다음 폴링에서 재시도)
@@ -1069,7 +1073,12 @@ export default function Home() {
   }
 
   function dismissItem(id: string) {
-    setDismissed((prev) => (prev.includes(id) ? prev : [...prev, id]));
+    setDismissed((prev) => {
+      if (prev.includes(id)) return prev;
+      const next = [...prev, id];
+      saveLS(LS_DISMISSED, next);
+      return next;
+    });
   }
 
   // ── write-back 액션 (phase5) ────────────────
