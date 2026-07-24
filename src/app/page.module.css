@@ -298,6 +298,145 @@
   }
 }
 
+/* 남은 업무 AI 재배치 버튼 */
+.btnReorder {
+  background: var(--accent-dim);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  border-radius: 8px;
+  padding: 4px 10px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.2s ease;
+}
+
+.btnReorder:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* 워크노트 & 세부 하위작업 패널 */
+.workNoteToggleBtn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 0.72rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.2s ease;
+  margin-top: 6px;
+}
+
+.workNoteToggleBtn:hover {
+  border-color: var(--accent);
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.workNoteToggleBtnActive {
+  background: var(--accent-dim) !important;
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+}
+
+.workNotePanel {
+  background: rgba(0, 0, 0, 0.15);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.workNoteHeader {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.workNoteTextarea {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 0.8rem;
+  color: var(--text);
+  resize: vertical;
+  min-height: 54px;
+  width: 100%;
+}
+
+.workNoteTextarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.subTaskSection {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.subTaskHeader {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.subTaskItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.78rem;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.subTaskTitleCompleted {
+  text-decoration: line-through;
+  color: var(--text-dim);
+}
+
+.subTaskInputRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.subTaskInput {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 0.76rem;
+  color: var(--text);
+  flex: 1;
+}
+
+.subTaskInput:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
 /* ── 그리드/카드 ───────────────────────── */
 .grid {
   display: grid;

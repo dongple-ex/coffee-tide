@@ -45,6 +45,7 @@ import { CommuteConfig } from "@/lib/types/commute";
 import { AppShortcut } from "@/lib/types/appShortcut";
 import styles from "./page.module.css";
 
+import { SubTask } from "@/lib/types/unified";
 const LS_MANUAL = "ct_manual_items";
 const LS_RULES = "ct_automation_rules";
 const LS_DISMISSED = "ct_dismissed_ids";
@@ -57,6 +58,8 @@ const LS_COMMUTE_CONFIG = "ct_commute_config";
 const LS_APP_SHORTCUTS = "ct_app_shortcuts";
 const LS_BROWSER_CAT = "ct_browser_categories";
 const LS_HANDOFF_STATE = "ct_handoff_state";
+const LS_WORK_NOTES = "ct_work_notes";
+const LS_SUB_TASKS = "ct_sub_tasks";
 const POLL_MS = 30_000;
 
 export interface HandoffState {
@@ -496,6 +499,56 @@ export default function Home() {
   const [shortcutKeywordInput, setShortcutKeywordInput] = useState("");
   const [shortcutTargetInput, setShortcutTargetInput] = useState("");
 
+  const [workNotes, setWorkNotes] = useState<Record<string, string>>(() => loadLS(LS_WORK_NOTES, {}));
+  const [subTasksMap, setSubTasksMap] = useState<Record<string, SubTask[]>>(() => loadLS(LS_SUB_TASKS, {}));
+  const [openWorkNoteId, setOpenWorkNoteId] = useState<string | null>(null);
+  const [newSubTaskInputs, setNewSubTaskInputs] = useState<Record<string, string>>({});
+
+  const handleSaveWorkNote = (taskId: string, note: string) => {
+    setWorkNotes((prev) => {
+      const next = { ...prev, [taskId]: note };
+      saveLS(LS_WORK_NOTES, next);
+      return next;
+    });
+  };
+
+  const handleAddSubTask = (taskId: string) => {
+    const text = (newSubTaskInputs[taskId] || "").trim();
+    if (!text) return;
+    const newSub: SubTask = {
+      id: `sub-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      title: text,
+      completed: false,
+    };
+    setSubTasksMap((prev) => {
+      const list = prev[taskId] || [];
+      const next = { ...prev, [taskId]: [...list, newSub] };
+      saveLS(LS_SUB_TASKS, next);
+      return next;
+    });
+    setNewSubTaskInputs((prev) => ({ ...prev, [taskId]: "" }));
+  };
+
+  const handleToggleSubTask = (taskId: string, subId: string) => {
+    setSubTasksMap((prev) => {
+      const list = prev[taskId] || [];
+      const nextList = list.map((s) => (s.id === subId ? { ...s, completed: !s.completed } : s));
+      const next = { ...prev, [taskId]: nextList };
+      saveLS(LS_SUB_TASKS, next);
+      return next;
+    });
+  };
+
+  const handleRemoveSubTask = (taskId: string, subId: string) => {
+    setSubTasksMap((prev) => {
+      const list = prev[taskId] || [];
+      const nextList = list.filter((s) => s.id !== subId);
+      const next = { ...prev, [taskId]: nextList };
+      saveLS(LS_SUB_TASKS, next);
+      return next;
+    });
+  };
+
   const [toast, setToast] = useState("");
   const [draft, setDraft] = useState<{ title: string; text: string; message: string } | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -902,6 +955,30 @@ export default function Home() {
     dismissed,
     showToast,
   ]);
+
+  const handleReorderRemainingWithAI = useCallback(async () => {
+    const pendingItems = merged.filter((i) => i.status !== "completed");
+    if (pendingItems.length === 0) {
+      showToast("현재 처리할 미완료 업무가 없습니다. ☕");
+      return;
+    }
+
+    const itemsSummary = pendingItems
+      .map((i) => {
+        const note = workNotes[i.id] ? ` [진행 메모: ${workNotes[i.id]}]` : "";
+        const subs = subTasksMap[i.id] && subTasksMap[i.id].length > 0
+          ? ` (하위작업: ${subTasksMap[i.id].filter(s => s.completed).length}/${subTasksMap[i.id].length} 완료)`
+          : "";
+        return `- ${i.title}${note}${subs}`;
+      })
+      .join("\n");
+
+    const prompt = `오늘 아직 다 완료하지 못한 남은 업무들이야. 진행 상황과 워크노트를 바탕으로 남은 오후/오늘 일정에 맞춰 핵심 우선순위와 실천 가이드를 브리핑해줘:\n\n${itemsSummary}`;
+
+    setWelcomeCardCollapsed(true);
+    askCopilot(prompt);
+    showToast("남은 업무들과 진행 메모를 바탕으로 AI 바리스타가 일정 재배치 브리핑을 작성합니다! ☕");
+  }, [merged, workNotes, subTasksMap, askCopilot, showToast]);
 
   // H4: 데스크톱 브라우저 알림 (긴급/팔로업 초과 업무 발생 시)
   useEffect(() => {
@@ -1657,6 +1734,86 @@ export default function Home() {
             </button>
           )}
         </div>
+
+        {/* 워크노트 & 세부 하위작업 토글 버튼 */}
+        <button
+          type="button"
+          className={`${styles.workNoteToggleBtn} ${openWorkNoteId === item.id ? styles.workNoteToggleBtnActive : ""}`}
+          onClick={() => setOpenWorkNoteId((prev) => (prev === item.id ? null : item.id))}
+        >
+          <span>📝 워크노트 & 세부작업</span>
+          {workNotes[item.id] && <span style={{ color: "var(--accent)", fontWeight: 700 }}>• 메모보관중</span>}
+          {subTasksMap[item.id] && subTasksMap[item.id].length > 0 && (
+            <span style={{ fontSize: "0.68rem" }}>
+              ({subTasksMap[item.id].filter((s) => s.completed).length}/{subTasksMap[item.id].length})
+            </span>
+          )}
+        </button>
+
+        {/* 워크노트 및 세부 하위작업 패널 */}
+        {openWorkNoteId === item.id && (
+          <div className={styles.workNotePanel}>
+            <div className={styles.workNoteHeader}>
+              <span>📝 업무 진행 상황 메모 (Work Note)</span>
+            </div>
+            <textarea
+              className={styles.workNoteTextarea}
+              placeholder="진행 중인 상황이나 메모를 자유롭게 작성하세요 (예: 1차 초안 제출 완료, 팀장 피드백 대기 중)"
+              value={workNotes[item.id] || ""}
+              onChange={(e) => handleSaveWorkNote(item.id, e.target.value)}
+            />
+
+            <div className={styles.subTaskSection}>
+              <div className={styles.subTaskHeader}>
+                <span>📋 세부 하위 작업 (Sub-tasks)</span>
+                {subTasksMap[item.id] && subTasksMap[item.id].length > 0 && (
+                  <span>
+                    {subTasksMap[item.id].filter((s) => s.completed).length} / {subTasksMap[item.id].length} 완료
+                  </span>
+                )}
+              </div>
+
+              {/* 하위 작업 리스트 */}
+              {subTasksMap[item.id] && subTasksMap[item.id].map((sub) => (
+                <div key={sub.id} className={styles.subTaskItem}>
+                  <input
+                    type="checkbox"
+                    checked={sub.completed}
+                    onChange={() => handleToggleSubTask(item.id, sub.id)}
+                  />
+                  <span className={sub.completed ? styles.subTaskTitleCompleted : ""}>{sub.title}</span>
+                  <button
+                    type="button"
+                    style={{ marginLeft: "auto", background: "none", border: "none", color: "var(--text-dim)", cursor: "pointer", fontSize: "0.72rem" }}
+                    onClick={() => handleRemoveSubTask(item.id, sub.id)}
+                    title="하위 작업 삭제"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+
+              {/* 세부 작업 추가 입력란 */}
+              <div className={styles.subTaskInputRow}>
+                <input
+                  className={styles.subTaskInput}
+                  placeholder="새 하위 작업 추가 (예: 자료 조사, 초안 검토)"
+                  value={newSubTaskInputs[item.id] || ""}
+                  onChange={(e) => setNewSubTaskInputs((prev) => ({ ...prev, [item.id]: e.target.value }))}
+                  onKeyDown={(e) => e.key === "Enter" && handleAddSubTask(item.id)}
+                />
+                <button
+                  type="button"
+                  className={styles.btn}
+                  style={{ padding: "3px 8px", fontSize: "0.72rem" }}
+                  onClick={() => handleAddSubTask(item.id)}
+                >
+                  추가
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -2188,6 +2345,17 @@ export default function Home() {
           >
             <span>🎯 오늘의 행동 지침</span>
             <small>{todoItems.length}건</small>
+            <button
+              type="button"
+              className={styles.btnReorder}
+              onClick={(e) => {
+                e.stopPropagation();
+                void handleReorderRemainingWithAI();
+              }}
+              title="미완료 및 진행 중 업무들을 AI 바리스타가 일정 재배치 브리핑으로 정리합니다"
+            >
+              🔄 남은 업무 AI 재배치
+            </button>
             <span className={styles.folderToggleIcon} title={todoSectionCollapsed ? "섹션 펼치기" : "섹션 접기"}>
               <svg
                 width="16"

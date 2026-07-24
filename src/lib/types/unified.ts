@@ -26,6 +26,12 @@ export interface UnifiedAuthor {
   email?: string;
 }
 
+export interface SubTask {
+  id: string;
+  title: string;
+  completed: boolean;
+}
+
 export interface UnifiedData {
   id: string;
   source: UnifiedSource;
@@ -38,6 +44,8 @@ export interface UnifiedData {
   actionDirective?: string;
   status?: UnifiedStatus;
   delegatable?: boolean; // 로컬 LLM 도구로 넘길 만한 업무 (Phase 7)
+  workNote?: string;
+  subTasks?: SubTask[];
 }
 
 export interface ConnectionState {
