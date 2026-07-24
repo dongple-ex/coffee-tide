@@ -1160,10 +1160,61 @@ export default function Home() {
     }
   }
 
+  const handleSlashCommand = (cmdText: string): boolean => {
+    const trimmed = cmdText.trim().toLowerCase();
+    if (!trimmed.startsWith("/")) return false;
+
+    const cmd = trimmed.split(" ")[0];
+
+    if (cmd === "/clear" || cmd === "/clean") {
+      setCopilotMessages([]);
+      setCopilotInput("");
+      showToast("AI 바리스타 대화 내역을 깨끗하게 정리했어요! ☕");
+      return true;
+    }
+
+    if (cmd === "/status" || cmd === "/stats") {
+      setCopilotInput("");
+      const activeCount = merged.filter((i) => i.status !== "completed").length;
+      const urgentCount = merged.filter((i) => i.category === "urgent" && i.status !== "completed").length;
+      const doneCount = manualItems.filter((i) => i.status === "completed").length;
+      const text = `📊 **현재 업무 처리 상태 현황**:\n\n- ⏳ 대기 및 진행 중: **${activeCount}건**\n- 🚨 긴급 처리 필요: **${urgentCount}건**\n- ✅ 오늘 처리 완료: **${doneCount}건**\n\n언제든 질문이나 추가 지시를 말씀해주세요 ☕`;
+      setCopilotMessages((prev) => [...prev, { role: "ai", text }]);
+      return true;
+    }
+
+    if (cmd === "/handoff") {
+      setCopilotInput("");
+      void handleLogoutHandoff();
+      return true;
+    }
+
+    if (cmd === "/reorder") {
+      setCopilotInput("");
+      void handleReorderRemainingWithAI();
+      return true;
+    }
+
+    if (cmd === "/help" || cmd === "/?") {
+      setCopilotInput("");
+      const text = `💡 **AI 바리스타 슬래시 커맨드 안내**:\n\n- \`/clear\` : 대화 내역 초기화\n- \`/status\` : 업무 처리 현황 요약\n- \`/handoff\` : 남은 업무 퇴근 보존 및 정리\n- \`/reorder\` : 남은 업무 AI 일정 재배치\n- \`/help\` : 커맨드 도움말 출력`;
+      setCopilotMessages((prev) => [...prev, { role: "ai", text }]);
+      return true;
+    }
+
+    return false;
+  };
+
   // ── Copilot (G3: 무연동에서도 동작) ──────────
   async function askCopilot(preset?: string) {
     setWelcomeCardCollapsed(true);
     const question = (preset ?? copilotInput).trim();
+    if (!question || copilotBusy) return;
+
+    if (handleSlashCommand(question)) {
+      return;
+    }
+
     setCopilotInput("");
     setCopilotMessages((prev) => [...prev, { role: "user", text: question }]);
 
@@ -2240,7 +2291,33 @@ export default function Home() {
               </div>
             )}
           </div>
-          <div className={styles.copilotForm}>
+          <div className={styles.copilotForm} style={{ position: "relative" }}>
+            {/* 슬래시 커맨드 추천 팝업 메뉴 */}
+            {copilotInput.trim().startsWith("/") && (
+              <div className={styles.commandMenu}>
+                {[
+                  { name: "/clear", desc: "AI 대화 이력 초기화" },
+                  { name: "/status", desc: "현재 업무 상태 현황 요약" },
+                  { name: "/handoff", desc: "남은 업무 퇴근 보존 및 정리" },
+                  { name: "/reorder", desc: "남은 업무 AI 일정 재배치" },
+                  { name: "/help", desc: "슬래시 커맨드 도움말 출력" },
+                ]
+                  .filter((cmd) => cmd.name.startsWith(copilotInput.trim().toLowerCase()))
+                  .map((cmd) => (
+                    <button
+                      key={cmd.name}
+                      type="button"
+                      className={styles.commandMenuItem}
+                      onClick={() => {
+                        handleSlashCommand(cmd.name);
+                      }}
+                    >
+                      <span className={styles.commandName}>{cmd.name}</span>
+                      <span className={styles.commandDesc}>{cmd.desc}</span>
+                    </button>
+                  ))}
+              </div>
+            )}
             <input
               type="file"
               ref={fileInputRef}
