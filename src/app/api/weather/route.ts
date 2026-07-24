@@ -120,6 +120,40 @@ function getKmaFcstBaseDateTime(): { baseDate: string; baseTime: string } {
 }
 
 /**
+ * WGS84 좌표 기반 한글 행정동/구 이름 역지오코딩 (Reverse Geocoding)
+ */
+async function fetchKoreanDistrictName(lat: number, lon: number): Promise<string> {
+  try {
+    const url = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=ko`;
+    const res = await fetch(url, { next: { revalidate: 86400 } });
+    if (!res.ok) return "현재 위치";
+    const data = (await res.json()) as {
+      locality?: string;
+      city?: string;
+      localityInfo?: {
+        administrative?: Array<{ name: string; order?: number }>;
+      };
+    };
+
+    const admins = data.localityInfo?.administrative ?? [];
+
+    // 1차 검색: '동', '읍', '면'으로 끝나는 이름 (예: 역삼동, 서초동)
+    const dongObj = admins.slice().reverse().find((a) => /[동읍면]$/.test(a.name));
+    if (dongObj) return dongObj.name;
+
+    // 2차 검색: '구', '군'으로 끝나는 이름 (예: 강남구, 서초구)
+    const guObj = admins.slice().reverse().find((a) => /[구군]$/.test(a.name));
+    if (guObj) return guObj.name;
+
+    if (data.locality) return data.locality;
+    if (data.city) return data.city;
+    return "현재 위치";
+  } catch {
+    return "현재 위치";
+  }
+}
+
+/**
  * 공공데이터포털 기상청 단기예보/초단기실황 조회 (가이드 문서 명세 적용)
  */
 async function fetchKmaWeather(lat: number, lon: number, serviceKey: string) {
@@ -193,18 +227,19 @@ async function fetchKmaWeather(lat: number, lon: number, serviceKey: string) {
     }
   }
 
+  const districtName = await fetchKoreanDistrictName(lat, lon);
   return {
     temp,
     description,
     main,
-    city: "현재 위치",
+    city: districtName,
   };
 }
 
 /**
  * OpenWeatherMap 대체 호출
  */
-async function fetchOpenWeatherMap(lat: string, lon: string, apiKey: string) {
+async function fetchOpenWeatherMap(lat: number, lon: number, apiKey: string) {
   const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric&lang=kr`;
   const res = await fetch(url, { next: { revalidate: 1200 } });
 
@@ -213,11 +248,12 @@ async function fetchOpenWeatherMap(lat: string, lon: string, apiKey: string) {
   }
 
   const json = await res.json();
+  const districtName = await fetchKoreanDistrictName(lat, lon);
   return {
     temp: Math.round(json.main?.temp ?? 0),
     description: json.weather?.[0]?.description ?? "맑음",
     main: json.weather?.[0]?.main ?? "Clear",
-    city: json.name ?? "현재 위치",
+    city: districtName !== "현재 위치" ? districtName : (json.name ?? "현재 위치"),
   };
 }
 
@@ -265,7 +301,7 @@ export async function GET(request: Request) {
 
   // 2. OpenWeatherMap 대체 시도 (WEATHER_API_KEY 사용)
   try {
-    const owmData = await fetchOpenWeatherMap(lat, lon, apiKey);
+    const owmData = await fetchOpenWeatherMap(latNum, lonNum, apiKey);
     weatherCache.set(cacheKey, { timestamp: now, data: owmData });
     return NextResponse.json({ success: true, weather: owmData, source: "openweathermap", cached: false });
   } catch (owmErr) {
