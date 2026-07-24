@@ -124,6 +124,27 @@ export function CalculatorWidget() {
     };
   }, [display, expression, newNumber]);
 
+  const formatNumberWithCommas = (valStr: string): string => {
+    if (!valStr || valStr === "Error") return valStr;
+    const parts = valStr.split(".");
+    const intPart = parts[0];
+    const decimalPart = parts.length > 1 ? "." + parts[1] : "";
+
+    const isNegative = intPart.startsWith("-");
+    const cleanInt = isNegative ? intPart.slice(1) : intPart;
+    const formattedInt = cleanInt.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+
+    return (isNegative ? "-" : "") + formattedInt + decimalPart;
+  };
+
+  const formatExpression = (expStr: string): string => {
+    if (!expStr) return "";
+    return expStr
+      .split(" ")
+      .map((token) => (!isNaN(Number(token)) ? formatNumberWithCommas(token) : token))
+      .join(" ");
+  };
+
   return (
     <div className={styles.container}>
       <div className={styles.header}>
@@ -132,8 +153,8 @@ export function CalculatorWidget() {
       </div>
 
       <div className={styles.display}>
-        <div className={styles.expression}>{expression}</div>
-        <div className={styles.value}>{display}</div>
+        <div className={styles.expression}>{formatExpression(expression)}</div>
+        <div className={styles.value}>{formatNumberWithCommas(display)}</div>
       </div>
 
       <div className={styles.keypad}>
