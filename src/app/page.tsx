@@ -467,6 +467,28 @@ export default function Home() {
     })
   );
   const [activeWidget, setActiveWidget] = useState<string | null>(null);
+  const widgetListRef = useRef<HTMLDivElement>(null);
+  const isWidgetDragging = useRef(false);
+  const widgetStartX = useRef(0);
+  const widgetScrollLeft = useRef(0);
+
+  const handleWidgetMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!widgetListRef.current) return;
+    isWidgetDragging.current = true;
+    widgetStartX.current = e.pageX - widgetListRef.current.offsetLeft;
+    widgetScrollLeft.current = widgetListRef.current.scrollLeft;
+  };
+
+  const handleWidgetMouseLeaveOrUp = () => {
+    isWidgetDragging.current = false;
+  };
+
+  const handleWidgetMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isWidgetDragging.current || !widgetListRef.current) return;
+    const x = e.pageX - widgetListRef.current.offsetLeft;
+    const walk = (x - widgetStartX.current) * 1.5;
+    widgetListRef.current.scrollLeft = widgetScrollLeft.current - walk;
+  };
 
   const [appShortcuts, setAppShortcuts] = useState<AppShortcut[]>(() =>
     loadLS<AppShortcut[]>(LS_APP_SHORTCUTS, DEFAULT_APP_SHORTCUTS)
@@ -1836,7 +1858,14 @@ export default function Home() {
             빠른 위젯 도구함
           </span>
         </div>
-        <div className={styles.widgetList}>
+        <div
+          className={styles.widgetList}
+          ref={widgetListRef}
+          onMouseDown={handleWidgetMouseDown}
+          onMouseLeave={handleWidgetMouseLeaveOrUp}
+          onMouseUp={handleWidgetMouseLeaveOrUp}
+          onMouseMove={handleWidgetMouseMove}
+        >
           {commuteConfig.enabled && (
             <button
               type="button"

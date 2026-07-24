@@ -224,7 +224,21 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  cursor: grab;
+  user-select: none;
+}
+
+.widgetList::-webkit-scrollbar {
+  display: none;
+}
+
+.widgetList:active {
+  cursor: grabbing;
 }
 
 .widgetChip {
@@ -240,6 +254,8 @@
   align-items: center;
   gap: 6px;
   transition: all 0.2s ease;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .widgetChip:hover {
