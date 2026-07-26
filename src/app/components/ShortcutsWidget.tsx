@@ -14,7 +14,6 @@ import styles from "./shortcutsWidget.module.css";
 
 interface ShortcutsWidgetProps {
   shortcuts: AppShortcut[];
-  onOpenSettings?: () => void;
   /** 실행 실패 안내 — 앱 전역 토스트로 연결한다 */
   onError?: (message: string) => void;
 }
@@ -44,7 +43,7 @@ function renderShortcutIcon(keyword: string, target: string) {
   return <span style={{ fontSize: "1.1rem" }}>🔗</span>;
 }
 
-export function ShortcutsWidget({ shortcuts, onOpenSettings, onError }: ShortcutsWidgetProps) {
+export function ShortcutsWidget({ shortcuts, onError }: ShortcutsWidgetProps) {
   const enabledShortcuts = shortcuts.filter((s) => s.enabled);
 
   const handleLaunch = (target: string) => {
@@ -80,31 +79,12 @@ export function ShortcutsWidget({ shortcuts, onOpenSettings, onError }: Shortcut
           <span>단어-앱 레시피 즐겨찾기</span>
           <span className={styles.countBadge}>{enabledShortcuts.length}개 활성</span>
         </div>
-        {onOpenSettings && (
-          <button
-            type="button"
-            onClick={onOpenSettings}
-            title="단어-앱 바로가기 레시피 추가·수정"
-            aria-label="단어-앱 바로가기 설정 열기"
-            style={{
-              background: "none",
-              border: "1px solid var(--border)",
-              borderRadius: "6px",
-              color: "var(--muted)",
-              cursor: "pointer",
-              fontSize: "0.9rem",
-              lineHeight: 1,
-              padding: "3px 8px",
-            }}
-          >
-            +
-          </button>
-        )}
       </div>
 
       {enabledShortcuts.length === 0 ? (
         <div className={styles.emptyHint}>
-          등록된 단어-앱 레시피가 없습니다. + 버튼을 눌러 자주 쓰는 사이트 및 앱 바로가기를 추가해 보세요.
+          등록된 단어-앱 레시피가 없습니다. 설정 &gt; 단어-앱 바로가기 레시피에서 자주 쓰는 사이트 및 앱을
+          추가해 보세요.
         </div>
       ) : (
         <div className={styles.shortcutGrid}>

@@ -1953,11 +1953,7 @@ export default function Home() {
         )}
         {activeWidget === "shortcuts" && (
           <div className={styles.widgetPanel}>
-            <ShortcutsWidget
-              shortcuts={appShortcuts}
-              onOpenSettings={() => setShowConn(true)}
-              onError={showToast}
-            />
+            <ShortcutsWidget shortcuts={appShortcuts} onError={showToast} />
           </div>
         )}
       </div>
