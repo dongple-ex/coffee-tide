@@ -89,3 +89,15 @@ export function NaverMapIcon({ size = 18 }: BrandIconProps) {
     </svg>
   );
 }
+
+export function KakaoTalkIcon({ size = 18 }: BrandIconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" role="img" aria-label="카카오톡">
+      <rect width="24" height="24" rx="6" fill="#FEE500" />
+      <path
+        fill="#3A1D1D"
+        d="M12 4.5c-4.14 0-7.5 2.65-7.5 5.92 0 2.1 1.38 3.94 3.47 4.97l-.88 3.23c-.08.28.24.51.48.35l3.85-2.55c.19.02.39.03.58.03 4.14 0 7.5-2.65 7.5-5.92S16.14 4.5 12 4.5z"
+      />
+    </svg>
+  );
+}
