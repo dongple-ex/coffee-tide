@@ -59,17 +59,6 @@ export function ShortcutsWidget({ shortcuts, onOpenSettings }: ShortcutsWidgetPr
           <span>단어-앱 레시피 즐겨찾기</span>
           <span className={styles.countBadge}>{enabledShortcuts.length}개 활성</span>
         </div>
-        {onOpenSettings && (
-          <button
-            type="button"
-            className={styles.addBtn}
-            onClick={onOpenSettings}
-            title="설정 화면에서 바로가기 레시피 관리"
-            aria-label="바로가기 링크 관리"
-          >
-            +
-          </button>
-        )}
       </div>
 
       {enabledShortcuts.length === 0 ? (
