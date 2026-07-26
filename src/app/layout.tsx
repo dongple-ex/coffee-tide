@@ -2,12 +2,12 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Coffee Tide",
+  title: "coffee Tide",
   description:
     "연동이 없어도 직접 입력과 붙여넣기로 바로 시작하고, 연결되면 더 강력해지는 AI 업무 비서",
   appleWebApp: {
     capable: true,
-    title: "Coffee Tide",
+    title: "coffee Tide",
     statusBarStyle: "black-translucent",
   },
 };
