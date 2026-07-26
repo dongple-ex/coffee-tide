@@ -2,6 +2,7 @@
 
 > 프로젝트명: **coffeeTide** (구 TimePilot) · 서비스 도메인(예정): `coffeeTide.dongple.kr` · 기본 플랫폼: **웹** (모바일 전략: [`8-mobile_strategy.md`](./8-mobile_strategy.md))
 > 이 문서가 제품의 정본 기획입니다. **2026-07-11 MVP 구현 완료** — 구현 현황은 [`as-built-reference.md`](./as-built-reference.md), 남은 격차는 [`7-backlog.md`](./7-backlog.md) 참조.
+> **명칭 안내**: 본 문서의 "Copilot"은 화면에서 **"AI 바리스타"** 로 표시됩니다(2026-07-17 개명). 코드·API 이름은 `copilot` 그대로입니다.
 
 ## 1. 제품 한 줄 정의
 

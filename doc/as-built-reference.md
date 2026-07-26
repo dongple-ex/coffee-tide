@@ -1,6 +1,8 @@
 # As-Built 기술 레퍼런스 (구현 현황)
 
-> **기준: 2026-07-22 구현 코드.** 본 문서는 이 저장소에 실제 구현된 코드의 기술 레퍼런스(엔드포인트·환경변수·데이터모델·인증)입니다 — "지금 코드가 하는 일"의 정본.
+> **기준: 2026-07-27 구현 코드(`f76d065`).** 본 문서는 이 저장소에 실제 구현된 코드의 기술 레퍼런스(엔드포인트·환경변수·데이터모델·인증)입니다 — "지금 코드가 하는 일"의 정본.
+>
+> **UI 명칭**: 화면에서는 Copilot을 **"AI 바리스타"** 로 부릅니다(2026-07-17 개명). 본 문서는 코드·API 이름이 `copilot`인 지점만 Copilot으로 표기합니다.
 >
 > **문서 역할 구분**:
 > - 제품 **정본 비전/기획**은 [`00-current-state.md`](./00-current-state.md).
@@ -19,6 +21,7 @@ coffeeTide는 여러 채널의 업무 데이터를 하나의 대시보드로 통
 | 로그인 | 게스트 세션(`coffeeTide 시작하기`) + 서비스별 개별 연동 |
 | AI | Gemini(`gemini-2.5-flash`, REST 직호출: 분류·브리핑·답장·규칙파싱·붙여넣기 추출) + FallbackEngine(전 기능 로컬 대체) |
 | 자동화 | 규칙 엔진(pin/urgent/mute/hide)·자연어 규칙·팔로업 에스컬레이션·빠른 캡처·dismiss |
+| 생산성 도구 | 슬래시 커맨드 5종, 워크노트·하위작업, 퇴근 핸드오프, 퀵 위젯(타이머·계산기·바로가기·날씨·출퇴근), 단어-앱 바로가기 |
 | 인증 가드 | `src/proxy.ts` (Next 16 규약) |
 | 토큰 | Google/Outlook 선제(만료 60초 전) + 반응형(401 시 1회) 리프레시 |
 | 스타일 | Vanilla CSS Modules, 다크 Bento Grid (Tailwind 미사용) |
@@ -27,7 +30,7 @@ coffeeTide는 여러 채널의 업무 데이터를 하나의 대시보드로 통
 
 - **세션**: `tp_session` (AES-256-GCM 암호화, HttpOnly) + `tp_session_expiry`(평문 보조, proxy 만료 판독용). `src/lib/auth/session.ts`.
   - **B1 반영**: 프로덕션에서 `SESSION_ENCRYPTION_SECRET` 미설정이면 throw(기동 거부). 개발용 fallback만 허용(경고 로그).
-  - 만료 7일 고정 (롤링 연장은 백로그 B2).
+  - 만료 7일 + **활동 시 롤링 연장** (B2 반영). `touchSession`(`src/lib/auth/cookies.ts`)을 `/api/mails` 응답에서 호출 — 30초 폴링이 도는 동안 만료가 계속 밀린다.
 - **인증 가드**: `src/proxy.ts`. `PUBLIC_PATHS`(/, signin, OAuth 시작/콜백) 외 요청에 세션 요구. API는 401, 페이지는 `/` 리다이렉트.
 - **로그인 흐름**: `/api/auth/signin`이 **게스트 세션**(`guest@coffeetide.dongple.kr`) 발급 → 대시보드 진입 후 서비스별 개별 연동.
 - **서비스 연동**:
@@ -68,17 +71,34 @@ coffeeTide는 여러 채널의 업무 데이터를 하나의 대시보드로 통
 ```
 
 ### 클라이언트 저장 (localStorage)
-- `ct_manual_items`: manual/paste 항목 (UnifiedData[], 완료/보류 상태 포함)
-- `ct_automation_rules`: 자동화 규칙 (구 `tp_automation_rules` — loadLS가 판독 시 1회 이관)
-- `ct_dismissed_ids`: 숨긴 외부 항목 id — 동기화 시 현존 id와 교집합으로 자동 정리(D3 반영) (구 `tp_dismissed_ids`)
-- `ct_followup_hours`: 팔로업 기준 시간(12/24/48) (구 `tp_followup_hours`)
+
+키 정의와 read/write는 **`src/lib/localStore.ts`** 한 곳에 있습니다(`loadLS`/`saveLS`). `saveLS`는 성공 여부를 boolean으로 돌려주므로, 용량 초과를 조용히 삼키지 않고 호출부가 사용자에게 알립니다.
+
+| 키 | 내용 |
+| :--- | :--- |
+| `ct_manual_items` | manual/paste 항목 (`UnifiedData[]`, 완료/보류 상태 포함) |
+| `ct_automation_rules` | 자동화 규칙 (구 `tp_automation_rules`) |
+| `ct_dismissed_ids` | 숨긴 외부 항목 id — 동기화 시 현존 id와 교집합으로 자동 정리(D3) (구 `tp_dismissed_ids`) |
+| `ct_followup_hours` | 팔로업 기준 시간(12/24/48) (구 `tp_followup_hours`) |
+| `ct_brief_time` | 아침 브리핑 발송 시각 (기본 08:30) |
+| `ct_theme` | 테마(dark/light/coffee/mega/kustom) |
+| `ct_weather_enabled` · `ct_weather_coords` | 날씨 옵트인 여부와 캐시된 좌표 (I5 — 반복 권한 팝업 방지) |
+| `ct_commute_config` | 출퇴근 설정 — 집/회사 역명, 이동수단, **집·회사 좌표**(지도 앱 딥링크용, 서버 미전송) |
+| `ct_app_shortcuts` | 단어-앱 바로가기 레시피 (J2) |
+| `ct_browser_categories` | 브라우저 폴더(FSA) 핸들의 종류 매핑 |
+| `ct_work_notes` · `ct_sub_tasks` | 업무별 워크노트 / 하위작업 체크리스트 |
+| `ct_handoff_state` | 퇴근 핸드오프 **UI 스냅샷** — 섹션 접힘·대화 이력·`acknowledged`. 업무 데이터는 복제하지 않는다(K6) |
+| `ct_notified_item_ids` | 데스크톱 알림 중복 방지 (H4) |
+| `ct_oauth_state` | OAuth CSRF state |
+
+> 구 `tp_` 키는 `loadLS`가 판독 시 1회 이관합니다.
 
 ## 4. API 엔드포인트
 
 | 경로 | 메서드 | 설명 |
 | :--- | :--- | :--- |
 | `/api/auth/signin` | GET | 게스트 세션 발급 → `/` |
-| `/api/auth/signout` | GET | 세션 파기 |
+| `/api/auth/signout` | POST | 세션 파기 |
 | `/api/auth/outlook` · `/callback` | GET / DELETE | Outlook OAuth (DELETE=해제) |
 | `/api/auth/google/signin` · `/callback` | GET / DELETE | Google OAuth (DELETE=해제) |
 | `/api/auth/notion` | POST | 토큰+DB ID 저장/해제 (`action: connect\|disconnect`) |
@@ -90,7 +110,10 @@ coffeeTide는 여러 채널의 업무 데이터를 하나의 대시보드로 통
 | `/api/tasks/update` | POST | Notion 페이지 완료 / Obsidian 체크박스 완료 write-back |
 | `/api/tasks/capture` | POST | 항목을 Notion 페이지/Obsidian 수집함으로 저장 |
 | `/api/tasks/llm-digest` | POST | 오늘 LLM 산출물 → Obsidian `coffeeTide_LLM/YYYY-MM-DD.md` 수동 내보내기 |
-| `/api/weather` | GET | 좌표(`lat`/`lon`) → OpenWeatherMap 현재 날씨. 좌표 소수점 2자리 절삭 후 서버 메모리 캐시 20분, 좌표 미저장. `WEATHER_API_KEY` 미설정 시 `success:false` (그리팅은 시간대 폴백) |
+| `/api/upload` | POST | 텍스트 파일(≤1MB, `.txt/.md/.csv/.json/.log`) → manual 항목. `saveToDrive=true`면 Google Drive 영구 저장(실패해도 업로드 자체는 성공 — 원칙 4) |
+| `/api/weather` | GET | 좌표(`lat`/`lon`) → **기상청 초단기실황+초단기예보**(공공데이터포털, LCC 격자 변환) 1순위 → OpenWeatherMap 폴백. 지역명은 BigDataCloud 역지오코딩으로 한글 동/구. 좌표는 **소수점 2자리로 절삭해 외부 호출**(K9), 서버 메모리 캐시 20분, 좌표 미저장. 키 미설정/조회 실패 시 `success:false` (그리팅은 시간대 폴백) |
+| `/api/commute` | GET | 출퇴근 길찾기 카드 데이터. KST 05~12시 출근 모드, 그 외 퇴근 모드로 출발·도착지 자동 전환. **⚠️ 시각·소요시간·요금·혼잡도는 현재 하드코딩된 예시 값** — 실연동은 K2(공공데이터포털 TAGO·도로공사) 예정. 지도 링크는 이 응답에 없다(§5 지도 앱 연동) |
+| `/api/util/exec-app` | POST | 단어-앱 바로가기 실행 (J2, **데스크톱 전용**). 셸을 거치지 않는 `spawn` + 스킴/확장자 화이트리스트. 클라우드 배포(`VERCEL` 등)·`DISABLE_LOCAL_EXEC=true`에서는 403 (§5 로컬 실행기) |
 | `/api/rules/parse` | POST | 자연어 → 자동화 규칙 변환 |
 | `/api/mails/reply-draft` | POST | AI 답장 초안 (+ Outlook 임시보관함 저장; Gmail은 초안 텍스트만) |
 | `/api/util/select-folder` | GET | 네이티브 폴더 선택 (Windows 전용, PowerShell 다이얼로그) |
@@ -102,8 +125,15 @@ coffeeTide는 여러 채널의 업무 데이터를 하나의 대시보드로 통
 ## 5. AI & 자동화
 
 - **분류 (C1·phase7 반영)**: `src/lib/ai/gemini.ts` — ① 콘텐츠 해시(`PROMPT_VERSION`+`id`+title/content) 서버 메모리 캐시로 신규·변경 항목만 전송(프롬프트 버전이 캐시 키에 포함되어 프롬프트 변경 시 낡은 응답 재사용 방지), ② 429 시 10분 쿨다운 동안 `FallbackEngine` 대체, ③ `DISABLE_AI_CLASSIFY=true` 킬스위치. 키 미설정 시 전 기능 로컬 대체. 분류 시 `delegatable`(로컬 LLM 도구 위임 후보) 판별 포함 — 대시보드에 배지 표시.
-- **웰컴 그리팅 (phase7)**: `src/app/components/WelcomeCard.tsx` — 시간대(오전/오후/저녁) 테마 + 날씨 문구를 **템플릿 기반**으로 생성(LLM 미사용, 비용 0). 위치는 브라우저 `navigator.geolocation`으로 획득해 `/api/weather` 호출. 3단계 폴백: 날씨+시간대 → (위치 거부/조회 실패 시) 시간대만 → (그리팅 실패 시) 미표시·브리핑 정상.
-- **Copilot (G4 반영)**: 기준일·타임존을 시스템 프롬프트에 주입, "날짜 추정 금지 + 출처 표기" 강제. 응답은 `MarkdownLite`로 카드/섹션 렌더링(G6).
+- **웰컴 그리팅 (phase7)**: `src/app/components/WelcomeCard.tsx` — 시간대(오전/오후/저녁) 테마 + 날씨 문구를 **템플릿 기반**으로 생성(LLM 미사용, 비용 0). 위치 권한은 **설정 모달에서 옵트인**(I5) — 마운트 시 자동 요청하지 않는다. 3단계 폴백: 날씨+시간대 → (위치 거부/조회 실패 시) 시간대만 → (그리팅 실패 시) 미표시·브리핑 정상. 30초 후 한 줄로 자동 접히되, 사용자가 먼저 조작했으면 개입하지 않는다(K11).
+- **Copilot / AI 바리스타 (G4 반영)**: 기준일·타임존을 시스템 프롬프트에 주입, "날짜 추정 금지 + 출처 표기" 강제. 응답은 `MarkdownLite`로 카드/섹션 렌더링(G6). 질문·답변은 아코디언으로 묶이며(`src/lib/copilotPairs.ts`의 `buildQaPairs`) 접힌 상태에서 답이 도착하면 ✨ 배지가 깜빡인다.
+- **슬래시 커맨드**: `/clear`(대화 초기화) · `/status`(업무 현황) · `/handoff`(퇴근 보존) · `/reorder`(남은 업무 AI 재배치) · `/help`. 입력창에 `/`를 치면 자동완성 목록이 뜬다.
+- **단어-앱 바로가기 (J2)**: `ct_app_shortcuts`에 등록한 키워드를 AI 바리스타에 **단독으로**(또는 `@키워드`) 입력하면 `/api/util/exec-app`으로 실행. 문장 속 부분 일치로는 실행되지 않는다(K4 — "노션에 정리한 업무 알려줘"가 앱 실행에 가로채이던 문제).
+- **로컬 실행기 보안 (K1)**: 셸 문자열 조합 없이 `spawn(cmd, [args], {shell:false})`. URL은 스킴 화이트리스트(http/https/kakaomap/nmap/notion/…), 로컬 파일은 절대 경로 + `.exe`/`.lnk`/`.app`만 허용(`.bat`/`.cmd`/`.ps1`은 인터프리터가 인자를 재파싱하므로 제외). 제어문자 차단, 세션 필수, 클라우드 배포에서는 403.
+- **워크노트 · 하위작업**: 업무 카드마다 진행 메모(`ct_work_notes`)와 체크리스트(`ct_sub_tasks`). `/reorder` 브리핑의 입력으로도 쓰인다.
+- **퇴근 핸드오프**: `/handoff` 또는 "퇴근하기" 버튼 → 남은 업무 요약을 클립보드에 복사하고 **UI 스냅샷**(`ct_handoff_state`)을 저장. 다음 진입 시 섹션 접힘·대화 이력을 복원하고 안내 배너를 1회만 띄운다(K6).
+- **지도 앱 연동 (K12)**: `src/lib/mapLinks.ts`. 카카오맵 `kakaomap://route?sp={lat},{lng}&ep=…&by=car|publictransit`, 네이버지도 `nmap://route/{car|public}?slat=…&appname=…` — **두 앱 모두 좌표 필수**라 좌표가 없으면 앱 스킴을 만들지 않고 웹으로만 연결한다(카카오 웹은 이름 기반 길찾기, 네이버는 목적지 검색). 좌표는 설정의 "현재 위치를 집/회사로"로 확보하며 **클라이언트에만 저장**한다. 앱 전환 감지는 `visibilitychange`/`pagehide`.
+- **퀵 위젯**: 대시보드 상단 토글 바 — 타이머 / 계산기(키보드 입력 지원) / 바로가기 즐겨찾기 / 실시간 날씨 / 출퇴근 길찾기.
 - **규칙**: `{ field: any|source|sender|title|content, value, action: pin|urgent|mute|hide, enabled }` — `applyRules` 위→아래 순차, pin 안정 정렬.
 - **팔로업**: 응답 필요 카테고리(urgent/approval/action)가 `ct_followup_hours` 초과 시 상단 에스컬레이션 + `⏰ N시간째 기다리는 중` 배지.
 - **LLM 산출물 (phase6)**: 폴더 스캔(`LlmArtifactAdapter`, frontmatter 파싱·발췌 500자) + Obsidian 연동 시 동기화마다 오늘 항목을 `coffeeTide_LLM/YYYY-MM-DD.md`에 idempotent upsert(Q4=자동).
@@ -122,7 +152,10 @@ coffeeTide는 여러 채널의 업무 데이터를 하나의 대시보드로 통
 | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `NEXT_PUBLIC_GOOGLE_REDIRECT_URI` | Google OAuth 3종 |
 | `NOTION_INTEGRATION_TOKEN` / `NOTION_DATABASE_ID` | Notion 기본값 (UI 세션별 입력 우선) |
 | `LLM_ARTIFACTS_DEFAULT_PATH` | (선택) LLM 산출물 기본 경로 |
-| `WEATHER_API_KEY` | (선택) 날씨 정보 API 키. 공공데이터포털 기상청 단기예보 인증키 (또는 OpenWeatherMap 키). 미설정 시 시간대 기반 인사말 폴백 |
+| `DATA_GO_KR_SERVICE_KEY` | (선택) **공공데이터포털 공용 인증키**. 포털은 계정당 인증키 1개를 활용신청한 모든 오픈API에 공통 적용하므로 기상청·(예정)TAGO·도로공사가 이 하나를 공유한다. 판독은 `src/lib/env.ts` |
+| `WEATHER_API_KEY` | (선택) 위 키의 **하위호환 별칭** — 기존 `.env.local`을 고치지 않아도 동작한다. 단, 이 이름만 설정된 환경에서는 OpenWeatherMap 폴백에도 같은 값이 쓰인다(구 동작 유지) |
+| `OPENWEATHER_API_KEY` | (선택) OpenWeatherMap 전용 키. 설정하면 기상청 실패 시에만 폴백 호출. 미설정 + `DATA_GO_KR_SERVICE_KEY`만 있으면 OWM은 호출하지 않는다(포털 키로 부르면 항상 401이라 무의미) |
+| `DISABLE_LOCAL_EXEC` | `true`면 `/api/util/exec-app` 비활성(403). `VERCEL`·`AWS_LAMBDA_FUNCTION_NAME`·`NETLIFY` 감지 시 자동 비활성 |
 | `NEXT_PUBLIC_VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | 웹 푸시 3종 (`npx web-push generate-vapid-keys`). 미설정 시 알림 기능만 비활성 |
 | `CRON_SECRET` | (선택) `/api/briefing/daily` 외부 크론 인증 토큰 — Vercel Cron은 자동으로 Bearer 헤더에 첨부 |
 | `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | (선택) 푸시 프로필 저장소. 미설정 시 파일(`data/push-profiles.json`) — 서버리스 배포는 필수 |
@@ -131,10 +164,27 @@ coffeeTide는 여러 채널의 업무 데이터를 하나의 대시보드로 통
 
 ## 7. 알려진 한계 / TODO
 
-남은 항목은 **[doc/7-backlog.md](./7-backlog.md)** 참조. 요약:
+남은 항목은 **[doc/7-backlog.md](./7-backlog.md)** 및 **[doc/source-fix-plan.md](./source-fix-plan.md)** 참조. 요약:
 
+- **`/api/commute`가 하드코딩 예시 값** — 공공데이터포털 실연동 대기 (**K2**). 화면에는 `🧪 예시 데이터` 배지로 명시 중
 - 외부 OAuth(Outlook/Google)·Notion 실계정 E2E 미검증 — MOCK 스모크만 통과 (**H1**)
+- 지도 앱 딥링크 실기기 미검증 — 데스크톱에서 웹 경로만 확인 (**K12**, H1과 함께)
 - 세션 쿠키에 토큰 전체 저장 → 대형 토큰 시 4KB 한계 리스크 (**H2**)
 - Google Calendar·Drive 수집 미구현 (scope만 확보, Gmail만 수집) (**H3**)
-- 세션 7일 고정 만료 (B2), 채널당 10건 고정 (C3), hide/dismiss 이원화 (D4)
+- 채널당 10건 고정 (C3), hide/dismiss 이원화 (D4)
 - AI 분류 캐시가 서버 메모리 (프로세스 재시작 시 소멸)
+- `page.tsx` 2,351줄 — 분할 진행 중, 목표 1,000줄 (**K10** 5단계 남음)
+
+## 8. 코드 구조 (K10 분할 반영, 2026-07-27)
+
+```
+src/lib/            localStore · mergeView · labels · copilotPairs · mapLinks · env   (순수 모듈)
+src/app/hooks/      useModalA11y
+src/app/components/ TaskItemCard · WelcomeCard · CommuteCard · 위젯 4종
+      ├ settings/   AutomationRules · Notification · Weather · Commute · Shortcuts · Connections
+      └ copilot/    CopilotConversation · CopilotComposer
+src/app/page.tsx    상태 소유 + 데이터 흐름 (표현은 위 컴포넌트에 위임)
+```
+
+- 분리한 컴포넌트는 `page.module.css`를 그대로 import합니다(CSS 모듈 다중 import). CSS 분할은 K10 5단계.
+- 컴포넌트는 값 + `onChange` 콜백만 받는 표현 컴포넌트이며, 상태와 영속화는 `page.tsx`가 소유합니다.

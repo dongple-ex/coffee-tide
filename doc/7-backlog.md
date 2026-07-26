@@ -9,7 +9,7 @@
 
 - **검증 3종 세트** (모든 변경 후 필수): `npx tsc --noEmit -p tsconfig.json` · `npm run lint` · `npm run build` — 셋 다 통과해야 함.
 - **런타임 스모크**: dev 서버(`npm run dev`, 기본 :3000)에 `curl -c jar http://localhost:3000/api/auth/signin`로 게스트 세션을 발급받아 `-b jar`로 보호 API 호출. 한글 body는 인코딩 깨짐 방지를 위해 **파일로 저장 후 `--data-binary @file`** 사용.
-- **커밋**: 항목당 브랜치 1개(`fix/...`, `feat/...`, `chore/...`) → 논리 단위 커밋 → `main`에 `--ff-only` 머지 → push. 커밋 메시지 말미: `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`.
+- **커밋**: 항목당 브랜치 1개(`fix/...`, `feat/...`, `chore/...`) → 논리 단위 커밋 → `main`에 `--ff-only` 머지 → push. 커밋 메시지 말미의 `Co-Authored-By:`는 **작업한 모델명으로** 적습니다(예: `Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>`).
 - Windows 체크아웃이라 `LF will be replaced by CRLF` 경고는 무해.
 - **AGENTS.md 준수**: Next.js 16이므로 코드 작성 전 `node_modules/next/dist/docs/`의 관련 가이드를 확인할 것.
 
@@ -47,6 +47,12 @@
 | ~~J1~~ | 출퇴근 길찾기 스마트 카드 & 시간대 자동 전환 | ✅ 구현 (2026-07-22) | 개인화/UX |
 | ~~J2~~ | 자연어 단어-앱 바로가기 실행기 (`exec-app`) | ✅ 구현 (2026-07-22) | 개인화/AI |
 | ~~B2~~ | 세션 7일 고정 만료 (롤링 연장 없음) | ✅ 구현 (2026-07-22) | 보안/UX |
+| ~~L1~~ | 퀵 위젯 바(타이머·계산기·바로가기·날씨) | ✅ 구현 (2026-07-24) | 기능 |
+| ~~L2~~ | AI 슬래시 커맨드 5종 + 자동완성 | ✅ 구현 (2026-07-24) | 기능 |
+| ~~L3~~ | 워크노트·하위작업 체크리스트·AI 일정 재배치 | ✅ 구현 (2026-07-24) | 기능 |
+| ~~L4~~ | 퇴근 핸드오프(UI 스냅샷 보존·복원) | ✅ 구현 (2026-07-24) | 기능 |
+| **K2** | `/api/commute` 하드코딩 → 공공데이터포털(TAGO·도로공사) 실연동 | **P0** | 제품 신뢰 |
+| K10 | `page.tsx`·`page.module.css` 분할 (5단계 남음) | P3 | 구조 |
 | F1 | 자연어 규칙 value 오추출 (실사용 검증 필요) | P2 | 기능 |
 | F2 | Notion 빠른 캡처 실계정 E2E 미검증 (→H1에 포함) | P2 | 기능 |
 | C3 | 채널당 10건 고정, 페이지네이션 없음 | P3 | 성능 |
@@ -88,12 +94,11 @@
 - **제안**: `process.env.NODE_ENV === 'production'`에서 미설정이면 throw(부팅 실패) 또는 최소한 강한 경고 로그. 개발용 fallback만 유지.
 - **완료 기준**: 프로덕션 빌드/런타임에서 키 미설정이 조용히 통과하지 않음.
 
-### B2. 세션 7일 고정 만료 — P2
+### B2. 세션 7일 고정 만료 — ✅ 구현 (2026-07-22)
+- **처리**: `touchSession`(`src/lib/auth/cookies.ts`)을 `/api/mails` 응답에서 호출해 활동 시 만료를 +7일 롤링 연장. 30초 폴링이 도는 동안 계속 갱신되므로 활성 사용자는 7일 경계에서 강제 로그아웃되지 않는다.
+- 아래는 설계 기록.
 - **문제**: `tp_session_expiry`가 발급 시점 +7일 고정. refresh token이 유효해도 7일 후 강제 재로그인.
 - **위치**: `src/app/api/auth/*`(쿠키 maxAge/expiry 설정), `src/proxy.ts`(만료 판독).
-- **영향**: 불필요한 재로그인 UX 저하.
-- **제안**: 활동 시 롤링 연장(요청마다 expiry 갱신) 또는 만료 시 refresh token으로 세션 재발급.
-- **완료 기준**: 활성 사용자가 7일 경계에서 강제 로그아웃되지 않음.
 
 ## C. 성능 & 비용
 
@@ -227,9 +232,10 @@
 - **문제**: OAuth scope는 확보했으나 수집은 Gmail만 구현.
 - **제안**: `GmailAdapter` 패턴으로 Calendar 오늘 일정(→`meeting`), Drive 최근 문서(→`reference`) 어댑터 추가.
 
-### H4. 팔로업 브라우저 알림 — P3
+### H4. 팔로업 브라우저 알림 — ✅ 구현 (2026-07-22)
+- **처리**: `src/lib/push/browserNotification.ts`의 `triggerTaskNotifications` — 긴급/팔로업 초과 업무 발생 시 데스크톱 알림 1회. 중복 방지는 `ct_notified_item_ids`. 권한은 설정 모달의 알림 토글에서 옵트인.
+- 아래는 설계 기록.
 - **문제**: 팔로업 에스컬레이션이 화면 배지로만 표시됨(백그라운드 인지 불가).
-- **제안**: Notification API 옵트인 + 에스컬레이션 발생 시 1회 알림(`tp_alerted_ids`로 중복 방지, D3 정리 로직 재사용).
 
 ### H5. 아침 브리핑 푸시 배달 — ✅ 구현 (2026-07-11)
 
@@ -250,8 +256,8 @@
 
 > 근거: [`phase7_copilot_briefing_spec.md`](./phase7_copilot_briefing_spec.md). I1~I4는 스펙과 함께 구현 완료 — 상세는 스펙 §2와 [`as-built-reference.md`](./as-built-reference.md) 참조.
 
-### I1. `GET /api/weather` — ✅ 구현 (2026-07-22)
-- OpenWeatherMap + `WEATHER_API_KEY`. 좌표 소수점 2자리 절삭 → 서버 메모리 캐시 20분, 좌표 미저장. 키 미설정/조회 실패 시 `success:false` (그리팅은 시간대 폴백).
+### I1. `GET /api/weather` — ✅ 구현 (2026-07-22, 2026-07-27 갱신)
+- **기상청 초단기실황+초단기예보(공공데이터포털) 1순위 → OpenWeatherMap 폴백**. 지역명은 BigDataCloud 역지오코딩(한글 동/구). 좌표는 소수점 2자리로 절삭해 **외부 호출에도 사용**(K9) → 서버 메모리 캐시 20분, 좌표 미저장. 키는 `DATA_GO_KR_SERVICE_KEY`(구 `WEATHER_API_KEY`)와 `OPENWEATHER_API_KEY`로 분리(K8). 키 미설정/조회 실패 시 `success:false` (그리팅은 시간대 폴백).
 
 ### I2. 웰컴 그리팅 UI + 3단계 폴백 — ✅ 구현 (2026-07-22)
 - `src/app/components/WelcomeCard.tsx` — 시간대 테마 + 날씨 문구 **템플릿 기반**(LLM 미사용). 날씨+시간대 → 시간대만 → 미표시 3단계 폴백.
@@ -262,13 +268,33 @@
 ### I4. `delegatable` 판별 및 배지 — ✅ 구현 (2026-07-22)
 - `UnifiedData.delegatable?: boolean` — 로컬 LLM 도구 위임 후보 **표식**(실행 버튼 아님). `FallbackEngine`은 채우지 않음 — `undefined`는 "판별 안 됨". 대시보드 배지 표시.
 
-### I5. 위치 권한 요청 시점 옵트인 전환 검토 — P3 (앱 심사 전 필수)
-- **문제**: 현재 `WelcomeCard` 마운트 시 위치 권한을 **즉시 요청**. 첫 진입 즉시 요청은 이탈률을 높이고, 앱 스토어 심사에서 목적 불명확으로 지적받을 수 있음 (스펙 §5.4).
-- **위치**: `src/app/components/WelcomeCard.tsx`의 `useEffect` (geolocation 호출).
-- **영향**: 웹에서는 브라우저가 자체 권한 UI로 처리해 리스크가 낮으나, 하이브리드 앱 심사(`hybrid_app_release_guide.md` §2 Step 4-1)에서는 거부 사유가 될 수 있음.
-- **제안**: 그리팅 영역에 "날씨 켜기" 버튼을 두고 클릭 시 요청(옵트인). 허용 여부를 localStorage에 기억. 하이브리드 앱 전환 시 `@capacitor/geolocation`으로 교체(스펙 §2.1 구현 노트)와 함께 진행.
-- **완료 기준**: 첫 진입 시 권한 팝업이 뜨지 않고, 사용자가 명시적으로 켠 뒤에만 날씨 그리팅이 표시됨.
+### I5. 위치 권한 요청 시점 옵트인 전환 — ✅ 구현 (2026-07-23)
+- **처리**: geolocation 호출을 `WelcomeCard` 마운트 시점에서 **설정 모달의 `📍 위치 & 날씨 브리핑` 토글**로 이관. 옵트인 여부는 `ct_weather_enabled`, 좌표는 `ct_weather_coords`에 캐시해 반복 권한 팝업을 막는다. 첫 진입 시 권한 팝업이 뜨지 않는다.
+- **남은 것**: 하이브리드 앱 전환 시 `@capacitor/geolocation`으로 교체(스펙 §2.1 구현 노트). 심사 대응은 `hybrid_app_release_guide.md` §2 Step 4-1과 함께.
 
 ---
 
-_최종 갱신: 2026-07-22 (phase7 I 항목 등록). 이 문서는 살아있는 백로그입니다. 항목을 처리하면 "완료"로 표시하세요._
+## K. 소스 점검 (2026-07-27)
+
+> 근거·상세는 [`source-fix-plan.md`](./source-fix-plan.md). K1·K3~K9·K11·K12는 **구현 완료**(커밋 `03cc9fe`, `f76d065`)이며, 여기에는 **남은 것만** 적습니다.
+
+### K2. `/api/commute` 하드코딩 → 공공데이터포털 실연동 — P0
+- **문제**: 출발 시각·소요시간·요금·혼잡도가 전부 상수인데 화면에는 실측치로 읽히는 문장이 나갔다. 현재는 `🧪 예시 데이터` 배지와 경고 문구로 명시 중(임시조치).
+- **결정 (2026-07-26 사용자)**: 공공데이터포털 실 API 연동. 인증키는 기존 `WEATHER_API_KEY`(= `DATA_GO_KR_SERVICE_KEY`) 재사용 — 포털은 계정당 인증키 1개를 공유한다. **활용신청 완료됨**.
+- **핵심 제약**: 포털에 **전국 단위 환승 경로탐색 API가 없다**. 다음 차 시각(TAGO 지하철 시간표·버스도착)과 구간 혼잡도(도로공사 실시간 소통)는 실데이터로 채울 수 있으나, "총 소요시간·최적 경로"는 지도 앱 딥링크에 위임한다.
+- **작업량 대부분**: TAGO는 역명이 아니라 **코드**(지하철역 ID·정류소 `nodeId`)로 조회하므로, 설정에서 역/정류소를 검색해 코드까지 저장하는 UI가 필요하다.
+- **필수**: 서버 캐시(도착정보 30~60초, 시간표 24시간). 30초 폴링 + 일 1,000건 기본 쿼터라 캐시 없이는 하루를 못 버틴다.
+- **완료 기준**: 화면의 모든 수치가 실 API 응답이고, 폴백 시 수치가 사라지고 딥링크만 남는다. `route.ts`의 하드코딩 상수 0개.
+
+### K10. `page.tsx` / `page.module.css` 분할 — P3 (1~4단계 완료)
+- **진행**: 3,413 → **2,351줄**. 순수 헬퍼 → 설정 6섹션 → 업무 카드 → Copilot 패널 순으로 분리 (구조는 [`as-built-reference.md`](./as-built-reference.md) §8).
+- **남은 5단계**: 상태 훅 분리(`useManualItems`·`useWeather`·`usePushSubscription`) + `page.module.css`(1,592줄) 컴포넌트별 분할.
+- **완료 기준**: `page.tsx` 1,000줄 이하, 기능 회귀 없음.
+
+### K13. 기본 바로가기 프리셋의 하드코딩 경로 — P3
+- **문제**: `DEFAULT_APP_SHORTCUTS`의 "구글안티" 프리셋 경로가 `C:\Users\tstar\...`로 특정 계정명을 포함해 다른 환경에서는 항상 실패한다(K1 이후 실패 사유는 화면에 표시됨).
+- **제안**: 프리셋에서 제거하거나 `%LOCALAPPDATA%` 기반 경로로 교체.
+
+---
+
+_최종 갱신: 2026-07-27 (K 항목 정리, B2·H4·I5 완료 반영, L 항목 등록). 이 문서는 살아있는 백로그입니다. 항목을 처리하면 "완료"로 표시하세요._

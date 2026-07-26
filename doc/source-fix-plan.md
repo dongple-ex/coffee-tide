@@ -30,7 +30,7 @@
 | **K10** | `page.tsx` 3,253줄 / `page.module.css` 1,592줄 분할 | P3 | 구조 | 🔄 진행 중 — 1~4단계 완료 (3,413 → 2,351줄) |
 | **K11** | WelcomeCard 30초 타이머가 사용자 조작을 덮어씀 | P3 | UX | ✅ 2026-07-27 |
 | **K12** | 카카오맵·네이버지도 딥링크가 스펙 불일치로 앱 실행 실패 | **P1** | 기능 | ✅ 2026-07-27 |
-| **D1~D7** | 문서 동기화 (별도 트랙, §3) | P2 | 문서 | ⏸ 미착수 (5차) |
+| **D1~D7** | 문서 동기화 (별도 트랙, §3) | P2 | 문서 | ✅ 2026-07-27 (D7만 K2 실연동 후로 보류) |
 
 > **부수 수정 (2026-07-27, 계획서 외)**: ① ShortcutsWidget이 로컬 `.exe` 경로를 `https://C:\...`로 열어 빈 탭만 띄우던 문제 → `/api/util/exec-app` 경유 + 실패 토스트. ② WeatherWidget 갱신 버튼이 결과와 무관하게 "갱신되었습니다"를 띄우던 문제 → 결과 분기. ③ CommuteCard가 조회 실패 시 카드째 사라지던 문제 → 실패 상태 표시. ④ `/api/weather` 좌표 유효성 검증(NaN·범위 밖 → 400).
 
@@ -227,13 +227,13 @@
 
 | ID | 대상 | 내용 |
 | :-- | :-- | :-- |
-| D1 | `as-built-reference.md` §4 | 누락 라우트 3개 추가 — `/api/upload`, `/api/commute`, `/api/util/exec-app` |
-| D2 | `as-built-reference.md` §4·§6, `7-backlog.md` I1, `phase7_*.md` §5.1 | `/api/weather` 설명 정정 — "OpenWeatherMap" → **기상청 단기예보 1순위 + OWM 폴백 + BigDataCloud 역지오코딩** (K8·K9 확정 후 최종 문구) |
-| D3 | `as-built-reference.md` §3 | localStorage 키 4개 → 실제 16개 반영 (`ct_weather_enabled/coords`, `ct_app_shortcuts`, `ct_commute_config`, `ct_work_notes`, `ct_sub_tasks`, `ct_handoff_state`, `ct_theme`, `ct_brief_time`, `ct_browser_categories`, `ct_notified_item_ids`, `ct_oauth_state`) |
-| D4 | `as-built-reference.md` §2·§7 | 세션 롤링 연장(B2) 구현 완료 반영 — 현재 "7일 고정"으로 서술돼 요약표와 모순 |
-| D5 | `7-backlog.md` | H4·B2 상세절에 ✅ 표기(요약표와 불일치), I5 상세절의 "WelcomeCard 마운트 시 즉시 요청" 서술 갱신(설정 모달 옵트인으로 이미 이관됨), 커밋 트레일러 `Opus 4.8` → 현행 표기, 최종 갱신일 |
-| D7 | `as-built-reference.md` §4·§5·§6 | K2 실연동 결과 반영 — TAGO·도로공사 어댑터, 캐시 TTL, 폴백 규칙, `DATA_GO_KR_SERVICE_KEY`(+`WEATHER_API_KEY` 별칭), **활용신청이 필요한 API 목록**과 일 1,000건 쿼터 |
-| D6 | `README.md`, 신규 백로그 | 07-23~24 기능 등재 — Quick Widgets(Timer/Calculator/Shortcuts/Weather), 슬래시 커맨드 5종, Work Note·서브태스크·AI 재정렬, 섹션 접힘. 문서 전체가 UI 명칭 "AI 바리스타"를 한 번도 쓰지 않는 점도 통일 |
+| D1 ✅ | `as-built-reference.md` §4 | 누락 라우트 3개 추가 — `/api/upload`, `/api/commute`, `/api/util/exec-app` |
+| D2 ✅ | `as-built-reference.md` §4·§6, `7-backlog.md` I1, `phase7_*.md` §2.2·§5.1 | `/api/weather` 설명 정정 — "OpenWeatherMap" → **기상청 단기예보 1순위 + OWM 폴백 + BigDataCloud 역지오코딩** (K8·K9 확정 후 최종 문구) |
+| D3 ✅ | `as-built-reference.md` §3 | localStorage 키 4개 → 실제 16개 반영 (`ct_weather_enabled/coords`, `ct_app_shortcuts`, `ct_commute_config`, `ct_work_notes`, `ct_sub_tasks`, `ct_handoff_state`, `ct_theme`, `ct_brief_time`, `ct_browser_categories`, `ct_notified_item_ids`, `ct_oauth_state`) |
+| D4 ✅ | `as-built-reference.md` §2·§7 | 세션 롤링 연장(B2) 구현 완료 반영 — 현재 "7일 고정"으로 서술돼 요약표와 모순 |
+| D5 ✅ | `7-backlog.md` | H4·B2 상세절에 ✅ 표기(요약표와 불일치), I5 상세절의 "WelcomeCard 마운트 시 즉시 요청" 서술 갱신(설정 모달 옵트인으로 이미 이관됨), 커밋 트레일러 `Opus 4.8` → 현행 표기, 최종 갱신일 |
+| D7 ⏸ | `as-built-reference.md` §4·§5·§6 | **K2 실연동 후** 반영할 것 — TAGO·도로공사 어댑터, 캐시 TTL, 폴백 규칙, `DATA_GO_KR_SERVICE_KEY`(+`WEATHER_API_KEY` 별칭), **활용신청이 필요한 API 목록**과 일 1,000건 쿼터 |
+| D6 ✅ | `README.md`, `00-current-state.md`, 신규 백로그(L1~L4) | 07-23~24 기능 등재 — Quick Widgets(Timer/Calculator/Shortcuts/Weather), 슬래시 커맨드 5종, Work Note·서브태스크·AI 재정렬, 섹션 접힘. 문서 전체가 UI 명칭 "AI 바리스타"를 한 번도 쓰지 않는 점도 통일 |
 
 ---
 
@@ -245,7 +245,7 @@
 | **2차 — 보안/개인정보/키 정리** | K1, K8, K9 | K1은 단독 브랜치·단독 리뷰. K8은 K2 실연동의 선행(공용 키 판독 경로 확정) |
 | **3차 — 신뢰성** | K4, K6 | 작고 확실한 버그 정리 |
 | **4차 — K2 실연동** | K2 (TAGO + 도로공사) | **활용신청 승인 후 착수.** 어댑터 → 역/정류소 코드 설정 UI → 폴백 순으로 커밋 분리 |
-| **5차 — 문서** | D1~D6 | 4차까지의 결과를 as-built에 일괄 반영 |
+| **5차 — 문서** ✅ | D1~D6 | 4차까지의 결과를 as-built에 일괄 반영 (2026-07-27 완료) |
 | **6차 — 구조** | K10 | 리팩터링은 위 항목이 안정된 뒤 |
 
 **작업 규약** (`7-backlog.md` §작업 규약 준수):

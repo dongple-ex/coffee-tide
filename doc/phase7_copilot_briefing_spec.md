@@ -44,7 +44,7 @@ coffeeTide가 초안 생성을 직접 떠안으면 이 루프와 기능이 중�
 > "비 오는 화요일 아침이네요. 오늘 오전에는 이런 업무에 집중해보면 어떨까요?"
 
 * **위치 획득은 `@capacitor/geolocation`으로 단일화합니다.** 이 플러그인은 웹에서 브라우저 Geolocation API로 자동 폴백하므로, 웹과 앱에 코드를 두 벌 두지 않아도 됩니다. (`hybrid_app_release_guide.md` §2 Step 4-1과 동일한 결정)
-  > **구현 노트 (2026-07-22)**: 현재 구현은 `navigator.geolocation` 직접 호출입니다(`WelcomeCard.tsx` — Capacitor 패키지 미설치). 웹 단독 배포에서는 동작이 동일하며, **하이브리드 앱 착수 시점에 `@capacitor/geolocation`으로 교체**해야 합니다(교체 지점은 `WelcomeCard`의 `useEffect` 한 곳).
+  > **구현 노트 (2026-07-27 갱신)**: 현재 구현은 `navigator.geolocation` 직접 호출입니다(Capacitor 패키지 미설치). 호출 지점은 I5 반영으로 `WelcomeCard`가 아니라 **`page.tsx`의 `enableWeatherLocation`(설정 모달 옵트인 토글)** 과 **`captureCommuteCoords`(집·회사 좌표 지정, K12)** 두 곳입니다. 웹 단독 배포에서는 동작이 동일하며, **하이브리드 앱 착수 시점에 `@capacitor/geolocation`으로 교체**해야 합니다.
 * **저정밀(coarse)로 충분합니다.** 날씨 조회에 동 단위 이상의 정밀도는 불필요하고, 스토어 개인정보 신고 항목도 가벼워집니다.
 * **3단계 폴백 필수** — 원칙 4에 따라 각 단계 실패가 사용자를 막지 않아야 합니다.
 
@@ -61,7 +61,8 @@ coffeeTide가 초안 생성을 직접 떠안으면 이 루프와 기능이 중�
 * 날씨 API 키가 클라이언트에 노출되면 안 되므로 **서버 라우트를 경유**합니다.
 * 좌표를 소수점 2자리로 절삭(약 1km)해 캐시 키로 쓰고, 응답을 10~30분 캐시합니다. 무료 티어 호출량 보호 목적이자, **원좌표를 그대로 외부에 보내지 않는 최소화 조치**이기도 합니다.
 * 좌표는 **저장하지 않습니다.** 요청 처리에만 쓰고 버립니다.
-* 공급자는 **OpenWeatherMap**으로 확정 (§5.1 결정). `WEATHER_API_KEY` 미설정 시 `success:false`를 반환하고 그리팅은 시간대 폴백으로 동작합니다.
+* 공급자는 **기상청 초단기실황/예보(공공데이터포털) 1순위 + OpenWeatherMap 폴백**입니다 (§5.1 결정 이력 참조). 키 미설정 시 `success:false`를 반환하고 그리팅은 시간대 폴백으로 동작합니다.
+* **절삭 좌표는 캐시 키뿐 아니라 외부 호출에도 씁니다** (2026-07-27, K9). 초기 구현은 캐시 키만 절삭하고 기상청·역지오코딩에는 원좌표를 보내고 있었습니다.
 
 ### 2.3 Copilot 시스템 프롬프트 개선 (`src/lib/ai/gemini.ts`)
 
@@ -128,9 +129,10 @@ export interface UnifiedData {
 
 ## 5. 논의 및 결정 사항 (Open Questions → 구현 시 결정 기록)
 
-**5.1. 날씨 API 공급자** — ✅ **결정: OpenWeatherMap** (2026-07-22)
+**5.1. 날씨 API 공급자** — ✅ **결정: 기상청(공공데이터포털) 1순위 + OpenWeatherMap 폴백** (2026-07-22 착수 → 2026-07-27 문서 정정)
 무료 티어 한도, 한국 지역 정확도, 상업적 이용 약관을 함께 봐야 합니다. 후보: Open-Meteo(키 불필요·상업적 이용 무료), 기상청 단기예보 API(국내 정확도 우수, 격자 좌표 변환 필요), OpenWeatherMap.
-→ 구현은 **OpenWeatherMap + `WEATHER_API_KEY`** 채택 (`src/app/api/weather/route.ts`, 한국어 응답 `lang=kr` 지원). 키 미설정 시 시간대 폴백으로 동작하므로 키가 없어도 앱은 정상입니다.
+→ 최초 결정은 OpenWeatherMap이었으나, 국내 정확도를 위해 **기상청 초단기실황(`getUltraSrtNcst`)+초단기예보(`getUltraSrtFcst`)** 로 전환하고 OWM은 폴백으로 남겼습니다(`src/app/api/weather/route.ts` — WGS84→LCC 격자 변환 `dfs_xy_conv` 포함). 지역명은 BigDataCloud 역지오코딩으로 한글 동/구를 얻습니다.
+→ 키는 공공데이터포털 공용 인증키(`DATA_GO_KR_SERVICE_KEY`, 구 `WEATHER_API_KEY`)와 OWM 전용 키(`OPENWEATHER_API_KEY`)로 분리했습니다(K8). 하나의 키를 두 공급자에 함께 넘기면 폴백이 항상 401로 실패합니다.
 
 **5.2. 그리팅 문구 생성 방식** — ✅ **결정: (a) 템플릿** (2026-07-22)
 날씨·시간 조합에 대해 **(a) 템플릿 문구 테이블**을 쓸지, **(b) Gemini로 매번 생성**할지.

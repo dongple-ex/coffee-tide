@@ -5,7 +5,9 @@
 연동이 없어도 manual/paste로 바로 시작할 수 있는, 연결되면 더 강력해지는 시간 관리 비서입니다.
 
 - **서비스 도메인(예정)**: `coffeeTide.dongple.kr`
-- **현재 상태**: **MVP 구현 완료 (2026-07-11) + Phase 7 Copilot 브리핑 고도화 완료 (2026-07-22).** 무연동 코어(G1~G6)와 6종 연동 구조, 웰컴 그리팅·날씨·위임 태그(I1~I4)가 이 저장소에 구현되어 있으며, 검증 3종 세트(tsc/lint/build)와 MOCK 런타임 스모크를 통과했습니다. 남은 격차는 [`7-backlog.md`](./7-backlog.md) 참조.
+- **현재 상태 (2026-07-27, `f76d065`)**: MVP(2026-07-11) → Phase 7 브리핑 고도화(07-22) → 개인화 기능(출퇴근 길찾기·단어-앱 바로가기, 07-22~23) → 생산성 도구(퀵 위젯·슬래시 커맨드·워크노트·퇴근 핸드오프, 07-24) → **소스 점검 반영(07-27)**. 검증 3종 세트(tsc/lint/build)와 런타임 스모크를 통과했습니다.
+- **UI 명칭**: 화면의 AI 도우미는 **"AI 바리스타"** 입니다(2026-07-17 개명, 코드·API는 `copilot`).
+- 남은 격차는 [`7-backlog.md`](./7-backlog.md), 이번 점검의 상세는 [`source-fix-plan.md`](./source-fix-plan.md) 참조.
 
 ## 핵심 가치
 - 무연동 우선 설계
@@ -35,7 +37,9 @@
 9. [`hybrid_app_release_guide.md`](./hybrid_app_release_guide.md)
    - Capacitor 기반 하이브리드 앱(스토어 출시) 가이드. 모바일 전략의 실행 문서.
 10. [`as-built-reference.md`](./as-built-reference.md)
-    - **현재 구현 코드 기준** 기술 레퍼런스(API 엔드포인트·환경변수·데이터모델·인증). "지금 코드가 하는 일"의 정본.
+    - **현재 구현 코드 기준** 기술 레퍼런스(API 엔드포인트·환경변수·데이터모델·인증·코드 구조). "지금 코드가 하는 일"의 정본.
+11. [`source-fix-plan.md`](./source-fix-plan.md)
+    - 2026-07-27 소스 점검 결과(K1~K13)와 처리 상태. 완료 항목은 `7-backlog.md`로 이관 후 폐기하는 한시 문서.
 
 ## 문서 명명 규칙
 
@@ -43,6 +47,7 @@
 - `phase2_*.md` : **Phase 2 역사 문서** (Notion 초기 연동 설계) — 참고용.
 - `phase3_*.md`, `phase5_*.md`, `phase6_*.md`, `phase7_*.md` : 단계별 설계 문서 — **정본**.
 - `00-current-state.md`, `7-backlog.md`, `8-mobile_strategy.md`, `hybrid_app_release_guide.md`, `as-built-reference.md` : 살아있는 문서 — 항상 최신 유지.
+- `source-fix-plan.md` : 한시 문서 — 항목 처리 완료 시 `7-backlog.md`로 이관하고 폐기.
 - `timepilot_ai_os_architecture.md` : **장기 비전 문서** (구명칭 TimePilot 시절의 AI Work OS 구상) — 현재 coffeeTide 구현·설계와 무관하며 정본이 아닙니다.
 
 ## 문서 상태
