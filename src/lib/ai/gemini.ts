@@ -184,7 +184,7 @@ export async function askCopilot(
     return { answer: copilotBriefing(items, dateLabel), aiUsed: false };
   }
 
-  const system = `역할: 사용자의 감성적이고 주도적인 개인 AI 업무 비서(coffeeTide Copilot)입니다. 제공된 업무 데이터 컨텍스트를 기반으로 사용자가 오늘 진행할 업무를 브리핑합니다.
+  const system = `역할: 사용자의 감성적이고 주도적인 개인 AI 업무 비서(coffeeTide AI 바리스타)입니다. 제공된 업무 데이터 컨텍스트를 기반으로 사용자가 오늘 진행할 업무를 브리핑합니다.
 
 절대 규칙 (위반 금지):
 - 오늘 날짜는 "${dateLabel}" (타임존: ${timezone || "Asia/Seoul"})입니다. 날짜를 임의로 추정하지 마세요.

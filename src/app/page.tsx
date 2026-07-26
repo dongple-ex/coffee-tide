@@ -42,6 +42,7 @@ import { TimerWidget } from "./components/TimerWidget";
 import { CalculatorWidget } from "./components/CalculatorWidget";
 import { ShortcutsWidget } from "./components/ShortcutsWidget";
 import { WeatherWidget } from "./components/WeatherWidget";
+import { ProactiveNudgeCard } from "./components/ProactiveNudgeCard";
 import { CommuteConfig } from "@/lib/types/commute";
 import { AppShortcut } from "@/lib/types/appShortcut";
 import styles from "./page.module.css";
@@ -398,7 +399,41 @@ export default function Home() {
   const [copilotInput, setCopilotInput] = useState("");
   const [copilotBusy, setCopilotBusy] = useState(false);
   const [welcomeCardCollapsed, setWelcomeCardCollapsed] = useState(false);
-  const [collapsedQaKeys, setCollapsedQaKeys] = useState<Set<string>>(new Set());
+  const [expandedQaKeys, setExpandedQaKeys] = useState<Set<string>>(new Set());
+  const [unreadQaKeys, setUnreadQaKeys] = useState<Set<string>>(new Set());
+
+  // Q&A 답변 도착 시 접혀있는 카드가 있으면 깜빡이는 알림(unreadQaKeys) 등록
+  useEffect(() => {
+    if (copilotMessages.length === 0) return;
+
+    const pairs: Array<{ id: string; userText?: string; aiText?: string }> = [];
+    let currentPair: { id: string; userText?: string; aiText?: string } | null = null;
+
+    copilotMessages.forEach((msg, idx) => {
+      if (msg.role === "user") {
+        currentPair = { id: `qa-${idx}`, userText: msg.text };
+        pairs.push(currentPair);
+      } else {
+        if (currentPair && !currentPair.aiText) {
+          currentPair.aiText = msg.text;
+        } else {
+          currentPair = { id: `qa-ai-${idx}`, aiText: msg.text };
+          pairs.push(currentPair);
+        }
+      }
+    });
+
+    pairs.forEach((pair) => {
+      if (pair.aiText && !expandedQaKeys.has(pair.id)) {
+        setUnreadQaKeys((prev) => {
+          if (prev.has(pair.id)) return prev;
+          const next = new Set(prev);
+          next.add(pair.id);
+          return next;
+        });
+      }
+    });
+  }, [copilotMessages, expandedQaKeys]);
   const [todoSectionCollapsed, setTodoSectionCollapsed] = useState(false);
   const [llmSectionCollapsed, setLlmSectionCollapsed] = useState(false);
   const [restSectionCollapsed, setRestSectionCollapsed] = useState(false);
@@ -2235,6 +2270,8 @@ export default function Home() {
             collapsed={welcomeCardCollapsed}
             onToggleCollapsed={setWelcomeCardCollapsed}
             refreshKey={welcomeCardRefreshKey}
+            taskCount={merged.filter((i) => i.status !== "completed" && i.status !== "dismissed").length}
+            urgentCount={merged.filter((i) => i.category === "urgent" && i.status !== "completed" && i.status !== "dismissed").length}
           />
           <div className={styles.copilotBody} ref={copilotBodyRef}>
             {(() => {
@@ -2267,50 +2304,72 @@ export default function Home() {
               });
 
               return pairs.map((pair) => {
-                const isCollapsed = collapsedQaKeys.has(pair.id);
-                const toggleCollapse = () => {
-                  setCollapsedQaKeys((prev) => {
+                const isExpanded = expandedQaKeys.has(pair.id);
+                const isUnread = unreadQaKeys.has(pair.id) && !isExpanded;
+
+                const toggleExpand = () => {
+                  setExpandedQaKeys((prev) => {
                     const next = new Set(prev);
                     if (next.has(pair.id)) next.delete(pair.id);
                     else next.add(pair.id);
                     return next;
                   });
+
+                  setUnreadQaKeys((prev) => {
+                    if (!prev.has(pair.id)) return prev;
+                    const next = new Set(prev);
+                    next.delete(pair.id);
+                    return next;
+                  });
                 };
 
                 return (
-                  <div key={pair.id} className={styles.chatQaGroup}>
+                  <div
+                    key={pair.id}
+                    className={`${styles.chatQaGroup} ${isUnread ? styles.chatQaGroupUnread : ""}`}
+                  >
                     {pair.userText && (
-                      <div className={styles.chatQuestionHeader} onClick={toggleCollapse}>
+                      <div
+                        className={`${styles.chatQuestionHeader} ${isUnread ? styles.headerBlinking : ""}`}
+                        onClick={toggleExpand}
+                      >
                         <div className={styles.chatQuestionTitle}>
                           <span style={{ fontSize: "0.95rem" }}>💬</span>
                           <span>{pair.userText}</span>
                         </div>
-                        <button
-                          type="button"
-                          className={styles.chatQaToggleBtn}
-                          aria-label={isCollapsed ? "응답 펼치기" : "응답 접기"}
-                          title={isCollapsed ? "응답 펼치기" : "응답 접기"}
-                        >
-                          <svg
-                            width="14"
-                            height="14"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2.5"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            style={{
-                              transform: isCollapsed ? "rotate(180deg)" : "rotate(0deg)",
-                              transition: "transform 0.2s ease",
-                            }}
+                        <div className={styles.headerRightControls}>
+                          {isUnread && (
+                            <span className={styles.blinkingBadge}>
+                              ✨ 답변 완료
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            className={styles.chatQaToggleBtn}
+                            aria-label={isExpanded ? "응답 접기" : "응답 펼치기"}
+                            title={isExpanded ? "응답 접기" : "응답 펼치기"}
                           >
-                            <polyline points="18 15 12 9 6 15" />
-                          </svg>
-                        </button>
+                            <svg
+                              width="14"
+                              height="14"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              style={{
+                                transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)",
+                                transition: "transform 0.2s ease",
+                              }}
+                            >
+                              <polyline points="18 15 12 9 6 15" />
+                            </svg>
+                          </button>
+                        </div>
                       </div>
                     )}
-                    {!isCollapsed && pair.aiText && (
+                    {isExpanded && pair.aiText && (
                       <div className={styles.chatAnswerScroll}>
                         <MarkdownLite text={pair.aiText} />
                       </div>

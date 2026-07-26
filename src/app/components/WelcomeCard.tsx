@@ -16,6 +16,8 @@ interface WelcomeCardProps {
   collapsed?: boolean;
   onToggleCollapsed?: (collapsed: boolean) => void;
   refreshKey?: number;
+  taskCount?: number;
+  urgentCount?: number;
 }
 
 function getTimeState(): "morning" | "afternoon" | "evening" {
@@ -39,6 +41,8 @@ export function WelcomeCard({
   collapsed,
   onToggleCollapsed,
   refreshKey = 0,
+  taskCount = 0,
+  urgentCount = 0,
 }: WelcomeCardProps) {
   const [timeState, setTimeState] = useState<"morning" | "afternoon" | "evening">(getTimeState);
   const [dateLabel, setDateLabel] = useState<string>(getDateLabel);
@@ -103,12 +107,35 @@ export function WelcomeCard({
 
   const theme = getTimeTheme();
 
-  const renderGreetingMessage = () => {
-    if (weather) {
-      return `${weather.city}는 현재 ${weather.temp}°C, ${weather.description} 날씨입니다. ${theme.subQuote}`;
+  const getProactiveMessage = () => {
+    const hours = new Date().getHours();
+    if (hours >= 17) {
+      return {
+        title: "🌆 오늘 하루도 정말 수고 많으셨습니다!",
+        subText: "퇴근 전 Handoff(핸드오프) 상태를 남겨두시면 내일 아침 출근이 훨씬 편안해집니다 ☕",
+      };
     }
-    return `${dateLabel}, ${theme.subQuote}`;
+    if (urgentCount >= 2) {
+      return {
+        title: `🚨 긴급 조치가 필요한 업무 ${urgentCount}건이 있습니다`,
+        subText: "마감이나 생애주기가 임박한 주요 업무부터 먼저 확인해 보세요.",
+      };
+    }
+    if (taskCount >= 5) {
+      return {
+        title: `📋 오늘 처리할 할 일이 총 ${taskCount}개 준비되어 있습니다`,
+        subText: "에스프레소 한 잔과 함께 차근차근 정리하며 리듬감 있게 시작해 보세요.",
+      };
+    }
+    return {
+      title: "☕ 안녕하세요! AI 바리스타가 준비한 브리핑입니다.",
+      subText: weather
+        ? `${weather.city}는 현재 ${weather.temp}°C, ${weather.description} 날씨입니다. ${theme.subQuote}`
+        : `${dateLabel}, ${theme.subQuote}`,
+    };
   };
+
+  const nudge = getProactiveMessage();
 
   return (
     <div
@@ -165,10 +192,8 @@ export function WelcomeCard({
       </div>
 
       <div className={styles.cardBody}>
-        <h2 className={styles.greetingTitle}>
-          안녕하세요! coffeeTide 비서가 준비한 브리핑입니다.
-        </h2>
-        <p className={styles.greetingSub}>{renderGreetingMessage()}</p>
+        <h2 className={styles.greetingTitle}>{nudge.title}</h2>
+        <p className={styles.greetingSub}>{nudge.subText}</p>
       </div>
     </div>
   );
