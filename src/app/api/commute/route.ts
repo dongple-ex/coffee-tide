@@ -11,7 +11,6 @@ export async function GET(request: Request) {
   const utc = now.getTime() + now.getTimezoneOffset() * 60000;
   const kst = new Date(utc + 9 * 3600000);
   const hours = kst.getHours();
-  const minutes = kst.getMinutes();
 
   const isMorning = hours >= 5 && hours < 12;
   const mode = isMorning ? "morning" : "evening";
@@ -139,19 +138,6 @@ export async function GET(request: Request) {
     ? `💡 **바리스타 꿀팁**: ${origin} 기준 **1호선 4-2번 칸**에 탑승하시면 ${destination} 하차 후 환승 계단이 바로 앞입니다!`
     : `💡 **바리스타 꿀팁**: 퇴근시간대 19:52 출발 열차는 **3-1번 칸**이 가장 쾌적하며, 무궁화호 승차권 앱(코레일톡) 예매 시 편안하게 앉아 가실 수 있어요.`;
 
-  const kakaoMapUrl = `https://map.kakao.com/?sName=${encodeURIComponent(origin)}&eName=${encodeURIComponent(destination)}`;
-  const naverMapUrl = isCar
-    ? `https://m.map.naver.com/route/carset.naver?sname=${encodeURIComponent(origin)}&ename=${encodeURIComponent(destination)}`
-    : `https://m.map.naver.com/route/publicTransit.naver?sname=${encodeURIComponent(origin)}&ename=${encodeURIComponent(destination)}`;
-
-  const kakaoAppScheme = isCar
-    ? `kakaomap://route?sp=${encodeURIComponent(origin)}&ep=${encodeURIComponent(destination)}&by=CAR`
-    : `kakaomap://route?sp=${encodeURIComponent(origin)}&ep=${encodeURIComponent(destination)}&by=PUBLICTRANSIT`;
-
-  const naverAppScheme = isCar
-    ? `nmap://route/carset?sname=${encodeURIComponent(origin)}&dname=${encodeURIComponent(destination)}&appname=coffeetide`
-    : `nmap://route/public?sname=${encodeURIComponent(origin)}&dname=${encodeURIComponent(destination)}&appname=coffeetide`;
-
   const commuteInfo: CommuteInfo = {
     mode,
     transportType,
@@ -167,10 +153,6 @@ export async function GET(request: Request) {
     statusText,
     smartTip,
     routeOptions,
-    kakaoMapUrl,
-    naverMapUrl,
-    kakaoAppScheme,
-    naverAppScheme,
   };
 
   return NextResponse.json({ success: true, commute: commuteInfo });

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getDataGoKrServiceKey, getOpenWeatherApiKey } from "@/lib/env";
 
 interface WeatherCacheEntry {
   timestamp: number;
@@ -69,7 +70,7 @@ function getKmaNcstBaseDateTime(): { baseDate: string; baseTime: string } {
   let month = kst.getMonth() + 1;
   let date = kst.getDate();
   let hours = kst.getHours();
-  let minutes = kst.getMinutes();
+  const minutes = kst.getMinutes();
 
   // 가이드 문서: 매시 10분 이후 호출
   if (minutes < 10) {
@@ -97,7 +98,7 @@ function getKmaFcstBaseDateTime(): { baseDate: string; baseTime: string } {
   let month = kst.getMonth() + 1;
   let date = kst.getDate();
   let hours = kst.getHours();
-  let minutes = kst.getMinutes();
+  const minutes = kst.getMinutes();
 
   // 가이드 문서: 매시 45분 이후 호출 (base_time: HH30)
   if (minutes < 45) {
@@ -269,10 +270,27 @@ export async function GET(request: Request) {
     );
   }
 
-  const latNum = parseFloat(latRaw);
-  const lonNum = parseFloat(lonRaw);
-  const lat = latNum.toFixed(2);
-  const lon = lonNum.toFixed(2);
+  const parsedLat = parseFloat(latRaw);
+  const parsedLon = parseFloat(lonRaw);
+
+  if (
+    !Number.isFinite(parsedLat) ||
+    !Number.isFinite(parsedLon) ||
+    parsedLat < -90 ||
+    parsedLat > 90 ||
+    parsedLon < -180 ||
+    parsedLon > 180
+  ) {
+    return NextResponse.json(
+      { success: false, reason: "Invalid lat/lon parameters" },
+      { status: 400 }
+    );
+  }
+
+  // 개인정보: 좌표는 소수점 2자리(약 1km)로 절삭한 값만 외부(기상청·역지오코딩)로 내보낸다.
+  // 기상청은 어차피 5km 격자로 변환하고, 역지오코딩도 동/구 단위라 정밀도 손실이 없다.
+  const lat = Number(parsedLat.toFixed(2));
+  const lon = Number(parsedLon.toFixed(2));
   const cacheKey = `${lat},${lon}`;
   const now = Date.now();
 
@@ -281,31 +299,36 @@ export async function GET(request: Request) {
     return NextResponse.json({ success: true, weather: cached.data, cached: true });
   }
 
-  const apiKey = process.env.WEATHER_API_KEY;
+  const portalKey = getDataGoKrServiceKey();
+  const owmKey = getOpenWeatherApiKey();
 
-  if (!apiKey) {
+  if (!portalKey && !owmKey) {
     return NextResponse.json({
       success: false,
-      reason: "WEATHER_API_KEY environment variable is not configured",
+      reason: "DATA_GO_KR_SERVICE_KEY (또는 WEATHER_API_KEY) 환경변수가 설정되지 않았습니다",
     });
   }
 
-  // 1. 기상청 API 시도 (WEATHER_API_KEY 사용)
-  try {
-    const kmaData = await fetchKmaWeather(latNum, lonNum, apiKey);
-    weatherCache.set(cacheKey, { timestamp: now, data: kmaData });
-    return NextResponse.json({ success: true, weather: kmaData, source: "kma", cached: false });
-  } catch (kmaErr) {
-    console.warn("[Weather API] KMA Weather API call failed, trying OpenWeatherMap fallback:", kmaErr);
+  // 1. 기상청 초단기실황/예보 (공공데이터포털 공용 인증키)
+  if (portalKey) {
+    try {
+      const kmaData = await fetchKmaWeather(lat, lon, portalKey);
+      weatherCache.set(cacheKey, { timestamp: now, data: kmaData });
+      return NextResponse.json({ success: true, weather: kmaData, source: "kma", cached: false });
+    } catch (kmaErr) {
+      console.warn("[Weather API] KMA Weather API call failed:", kmaErr);
+    }
   }
 
-  // 2. OpenWeatherMap 대체 시도 (WEATHER_API_KEY 사용)
-  try {
-    const owmData = await fetchOpenWeatherMap(latNum, lonNum, apiKey);
-    weatherCache.set(cacheKey, { timestamp: now, data: owmData });
-    return NextResponse.json({ success: true, weather: owmData, source: "openweathermap", cached: false });
-  } catch (owmErr) {
-    console.warn("[Weather API] OpenWeatherMap call failed:", owmErr);
+  // 2. OpenWeatherMap 폴백 (전용 키가 있을 때만 — 포털 키로 호출하면 항상 401이다)
+  if (owmKey) {
+    try {
+      const owmData = await fetchOpenWeatherMap(lat, lon, owmKey);
+      weatherCache.set(cacheKey, { timestamp: now, data: owmData });
+      return NextResponse.json({ success: true, weather: owmData, source: "openweathermap", cached: false });
+    } catch (owmErr) {
+      console.warn("[Weather API] OpenWeatherMap call failed:", owmErr);
+    }
   }
 
   return NextResponse.json({

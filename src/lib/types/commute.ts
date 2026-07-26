@@ -1,8 +1,14 @@
+import { LatLng } from "@/lib/mapLinks";
+
 export interface CommuteConfig {
   enabled: boolean;
   homeStation: string;
   workStation: string;
   transportType: "public" | "car"; // public: 대중교통, car: 자동차
+  // 지도 앱 딥링크는 카카오·네이버 모두 좌표가 필수다(이름만으로는 앱이 열리지 않는다).
+  // 설정의 "현재 위치로 지정"으로 채우며, 클라이언트에만 보관한다.
+  homeCoords?: LatLng;
+  workCoords?: LatLng;
 }
 
 export interface CommuteRouteOption {
@@ -32,8 +38,6 @@ export interface CommuteInfo {
   statusText: string;
   smartTip: string;
   routeOptions: CommuteRouteOption[];
-  kakaoMapUrl: string;
-  naverMapUrl: string;
-  kakaoAppScheme: string;
-  naverAppScheme: string;
+  // 지도 링크는 서버가 만들지 않는다 — 좌표가 필요하고, 그 좌표는 클라이언트에만 있다.
+  // CommuteCard가 buildMapLinks()로 직접 생성한다.
 }

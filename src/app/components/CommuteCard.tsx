@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { CommuteInfo } from "@/lib/types/commute";
+import { buildMapLinks, LatLng } from "@/lib/mapLinks";
 import { KakaoMapIcon, NaverMapIcon } from "./brandIcons";
 import styles from "./commuteCard.module.css";
 
@@ -9,70 +10,118 @@ interface CommuteCardProps {
   homeStation: string;
   workStation: string;
   transportType?: "public" | "car";
+  /** 지도 앱 딥링크용 좌표 — 없으면 웹 지도로만 연결된다 */
+  homeCoords?: LatLng;
+  workCoords?: LatLng;
+  /** 좌표 등록 안내에서 설정 모달을 열기 위한 콜백 */
+  onOpenSettings?: () => void;
 }
 
 const REFRESH_QUOTES = [
-  "최신 열차 시각과 실시간 도로 교통 상황을 갓 추출해 갱신했어요 ☕",
-  "실시간 배차 간격 및 정체 구간 정보를 따스하게 새로고침했습니다!",
-  "지금 시간대 최적의 이동 경로와 환승 꿀팁을 갱신했어요 ☕",
-  "도로 및 철도 구간의 실시간 혼잡도 현황을 갱신 완료했습니다!",
+  "이동 정보를 다시 불러왔어요 ☕",
+  "출발·도착지 기준 길찾기 정보를 새로고침했습니다!",
+  "지금 시간대 기준으로 이동 방향을 다시 계산했어요 ☕",
 ];
 
-export function CommuteCard({ homeStation, workStation, transportType = "public" }: CommuteCardProps) {
+export function CommuteCard({
+  homeStation,
+  workStation,
+  transportType = "public",
+  homeCoords,
+  workCoords,
+  onOpenSettings,
+}: CommuteCardProps) {
   const [commute, setCommute] = useState<CommuteInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [noticeText, setNoticeText] = useState("");
 
-  const fetchCommuteData = useCallback(
-    async (isManualRefresh = false) => {
-      if (isManualRefresh) setRefreshing(true);
-      else setLoading(true);
-
-      try {
-        const res = await fetch(
-          `/api/commute?home=${encodeURIComponent(homeStation)}&work=${encodeURIComponent(
-            workStation
-          )}&type=${transportType}&t=${Date.now()}`
-        );
-        const data = await res.json();
-        if (data.success && data.commute) {
-          setCommute(data.commute);
-          if (isManualRefresh) {
-            const randomQuote = REFRESH_QUOTES[Math.floor(Math.random() * REFRESH_QUOTES.length)];
-            setNoticeText(randomQuote);
-            setTimeout(() => setNoticeText(""), 4000);
-          }
-        }
-      } catch (err) {
-        console.warn("[coffeeTide] Commute fetch error:", err);
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
-      }
-    },
-    [homeStation, workStation, transportType]
-  );
+  // 순수 fetch — 상태 갱신은 호출부(비동기 콜백)에서만 한다
+  const loadCommute = useCallback(async (): Promise<CommuteInfo | null> => {
+    try {
+      const res = await fetch(
+        `/api/commute?home=${encodeURIComponent(homeStation)}&work=${encodeURIComponent(
+          workStation
+        )}&type=${transportType}&t=${Date.now()}`
+      );
+      const data = (await res.json()) as { success?: boolean; commute?: CommuteInfo };
+      return data.success && data.commute ? data.commute : null;
+    } catch (err) {
+      console.warn("[coffeeTide] Commute fetch error:", err);
+      return null;
+    }
+  }, [homeStation, workStation, transportType]);
 
   useEffect(() => {
-    void fetchCommuteData(false);
-  }, [fetchCommuteData]);
+    let cancelled = false;
+    void loadCommute().then((info) => {
+      if (cancelled) return;
+      if (info) setCommute(info);
+      setLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [loadCommute]);
 
-  const openAppOrWeb = (appScheme: string, webUrl: string) => {
-    if (typeof window === "undefined") return;
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-    if (isMobile) {
-      const start = Date.now();
-      window.location.href = appScheme;
-      setTimeout(() => {
-        if (Date.now() - start < 1500) {
-          window.open(webUrl, "_blank");
-        }
-      }, 800);
-    } else {
-      window.open(webUrl, "_blank");
-    }
+  const handleManualRefresh = () => {
+    setRefreshing(true);
+    void loadCommute().then((info) => {
+      if (info) setCommute(info);
+      // 실패를 조용히 삼키면 "새로고침했다"는 인상만 남는다 — 결과를 그대로 알린다
+      setNoticeText(
+        info
+          ? REFRESH_QUOTES[Math.floor(Math.random() * REFRESH_QUOTES.length)]
+          : "길찾기 정보를 불러오지 못했어요. 잠시 후 다시 시도해 주세요."
+      );
+      setTimeout(() => setNoticeText(""), 4000);
+      setRefreshing(false);
+    });
   };
+
+  // 앱이 열리면 페이지가 백그라운드로 내려간다(visibilitychange/pagehide).
+  // 예전 구현은 `Date.now() - start < 1500`을 썼는데 800ms 타이머 안에서는 항상 참이라
+  // 앱이 정상적으로 열려도 웹 탭이 매번 같이 열렸다.
+  const openAppOrWeb = (appScheme: string | null, webUrl: string) => {
+    if (typeof window === "undefined") return;
+
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    if (!isMobile || !appScheme) {
+      window.open(webUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    let appOpened = false;
+    const markOpened = () => {
+      appOpened = true;
+    };
+    document.addEventListener("visibilitychange", markOpened, { once: true });
+    window.addEventListener("pagehide", markOpened, { once: true });
+
+    window.location.href = appScheme;
+
+    window.setTimeout(() => {
+      document.removeEventListener("visibilitychange", markOpened);
+      window.removeEventListener("pagehide", markOpened);
+      // 앱 전환이 감지되지 않았을 때만 웹으로 폴백 (모바일에서 window.open은 차단되기 쉬워 location 이동)
+      if (!appOpened && !document.hidden) window.location.href = webUrl;
+    }, 1200);
+  };
+
+  // 지도 링크는 좌표가 필요해 클라이언트에서 만든다(좌표를 서버로 보내지 않기 위함).
+  // 출근이면 집→회사, 퇴근이면 회사→집이므로 좌표도 같은 방향으로 짝지운다.
+  const isMorningMode = (commute?.mode ?? "morning") === "morning";
+  const mapLinks = useMemo(
+    () =>
+      buildMapLinks({
+        origin: commute?.origin ?? homeStation,
+        destination: commute?.destination ?? workStation,
+        originCoords: isMorningMode ? homeCoords : workCoords,
+        destCoords: isMorningMode ? workCoords : homeCoords,
+        isCar: (commute?.transportType ?? transportType) === "car",
+      }),
+    [commute, homeStation, workStation, homeCoords, workCoords, transportType, isMorningMode]
+  );
 
   if (loading) {
     return (
@@ -80,12 +129,33 @@ export function CommuteCard({ homeStation, workStation, transportType = "public"
         <div className={styles.cardHeader}>
           <div className={styles.titleGroup}>🚇 출퇴근 스마트 길찾기</div>
         </div>
-        <div className={styles.infoRow}>실시간 길찾기 데이터를 확인하고 있습니다…</div>
+        <div className={styles.infoRow}>길찾기 정보를 불러오고 있습니다…</div>
       </div>
     );
   }
 
-  if (!commute) return null;
+  // 조회 실패 시 카드가 통째로 사라지면 사용자는 이유를 알 수 없다 — 상태를 남긴다
+  if (!commute) {
+    return (
+      <div className={styles.card}>
+        <div className={styles.cardHeader}>
+          <div className={styles.titleGroup}>🚇 출퇴근 스마트 길찾기</div>
+          <button
+            className={styles.iconBtn}
+            disabled={refreshing}
+            onClick={handleManualRefresh}
+            title="다시 시도"
+            aria-label="길찾기 정보 다시 시도"
+          >
+            ↻
+          </button>
+        </div>
+        <div className={styles.infoRow}>
+          길찾기 정보를 불러오지 못했어요. 새로고침을 눌러 다시 시도해 주세요.
+        </div>
+      </div>
+    );
+  }
 
   const isMorning = commute.mode === "morning";
   const isCar = commute.transportType === "car";
@@ -98,13 +168,17 @@ export function CommuteCard({ homeStation, workStation, transportType = "public"
           <span className={`${styles.modeBadge} ${isMorning ? styles.morningBadge : styles.eveningBadge}`}>
             {isMorning ? "🌅 출근길 모드" : "🌆 퇴근길 모드"}
           </span>
+          {/* K2: 공공데이터포털(TAGO·도로공사) 실연동 전까지 예시 값임을 명시한다 */}
+          <span className={styles.modeBadge} title="실시간 교통 API 연동 전 예시 값입니다">
+            🧪 예시 데이터
+          </span>
         </div>
         <button
           className={styles.iconBtn}
           disabled={refreshing}
-          onClick={() => void fetchCommuteData(true)}
-          title="실시간 교통/열차 정보 다시 조회"
-          aria-label="실시간 길찾기 새로고침"
+          onClick={handleManualRefresh}
+          title="길찾기 정보 다시 불러오기"
+          aria-label="길찾기 정보 새로고침"
         >
           <svg
             width="20"
@@ -141,6 +215,23 @@ export function CommuteCard({ homeStation, workStation, transportType = "public"
           {noticeText}
         </div>
       )}
+
+      {/* K2: 실연동(TAGO·한국도로공사) 전까지 수치가 예시임을 사용자에게 분명히 알린다 */}
+      <div
+        style={{
+          fontSize: "0.74rem",
+          color: "var(--muted)",
+          background: "rgba(255,180,84,0.08)",
+          border: "1px solid rgba(255,180,84,0.25)",
+          padding: "6px 10px",
+          borderRadius: "8px",
+          marginBottom: "10px",
+          lineHeight: 1.45,
+        }}
+      >
+        ⚠️ 출발·도착 시각과 소요시간·요금·혼잡도는 <b>실시간 연동 전 예시 값</b>입니다. 정확한 정보는
+        아래 지도 앱에서 확인해 주세요.
+      </div>
 
       {/* 출발 및 도착 메인 카드 */}
       <div className={styles.routeContainer}>
@@ -198,18 +289,55 @@ export function CommuteCard({ homeStation, workStation, transportType = "public"
         <button
           className={styles.mapBtn}
           style={{ cursor: "pointer" }}
-          onClick={() => openAppOrWeb(commute.kakaoAppScheme, commute.kakaoMapUrl)}
+          onClick={() => openAppOrWeb(mapLinks.kakaoAppScheme, mapLinks.kakaoWebUrl)}
         >
-          <KakaoMapIcon size={18} /> 카카오맵 실행 ({commute.origin} ➔ {commute.destination})
+          <KakaoMapIcon size={18} /> 카카오맵 길찾기 ({commute.origin} ➔ {commute.destination})
         </button>
         <button
           className={styles.mapBtn}
           style={{ cursor: "pointer" }}
-          onClick={() => openAppOrWeb(commute.naverAppScheme, commute.naverMapUrl)}
+          onClick={() => openAppOrWeb(mapLinks.naverAppScheme, mapLinks.naverWebUrl)}
         >
-          <NaverMapIcon size={18} /> 네이버지도 실행 ({commute.origin} ➔ {commute.destination})
+          <NaverMapIcon size={18} />{" "}
+          {mapLinks.hasCoords
+            ? `네이버지도 길찾기 (${commute.origin} ➔ ${commute.destination})`
+            : `네이버지도에서 ${commute.destination} 찾기`}
         </button>
       </div>
+
+      {/* 좌표가 없으면 두 앱 모두 딥링크가 불가능하다 — 왜 앱이 바로 안 열리는지, 어떻게 켜는지 알린다 */}
+      {!mapLinks.hasCoords && (
+        <p
+          style={{
+            fontSize: "0.72rem",
+            color: "var(--muted)",
+            marginTop: 8,
+            lineHeight: 1.5,
+          }}
+        >
+          📍 설정에서 집·회사 위치를 지정하면 지도 <b>앱</b>이 출발지·도착지까지 채운 채로 바로 열립니다.
+          {onOpenSettings && (
+            <>
+              {" "}
+              <button
+                type="button"
+                onClick={onOpenSettings}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "var(--accent)",
+                  cursor: "pointer",
+                  padding: 0,
+                  font: "inherit",
+                  textDecoration: "underline",
+                }}
+              >
+                설정 열기
+              </button>
+            </>
+          )}
+        </p>
+      )}
     </div>
   );
 }

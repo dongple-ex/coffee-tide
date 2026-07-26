@@ -15,6 +15,8 @@ import styles from "./shortcutsWidget.module.css";
 interface ShortcutsWidgetProps {
   shortcuts: AppShortcut[];
   onOpenSettings?: () => void;
+  /** 실행 실패 안내 — 앱 전역 토스트로 연결한다 */
+  onError?: (message: string) => void;
 }
 
 function renderShortcutIcon(keyword: string, target: string) {
@@ -42,12 +44,31 @@ function renderShortcutIcon(keyword: string, target: string) {
   return <span style={{ fontSize: "1.1rem" }}>🔗</span>;
 }
 
-export function ShortcutsWidget({ shortcuts, onOpenSettings }: ShortcutsWidgetProps) {
+export function ShortcutsWidget({ shortcuts, onOpenSettings, onError }: ShortcutsWidgetProps) {
   const enabledShortcuts = shortcuts.filter((s) => s.enabled);
 
   const handleLaunch = (target: string) => {
     if (!target) return;
-    const targetUrl = target.startsWith("http") || target.includes("://") ? target : `https://${target}`;
+
+    // 로컬 프로그램 경로(C:\... , /Applications/...)는 브라우저가 열 수 없다.
+    // 예전 구현은 `https://C:\...`로 만들어 빈 탭만 띄웠으므로, AI 바리스타와 같은 실행 경로를 쓴다.
+    const isLocalPath = /^[a-zA-Z]:[\\/]/.test(target) || target.startsWith("\\\\") || target.startsWith("/");
+    if (isLocalPath) {
+      void fetch("/api/util/exec-app", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ target }),
+      })
+        .then(async (res) => {
+          if (res.ok) return;
+          const json = (await res.json().catch(() => ({}))) as { error?: string };
+          onError?.(json.error ?? "프로그램을 실행하지 못했습니다.");
+        })
+        .catch(() => onError?.("프로그램 실행 요청을 보내지 못했습니다."));
+      return;
+    }
+
+    const targetUrl = target.includes("://") ? target : `https://${target}`;
     window.open(targetUrl, "_blank", "noopener,noreferrer");
   };
 
@@ -59,6 +80,26 @@ export function ShortcutsWidget({ shortcuts, onOpenSettings }: ShortcutsWidgetPr
           <span>단어-앱 레시피 즐겨찾기</span>
           <span className={styles.countBadge}>{enabledShortcuts.length}개 활성</span>
         </div>
+        {onOpenSettings && (
+          <button
+            type="button"
+            onClick={onOpenSettings}
+            title="단어-앱 바로가기 레시피 추가·수정"
+            aria-label="단어-앱 바로가기 설정 열기"
+            style={{
+              background: "none",
+              border: "1px solid var(--border)",
+              borderRadius: "6px",
+              color: "var(--muted)",
+              cursor: "pointer",
+              fontSize: "0.9rem",
+              lineHeight: 1,
+              padding: "3px 8px",
+            }}
+          >
+            +
+          </button>
+        )}
       </div>
 
       {enabledShortcuts.length === 0 ? (

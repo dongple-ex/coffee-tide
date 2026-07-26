@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import styles from "./welcomeCard.module.css";
 
 export interface WeatherData {
@@ -15,7 +15,6 @@ interface WelcomeCardProps {
   weather?: WeatherData | null;
   collapsed?: boolean;
   onToggleCollapsed?: (collapsed: boolean) => void;
-  refreshKey?: number;
   taskCount?: number;
   urgentCount?: number;
 }
@@ -40,44 +39,46 @@ export function WelcomeCard({
   weather,
   collapsed,
   onToggleCollapsed,
-  refreshKey = 0,
   taskCount = 0,
   urgentCount = 0,
 }: WelcomeCardProps) {
-  const [timeState, setTimeState] = useState<"morning" | "afternoon" | "evening">(getTimeState);
-  const [dateLabel, setDateLabel] = useState<string>(getDateLabel);
   const [internalCollapsed, setInternalCollapsed] = useState(false);
+  // 1분마다 리렌더를 유발하는 시계 틱. 시간대·날짜 값 자체는 렌더 중에 파생한다
+  // (effect에서 동기 setState로 갱신하면 cascading render — react-hooks/set-state-in-effect).
+  const [, setClockTick] = useState(0);
+  // 사용자가 직접 접거나 편 뒤에는 자동 접힘 타이머가 개입하지 않는다
+  const userToggledRef = useRef(false);
 
   const isCollapsed = collapsed !== undefined ? collapsed : internalCollapsed;
 
+  // 부모 리렌더(수동 새로고침 포함)나 시계 틱이 돌면 자연히 최신값으로 다시 계산된다
+  const timeState = getTimeState();
+  const dateLabel = getDateLabel();
+
   const handleSetCollapsed = (nextVal: boolean) => {
+    userToggledRef.current = true;
     setInternalCollapsed(nextVal);
     onToggleCollapsed?.(nextVal);
   };
 
-  // refreshKey 변경 시 날짜와 시간대 실시간 갱신
-  useEffect(() => {
-    setTimeState(getTimeState());
-    setDateLabel(getDateLabel());
-  }, [refreshKey]);
-
   // 1분 주기로 날짜 및 시간대 변경 자동 감지
   useEffect(() => {
-    const interval = setInterval(() => {
-      setTimeState(getTimeState());
-      setDateLabel(getDateLabel());
-    }, 60000);
+    const interval = setInterval(() => setClockTick((tick) => tick + 1), 60000);
     return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
-    // 30초 후 자동으로 한 줄로 접히는 웰컴 효과
+    // 30초 후 자동으로 한 줄로 접히는 웰컴 효과 — 사용자가 먼저 조작했다면 건너뛴다
     const timer = setTimeout(() => {
-      handleSetCollapsed(true);
+      if (userToggledRef.current) return;
+      setInternalCollapsed(true);
+      onToggleCollapsed?.(true);
     }, 30000);
 
     return () => clearTimeout(timer);
-  }, []);
+    // onToggleCollapsed는 호출부에서 안정된 참조(setState)를 넘긴다는 전제다.
+    // 인라인 함수를 넘기면 렌더마다 타이머가 재설정돼 자동 접힘이 동작하지 않는다.
+  }, [onToggleCollapsed]);
 
   const getTimeTheme = () => {
     switch (timeState) {

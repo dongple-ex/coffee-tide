@@ -1,46 +1,54 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import styles from "./calculatorWidget.module.css";
 
+// 물리 키보드 리스너(useEffect)가 이 핸들러들을 의존하므로 useCallback으로 identity를 고정한다.
+// 고정하지 않으면 렌더마다 keydown 리스너가 해제·재등록된다.
 export function CalculatorWidget() {
   const [display, setDisplay] = useState("0");
   const [expression, setExpression] = useState("");
   const [newNumber, setNewNumber] = useState(true);
 
-  const handleNum = (num: string) => {
-    if (newNumber) {
-      setDisplay(num);
-      setNewNumber(false);
-    } else {
-      setDisplay((prev) => (prev === "0" ? num : prev + num));
-    }
-  };
+  const handleNum = useCallback(
+    (num: string) => {
+      if (newNumber) {
+        setDisplay(num);
+        setNewNumber(false);
+      } else {
+        setDisplay((prev) => (prev === "0" ? num : prev + num));
+      }
+    },
+    [newNumber]
+  );
 
-  const handleOp = (op: string) => {
-    setExpression(`${display} ${op}`);
-    setNewNumber(true);
-  };
+  const handleOp = useCallback(
+    (op: string) => {
+      setExpression(`${display} ${op}`);
+      setNewNumber(true);
+    },
+    [display]
+  );
 
-  const handleClear = () => {
+  const handleClear = useCallback(() => {
     setDisplay("0");
     setExpression("");
     setNewNumber(true);
-  };
+  }, []);
 
-  const handleBackspace = () => {
+  const handleBackspace = useCallback(() => {
     if (newNumber) return;
     setDisplay((prev) => (prev.length > 1 ? prev.slice(0, -1) : "0"));
-  };
+  }, [newNumber]);
 
-  const handlePercent = () => {
+  const handlePercent = useCallback(() => {
     const val = parseFloat(display);
     if (!isNaN(val)) {
       setDisplay(String(val / 100));
     }
-  };
+  }, [display]);
 
-  const handleEqual = () => {
+  const handleEqual = useCallback(() => {
     if (!expression) return;
     try {
       const parts = expression.trim().split(" ");
@@ -62,16 +70,16 @@ export function CalculatorWidget() {
       setDisplay("Error");
       setNewNumber(true);
     }
-  };
+  }, [display, expression]);
 
-  const handleDot = () => {
+  const handleDot = useCallback(() => {
     if (newNumber) {
       setDisplay("0.");
       setNewNumber(false);
     } else if (!display.includes(".")) {
       setDisplay((prev) => prev + ".");
     }
-  };
+  }, [display, newNumber]);
 
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -122,7 +130,7 @@ export function CalculatorWidget() {
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [display, expression, newNumber]);
+  }, [handleNum, handleDot, handleOp, handleEqual, handleBackspace, handleClear, handlePercent]);
 
   const formatNumberWithCommas = (valStr: string): string => {
     if (!valStr || valStr === "Error") return valStr;

@@ -5,8 +5,8 @@
 
 "use client";
 
-import { RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { applyRules, AutomationRule, ProcessedData } from "@/lib/automation/rules";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AutomationRule, ProcessedData } from "@/lib/automation/rules";
 import {
   BROWSER_ID_PREFIX,
   BrowserFolderInfo,
@@ -25,45 +25,60 @@ import {
   triggerTaskNotifications,
 } from "@/lib/push/browserNotification";
 import {
-  CATEGORY_LABELS,
   ConnectionState,
   MailsResponse,
-  SOURCE_LABELS,
   UnifiedCategory,
   UnifiedData,
 } from "@/lib/types/unified";
-import { GoogleIcon, NotionIcon, ObsidianIcon, OutlookIcon } from "./components/brandIcons";
+import { ACTION_LABEL, ERROR_SOURCE_LABELS, FIELD_LABEL } from "@/lib/labels";
+import { buildMergedView, TODO_CATS } from "@/lib/mergeView";
+import {
+  loadLS,
+  saveLS,
+  LS_APP_SHORTCUTS,
+  LS_BRIEF_TIME,
+  LS_BROWSER_CAT,
+  LS_COMMUTE_CONFIG,
+  LS_DISMISSED,
+  LS_FOLLOWUP,
+  LS_HANDOFF_STATE,
+  LS_MANUAL,
+  LS_RULES,
+  LS_SUB_TASKS,
+  LS_THEME,
+  LS_WEATHER_COORDS,
+  LS_WEATHER_ENABLED,
+  LS_WORK_NOTES,
+} from "@/lib/localStore";
+import { useModalA11y } from "./hooks/useModalA11y";
+import { AutomationRulesSection } from "./components/settings/AutomationRulesSection";
+import { CommuteSection } from "./components/settings/CommuteSection";
+import { ConnectionsSection } from "./components/settings/ConnectionsSection";
+import { NotificationSection } from "./components/settings/NotificationSection";
+import { ShortcutsSection } from "./components/settings/ShortcutsSection";
+import { WeatherSection } from "./components/settings/WeatherSection";
 import CafeWait from "./components/cafeWait";
+import { TaskItemCard } from "./components/TaskItemCard";
+import { CopilotComposer } from "./components/copilot/CopilotComposer";
+import { CopilotConversation } from "./components/copilot/CopilotConversation";
+import { buildQaPairs, CopilotMessage } from "@/lib/copilotPairs";
 import IcedAmericano from "./components/icedAmericano";
-import MarkdownLite from "./components/markdownLite";
 import { WelcomeCard, WeatherData } from "./components/WelcomeCard";
 import { CommuteCard } from "./components/CommuteCard";
 import { TimerWidget } from "./components/TimerWidget";
 import { CalculatorWidget } from "./components/CalculatorWidget";
 import { ShortcutsWidget } from "./components/ShortcutsWidget";
 import { WeatherWidget } from "./components/WeatherWidget";
-import { ProactiveNudgeCard } from "./components/ProactiveNudgeCard";
 import { CommuteConfig } from "@/lib/types/commute";
 import { AppShortcut } from "@/lib/types/appShortcut";
 import styles from "./page.module.css";
 
 import { SubTask } from "@/lib/types/unified";
-const LS_MANUAL = "ct_manual_items";
-const LS_RULES = "ct_automation_rules";
-const LS_DISMISSED = "ct_dismissed_ids";
-const LS_FOLLOWUP = "ct_followup_hours";
-const LS_BRIEF_TIME = "ct_brief_time";
-const LS_THEME = "ct_theme";
-const LS_WEATHER_ENABLED = "ct_weather_enabled";
-const LS_WEATHER_COORDS = "ct_weather_coords";
-const LS_COMMUTE_CONFIG = "ct_commute_config";
-const LS_APP_SHORTCUTS = "ct_app_shortcuts";
-const LS_BROWSER_CAT = "ct_browser_categories";
-const LS_HANDOFF_STATE = "ct_handoff_state";
-const LS_WORK_NOTES = "ct_work_notes";
-const LS_SUB_TASKS = "ct_sub_tasks";
+
 const POLL_MS = 30_000;
 
+// 퇴근 핸드오프는 **UI 스냅샷 전용**이다. 업무 데이터의 정본은 ct_manual_items / ct_dismissed_ids이며,
+// 여기에 복제하면 localStorage(약 5MB)를 이중으로 먹고 어느 쪽이 최신인지도 모호해진다.
 export interface HandoffState {
   savedAt: string;
   pendingCount: number;
@@ -72,8 +87,8 @@ export interface HandoffState {
   restSectionCollapsed: boolean;
   welcomeCardCollapsed: boolean;
   copilotMessages: CopilotMessage[];
-  manualItems: UnifiedData[];
-  dismissedIds: string[];
+  /** 복원 안내 배너를 사용자가 확인했는지 — 스냅샷은 유지하되 배너만 1회로 제한 */
+  acknowledged?: boolean;
 }
 
 const DEFAULT_APP_SHORTCUTS: AppShortcut[] = [
@@ -207,170 +222,6 @@ function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
 
 type Phase = "loading" | "landing" | "ready";
 
-interface CopilotMessage {
-  role: "user" | "ai";
-  text: string;
-  fallback?: boolean;
-}
-
-// 구 프로젝트명(TimePilot) 시절 tp_ 키 → ct_ 키 1회성 마이그레이션 맵 (판독 시 이관)
-const LEGACY_LS_KEYS: Record<string, string> = {
-  [LS_RULES]: "tp_automation_rules",
-  [LS_DISMISSED]: "tp_dismissed_ids",
-  [LS_FOLLOWUP]: "tp_followup_hours",
-};
-
-function loadLS<T>(key: string, fallback: T): T {
-  if (typeof window === "undefined") return fallback;
-  try {
-    let raw = localStorage.getItem(key);
-    const legacy = LEGACY_LS_KEYS[key];
-    if (raw === null && legacy) {
-      raw = localStorage.getItem(legacy);
-      if (raw !== null) {
-        try {
-          localStorage.setItem(key, raw);
-          localStorage.removeItem(legacy);
-        } catch {
-          // 이관 쓰기가 실패해도(용량 초과 등) 이번 세션은 구 키 값으로 동작 — 다음 로드에서 재시도
-        }
-      }
-    }
-    return raw ? (JSON.parse(raw) as T) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function saveLS(key: string, value: unknown): boolean {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-    return true;
-  } catch {
-    // 저장 실패(용량 초과 등)는 치명적이지 않지만, 호출부가 사용자에게 알릴 수 있게 결과를 돌려준다
-    return false;
-  }
-}
-
-function timeAgo(iso: string): string {
-  const diff = Date.now() - Date.parse(iso);
-  const min = Math.floor(diff / 60000);
-  if (min < 1) return "방금";
-  if (min < 60) return `${min}분 전`;
-  const hours = Math.floor(min / 60);
-  if (hours < 24) return `${hours}시간 전`;
-  return `${Math.floor(hours / 24)}일 전`;
-}
-
-const RESPONSE_NEEDED = new Set(["urgent", "approval_required", "action_required"]);
-const TODO_CATS = new Set(["urgent", "approval_required", "action_required", "meeting"]);
-
-// 수집 오류 배너용 소스 한글 라벨 — errors 키(google 등)는 SOURCE_LABELS와 집합이 달라 보강
-const ERROR_SOURCE_LABELS: Record<string, string> = {
-  ...SOURCE_LABELS,
-  google: "Google",
-  llm: "LLM 산출물",
-};
-
-// 자동화 규칙의 field/action enum 한글 라벨 (토스트·규칙 목록 공용)
-const FIELD_LABEL: Record<AutomationRule["field"], string> = {
-  any: "아무 곳",
-  source: "출처",
-  sender: "보낸 사람",
-  title: "제목",
-  content: "내용",
-};
-const ACTION_LABEL: Record<AutomationRule["action"], string> = {
-  pin: "맨 위 고정",
-  urgent: "긴급 표시",
-  mute: "음소거",
-  hide: "숨김",
-};
-
-type ViewItem = ProcessedData & { overdue: number };
-
-/** 모달 접근성 — 열릴 때 포커스 이동, Tab 순환 유지(포커스 트랩), ESC 닫기, 닫힐 때 포커스 복원 */
-function useModalA11y(
-  open: boolean,
-  containerRef: RefObject<HTMLDivElement | null>,
-  onClose: () => void
-) {
-  const onCloseRef = useRef(onClose);
-  useEffect(() => {
-    onCloseRef.current = onClose;
-  }, [onClose]);
-  useEffect(() => {
-    if (!open) return;
-    const prevFocus = document.activeElement as HTMLElement | null;
-    containerRef.current?.focus();
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        onCloseRef.current();
-        return;
-      }
-      if (e.key !== "Tab") return;
-      const container = containerRef.current;
-      if (!container) return;
-      // 닫힌 <details> 안의 요소 등 실제로 포커스 불가능한 것은 제외해야 트랩이 끊기지 않는다
-      const focusables = Array.from(
-        container.querySelectorAll<HTMLElement>(
-          'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), summary, [tabindex]:not([tabindex="-1"])'
-        )
-      ).filter((el) =>
-        typeof el.checkVisibility === "function" ? el.checkVisibility() : el.offsetParent !== null
-      );
-      if (focusables.length === 0) return;
-      const first = focusables[0];
-      const last = focusables[focusables.length - 1];
-      const active = document.activeElement;
-      if (e.shiftKey && (active === first || active === container)) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && active === last) {
-        e.preventDefault();
-        first.focus();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      prevFocus?.focus();
-    };
-  }, [open, containerRef]);
-}
-
-/** 병합 파이프라인 (00-current-state §4.3) — 수동+외부 병합 → 규칙 → 팔로업 에스컬레이션 */
-function buildMergedView(
-  manualItems: UnifiedData[],
-  serverMails: UnifiedData[],
-  dismissed: string[],
-  rules: AutomationRule[],
-  followupHours: number
-): ViewItem[] {
-  const manualIds = new Set(manualItems.map((i) => i.id));
-  const all = [...manualItems, ...serverMails.filter((m) => !manualIds.has(m.id))];
-  const visible = all.filter((i) => !dismissed.includes(i.id));
-  const processed = applyRules(visible, rules);
-
-  const now = Date.now();
-  const withOverdue: ViewItem[] = processed.map((i) => {
-    const hours = Math.floor((now - Date.parse(i.created_at)) / 3_600_000);
-    const overdue =
-      RESPONSE_NEEDED.has(i.category ?? "") &&
-      i.status !== "completed" &&
-      hours >= followupHours
-        ? hours
-        : 0;
-    return { ...i, overdue };
-  });
-
-  // 정렬: pin 고정 → 팔로업 에스컬레이션 → 나머지(원래 순서)
-  const pinned = withOverdue.filter((i) => i.pinned);
-  const escalated = withOverdue.filter((i) => !i.pinned && i.overdue > 0);
-  const rest = withOverdue.filter((i) => !i.pinned && i.overdue === 0);
-  return [...pinned, ...escalated, ...rest];
-}
-
 export default function Home() {
   const [phase, setPhase] = useState<Phase>("loading");
   const [serverMails, setServerMails] = useState<UnifiedData[]>([]);
@@ -395,35 +246,28 @@ export default function Home() {
   const [pasteText, setPasteText] = useState("");
   const [pasteBusy, setPasteBusy] = useState(false);
 
-  const [copilotMessages, setCopilotMessages] = useState<CopilotMessage[]>([]);
+  // 지난 퇴근(handoff) 스냅샷은 마운트 시 1회만 읽어 각 state의 lazy 초기값으로 쓴다.
+  // effect에서 setState로 복원하면 cascading render가 발생한다(react-hooks/set-state-in-effect).
+  const [handoffSnapshot] = useState<HandoffState | null>(() =>
+    loadLS<HandoffState | null>(LS_HANDOFF_STATE, null)
+  );
+
+  const [copilotMessages, setCopilotMessages] = useState<CopilotMessage[]>(
+    () => handoffSnapshot?.copilotMessages ?? []
+  );
   const [copilotInput, setCopilotInput] = useState("");
   const [copilotBusy, setCopilotBusy] = useState(false);
-  const [welcomeCardCollapsed, setWelcomeCardCollapsed] = useState(false);
+  const [welcomeCardCollapsed, setWelcomeCardCollapsed] = useState(
+    () => handoffSnapshot?.welcomeCardCollapsed ?? false
+  );
   const [expandedQaKeys, setExpandedQaKeys] = useState<Set<string>>(new Set());
   const [unreadQaKeys, setUnreadQaKeys] = useState<Set<string>>(new Set());
 
-  // Q&A 답변 도착 시 접혀있는 카드가 있으면 깜빡이는 알림(unreadQaKeys) 등록
+  // Q&A 답변 도착 시 접혀있는 카드가 있으면 깜빡이는 알림(unreadQaKeys) 등록.
+  // 쌍 묶기는 CopilotConversation과 반드시 같은 결과여야 해서 buildQaPairs를 공유한다.
   useEffect(() => {
     if (copilotMessages.length === 0) return;
-
-    const pairs: Array<{ id: string; userText?: string; aiText?: string }> = [];
-    let currentPair: { id: string; userText?: string; aiText?: string } | null = null;
-
-    copilotMessages.forEach((msg, idx) => {
-      if (msg.role === "user") {
-        currentPair = { id: `qa-${idx}`, userText: msg.text };
-        pairs.push(currentPair);
-      } else {
-        if (currentPair && !currentPair.aiText) {
-          currentPair.aiText = msg.text;
-        } else {
-          currentPair = { id: `qa-ai-${idx}`, aiText: msg.text };
-          pairs.push(currentPair);
-        }
-      }
-    });
-
-    pairs.forEach((pair) => {
+    buildQaPairs(copilotMessages).forEach((pair) => {
       if (pair.aiText && !expandedQaKeys.has(pair.id)) {
         setUnreadQaKeys((prev) => {
           if (prev.has(pair.id)) return prev;
@@ -434,30 +278,45 @@ export default function Home() {
       }
     });
   }, [copilotMessages, expandedQaKeys]);
-  const [todoSectionCollapsed, setTodoSectionCollapsed] = useState(false);
-  const [llmSectionCollapsed, setLlmSectionCollapsed] = useState(false);
-  const [restSectionCollapsed, setRestSectionCollapsed] = useState(false);
+
+  /** 답변 펼침 토글 — 펼치면 미읽음 표시도 해제한다 */
+  const toggleQaPair = useCallback((pairId: string) => {
+    setExpandedQaKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(pairId)) next.delete(pairId);
+      else next.add(pairId);
+      return next;
+    });
+    setUnreadQaKeys((prev) => {
+      if (!prev.has(pairId)) return prev;
+      const next = new Set(prev);
+      next.delete(pairId);
+      return next;
+    });
+  }, []);
+  const [todoSectionCollapsed, setTodoSectionCollapsed] = useState(
+    () => handoffSnapshot?.todoSectionCollapsed ?? false
+  );
+  const [llmSectionCollapsed, setLlmSectionCollapsed] = useState(
+    () => handoffSnapshot?.llmSectionCollapsed ?? false
+  );
+  const [restSectionCollapsed, setRestSectionCollapsed] = useState(
+    () => handoffSnapshot?.restSectionCollapsed ?? false
+  );
+  // 복원 안내는 스냅샷당 1회만 — 확인을 누르면 acknowledged로 표시해 재출현을 막는다
   const [handoffRestoredInfo, setHandoffRestoredInfo] = useState<{
     savedAt: string;
     pendingCount: number;
-  } | null>(null);
+  } | null>(() =>
+    handoffSnapshot && !handoffSnapshot.acknowledged
+      ? { savedAt: handoffSnapshot.savedAt, pendingCount: handoffSnapshot.pendingCount }
+      : null
+  );
 
-  // 마운트 시 이전 퇴근 핸드오프 저장 상태가 있으면 UI 설정 및 대화/항목 상태 복원
-  useEffect(() => {
-    const handoff = loadLS<HandoffState | null>(LS_HANDOFF_STATE, null);
-    if (handoff) {
-      setTodoSectionCollapsed(handoff.todoSectionCollapsed ?? false);
-      setLlmSectionCollapsed(handoff.llmSectionCollapsed ?? false);
-      setRestSectionCollapsed(handoff.restSectionCollapsed ?? false);
-      setWelcomeCardCollapsed(handoff.welcomeCardCollapsed ?? false);
-      if (handoff.copilotMessages && handoff.copilotMessages.length > 0) {
-        setCopilotMessages(handoff.copilotMessages);
-      }
-      setHandoffRestoredInfo({
-        savedAt: handoff.savedAt,
-        pendingCount: handoff.pendingCount,
-      });
-    }
+  const acknowledgeHandoff = useCallback(() => {
+    setHandoffRestoredInfo(null);
+    const stored = loadLS<HandoffState | null>(LS_HANDOFF_STATE, null);
+    if (stored) saveLS(LS_HANDOFF_STATE, { ...stored, acknowledged: true });
   }, []);
 
   const [saveToDrive, setSaveToDrive] = useState(false);
@@ -470,12 +329,6 @@ export default function Home() {
 
   const [ruleInput, setRuleInput] = useState("");
   const [ruleBusy, setRuleBusy] = useState(false);
-
-  const [notionToken, setNotionToken] = useState("");
-  const [notionDbId, setNotionDbId] = useState("");
-  const [obsidianPath, setObsidianPath] = useState("");
-  const [localDocPath, setLocalDocPath] = useState("");
-  const [llmPath, setLlmPath] = useState("");
 
   const [theme, setTheme] = useState<Theme>(() => loadLS<Theme>(LS_THEME, "dark"));
   const [showConn, setShowConn] = useState(false);
@@ -532,13 +385,10 @@ export default function Home() {
   const [appShortcuts, setAppShortcuts] = useState<AppShortcut[]>(() =>
     loadLS<AppShortcut[]>(LS_APP_SHORTCUTS, DEFAULT_APP_SHORTCUTS)
   );
-  const [shortcutKeywordInput, setShortcutKeywordInput] = useState("");
-  const [shortcutTargetInput, setShortcutTargetInput] = useState("");
 
   const [workNotes, setWorkNotes] = useState<Record<string, string>>(() => loadLS(LS_WORK_NOTES, {}));
   const [subTasksMap, setSubTasksMap] = useState<Record<string, SubTask[]>>(() => loadLS(LS_SUB_TASKS, {}));
   const [openWorkNoteId, setOpenWorkNoteId] = useState<string | null>(null);
-  const [newSubTaskInputs, setNewSubTaskInputs] = useState<Record<string, string>>({});
 
   const handleSaveWorkNote = (taskId: string, note: string) => {
     setWorkNotes((prev) => {
@@ -548,8 +398,8 @@ export default function Home() {
     });
   };
 
-  const handleAddSubTask = (taskId: string) => {
-    const text = (newSubTaskInputs[taskId] || "").trim();
+  const handleAddSubTask = (taskId: string, title: string) => {
+    const text = title.trim();
     if (!text) return;
     const newSub: SubTask = {
       id: `sub-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -562,7 +412,6 @@ export default function Home() {
       saveLS(LS_SUB_TASKS, next);
       return next;
     });
-    setNewSubTaskInputs((prev) => ({ ...prev, [taskId]: "" }));
   };
 
   const handleToggleSubTask = (taskId: string, subId: string) => {
@@ -606,15 +455,16 @@ export default function Home() {
       return next;
     });
 
-  const fetchWeatherData = useCallback(async (lat: number, lon: number) => {
+  // 순수 fetch — 상태 갱신은 호출부(비동기 콜백)에서 한다.
+  // 이렇게 두면 effect 본문에서 동기 setState가 일어나지 않는다(react-hooks/set-state-in-effect).
+  const fetchWeatherData = useCallback(async (lat: number, lon: number): Promise<WeatherData | null> => {
     try {
       const res = await fetch(`/api/weather?lat=${lat}&lon=${lon}`);
-      const data = await res.json();
-      if (data.success && data.weather) {
-        setWeatherData(data.weather);
-      }
+      const data = (await res.json()) as { success?: boolean; weather?: WeatherData };
+      return data.success && data.weather ? data.weather : null;
     } catch (err) {
       console.warn("[coffeeTide] Weather fetch failed:", err);
+      return null;
     }
   }, []);
 
@@ -632,8 +482,10 @@ export default function Home() {
         setWeatherEnabled(true);
         saveLS(LS_WEATHER_ENABLED, true);
         saveLS(LS_WEATHER_COORDS, coords);
-        void fetchWeatherData(coords.lat, coords.lon);
         showToast("📍 위치 허용 완료! 날씨 브리핑이 활성화되었습니다.");
+        void fetchWeatherData(coords.lat, coords.lon).then((weather) => {
+          if (weather) setWeatherData(weather);
+        });
       },
       (error) => {
         setWeatherBusy(false);
@@ -643,6 +495,39 @@ export default function Home() {
     );
   }, [fetchWeatherData, showToast]);
 
+  // 지도 앱 딥링크(카카오 kakaomap://route, 네이버 nmap://route/*)는 좌표가 필수다.
+  // 별도 지오코딩 키 없이 좌표를 확보하는 가장 확실한 방법 — 그 자리에서 현재 위치를 찍어 저장한다.
+  const captureCommuteCoords = useCallback(
+    (which: "home" | "work") => {
+      if (typeof window === "undefined" || !("geolocation" in navigator)) {
+        showToast("이 브라우저는 위치 정보를 지원하지 않아요.");
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const coords = {
+            lat: Number(position.coords.latitude.toFixed(5)),
+            lng: Number(position.coords.longitude.toFixed(5)),
+          };
+          setCommuteConfig((prev) => {
+            const next: CommuteConfig =
+              which === "home" ? { ...prev, homeCoords: coords } : { ...prev, workCoords: coords };
+            saveLS(LS_COMMUTE_CONFIG, next);
+            return next;
+          });
+          showToast(
+            which === "home"
+              ? "📍 현재 위치를 '집'으로 저장했어요. 이제 지도 앱이 바로 열립니다."
+              : "📍 현재 위치를 '회사'로 저장했어요. 이제 지도 앱이 바로 열립니다."
+          );
+        },
+        (error) => showToast(`위치 권한 오류: ${error.message}`),
+        { timeout: 10000 }
+      );
+    },
+    [showToast]
+  );
+
   const disableWeatherLocation = useCallback(() => {
     setWeatherEnabled(false);
     setWeatherData(null);
@@ -650,23 +535,37 @@ export default function Home() {
     showToast("날씨 브리핑을 껐습니다.");
   }, [showToast]);
 
+  // 날씨 동기화 — 저장된 좌표가 있으면 그 좌표로, 없으면 1회 위치 조회 후 가져온다.
+  // 상태 갱신은 모두 비동기 콜백(fetch·geolocation) 안에서만 일어난다.
   useEffect(() => {
-    if (weatherEnabled) {
-      if (weatherCoords) {
-        void fetchWeatherData(weatherCoords.lat, weatherCoords.lon);
-      } else if (typeof window !== "undefined" && "geolocation" in navigator) {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            const coords = { lat: position.coords.latitude, lon: position.coords.longitude };
-            setWeatherCoords(coords);
-            saveLS(LS_WEATHER_COORDS, coords);
-            void fetchWeatherData(coords.lat, coords.lon);
-          },
-          () => {},
-          { timeout: 8000 }
-        );
-      }
+    if (!weatherEnabled) return;
+    let cancelled = false;
+
+    const load = (lat: number, lon: number) => {
+      void fetchWeatherData(lat, lon).then((weather) => {
+        if (!cancelled && weather) setWeatherData(weather);
+      });
+    };
+
+    if (weatherCoords) {
+      load(weatherCoords.lat, weatherCoords.lon);
+    } else if (typeof window !== "undefined" && "geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          if (cancelled) return;
+          const coords = { lat: position.coords.latitude, lon: position.coords.longitude };
+          setWeatherCoords(coords);
+          saveLS(LS_WEATHER_COORDS, coords);
+          load(coords.lat, coords.lon);
+        },
+        () => {},
+        { timeout: 8000 }
+      );
     }
+
+    return () => {
+      cancelled = true;
+    };
   }, [weatherEnabled, weatherCoords, fetchWeatherData]);
 
   // ── 서버 동기화 ──────────────────────────────
@@ -766,16 +665,15 @@ export default function Home() {
   }, [fetchMails]);
 
   const [isDataRefreshing, setIsDataRefreshing] = useState(false);
-  const [welcomeCardRefreshKey, setWelcomeCardRefreshKey] = useState(0);
 
   const handleRefreshAll = useCallback(async () => {
     if (isDataRefreshing) return;
     setIsDataRefreshing(true);
-    setWelcomeCardRefreshKey((prev) => prev + 1);
     try {
       await fetchMails(true);
       if (weatherEnabled && weatherCoords) {
-        await fetchWeatherData(weatherCoords.lat, weatherCoords.lon);
+        const weather = await fetchWeatherData(weatherCoords.lat, weatherCoords.lon);
+        if (weather) setWeatherData(weather);
       }
       showToast("날짜·시간대 및 연결 최신 데이터를 불러왔습니다. ☕");
     } catch {
@@ -964,6 +862,7 @@ export default function Home() {
       "0"
     )}:${String(now.getMinutes()).padStart(2, "0")}`;
 
+    // 업무 데이터(manualItems/dismissed)는 각자의 키가 정본이므로 스냅샷에 복제하지 않는다
     const handoffData: HandoffState = {
       savedAt: formattedDate,
       pendingCount: pendingItems.length,
@@ -972,8 +871,7 @@ export default function Home() {
       restSectionCollapsed,
       welcomeCardCollapsed,
       copilotMessages,
-      manualItems,
-      dismissedIds: dismissed,
+      acknowledged: false,
     };
 
     saveLS(LS_HANDOFF_STATE, handoffData);
@@ -991,12 +889,12 @@ export default function Home() {
     restSectionCollapsed,
     welcomeCardCollapsed,
     copilotMessages,
-    manualItems,
-    dismissed,
     showToast,
   ]);
 
-  const handleReorderRemainingWithAI = useCallback(async () => {
+  // 이벤트 핸들러에서만 호출되므로 메모이제이션하지 않는다 —
+  // askCopilot(비메모)을 참조해 useCallback을 걸면 매 렌더 identity가 바뀌어 의미가 없다.
+  async function handleReorderRemainingWithAI() {
     const pendingItems = merged.filter((i) => i.status !== "completed");
     if (pendingItems.length === 0) {
       showToast("현재 처리할 미완료 업무가 없습니다. ☕");
@@ -1016,9 +914,9 @@ export default function Home() {
     const prompt = `오늘 아직 다 완료하지 못한 남은 업무들이야. 진행 상황과 워크노트를 바탕으로 남은 오후/오늘 일정에 맞춰 핵심 우선순위와 실천 가이드를 브리핑해줘:\n\n${itemsSummary}`;
 
     setWelcomeCardCollapsed(true);
-    askCopilot(prompt);
+    void askCopilot(prompt);
     showToast("남은 업무들과 진행 메모를 바탕으로 AI 바리스타가 일정 재배치 브리핑을 작성합니다! ☕");
-  }, [merged, workNotes, subTasksMap, askCopilot, showToast]);
+  }
 
   // H4: 데스크톱 브라우저 알림 (긴급/팔로업 초과 업무 발생 시)
   useEffect(() => {
@@ -1242,7 +1140,7 @@ export default function Home() {
 
     if (cmd === "/help" || cmd === "/?") {
       setCopilotInput("");
-      const text = `💡 **AI 바리스타 슬래시 커맨드 안내**:\n\n- \`/clear\` : 대화 내역 초기화\n- \`/status\` : 업무 처리 현황 요약\n- \`/handoff\` : 남은 업무 퇴근 보존 및 정리\n- \`/reorder\` : 남은 업무 AI 일정 재배치\n- \`/help\` : 커맨드 도움말 출력`;
+      const text = `💡 **AI 바리스타 슬래시 커맨드 안내**:\n\n- \`/clear\` : 대화 내역 초기화\n- \`/status\` : 업무 처리 현황 요약\n- \`/handoff\` : 남은 업무 퇴근 보존 및 정리\n- \`/reorder\` : 남은 업무 AI 일정 재배치\n- \`/help\` : 커맨드 도움말 출력\n\n**단어-앱 바로가기**: 등록한 키워드만 단독으로(또는 \`@키워드\`) 입력하면 해당 앱이 실행돼요. 문장 속에 키워드가 있으면 실행 대신 평소처럼 답변해 드립니다.`;
       setCopilotMessages((prev) => [...prev, { role: "ai", text }]);
       return true;
     }
@@ -1263,25 +1161,39 @@ export default function Home() {
     setCopilotInput("");
     setCopilotMessages((prev) => [...prev, { role: "user", text: question }]);
 
-    // 단어-앱 바로가기 레시피 자동 탐지
+    // 단어-앱 바로가기 레시피 — 질문 전체가 키워드(또는 @키워드)와 일치할 때만 실행한다.
+    // 부분 일치로 잡으면 "노션에 정리한 업무 알려줘" 같은 정상 질문이 실행에 가로채여 답변을 못 받는다.
+    const normalizedQuestion = question.trim().toLowerCase().replace(/^@/, "");
     const matchedShortcut = appShortcuts.find(
-      (s) => s.enabled && (question.includes(s.keyword) || question === s.keyword)
+      (s) => s.enabled && s.keyword.trim().toLowerCase() === normalizedQuestion
     );
 
     if (matchedShortcut) {
-      void fetch("/api/util/exec-app", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ target: matchedShortcut.target }),
-      });
-
-      setCopilotMessages((prev) => [
-        ...prev,
-        {
-          role: "ai",
-          text: `🚀 **'${matchedShortcut.keyword}'** 명령 확인! **[${matchedShortcut.target}]** 프로그램을 바로 띄워드렸습니다 ☕`,
-        },
-      ]);
+      setCopilotBusy(true);
+      try {
+        const res = await fetch("/api/util/exec-app", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ target: matchedShortcut.target }),
+        });
+        const json = (await res.json().catch(() => ({}))) as { error?: string };
+        setCopilotMessages((prev) => [
+          ...prev,
+          {
+            role: "ai",
+            text: res.ok
+              ? `🚀 **'${matchedShortcut.keyword}'** 명령 확인! **[${matchedShortcut.target}]** 실행했어요 ☕`
+              : `앗, **'${matchedShortcut.keyword}'** 실행에 실패했어요 — ${json.error ?? `HTTP ${res.status}`}`,
+          },
+        ]);
+      } catch {
+        setCopilotMessages((prev) => [
+          ...prev,
+          { role: "ai", text: `앗, **'${matchedShortcut.keyword}'** 실행 요청을 보내지 못했어요. 잠시 후 다시 시도해 주세요.` },
+        ]);
+      } finally {
+        setCopilotBusy(false);
+      }
       return;
     }
 
@@ -1411,41 +1323,41 @@ export default function Home() {
     void fetchMails(true);
   }
 
-  async function connectNotion() {
+  /** @returns 성공 여부 — 호출부(ConnectionsSection)가 입력값 초기화를 결정한다 */
+  async function connectNotion(token: string, dbId: string): Promise<boolean> {
     const res = await fetch("/api/auth/notion", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "connect", token: notionToken, dbId: notionDbId }),
+      body: JSON.stringify({ action: "connect", token, dbId }),
     });
     const json = (await res.json()) as { error?: string };
     if (!res.ok) {
       showToast(json.error ?? "앗, Notion과 연결이 잘 안 됐어요 — 토큰과 Database ID를 한 번만 확인해 주세요.");
-      return;
+      return false;
     }
-    setNotionToken("");
-    setNotionDbId("");
     showToast("Notion 연결 완료! 태스크 모시러 갑니다.");
     void fetchMails(true);
+    return true;
   }
 
-  async function addLocalDocFolder() {
-    if (!localDocPath.trim()) {
+  async function addLocalDocFolder(path: string): Promise<boolean> {
+    if (!path.trim()) {
       showToast("폴더 경로를 알려주세요");
-      return;
+      return false;
     }
     const res = await fetch("/api/auth/local-doc", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "connect", path: localDocPath.trim() }),
+      body: JSON.stringify({ action: "connect", path: path.trim() }),
     });
     const json = (await res.json()) as { error?: string };
     if (!res.ok) {
       showToast(json.error ?? "앗, 폴더를 못 담았어요. 경로를 확인해 주세요.");
-      return;
+      return false;
     }
-    setLocalDocPath("");
     showToast("폴더 추가 완료! 이 폴더도 챙겨볼게요.");
     void fetchMails(true);
+    return true;
   }
 
   async function removeLocalDocFolder(path: string) {
@@ -1481,14 +1393,17 @@ export default function Home() {
     void scanBrowser();
   }
 
-  async function pickFolder(setter: (path: string) => void) {
+  /** 네이티브 폴더 선택 (Windows 전용) — @returns 선택한 경로, 취소/실패 시 null */
+  async function pickFolder(): Promise<string | null> {
     try {
       const res = await fetch("/api/util/select-folder");
       const json = (await res.json()) as { path?: string; error?: string };
-      if (json.path) setter(json.path);
-      else if (json.error) showToast(json.error);
+      if (json.path) return json.path;
+      if (json.error) showToast(json.error);
+      return null;
     } catch {
       showToast("폴더 선택 창이 안 열리네요. 경로를 직접 적어 주시면 챙겨볼게요.");
+      return null;
     }
   }
 
@@ -1558,7 +1473,9 @@ export default function Home() {
     }
   }
 
-  const toggleNotification = useCallback(async (enable: boolean) => {
+  // subscribePush/unsubscribePush(비메모)를 참조하므로 useCallback을 걸어도 identity가 안정되지 않는다.
+  // 이벤트 핸들러 전용이라 메모이제이션이 필요 없다.
+  async function toggleNotification(enable: boolean) {
     setPushBusy(true);
     try {
       if (enable) {
@@ -1593,7 +1510,7 @@ export default function Home() {
     } finally {
       setPushBusy(false);
     }
-  }, [pushSupported, pushEndpoint, showToast]);
+  }
 
   async function testPush() {
     if (!pushEndpoint) return;
@@ -1708,209 +1625,32 @@ export default function Home() {
   const browserDocs = browserFolders.filter((f) => f.kind === "local_doc");
   const browserLlm = browserFolders.find((f) => f.kind === "llm");
   const browserNeedsPermission = browserFolders.some((f) => f.permission === "prompt");
-  const browserKinds = new Set(browserFolders.map((f) => f.kind));
-  const connectedCount = connections
-    ? Object.values(connections).filter((v) => v === true).length +
-      [...browserKinds].filter((k) => !connections[k]).length
-    : browserKinds.size;
 
   function renderItem(item: ProcessedData & { overdue: number }) {
-    const isLocal = item.source === "manual" || item.source === "paste";
-    const isMail = item.source === "outlook" || item.source === "gmail";
-    const busy = busyIds.has(item.id);
     return (
-      <div
+      <TaskItemCard
         key={item.id}
-        className={[
-          styles.item,
-          item.pinned ? styles.itemPinned : "",
-          item.overdue > 0 ? styles.itemOverdue : "",
-          item.status === "completed" ? styles.itemDone : "",
-        ].join(" ")}
-      >
-        <div className={styles.itemHeader}>
-          {item.pinned && (
-            <span className={styles.pinIcon} role="img" aria-label="상단 고정됨">
-              📌
-            </span>
-          )}
-          <span className={`${styles.badge} ${styles[`badge_${item.source}`]}`}>
-            {SOURCE_LABELS[item.source]}
-          </span>
-          {item.category && (
-            <span className={`${styles.cat} ${styles[`cat_${item.category}`] ?? ""}`}>
-              {CATEGORY_LABELS[item.category]}
-            </span>
-          )}
-          {item.delegatable && (
-            <span
-              className={styles.delegatableBadge}
-              title="Claude Code 등 로컬 LLM 도구로 초안/분석을 작성하기에 적합한 업무입니다"
-            >
-              🤖 AI 위임 가능
-            </span>
-          )}
-          {item.overdue > 0 && (
-            <span className={styles.overdueBadge}>⏰ {item.overdue}시간째 기다리는 중</span>
-          )}
-          {item.status === "held" && <span className={styles.cat}>보류 중</span>}
-        </div>
-        <div className={styles.itemTitle}>{item.title}</div>
-        {item.content && item.content !== item.title && (
-          <div
-            className={`${styles.itemContent} ${expanded.has(item.id) ? styles.itemContentOpen : ""}`}
-            onClick={() => toggleExpand(item.id)}
-            title="눌러서 펼치기/접기"
-          >
-            {item.content}
-          </div>
-        )}
-        {item.actionDirective && item.status !== "completed" && (
-          <div className={styles.directive}>→ {item.actionDirective}</div>
-        )}
-        <div className={styles.itemMeta}>
-          <span>{item.author.name}</span>
-          <span>{timeAgo(item.created_at)}</span>
-        </div>
-        <div className={styles.itemActions}>
-          {isLocal && item.status !== "completed" && (
-            <>
-              <button className={styles.actionBtn} onClick={() => setLocalStatus(item.id, "completed")}>
-                ✅ 완료
-              </button>
-              <button
-                className={styles.actionBtn}
-                onClick={() => setLocalStatus(item.id, item.status === "held" ? "pending" : "held")}
-              >
-                {item.status === "held" ? "▶️ 재개" : "⏸ 보류"}
-              </button>
-            </>
-          )}
-          {isLocal && (
-            <button
-              className={styles.actionBtn}
-              onClick={() => deleteLocal(item.id)}
-              aria-label={`'${item.title}' 삭제`}
-            >
-              🗑 삭제
-            </button>
-          )}
-          {isMail && (
-            <button className={styles.actionBtn} disabled={busy} onClick={() => replyDraft(item)}>
-              ✍️ 답장 초안
-            </button>
-          )}
-          {(item.source === "notion" || item.source === "obsidian") && (
-            <button className={styles.actionBtn} disabled={busy} onClick={() => completeExternal(item)}>
-              ✅ 완료 처리
-            </button>
-          )}
-          {isLocal && (connections?.obsidian || browserObsidian) && (
-            <button className={styles.actionBtn} disabled={busy} onClick={() => capture(item, "obsidian")}>
-              📥 Obsidian
-            </button>
-          )}
-          {isLocal && connections?.notion && (
-            <button className={styles.actionBtn} disabled={busy} onClick={() => capture(item, "notion")}>
-              📥 Notion
-            </button>
-          )}
-          {item.url && (
-            <a className={styles.actionBtn} href={item.url} target="_blank" rel="noreferrer">
-              🔗 원문
-            </a>
-          )}
-          {!isLocal && (
-            <button
-              className={`${styles.actionBtn} ${styles.btnDanger}`}
-              onClick={() => dismissItem(item.id)}
-              aria-label={`'${item.title}' 숨기기`}
-            >
-              ✕
-            </button>
-          )}
-        </div>
-
-        {/* 워크노트 & 세부 하위작업 토글 버튼 */}
-        <button
-          type="button"
-          className={`${styles.workNoteToggleBtn} ${openWorkNoteId === item.id ? styles.workNoteToggleBtnActive : ""}`}
-          onClick={() => setOpenWorkNoteId((prev) => (prev === item.id ? null : item.id))}
-        >
-          <span>📝 워크노트 & 세부작업</span>
-          {workNotes[item.id] && <span style={{ color: "var(--accent)", fontWeight: 700 }}>• 메모보관중</span>}
-          {subTasksMap[item.id] && subTasksMap[item.id].length > 0 && (
-            <span style={{ fontSize: "0.68rem" }}>
-              ({subTasksMap[item.id].filter((s) => s.completed).length}/{subTasksMap[item.id].length})
-            </span>
-          )}
-        </button>
-
-        {/* 워크노트 및 세부 하위작업 패널 */}
-        {openWorkNoteId === item.id && (
-          <div className={styles.workNotePanel}>
-            <div className={styles.workNoteHeader}>
-              <span>📝 업무 진행 상황 메모 (Work Note)</span>
-            </div>
-            <textarea
-              className={styles.workNoteTextarea}
-              placeholder="진행 중인 상황이나 메모를 자유롭게 작성하세요 (예: 1차 초안 제출 완료, 팀장 피드백 대기 중)"
-              value={workNotes[item.id] || ""}
-              onChange={(e) => handleSaveWorkNote(item.id, e.target.value)}
-            />
-
-            <div className={styles.subTaskSection}>
-              <div className={styles.subTaskHeader}>
-                <span>📋 세부 하위 작업 (Sub-tasks)</span>
-                {subTasksMap[item.id] && subTasksMap[item.id].length > 0 && (
-                  <span>
-                    {subTasksMap[item.id].filter((s) => s.completed).length} / {subTasksMap[item.id].length} 완료
-                  </span>
-                )}
-              </div>
-
-              {/* 하위 작업 리스트 */}
-              {subTasksMap[item.id] && subTasksMap[item.id].map((sub) => (
-                <div key={sub.id} className={styles.subTaskItem}>
-                  <input
-                    type="checkbox"
-                    checked={sub.completed}
-                    onChange={() => handleToggleSubTask(item.id, sub.id)}
-                  />
-                  <span className={sub.completed ? styles.subTaskTitleCompleted : ""}>{sub.title}</span>
-                  <button
-                    type="button"
-                    style={{ marginLeft: "auto", background: "none", border: "none", color: "var(--text-dim)", cursor: "pointer", fontSize: "0.72rem" }}
-                    onClick={() => handleRemoveSubTask(item.id, sub.id)}
-                    title="하위 작업 삭제"
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
-
-              {/* 세부 작업 추가 입력란 */}
-              <div className={styles.subTaskInputRow}>
-                <input
-                  className={styles.subTaskInput}
-                  placeholder="새 하위 작업 추가 (예: 자료 조사, 초안 검토)"
-                  value={newSubTaskInputs[item.id] || ""}
-                  onChange={(e) => setNewSubTaskInputs((prev) => ({ ...prev, [item.id]: e.target.value }))}
-                  onKeyDown={(e) => e.key === "Enter" && handleAddSubTask(item.id)}
-                />
-                <button
-                  type="button"
-                  className={styles.btn}
-                  style={{ padding: "3px 8px", fontSize: "0.72rem" }}
-                  onClick={() => handleAddSubTask(item.id)}
-                >
-                  추가
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
+        item={item}
+        busy={busyIds.has(item.id)}
+        contentExpanded={expanded.has(item.id)}
+        onToggleContent={() => toggleExpand(item.id)}
+        workNoteOpen={openWorkNoteId === item.id}
+        onToggleWorkNote={() => setOpenWorkNoteId((prev) => (prev === item.id ? null : item.id))}
+        workNote={workNotes[item.id] || ""}
+        onChangeWorkNote={(note) => handleSaveWorkNote(item.id, note)}
+        subTasks={subTasksMap[item.id] ?? []}
+        onAddSubTask={(title) => handleAddSubTask(item.id, title)}
+        onToggleSubTask={(subId) => handleToggleSubTask(item.id, subId)}
+        onRemoveSubTask={(subId) => handleRemoveSubTask(item.id, subId)}
+        canCaptureObsidian={Boolean(connections?.obsidian || browserObsidian)}
+        canCaptureNotion={Boolean(connections?.notion)}
+        onSetStatus={(status) => setLocalStatus(item.id, status)}
+        onDelete={() => deleteLocal(item.id)}
+        onReplyDraft={() => void replyDraft(item)}
+        onCompleteExternal={() => void completeExternal(item)}
+        onCapture={(target) => void capture(item, target)}
+        onDismiss={() => dismissItem(item.id)}
+      />
     );
   }
 
@@ -2024,7 +1764,7 @@ export default function Home() {
           <button
             type="button"
             className={styles.handoffBannerBtn}
-            onClick={() => setHandoffRestoredInfo(null)}
+            onClick={acknowledgeHandoff}
           >
             확인 ✕
           </button>
@@ -2176,10 +1916,15 @@ export default function Home() {
               enabled={weatherEnabled}
               onEnableLocation={enableWeatherLocation}
               onRefreshWeather={() => {
-                if (weatherCoords) {
-                  void fetchWeatherData(weatherCoords.lat, weatherCoords.lon);
-                  showToast("실시간 날씨 정보가 갱신되었습니다 🌤️");
-                }
+                if (!weatherCoords) return;
+                void fetchWeatherData(weatherCoords.lat, weatherCoords.lon).then((weather) => {
+                  if (weather) {
+                    setWeatherData(weather);
+                    showToast("실시간 날씨 정보가 갱신되었습니다 🌤️");
+                  } else {
+                    showToast("날씨 정보를 갱신하지 못했어요. 잠시 후 다시 시도해 주세요.");
+                  }
+                });
               }}
             />
           </div>
@@ -2190,6 +1935,9 @@ export default function Home() {
               homeStation={commuteConfig.homeStation || "서울역"}
               workStation={commuteConfig.workStation || "수원역"}
               transportType={commuteConfig.transportType || "public"}
+              homeCoords={commuteConfig.homeCoords}
+              workCoords={commuteConfig.workCoords}
+              onOpenSettings={() => setShowConn(true)}
             />
           </div>
         )}
@@ -2208,6 +1956,7 @@ export default function Home() {
             <ShortcutsWidget
               shortcuts={appShortcuts}
               onOpenSettings={() => setShowConn(true)}
+              onError={showToast}
             />
           </div>
         )}
@@ -2269,240 +2018,41 @@ export default function Home() {
             weather={weatherData}
             collapsed={welcomeCardCollapsed}
             onToggleCollapsed={setWelcomeCardCollapsed}
-            refreshKey={welcomeCardRefreshKey}
             taskCount={merged.filter((i) => i.status !== "completed" && i.status !== "dismissed").length}
             urgentCount={merged.filter((i) => i.category === "urgent" && i.status !== "completed" && i.status !== "dismissed").length}
           />
-          <div className={styles.copilotBody} ref={copilotBodyRef}>
-            {(() => {
-              if (copilotMessages.length === 0) {
-                return (
-                  <div className={styles.msgHint}>
-                    “오늘 뭐 해야 해?”라고 주문하듯 편하게 물어보세요 ☕
-                    {merged.length === 0 &&
-                      " 아직 아는 업무가 없어서 브리핑이 좀 심심할 거예요 — 위에서 몇 개만 알려주세요!"}
-                  </div>
-                );
-              }
-
-              const pairs: Array<{ id: string; userText?: string; aiText?: string; fallback?: boolean }> = [];
-              let currentPair: { id: string; userText?: string; aiText?: string; fallback?: boolean } | null = null;
-
-              copilotMessages.forEach((msg, idx) => {
-                if (msg.role === "user") {
-                  currentPair = { id: `qa-${idx}`, userText: msg.text };
-                  pairs.push(currentPair);
-                } else {
-                  if (currentPair && !currentPair.aiText) {
-                    currentPair.aiText = msg.text;
-                    currentPair.fallback = msg.fallback;
-                  } else {
-                    currentPair = { id: `qa-ai-${idx}`, aiText: msg.text, fallback: msg.fallback };
-                    pairs.push(currentPair);
-                  }
-                }
-              });
-
-              return pairs.map((pair) => {
-                const isExpanded = expandedQaKeys.has(pair.id);
-                const isUnread = unreadQaKeys.has(pair.id) && !isExpanded;
-
-                const toggleExpand = () => {
-                  setExpandedQaKeys((prev) => {
-                    const next = new Set(prev);
-                    if (next.has(pair.id)) next.delete(pair.id);
-                    else next.add(pair.id);
-                    return next;
-                  });
-
-                  setUnreadQaKeys((prev) => {
-                    if (!prev.has(pair.id)) return prev;
-                    const next = new Set(prev);
-                    next.delete(pair.id);
-                    return next;
-                  });
-                };
-
-                return (
-                  <div
-                    key={pair.id}
-                    className={`${styles.chatQaGroup} ${isUnread ? styles.chatQaGroupUnread : ""}`}
-                  >
-                    {pair.userText && (
-                      <div
-                        className={`${styles.chatQuestionHeader} ${isUnread ? styles.headerBlinking : ""}`}
-                        onClick={toggleExpand}
-                      >
-                        <div className={styles.chatQuestionTitle}>
-                          <span style={{ fontSize: "0.95rem" }}>💬</span>
-                          <span>{pair.userText}</span>
-                        </div>
-                        <div className={styles.headerRightControls}>
-                          {isUnread && (
-                            <span className={styles.blinkingBadge}>
-                              ✨ 답변 완료
-                            </span>
-                          )}
-                          <button
-                            type="button"
-                            className={styles.chatQaToggleBtn}
-                            aria-label={isExpanded ? "응답 접기" : "응답 펼치기"}
-                            title={isExpanded ? "응답 접기" : "응답 펼치기"}
-                          >
-                            <svg
-                              width="14"
-                              height="14"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2.5"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              style={{
-                                transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)",
-                                transition: "transform 0.2s ease",
-                              }}
-                            >
-                              <polyline points="18 15 12 9 6 15" />
-                            </svg>
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                    {isExpanded && pair.aiText && (
-                      <div className={styles.chatAnswerScroll}>
-                        <MarkdownLite text={pair.aiText} />
-                      </div>
-                    )}
-                  </div>
-                );
-              });
-            })()}
-            {copilotBusy && (
-              <div className={styles.msgHint}>
-                <CafeWait steps={dynamicCopilotSteps} interval={1200} />
-              </div>
-            )}
-          </div>
-          <div className={styles.copilotForm} style={{ position: "relative" }}>
-            {/* 슬래시 커맨드 추천 팝업 메뉴 */}
-            {copilotInput.trim().startsWith("/") && (
-              <div className={styles.commandMenu}>
-                {[
-                  { name: "/clear", desc: "AI 대화 이력 초기화" },
-                  { name: "/status", desc: "현재 업무 상태 현황 요약" },
-                  { name: "/handoff", desc: "남은 업무 퇴근 보존 및 정리" },
-                  { name: "/reorder", desc: "남은 업무 AI 일정 재배치" },
-                  { name: "/help", desc: "슬래시 커맨드 도움말 출력" },
-                ]
-                  .filter((cmd) => cmd.name.startsWith(copilotInput.trim().toLowerCase()))
-                  .map((cmd) => (
-                    <button
-                      key={cmd.name}
-                      type="button"
-                      className={styles.commandMenuItem}
-                      onClick={() => {
-                        handleSlashCommand(cmd.name);
-                      }}
-                    >
-                      <span className={styles.commandName}>{cmd.name}</span>
-                      <span className={styles.commandDesc}>{cmd.desc}</span>
-                    </button>
-                  ))}
-              </div>
-            )}
-            <input
-              type="file"
-              ref={fileInputRef}
-              accept="text/*,.txt,.md,.markdown,.csv,.json,.log,application/json"
-              style={{ display: "none" }}
-              onChange={handleFileUpload}
-            />
-            <button
-              ref={plusBtnRef}
-              className={`${styles.btn} ${styles.plusBtn} ${plusOpen ? styles.plusBtnOpen : ""}`}
-              onClick={() => setPlusOpen((v) => !v)}
-              disabled={uploadBusy}
-              title="첨부·옵션"
-              aria-label="첨부 및 옵션 메뉴"
-              aria-expanded={plusOpen}
-            >
-              +
-            </button>
-            {plusOpen && (
-              <>
-                <div className={styles.plusBackdrop} onClick={() => setPlusOpen(false)} />
-                <div className={styles.plusMenu} role="menu">
-                  <button
-                    ref={plusFirstItemRef}
-                    className={styles.plusMenuItem}
-                    role="menuitem"
-                    onClick={() => {
-                      setPlusOpen(false);
-                      fileInputRef.current?.click();
-                    }}
-                    disabled={uploadBusy}
-                  >
-                    📎 파일 첨부
-                  </button>
-                  <button
-                    className={styles.plusMenuItem}
-                    role="menuitem"
-                    onClick={() => {
-                      userSetDriveRef.current = true;
-                      setSaveToDrive(!saveToDrive);
-                    }}
-                    disabled={!googleConnected}
-                    title={
-                      googleConnected
-                        ? undefined
-                        : "Google 연동 후 드라이브 영구 저장을 쓸 수 있어요. 지금은 일회성 분석으로 업로드돼요."
-                    }
-                  >
-                    {saveToDrive ? "☁️ 드라이브 영구 저장" : "⏳ 일회성 분석 (임시)"}
-                    <span
-                      className={`${styles.plusMenuState} ${saveToDrive ? "" : styles.plusMenuStateOff}`}
-                    >
-                      {saveToDrive ? "켜짐" : "꺼짐"}
-                    </span>
-                  </button>
-                  <button
-                    className={styles.plusMenuItem}
-                    role="menuitem"
-                    onClick={() => {
-                      setPlusOpen(false);
-                      askCopilot("오늘 해야 할 일을 브리핑해줘");
-                    }}
-                    disabled={copilotBusy}
-                  >
-                    📋 오늘 브리핑
-                  </button>
-                </div>
-              </>
-            )}
-            <input
-              className={styles.input}
-              placeholder="오늘 뭐 해야 해?"
-              value={copilotInput}
-              onChange={(e) => setCopilotInput(e.target.value)}
-              onFocus={() => setWelcomeCardCollapsed(true)}
-              onKeyDown={(e) => e.key === "Enter" && askCopilot()}
-              disabled={copilotBusy}
-              aria-label="AI 바리스타 질문 입력"
-            />
-            <button
-              className={`${styles.btn} ${styles.btnPrimary}`}
-              onClick={() => askCopilot()}
-              disabled={copilotBusy}
-              title="질문"
-              style={{ padding: "8px 12px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="9 10 4 15 9 20"></polyline>
-                <path d="M20 4v7a4 4 0 0 1-4 4H4"></path>
-              </svg>
-            </button>
-          </div>
+          <CopilotConversation
+            bodyRef={copilotBodyRef}
+            messages={copilotMessages}
+            busy={copilotBusy}
+            waitSteps={dynamicCopilotSteps}
+            hasItems={merged.length > 0}
+            expandedKeys={expandedQaKeys}
+            unreadKeys={unreadQaKeys}
+            onToggleExpand={toggleQaPair}
+          />
+          <CopilotComposer
+            value={copilotInput}
+            onChange={setCopilotInput}
+            onSubmit={() => void askCopilot()}
+            onFocus={() => setWelcomeCardCollapsed(true)}
+            busy={copilotBusy}
+            onRunSlashCommand={(cmd) => handleSlashCommand(cmd)}
+            onQuickBriefing={() => void askCopilot("오늘 해야 할 일을 브리핑해줘")}
+            fileInputRef={fileInputRef}
+            onFileChange={handleFileUpload}
+            uploadBusy={uploadBusy}
+            plusOpen={plusOpen}
+            onTogglePlus={setPlusOpen}
+            plusBtnRef={plusBtnRef}
+            plusFirstItemRef={plusFirstItemRef}
+            saveToDrive={saveToDrive}
+            onToggleSaveToDrive={() => {
+              userSetDriveRef.current = true;
+              setSaveToDrive(!saveToDrive);
+            }}
+            googleConnected={googleConnected}
+          />
         </section>
 
 
@@ -2694,581 +2244,70 @@ export default function Home() {
               </div>
             </div>
 
-            <section className={styles.card} style={{ border: "none", padding: "10px 0" }}>
-              <div className={styles.cardTitle}>⚙️ 자동화 규칙</div>
-              <div className={styles.formRow}>
-                <input
-                  className={styles.input}
-                  placeholder='예: "제목에 긴급 있으면 맨 위로"'
-                  value={ruleInput}
-                  onChange={(e) => setRuleInput(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && addRule()}
-                  aria-label="자연어 규칙 입력"
-                />
-                <button className={styles.btn} disabled={ruleBusy} onClick={addRule}>
-                  {ruleBusy ? "레시피 적는 중…" : "추가"}
-                </button>
-              </div>
-              <div className={styles.list}>
-                {rules.length === 0 && (
-                  <p className={styles.connNote}>
-                    “뉴스레터는 숨겨줘”처럼 말씀만 하세요 — 제가 규칙으로 만들어
-                    적용할게요. (고정·긴급·음소거·숨김)
-                  </p>
-                )}
-                {rules.map((rule, i) => (
-                  <div key={i} className={styles.ruleRow}>
-                    <button
-                      className={styles.iconBtn}
-                      onClick={() =>
-                        setRules((prev) =>
-                          prev.map((r, j) => (j === i ? { ...r, enabled: !r.enabled } : r))
-                        )
-                      }
-                      aria-label={rule.enabled ? "규칙 끄기" : "규칙 켜기"}
-                      title={rule.enabled ? "켜짐" : "꺼짐"}
-                    >
-                      {rule.enabled ? "●" : "○"}
-                    </button>
-                    <span className={styles.ruleText}>
-                      <b>{FIELD_LABEL[rule.field]}</b>에 &lsquo;{rule.value}&rsquo; →{" "}
-                      <b>{ACTION_LABEL[rule.action]}</b>
-                    </span>
-                    <button
-                      className={styles.iconBtn}
-                      onClick={() => setRules((prev) => prev.filter((_, j) => j !== i))}
-                      aria-label="규칙 삭제"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </section>
+            <AutomationRulesSection
+              rules={rules}
+              onChangeRules={setRules}
+              ruleInput={ruleInput}
+              onChangeRuleInput={setRuleInput}
+              ruleBusy={ruleBusy}
+              onAddRule={addRule}
+            />
 
-            <section className={styles.card} style={{ border: "none", padding: "10px 0" }}>
-              <div className={styles.cardTitle} style={{ display: "flex", alignItems: "center" }}>
-                <span>🔔 브리핑 & 데스크톱 알림</span>
-                <label className={`${styles.switchLabel} ${pushBusy ? styles.switchDisabled : ""}`}>
-                  <span>{notifPerm === "granted" || Boolean(pushEndpoint) ? "ON" : "OFF"}</span>
-                  <input
-                    type="checkbox"
-                    className={styles.switchInput}
-                    checked={notifPerm === "granted" || Boolean(pushEndpoint)}
-                    disabled={pushBusy}
-                    onChange={(e) => void toggleNotification(e.target.checked)}
-                  />
-                  <span className={styles.switchSlider} />
-                </label>
-              </div>
-              {pushSupported === false ? (
-                <p className={styles.connNote}>
-                  이 브라우저는 웹 푸시를 지원하지 않아요. (iOS는 홈 화면에 추가한 뒤 사용 가능)
-                </p>
-              ) : (
-                <>
-                  <div className={styles.formRow} style={{ marginTop: 8 }}>
-                    <label className={styles.connNote} style={{ display: "flex", alignItems: "center", gap: 8, flex: 1 }}>
-                      발송 시각
-                      <input
-                        type="time"
-                        className={styles.input}
-                        style={{ flex: 1 }}
-                        value={briefTime}
-                        onChange={(e) => void saveBriefTime(e.target.value)}
-                        aria-label="아침 브리핑 발송 시각"
-                      />
-                    </label>
-                    {pushEndpoint && (
-                      <button className={styles.btn} disabled={pushBusy} onClick={testPush} style={{ padding: "4px 10px", fontSize: "0.78rem" }}>
-                        📨 테스트 발송
-                      </button>
-                    )}
-                  </div>
-                  <p className={styles.connNote}>
-                    매일 {briefTime}, 탭을 닫아두셔도 브리핑을 들고 찾아갈게요. (브라우저는 켜져 있어야 해요)
-                  </p>
-                </>
-              )}
-            </section>
+            <NotificationSection
+              pushSupported={pushSupported}
+              pushEndpoint={pushEndpoint}
+              pushBusy={pushBusy}
+              notifPerm={notifPerm}
+              briefTime={briefTime}
+              onChangeBriefTime={(v) => void saveBriefTime(v)}
+              onToggle={(enable) => void toggleNotification(enable)}
+              onTestPush={() => void testPush()}
+            />
 
-            <section className={styles.card} style={{ border: "none", padding: "10px 0" }}>
-              <div className={styles.cardTitle} style={{ display: "flex", alignItems: "center" }}>
-                <span>📍 위치 & 날씨 브리핑</span>
-                {weatherData && weatherEnabled && (
-                  <small style={{ marginLeft: 6 }}>{weatherData.city} ({weatherData.temp}°C)</small>
-                )}
-                <label className={`${styles.switchLabel} ${weatherBusy ? styles.switchDisabled : ""}`}>
-                  <span>{weatherEnabled ? "ON" : "OFF"}</span>
-                  <input
-                    type="checkbox"
-                    className={styles.switchInput}
-                    checked={weatherEnabled}
-                    disabled={weatherBusy}
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        enableWeatherLocation();
-                      } else {
-                        disableWeatherLocation();
-                      }
-                    }}
-                  />
-                  <span className={styles.switchSlider} />
-                </label>
-              </div>
-              <p className={styles.connNote}>
-                위치 권한을 허용하면 계신 곳의 기상청 날씨와 맞춤 웰컴 메시지를 브리핑해 드립니다.
-              </p>
-            </section>
+            <WeatherSection
+              enabled={weatherEnabled}
+              busy={weatherBusy}
+              weather={weatherData}
+              onEnable={enableWeatherLocation}
+              onDisable={disableWeatherLocation}
+            />
 
-            <section className={styles.card} style={{ border: "none", padding: "10px 0" }}>
-              <div className={styles.cardTitle} style={{ display: "flex", alignItems: "center" }}>
-                <span>🚇 출퇴근 길찾기 브리핑</span>
-                <label className={styles.switchLabel}>
-                  <span>{commuteConfig.enabled ? "ON" : "OFF"}</span>
-                  <input
-                    type="checkbox"
-                    className={styles.switchInput}
-                    checked={commuteConfig.enabled}
-                    onChange={(e) => {
-                      const next = { ...commuteConfig, enabled: e.target.checked };
-                      setCommuteConfig(next);
-                      saveLS(LS_COMMUTE_CONFIG, next);
-                    }}
-                  />
-                  <span className={styles.switchSlider} />
-                </label>
-              </div>
-              <div className={styles.formRow} style={{ marginTop: 8 }}>
-                <button
-                  type="button"
-                  className={`${styles.btn} ${commuteConfig.transportType !== "car" ? styles.btnPrimary : ""}`}
-                  onClick={() => {
-                    const next: CommuteConfig = { ...commuteConfig, transportType: "public" };
-                    setCommuteConfig(next);
-                    saveLS(LS_COMMUTE_CONFIG, next);
-                  }}
-                  style={{ flex: 1 }}
-                >
-                  🚌 / 🚇 대중교통
-                </button>
-                <button
-                  type="button"
-                  className={`${styles.btn} ${commuteConfig.transportType === "car" ? styles.btnPrimary : ""}`}
-                  onClick={() => {
-                    const next: CommuteConfig = { ...commuteConfig, transportType: "car" };
-                    setCommuteConfig(next);
-                    saveLS(LS_COMMUTE_CONFIG, next);
-                  }}
-                  style={{ flex: 1 }}
-                >
-                  🚗 자동차 (자차)
-                </button>
-              </div>
-              <div className={styles.formRow} style={{ marginTop: 8 }}>
-                <input
-                  className={styles.input}
-                  placeholder="집/출발역 (예: 서울역)"
-                  value={commuteConfig.homeStation}
-                  onChange={(e) => {
-                    const next = { ...commuteConfig, homeStation: e.target.value };
-                    setCommuteConfig(next);
-                    saveLS(LS_COMMUTE_CONFIG, next);
-                  }}
-                  aria-label="집/출발역"
-                />
-                <input
-                  className={styles.input}
-                  placeholder="회사/도착역 (예: 수원역)"
-                  value={commuteConfig.workStation}
-                  onChange={(e) => {
-                    const next = { ...commuteConfig, workStation: e.target.value };
-                    setCommuteConfig(next);
-                    saveLS(LS_COMMUTE_CONFIG, next);
-                  }}
-                  aria-label="회사/도착역"
-                />
-              </div>
-              <p className={styles.connNote}>
-                시간대에 따라 오전(출근 모드), 오후(퇴근 모드)로 자동 전환하여 대시보드 스마트 카드로 보여드립니다.
-              </p>
-            </section>
+            <CommuteSection
+              config={commuteConfig}
+              onChange={(next) => {
+                setCommuteConfig(next);
+                saveLS(LS_COMMUTE_CONFIG, next);
+              }}
+              onCaptureCoords={captureCommuteCoords}
+            />
 
-            <section className={styles.card} style={{ border: "none", padding: "10px 0" }}>
-              <div className={styles.cardTitle}>
-                🔗 단어-앱 바로가기 레시피 <small>{appShortcuts.length}개 등록됨</small>
-              </div>
-              <div className={styles.formRow}>
-                <input
-                  className={styles.input}
-                  placeholder='호출 단어 (예: "구글안티")'
-                  value={shortcutKeywordInput}
-                  onChange={(e) => setShortcutKeywordInput(e.target.value)}
-                  style={{ flex: 1 }}
-                />
-                <input
-                  className={styles.input}
-                  placeholder='실행 경로/URL (예: "Antigravity.exe" 또는 "kakaotalk://")'
-                  value={shortcutTargetInput}
-                  onChange={(e) => setShortcutTargetInput(e.target.value)}
-                  style={{ flex: 2 }}
-                />
-                <button
-                  className={styles.btn}
-                  onClick={() => {
-                    if (!shortcutKeywordInput.trim() || !shortcutTargetInput.trim()) return;
-                    const next: AppShortcut[] = [
-                      ...appShortcuts,
-                      {
-                        id: `sc-${Date.now()}`,
-                        keyword: shortcutKeywordInput.trim(),
-                        target: shortcutTargetInput.trim(),
-                        enabled: true,
-                      },
-                    ];
-                    setAppShortcuts(next);
-                    saveLS(LS_APP_SHORTCUTS, next);
-                    setShortcutKeywordInput("");
-                    setShortcutTargetInput("");
-                    showToast(`🔗 '${shortcutKeywordInput.trim()}' 바로가기 레시피가 등록되었습니다.`);
-                  }}
-                >
-                  추가
-                </button>
-              </div>
-              <div className={styles.list} style={{ marginTop: 8 }}>
-                {appShortcuts.map((sc, i) => (
-                  <div key={sc.id} className={styles.ruleRow}>
-                    <button
-                      className={styles.iconBtn}
-                      onClick={() => {
-                        const next = appShortcuts.map((item, j) =>
-                          j === i ? { ...item, enabled: !item.enabled } : item
-                        );
-                        setAppShortcuts(next);
-                        saveLS(LS_APP_SHORTCUTS, next);
-                      }}
-                      title={sc.enabled ? "켜짐" : "꺼짐"}
-                    >
-                      {sc.enabled ? "●" : "○"}
-                    </button>
-                    <span className={styles.ruleText}>
-                      <b>&lsquo;{sc.keyword}&rsquo;</b> ➔ <small style={{ color: "var(--accent)" }}>{sc.target}</small>
-                    </span>
-                    <button
-                      className={styles.iconBtn}
-                      onClick={() => {
-                        const next = appShortcuts.filter((_, j) => j !== i);
-                        setAppShortcuts(next);
-                        saveLS(LS_APP_SHORTCUTS, next);
-                      }}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </section>
+            <ShortcutsSection
+              shortcuts={appShortcuts}
+              onChange={(next) => {
+                setAppShortcuts(next);
+                saveLS(LS_APP_SHORTCUTS, next);
+              }}
+              onNotify={showToast}
+            />
 
-            <div className={styles.cardTitle} style={{ marginTop: 20 }}>
-              🔌 서비스 연동 <small>전부 선택 사항이에요</small>
-            </div>
-            {browserNeedsPermission && (
-              <div className={styles.permRow}>
-                🔑 저장된 폴더의 접근 권한을 다시 허용해 주세요 (브라우저 보안 정책상 재방문
-                시 필요할 수 있어요)
-                <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={regrantBrowserFolders}>
-                  다시 허용
-                </button>
-              </div>
-            )}
-            <div className={styles.connGrid}>
-              <div className={styles.connCard}>
-                <div className={styles.connHead}>
-                  <OutlookIcon /> Outlook
-                  <span
-                    className={`${styles.connStatus} ${errors?.outlook ? styles.connErr : connections?.outlook ? styles.connOn : ""}`}
-                  >
-                    {errors?.outlook ? "재연동 필요" : connections?.outlook ? "연동됨" : "미연동"}
-                  </span>
-                </div>
-                {connections?.outlook ? (
-                  <button className={styles.btn} onClick={() => disconnect("outlook", "DELETE")}>
-                    해제
-                  </button>
-                ) : (
-                  <a className={styles.btn} href="/api/auth/outlook" style={{ textAlign: "center" }}>
-                    연동하기
-                  </a>
-                )}
-              </div>
-
-              <div className={styles.connCard}>
-                <div className={styles.connHead}>
-                  <GoogleIcon /> Google
-                  <span
-                    className={`${styles.connStatus} ${errors?.google ? styles.connErr : connections?.google ? styles.connOn : ""}`}
-                  >
-                    {errors?.google ? "재연동 필요" : connections?.google ? "연동됨" : "미연동"}
-                  </span>
-                </div>
-                {connections?.google ? (
-                  <button className={styles.btn} onClick={() => disconnect("google/signin", "DELETE")}>
-                    해제
-                  </button>
-                ) : (
-                  <a className={styles.btn} href="/api/auth/google/signin" style={{ textAlign: "center" }}>
-                    연동하기
-                  </a>
-                )}
-              </div>
-
-              <div className={styles.connCard}>
-                <div className={styles.connHead}>
-                  <NotionIcon /> Notion
-                  <span className={`${styles.connStatus} ${connections?.notion ? styles.connOn : ""}`}>
-                    {connections?.notion ? "연동됨" : "미연동"}
-                  </span>
-                </div>
-                {connections?.notion ? (
-                  <button className={styles.btn} onClick={() => disconnect("notion")}>
-                    해제
-                  </button>
-                ) : (
-                  <>
-                    <input
-                      className={styles.input}
-                      placeholder="Integration Token"
-                      value={notionToken}
-                      onChange={(e) => setNotionToken(e.target.value)}
-                      aria-label="Notion Integration Token"
-                    />
-                    <div className={styles.connRow}>
-                      <input
-                        className={styles.input}
-                        placeholder="Database ID"
-                        value={notionDbId}
-                        onChange={(e) => setNotionDbId(e.target.value)}
-                        aria-label="Notion Database ID"
-                      />
-                      <button className={styles.btn} onClick={connectNotion}>
-                        연동
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-
-              <div className={styles.connCard}>
-                <div className={styles.connHead}>
-                  <ObsidianIcon /> Obsidian
-                  <span
-                    className={`${styles.connStatus} ${connections?.obsidian || browserObsidian ? styles.connOn : ""}`}
-                  >
-                    {connections?.obsidian ? "연동됨" : browserObsidian ? "브라우저 연동" : "미연동"}
-                  </span>
-                </div>
-                {connections?.obsidian ? (
-                  <button className={styles.btn} onClick={() => disconnect("obsidian")}>
-                    해제
-                  </button>
-                ) : (
-                  <>
-                    {browserObsidian ? (
-                      <div className={styles.folderRow}>
-                        <span className={styles.folderPath} title={browserObsidian.name}>
-                          📂 {browserObsidian.name}
-                        </span>
-                        <button
-                          className={styles.iconBtn}
-                          onClick={() => disconnectBrowserFolder(browserObsidian.key)}
-                          aria-label="브라우저 볼트 연결 해제"
-                          title="연결 해제"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ) : fsaSupported ? (
-                      <button className={styles.btn} onClick={() => connectBrowserFolder("obsidian")}>
-                        📂 브라우저에서 볼트 폴더 열기
-                      </button>
-                    ) : (
-                      <p className={styles.connNote}>
-                        이 브라우저는 폴더 열기를 지원하지 않아요 (Chrome/Edge 필요).
-                      </p>
-                    )}
-                    <details className={styles.connDetails}>
-                      <summary>서버(로컬 실행) 경로로 연동</summary>
-                      <div className={styles.connRow}>
-                        <input
-                          className={styles.input}
-                          placeholder="볼트 폴더 경로"
-                          value={obsidianPath}
-                          onChange={(e) => setObsidianPath(e.target.value)}
-                          aria-label="Obsidian 볼트 폴더 경로"
-                        />
-                        <button
-                          className={styles.iconBtn}
-                          onClick={() => pickFolder(setObsidianPath)}
-                          aria-label="Obsidian 볼트 폴더 선택"
-                          title="폴더 선택"
-                        >
-                          📂
-                        </button>
-                        <button className={styles.btn} onClick={() => connectPath("obsidian", obsidianPath)}>
-                          연동
-                        </button>
-                      </div>
-                    </details>
-                  </>
-                )}
-              </div>
-
-              <div className={styles.connCard}>
-                <div className={styles.connHead}>
-                  📁 로컬 문서
-                  <span
-                    className={`${styles.connStatus} ${connections?.local_doc || browserDocs.length > 0 ? styles.connOn : ""}`}
-                  >
-                    {connections?.local_doc
-                      ? `연동됨 · ${connections?.localDocPaths?.length ?? 0}개 폴더`
-                      : browserDocs.length > 0
-                        ? `브라우저 · ${browserDocs.length}개 폴더`
-                        : "미연동"}
-                  </span>
-                </div>
-                {browserDocs.map((folder) => (
-                  <div key={folder.key} className={styles.folderRow}>
-                    <span className={styles.folderPath} title={folder.name}>
-                      📂 {folder.name}
-                    </span>
-                    <button
-                      className={styles.iconBtn}
-                      onClick={() => disconnectBrowserFolder(folder.key)}
-                      aria-label={`'${folder.name}' 브라우저 폴더 연결 해제`}
-                      title="이 폴더 빼기"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))}
-                {(connections?.localDocPaths ?? []).map((path) => (
-                  <div key={path} className={styles.folderRow}>
-                    <span className={styles.folderPath} title={path}>
-                      {path}
-                    </span>
-                    <button
-                      className={styles.iconBtn}
-                      onClick={() => removeLocalDocFolder(path)}
-                      aria-label={`'${path}' 폴더 연결 해제`}
-                      title="이 폴더 빼기"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))}
-                {fsaSupported ? (
-                  <button className={styles.btn} onClick={() => connectBrowserFolder("local_doc")}>
-                    📂 브라우저에서 문서 폴더 열기
-                  </button>
-                ) : (
-                  <p className={styles.connNote}>
-                    이 브라우저는 폴더 열기를 지원하지 않아요 (Chrome/Edge 필요).
-                  </p>
-                )}
-                <details className={styles.connDetails}>
-                  <summary>서버(로컬 실행) 경로로 연동</summary>
-                  <div className={styles.connRow}>
-                    <input
-                      className={styles.input}
-                      placeholder="문서 폴더 경로 (.md/.txt)"
-                      value={localDocPath}
-                      onChange={(e) => setLocalDocPath(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && addLocalDocFolder()}
-                      aria-label="로컬 문서 폴더 경로"
-                    />
-                    <button
-                      className={styles.iconBtn}
-                      onClick={() => pickFolder(setLocalDocPath)}
-                      aria-label="로컬 문서 폴더 선택"
-                      title="폴더 선택"
-                    >
-                      📂
-                    </button>
-                    <button className={styles.btn} onClick={addLocalDocFolder}>
-                      ➕ 추가
-                    </button>
-                  </div>
-                </details>
-                <p className={styles.connNote}>폴더는 5개까지 함께 살펴봐 드려요.</p>
-              </div>
-
-              <div className={styles.connCard}>
-                <div className={styles.connHead}>
-                  🧠 LLM 산출물
-                  <span
-                    className={`${styles.connStatus} ${connections?.llm || browserLlm ? styles.connOn : ""}`}
-                  >
-                    {connections?.llm ? "연동됨" : browserLlm ? "브라우저 연동" : "미연동"}
-                  </span>
-                </div>
-                {connections?.llm ? (
-                  <button className={styles.btn} onClick={() => disconnect("llm")}>
-                    해제
-                  </button>
-                ) : (
-                  <>
-                    {browserLlm ? (
-                      <div className={styles.folderRow}>
-                        <span className={styles.folderPath} title={browserLlm.name}>
-                          📂 {browserLlm.name}
-                        </span>
-                        <button
-                          className={styles.iconBtn}
-                          onClick={() => disconnectBrowserFolder(browserLlm.key)}
-                          aria-label="브라우저 LLM 폴더 연결 해제"
-                          title="연결 해제"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ) : fsaSupported ? (
-                      <button className={styles.btn} onClick={() => connectBrowserFolder("llm")}>
-                        📂 브라우저에서 산출물 폴더 열기
-                      </button>
-                    ) : (
-                      <p className={styles.connNote}>
-                        이 브라우저는 폴더 열기를 지원하지 않아요 (Chrome/Edge 필요).
-                      </p>
-                    )}
-                    <details className={styles.connDetails}>
-                      <summary>서버(로컬 실행) 경로로 연동</summary>
-                      <div className={styles.connRow}>
-                        <input
-                          className={styles.input}
-                          placeholder="산출물 폴더 (예: ~/.claude/.../memory)"
-                          value={llmPath}
-                          onChange={(e) => setLlmPath(e.target.value)}
-                          aria-label="LLM 산출물 폴더 경로"
-                        />
-                        <button
-                          className={styles.iconBtn}
-                          onClick={() => pickFolder(setLlmPath)}
-                          aria-label="LLM 산출물 폴더 선택"
-                          title="폴더 선택"
-                        >
-                          📂
-                        </button>
-                        <button className={styles.btn} onClick={() => connectPath("llm", llmPath)}>
-                          연동
-                        </button>
-                      </div>
-                    </details>
-                  </>
-                )}
-                <p className={styles.connNote}>Claude Code·Gemini 등의 작업 산출물 폴더</p>
-              </div>
-            </div>
+            <ConnectionsSection
+              connections={connections}
+              errors={errors}
+              fsaSupported={fsaSupported}
+              browserObsidian={browserObsidian}
+              browserDocs={browserDocs}
+              browserLlm={browserLlm}
+              browserNeedsPermission={browserNeedsPermission}
+              onDisconnect={(route, method) => void disconnect(route, method)}
+              onConnectPath={(route, path) => void connectPath(route, path)}
+              onConnectNotion={connectNotion}
+              onAddLocalDocFolder={addLocalDocFolder}
+              onRemoveLocalDocFolder={(path) => void removeLocalDocFolder(path)}
+              onConnectBrowserFolder={(kind) => void connectBrowserFolder(kind)}
+              onDisconnectBrowserFolder={(key) => void disconnectBrowserFolder(key)}
+              onRegrantBrowserFolders={() => void regrantBrowserFolders()}
+              onPickFolder={pickFolder}
+            />
           </div>
         </div>
       )}
