@@ -76,6 +76,9 @@ import styles from "./page.module.css";
 
 import { SubTask } from "@/lib/types/unified";
 
+const LS_RAW_ENABLED = "ct_raw_enabled";
+const LS_DRIVE_BACKUP_ENABLED = "ct_drive_backup_enabled";
+
 const POLL_MS = 30_000;
 
 // 퇴근 핸드오프는 **UI 스냅샷 전용**이다. 업무 데이터의 정본은 ct_manual_items / ct_dismissed_ids이며,
@@ -411,6 +414,9 @@ export default function Home() {
       }
     }
   };
+
+  const [rawEnabled, setRawEnabled] = useState<boolean>(() => loadLS<boolean>(LS_RAW_ENABLED, true));
+  const [driveBackupEnabled, setDriveBackupEnabled] = useState<boolean>(() => loadLS<boolean>(LS_DRIVE_BACKUP_ENABLED, true));
 
   const handleSaveWorkNote = (taskId: string, note: string) => {
     setWorkNotes((prev) => {
@@ -1033,14 +1039,16 @@ export default function Home() {
       const res = await fetch("/api/tasks/extract", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text, saveToDrive: driveBackupEnabled }),
       });
       if (!res.ok) throw new Error();
       const { tasks } = (await res.json()) as { tasks: UnifiedData[] };
-      // IndexedDB 대용량 DB에도 회의록 원문 무제한 보관
-      tasks.forEach((t) => {
-        if (text) void saveRawContent(t.id, text);
-      });
+      // PC IndexedDB 대용량 DB에도 옵션 켜짐 시 원문 보관
+      if (rawEnabled) {
+        tasks.forEach((t) => {
+          if (text) void saveRawContent(t.id, text);
+        });
+      }
       setManualItems((prev) => [...tasks, ...prev]);
       setPasteText("");
       setShowPaste(false);
@@ -2344,6 +2352,51 @@ export default function Home() {
               }}
               onNotify={showToast}
             />
+
+            {/* 📄 회의록/메모 원문 보관 및 Google Drive 백업 설정 */}
+            <div className={styles.card} style={{ marginBottom: 16 }}>
+              <div className={styles.cardTitle} style={{ fontSize: "0.9rem", marginBottom: 12 }}>
+                📄 회의록/메모 원문 보관 및 Google Drive 백업 설정
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 12, fontSize: "0.82rem" }}>
+                <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer" }}>
+                  <div>
+                    <span style={{ fontWeight: 600 }}>💾 PC 대용량 스토리지(IndexedDB) 원문 보관</span>
+                    <div style={{ fontSize: "0.74rem", color: "var(--text-dim)", marginTop: 2 }}>
+                      붙여넣은 메모/회의록 원문 텍스트 전체를 PC 내 대용량 저장소에 무제한 보관합니다.
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={rawEnabled}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setRawEnabled(checked);
+                      saveLS(LS_RAW_ENABLED, checked);
+                      showToast(checked ? "PC 원문 보관 기능이 켜졌습니다." : "PC 원문 보관 기능이 꺼졌습니다.");
+                    }}
+                  />
+                </label>
+                <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", paddingTop: 8, borderTop: "1px dashed var(--border)" }}>
+                  <div>
+                    <span style={{ fontWeight: 600 }}>📁 Google Drive 일자별 (`CoffeeTide/YYYY-MM-DD/`) 마크다운 백업</span>
+                    <div style={{ fontSize: "0.74rem", color: "var(--text-dim)", marginTop: 2 }}>
+                      구글 로그인 상태 시 Google Drive의 일자별 폴더에 원문을 마크다운 파일로 자동 동기화합니다.
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={driveBackupEnabled}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setDriveBackupEnabled(checked);
+                      saveLS(LS_DRIVE_BACKUP_ENABLED, checked);
+                      showToast(checked ? "Google Drive 일자별 백업 기능이 켜졌습니다." : "Google Drive 일자별 백업 기능이 꺼졌습니다.");
+                    }}
+                  />
+                </label>
+              </div>
+            </div>
 
             <ConnectionsSection
               connections={connections}
