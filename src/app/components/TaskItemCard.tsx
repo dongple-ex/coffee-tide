@@ -35,6 +35,10 @@ interface Props {
   onCompleteExternal: () => void;
   onCapture: (target: "notion" | "obsidian") => void;
   onDismiss: () => void;
+
+  rawContentOpen?: boolean;
+  onToggleRawContent?: () => void;
+  rawText?: string;
 }
 
 export function TaskItemCard({
@@ -58,6 +62,9 @@ export function TaskItemCard({
   onCompleteExternal,
   onCapture,
   onDismiss,
+  rawContentOpen,
+  onToggleRawContent,
+  rawText,
 }: Props) {
   // 새 하위작업 입력값은 이 카드 밖에서 쓰이지 않는다 — 지역 state로 둔다
   const [newSubTask, setNewSubTask] = useState("");
@@ -185,6 +192,47 @@ export function TaskItemCard({
           </button>
         )}
       </div>
+
+      {/* 입력 원문 전체 보기 버튼 & Google Drive 일자별 저장 링크 */}
+      {(item.rawContent || item.driveUrl) && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
+          {item.rawContent && (
+            <button
+              type="button"
+              className={`${styles.workNoteToggleBtn} ${rawContentOpen ? styles.workNoteToggleBtnActive : ""}`}
+              onClick={onToggleRawContent}
+            >
+              <span>📄 입력 원문 전체 보기</span>
+            </button>
+          )}
+          {item.driveUrl && (
+            <a
+              href={item.driveUrl}
+              target="_blank"
+              rel="noreferrer"
+              className={styles.driveLinkBtn}
+              title="Google Drive CoffeeTide 일자별 폴더에 저장된 마크다운 파일 열기"
+            >
+              📁 Google Drive 원문 파일
+            </a>
+          )}
+        </div>
+      )}
+
+      {/* 원문 펼침 상자 */}
+      {rawContentOpen && (
+        <div className={styles.rawContentPanel}>
+          <div className={styles.rawContentHeader}>
+            <span>📄 붙여넣었던 회의록/메모 원문 전체</span>
+            {item.driveUrl && (
+              <a href={item.driveUrl} target="_blank" rel="noreferrer" className={styles.driveLinkBtn}>
+                Google Drive에서 보기 ↗
+              </a>
+            )}
+          </div>
+          <div>{rawText || item.rawContent || "원문 데이터를 불러오는 중입니다..."}</div>
+        </div>
+      )}
 
       {/* 워크노트 & 세부 하위작업 토글 버튼 */}
       <button

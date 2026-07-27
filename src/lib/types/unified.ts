@@ -46,6 +46,8 @@ export interface UnifiedData {
   delegatable?: boolean; // 로컬 LLM 도구로 넘길 만한 업무 (Phase 7)
   workNote?: string;
   subTasks?: SubTask[];
+  rawContent?: string; // 사용자가 입력/붙여넣은 원문 텍스트 전체
+  driveUrl?: string; // Google Drive 일자별 저장 파일 링크
 }
 
 export interface ConnectionState {

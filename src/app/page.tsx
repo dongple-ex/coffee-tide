@@ -69,8 +69,9 @@ import { TimerWidget } from "./components/TimerWidget";
 import { CalculatorWidget } from "./components/CalculatorWidget";
 import { ShortcutsWidget } from "./components/ShortcutsWidget";
 import { WeatherWidget } from "./components/WeatherWidget";
-import { CommuteConfig } from "@/lib/types/commute";
+import { CommuteConfig, CommuteStop } from "@/lib/types/commute";
 import { AppShortcut } from "@/lib/types/appShortcut";
+import { saveRawContent, getRawContent } from "@/lib/browser/rawStore";
 import styles from "./page.module.css";
 
 import { SubTask } from "@/lib/types/unified";
@@ -390,6 +391,27 @@ export default function Home() {
   const [subTasksMap, setSubTasksMap] = useState<Record<string, SubTask[]>>(() => loadLS(LS_SUB_TASKS, {}));
   const [openWorkNoteId, setOpenWorkNoteId] = useState<string | null>(null);
 
+  const [openRawContentId, setOpenRawContentId] = useState<string | null>(null);
+  const [loadedRawTexts, setLoadedRawTexts] = useState<Record<string, string>>({});
+
+  const handleToggleRawContent = async (itemId: string, defaultRaw?: string) => {
+    if (openRawContentId === itemId) {
+      setOpenRawContentId(null);
+      return;
+    }
+    setOpenRawContentId(itemId);
+    if (!loadedRawTexts[itemId]) {
+      if (defaultRaw) {
+        setLoadedRawTexts((prev) => ({ ...prev, [itemId]: defaultRaw }));
+      } else {
+        const dbRaw = await getRawContent(itemId);
+        if (dbRaw) {
+          setLoadedRawTexts((prev) => ({ ...prev, [itemId]: dbRaw }));
+        }
+      }
+    }
+  };
+
   const handleSaveWorkNote = (taskId: string, note: string) => {
     setWorkNotes((prev) => {
       const next = { ...prev, [taskId]: note };
@@ -509,17 +531,45 @@ export default function Home() {
             lat: Number(position.coords.latitude.toFixed(5)),
             lng: Number(position.coords.longitude.toFixed(5)),
           };
+          const label = which === "home" ? "집" : "회사";
           setCommuteConfig((prev) => {
             const next: CommuteConfig =
               which === "home" ? { ...prev, homeCoords: coords } : { ...prev, workCoords: coords };
             saveLS(LS_COMMUTE_CONFIG, next);
             return next;
           });
-          showToast(
-            which === "home"
-              ? "📍 현재 위치를 '집'으로 저장했어요. 이제 지도 앱이 바로 열립니다."
-              : "📍 현재 위치를 '회사'로 저장했어요. 이제 지도 앱이 바로 열립니다."
-          );
+          showToast(`📍 현재 위치를 '${label}'로 저장했어요. 가까운 정류소를 찾는 중…`);
+
+          // 좌표는 여기서 한 번만 서버로 보내 정류소 코드로 바꾼다.
+          // 이후 출퇴근 카드 폴링에는 코드만 오간다(K2·K12).
+          void (async () => {
+            try {
+              const res = await fetch(`/api/commute/stops?lat=${coords.lat}&lng=${coords.lng}`);
+              const data = (await res.json()) as {
+                success?: boolean;
+                stops?: CommuteStop[];
+                reason?: string;
+              };
+              const nearest = data.success ? data.stops?.[0] : undefined;
+              if (!nearest) {
+                showToast(
+                  `'${label}' 위치는 저장했어요. 다만 가까운 정류소는 못 찾았어요${data.reason ? ` (${data.reason})` : ""} — 지도 앱 길찾기는 정상 동작합니다.`
+                );
+                return;
+              }
+              setCommuteConfig((prev) => {
+                const next: CommuteConfig =
+                  which === "home" ? { ...prev, homeStop: nearest } : { ...prev, workStop: nearest };
+                saveLS(LS_COMMUTE_CONFIG, next);
+                return next;
+              });
+              showToast(
+                `🚏 '${label}' 근처 정류소 '${nearest.name}'${nearest.distanceM !== undefined ? ` (약 ${nearest.distanceM}m)` : ""}를 등록했어요.`
+              );
+            } catch {
+              showToast(`'${label}' 위치는 저장했어요. 정류소 조회는 잠시 후 다시 시도해 주세요.`);
+            }
+          })();
         },
         (error) => showToast(`위치 권한 오류: ${error.message}`),
         { timeout: 10000 }
@@ -987,6 +1037,10 @@ export default function Home() {
       });
       if (!res.ok) throw new Error();
       const { tasks } = (await res.json()) as { tasks: UnifiedData[] };
+      // IndexedDB 대용량 DB에도 회의록 원문 무제한 보관
+      tasks.forEach((t) => {
+        if (text) void saveRawContent(t.id, text);
+      });
       setManualItems((prev) => [...tasks, ...prev]);
       setPasteText("");
       setShowPaste(false);
@@ -1650,6 +1704,9 @@ export default function Home() {
         onCompleteExternal={() => void completeExternal(item)}
         onCapture={(target) => void capture(item, target)}
         onDismiss={() => dismissItem(item.id)}
+        rawContentOpen={openRawContentId === item.id}
+        onToggleRawContent={() => void handleToggleRawContent(item.id, item.rawContent)}
+        rawText={loadedRawTexts[item.id]}
       />
     );
   }
@@ -1937,6 +1994,8 @@ export default function Home() {
               transportType={commuteConfig.transportType || "public"}
               homeCoords={commuteConfig.homeCoords}
               workCoords={commuteConfig.workCoords}
+              homeStop={commuteConfig.homeStop}
+              workStop={commuteConfig.workStop}
               onOpenSettings={() => setShowConn(true)}
             />
           </div>
