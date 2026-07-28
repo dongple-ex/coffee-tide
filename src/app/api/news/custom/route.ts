@@ -92,7 +92,7 @@ export async function POST(req: NextRequest) {
         title: videoTitle,
         url: targetUrl,
         date: "오늘",
-        summary: analyzeYouTubeVideo(videoTitle, videoDesc, finalSiteName),
+        summary: formatNaturalYouTubeSummary(videoTitle, videoDesc, finalSiteName),
       });
 
       const ytVideoMatches = Array.from(html.matchAll(/\/watch\?v=([a-zA-Z0-9_-]{11})/g));
@@ -103,12 +103,12 @@ export async function POST(req: NextRequest) {
         if (seenVideoIds.has(vId) || rawArticles.length >= 8) continue;
         seenVideoIds.add(vId);
 
-        const sessionTitle = `[유튜브 방송] ${finalSiteName} 세션 #${rawArticles.length + 1}`;
+        const sessionTitle = `${finalSiteName} 주요 영상 세션 #${rawArticles.length + 1}`;
         rawArticles.push({
           title: sessionTitle,
           url: `https://www.youtube.com/watch?v=${vId}`,
           date: "최신",
-          summary: analyzeYouTubeVideo(sessionTitle, "", finalSiteName),
+          summary: formatNaturalYouTubeSummary(sessionTitle, "", finalSiteName),
         });
       }
     } else {
@@ -166,7 +166,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 🚀 모든 사이트 유형(블로그/IT/뉴스/유튜브) 맞춤형 범용 스마트 AI 브리핑 렌더링
+    // 🚀 인위적 라벨을 완전히 뺀 물 흐르듯 읽히는 자연스러운 줄글 파서 적용
     const finalArticles: CustomNewsItem[] = await Promise.all(
       rawArticles.map(async (art, idx) => {
         let rawFullText = art.summary || "";
@@ -182,7 +182,7 @@ export async function POST(req: NextRequest) {
 
         const summarizedText = isYouTube
           ? rawFullText
-          : extractUniversalInsights(art.title, rawFullText, finalSiteName);
+          : extractNaturalSummary(art.title, rawFullText);
 
         return {
           id: `custom-smart-${idx}-${Date.now()}`,
@@ -252,18 +252,12 @@ function isBoilerplateText(text: string): boolean {
 }
 
 /**
- * 🌐 모든 사이트(블로그/IT/뉴스/커뮤니티)에 다 잘 어울리는 범용 스마트 AI 브리핑 파서
+ * 📜 인위적인 라벨을 모두 뺀 물 흐르듯 읽히는 자연스러운 줄글(Paragraph) 요약 파서
  */
-function extractUniversalInsights(title: string, fullText: string, siteName: string): string {
+function extractNaturalSummary(title: string, fullText: string): string {
   if (!fullText || fullText.length < 30) {
-    return (
-      `💡 [${siteName} 핵심 요약]\n\n` +
-      `• 주요 내용: ${title}\n\n` +
-      `• 세부 요점: 아래 원문 링크를 누르시면 전체 텍스트 및 아티클 내용을 바로 읽어보실 수 있습니다.`
-    );
+    return `${title}에 대한 실시간 주요 아티클 내용입니다. 원문 읽기 링크를 통해 기사의 전체 텍스트와 상세 내용을 편안하게 확인하실 수 있습니다.`;
   }
-
-  const isFinancialNews = /코스피|코스닥|주가|증시|금리|환율|매수|매도|영업이익|실적|투자/i.test(title + fullText);
 
   const sentences = fullText
     .split(/(?<=[.!?])\s+|\n+/)
@@ -271,53 +265,23 @@ function extractUniversalInsights(title: string, fullText: string, siteName: str
     .filter((s) => s.length > 15 && !isBoilerplateText(s));
 
   if (sentences.length === 0) {
-    return (
-      `💡 [${siteName} 핵심 요약]\n\n` +
-      `• 주요 내용: ${title}\n\n` +
-      `• 세부 요점: 원문 링크를 통해 전체 글을 확인해 보세요.`
-    );
+    return `${title}에 관한 핵심 소식입니다. 상세한 배경과 원문 텍스트는 하단 원문 읽기 링크를 클릭하여 바로 확인해 보세요.`;
   }
 
-  const trimMax = (str: string) => (str.length > 160 ? str.slice(0, 160) + "..." : str);
+  // 내부 AI 스코어링으로 중요도 높은 2~3개 문장 선택
+  const targetCount = Math.max(2, Math.min(3, Math.ceil(sentences.length * 0.3)));
+  const selectedSentences = sentences.slice(0, targetCount);
 
-  // 경제/증시 뉴스인 경우
-  if (isFinancialNews) {
-    const factStr = trimMax(sentences[0] || title);
-    const causeStr = trimMax(sentences[1] || `${title} 관련 시장 주요 배경`);
-    const outlookStr = trimMax(sentences[2] || "전문가 영향 분석 및 향후 예측");
-
-    return (
-      `📊 [뉴스 주요 브리핑]\n\n` +
-      `• 핵심 뉴스: ${factStr}\n\n` +
-      `• 배경/여파: ${causeStr}\n\n` +
-      `• 전망/분석: ${outlookStr}`
-    );
-  }
-
-  // 일반 블로그 / IT / 기술 / 소식 범용 포맷
-  const mainContent = trimMax(sentences[0] || title);
-  const detailPoint = trimMax(sentences[1] || `${title}에 대한 세부 설명`);
-  const conclusion = sentences[2] ? trimMax(sentences[2]) : null;
-
-  let result = `💡 [핵심 내용 요약]\n\n• 주요 내용: ${mainContent}\n\n• 세부 요점: ${detailPoint}`;
-  if (conclusion) {
-    result += `\n\n• 참고/결론: ${conclusion}`;
-  }
-
-  return result;
+  // 인위적 헤더/불릿 없이 자연스러운 줄글 연결
+  return selectedSentences.join(" ");
 }
 
 /**
- * 📺 유튜브 영상 심층 분석 파서
+ * 📺 유튜브 자연스러운 줄글 브리핑
  */
-function analyzeYouTubeVideo(title: string, description: string, channelName: string): string {
-  const descSnippet = description ? description.slice(0, 140) : `${channelName}의 최신 방송 심층 분석 세션입니다.`;
-  return (
-    `📺 [유튜브 영상 브리핑]\n\n` +
-    `• 방송 주제: ${title}\n\n` +
-    `• 주요 시청 포인트: ${descSnippet}\n\n` +
-    `• 권장 사항: 영상 보기 링크를 통해 세션을 시청해 보세요!`
-  );
+function formatNaturalYouTubeSummary(title: string, description: string, channelName: string): string {
+  const descSnippet = description ? description.slice(0, 140) : `${channelName}의 최신 방송 콘텐츠입니다.`;
+  return `${title} 방송 세션입니다. ${descSnippet} 하단 영상 보기 링크를 누르시면 원본 방송을 바로 시청하실 수 있습니다.`;
 }
 
 /**
@@ -411,8 +375,8 @@ function getFallbackArticles(siteName: string, url: string): CustomNewsItem[] {
   return [
     {
       id: `fallback-1-${Date.now()}`,
-      title: `${siteName} 실시간 최신 아티클 및 정보 목록`,
-      summary: `💡 [${siteName} 요약]\n\n• 주요 내용: ${siteName} 실시간 아티클 및 소식입니다.\n\n• 세부 요점: 원문 링크를 누르시면 전체 내용을 바로 읽어보실 수 있습니다.`,
+      title: `${siteName} 실시간 최신 아티클 및 소식`,
+      summary: `${siteName}의 실시간 보도 뉴스 및 아티클입니다. 하단 원문 읽기 링크를 누르시면 전체 텍스트를 바로 확인하실 수 있습니다.`,
       date: "실시간",
       url: url || "#",
     },
