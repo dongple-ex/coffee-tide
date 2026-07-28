@@ -1,58 +1,38 @@
 # coffeeTide 문서 인덱스
 
-**커피 한 잔 하면서 오늘을 정리하는 AI 개인 비서** (구 TimePilot)
+**커피 한 잔 하면서 오늘을 정리하는 AI 개인 비서**
 
 연동이 없어도 manual/paste로 바로 시작할 수 있는, 연결되면 더 강력해지는 시간 관리 비서입니다.
 
 - **서비스 도메인(예정)**: `coffeeTide.dongple.kr`
-- **현재 상태 (2026-07-27, `f76d065`)**: MVP(2026-07-11) → Phase 7 브리핑 고도화(07-22) → 개인화 기능(출퇴근 길찾기·단어-앱 바로가기, 07-22~23) → 생산성 도구(퀵 위젯·슬래시 커맨드·워크노트·퇴근 핸드오프, 07-24) → **소스 점검 반영(07-27)**. 검증 3종 세트(tsc/lint/build)와 런타임 스모크를 통과했습니다.
-- **UI 명칭**: 화면의 AI 도우미는 **"AI 바리스타"** 입니다(2026-07-17 개명, 코드·API는 `copilot`).
-- 남은 격차는 [`7-backlog.md`](./7-backlog.md), 이번 점검의 상세는 [`source-fix-plan.md`](./source-fix-plan.md) 참조.
+- **현재 상태 (2026-07-28)**: MVP(2026-07-11) → Phase 7 브리핑 고도화(07-22) → 개인화 기능(출퇴근 길찾기·단어-앱 바로가기, 07-22~23) → 생산성 도구(퀵 위젯·슬래시 커맨드·워크노트·퇴근 핸드오프, 07-24) → 대용량 저장소(IndexedDB & Google Drive 일자별 백업, 07-27) → **문서 정리 및 피처 브랜치 체계 구축(07-28)**.
+- **UI 명칭**: 화면의 AI 도우미는 **"AI 바리스타"** 입니다 (코드·API는 `copilot`).
 
-## 핵심 가치
-- 무연동 우선 설계
-- 자연스러운 업무 입력 (manual, paste)
-- AI Copilot + 자동화
-- 다중 플랫폼 연결
-- 웹 우선 (모바일 전략: [`8-mobile_strategy.md`](./8-mobile_strategy.md))
+---
 
-## 읽기 순서 (신규 작업 전 필독)
+## 📚 정본 문서 읽기 순서 (신규 개발 필독)
 
 1. [`00-current-state.md`](./00-current-state.md)
-   - 제품 정본 기획서. 철학, 데이터 허브, 사용자 흐름, 성공 기준, 구현 시 필수 요구사항.
-2. [`7-backlog.md`](./7-backlog.md)
-   - 실행형 백로그. 특히 **G 항목**(manual/paste 무연동 소스)이 정본 핵심 기능의 설계 기준입니다.
-3. [`phase3_implementation_plan.md`](./phase3_implementation_plan.md) → [`phase3_execution_plan.md`](./phase3_execution_plan.md)
-   - 독립 게스트 세션, 커넥션 매니저, 선택적 외부 연동 구조.
-4. [`phase3_ai_flow_spec.md`](./phase3_ai_flow_spec.md)
-   - AI 분류와 Copilot 응답 규칙. 날짜/출처 근거 규칙을 반드시 따릅니다.
-5. [`phase5_implementation_plan.md`](./phase5_implementation_plan.md)
-   - 완료 처리, 답장 초안 등 양방향 쓰기(write-back) 설계.
-6. [`phase6_llm_artifacts_spec.md`](./phase6_llm_artifacts_spec.md)
-   - LLM 산출물(Claude/Gemini `MEMORY.md` 등) 수집 + Obsidian 미러링 기획. **미구현**.
-7. [`phase7_copilot_briefing_spec.md`](./phase7_copilot_briefing_spec.md)
-   - Copilot 브리핑 고도화 — 웰컴 그리팅(시간·날씨), `/api/weather`, `delegatable` 위임 태그. **구현 완료 (2026-07-22)**.
-8. [`8-mobile_strategy.md`](./8-mobile_strategy.md)
-   - 모바일 전략. 기본은 웹으로 진행하며, 로컬 파일 기반 연동의 데스크톱 전용 제약을 정의합니다.
-9. [`hybrid_app_release_guide.md`](./hybrid_app_release_guide.md)
-   - Capacitor 기반 하이브리드 앱(스토어 출시) 가이드. 모바일 전략의 실행 문서.
-10. [`as-built-reference.md`](./as-built-reference.md)
-    - **현재 구현 코드 기준** 기술 레퍼런스(API 엔드포인트·환경변수·데이터모델·인증·코드 구조). "지금 코드가 하는 일"의 정본.
-11. [`source-fix-plan.md`](./source-fix-plan.md)
-    - 2026-07-27 소스 점검 결과(K1~K13)와 처리 상태. 완료 항목은 `7-backlog.md`로 이관 후 폐기하는 한시 문서.
+   - 제품 정본 기획서. 무연동 우선 철학, 데이터 허브, 사용자 흐름, 성공 기준, 필수 요구사항.
+2. [`as-built-reference.md`](./as-built-reference.md)
+   - **현재 구현 코드 기준** 기술 레퍼런스(API 엔드포인트·환경변수·데이터모델·인증·코드 구조).
+3. [`7-backlog.md`](./7-backlog.md)
+   - 실행형 백로그. 정본 핵심 기능의 설계 기준.
+4. [`source-fix-plan.md`](./source-fix-plan.md)
+   - 소스 점검 결과(K1~K13)와 처리 상태 관리 문서.
+5. [`8-mobile_strategy.md`](./8-mobile_strategy.md)
+   - 모바일 전략 (웹 우선, 하이브리드 앱 방향성).
+6. [`hybrid_app_release_guide.md`](./hybrid_app_release_guide.md)
+   - Capacitor 기반 하이브리드 앱 출시 가이드.
+7. [`phase3_*.md`, `phase5_*.md`, `phase6_*.md`, `phase7_*.md`]
+   - 단계별 기능 상세 스펙 (OAuth 연동, Write-back, LLM 산출물, 브리핑 고도화).
 
-## 문서 명명 규칙
+---
 
-- `0-*.md` ~ `5-*.md`, `implementation_plan.md` : **Phase 1 역사 문서** (Outlook 단일 채널 설계) — 참고용, 현재 설계와 불일치.
-- `phase2_*.md` : **Phase 2 역사 문서** (Notion 초기 연동 설계) — 참고용.
-- `phase3_*.md`, `phase5_*.md`, `phase6_*.md`, `phase7_*.md` : 단계별 설계 문서 — **정본**.
-- `00-current-state.md`, `7-backlog.md`, `8-mobile_strategy.md`, `hybrid_app_release_guide.md`, `as-built-reference.md` : 살아있는 문서 — 항상 최신 유지.
-- `source-fix-plan.md` : 한시 문서 — 항목 처리 완료 시 `7-backlog.md`로 이관하고 폐기.
-- `timepilot_ai_os_architecture.md` : **장기 비전 문서** (구명칭 TimePilot 시절의 AI Work OS 구상) — 현재 coffeeTide 구현·설계와 무관하며 정본이 아닙니다.
+## 🏛️ 과거 레거시 문서 (`doc/legacy_timepilot/`)
 
-## 문서 상태
+구 프로젝트 명칭("TimePilot") 시절의 초기 단일 채널(Phase 1, Phase 2) 설계 및 브레인스토밍 기록은 역사 참고용으로 [`doc/legacy_timepilot/`](./legacy_timepilot/) 하위에 안전하게 격리 보존되어 있습니다:
 
-- Phase 1~2 문서(`0~5`, `phase2_*`)는 초기 외부 연동 중심 설계가 포함된 **역사 문서**입니다. 신규 작업의 정본은 `00-current-state.md`와 Phase 3 이후 문서입니다.
-- `/api/auth/signin`은 Microsoft OAuth 시작점이 아니라 **게스트 세션** 시작점입니다. Outlook OAuth 시작점은 `/api/auth/outlook`, 콜백은 `/api/auth/outlook/callback`입니다.
-- 사용자가 서비스를 연결하지 않아도 수동 입력, 붙여넣기 가져오기, 로컬 문서 폴더를 통해 업무 데이터를 만들 수 있어야 합니다.
-- 구 phase4 문서(`phase4_manual_data_fallback_spec.md`, `phase4_execution_plan.md`)는 존재하지 않습니다. manual/paste 무연동 설계는 `00-current-state.md`와 `7-backlog.md`의 G 항목이 정본입니다.
+- `legacy_timepilot/0-prerequisites.md` ~ `5-validation_log.md` : 초기 Microsoft Graph API 연동 명세
+- `legacy_timepilot/phase2_*.md` : 초기 Notion 연동 스펙
+- `legacy_timepilot/timepilot_ai_os_architecture.md` : 초창기 AI Work OS 브레인스토밍 장기 비전서
