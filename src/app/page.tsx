@@ -1972,6 +1972,15 @@ export default function Home() {
             <span>⭐</span>
             <span>바로가기 즐겨찾기</span>
           </button>
+          <button
+            type="button"
+            className={`${styles.widgetChip} ${activeWidget === "news" ? styles.widgetChipActive : ""}`}
+            onClick={() => setActiveWidget((prev) => (prev === "news" ? null : "news"))}
+            title="바이트컴퍼니 데일리바이트 경제/비즈니스 뉴스 기사 읽기"
+          >
+            <span>📰</span>
+            <span>바이트 경제</span>
+          </button>
         </div>
 
         {/* 선택된 위젯 패널 */}
@@ -2022,6 +2031,11 @@ export default function Home() {
         {activeWidget === "shortcuts" && (
           <div className={styles.widgetPanel}>
             <ShortcutsWidget shortcuts={appShortcuts} onError={showToast} />
+          </div>
+        )}
+        {activeWidget === "news" && (
+          <div className={styles.widgetPanel}>
+            <ByteNewsWidget onNotify={showToast} />
           </div>
         )}
       </div>
