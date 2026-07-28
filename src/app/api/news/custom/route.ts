@@ -166,7 +166,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 🚀 핵심: 각 개별 기사 URL 2차 Deep Fetch 및 언론사 UI 보일러플레이트 노이즈 100% 제거
+    // 🚀 핵심 인사이트 파싱: 2차 Deep Fetch 수행 후 팩트/원인/전망 3대 요점 추출
     const finalArticles: CustomNewsItem[] = await Promise.all(
       rawArticles.map(async (art, idx) => {
         let rawFullText = art.summary || "";
@@ -180,10 +180,10 @@ export async function POST(req: NextRequest) {
           } catch {}
         }
 
-        // 원문 대비 30% 비율 스마트 요약 (보일러플레이트 필터링 적용)
+        // 단순 서론 프리뷰를 폐지하고 핵심 팩트/원인/전망 3대 브리핑 요약 적용
         const summarizedText = isYouTube
           ? rawFullText
-          : summarizeTo30Percent(art.title, rawFullText, finalSiteName);
+          : extractKeyInsights(art.title, rawFullText, finalSiteName);
 
         return {
           id: `custom-smart-${idx}-${Date.now()}`,
@@ -220,7 +220,7 @@ export async function POST(req: NextRequest) {
 }
 
 /**
- * 🧹 언론사 UI 및 네비게이션 보일러플레이트 노이즈 문장 100% 판별기
+ * 🧹 언론사 UI 보일러플레이트 필터기
  */
 function isBoilerplateText(text: string): boolean {
   if (!text) return true;
@@ -253,28 +253,49 @@ function isBoilerplateText(text: string): boolean {
 }
 
 /**
- * 🚀 기사 원문 대비 30% 비율 스마트 AI 요약 파서
+ * 🎯 기사의 단순 서론/프리뷰 수집을 폐지하고, 핵심 팩트/원인/전망 3대 요점 추출 엔진
  */
-function summarizeTo30Percent(title: string, fullText: string, siteName: string): string {
+function extractKeyInsights(title: string, fullText: string, siteName: string): string {
   if (!fullText || fullText.length < 30) {
-    return `📌 [${siteName} 기사 핵심 브리핑]\n• 주요 내용: ${title}\n• 세부 요점: 아래 원문 읽기 링크를 누르시면 기사 전문을 바로 확인하실 수 있습니다.`;
+    return `📌 [${siteName} 기사 핵심 브리핑]\n• 핵심 팩트: ${title}\n• 주요 요점: 원문 링크를 눌러 실시간 기사 상세 내용을 확인해보세요.`;
   }
 
-  // 보일러플레이트 문장 제외 및 문단 분할
+  // 문장 분할 및 보일러플레이트 제외
   const sentences = fullText
     .split(/(?<=[.!?])\s+|\n+/)
     .map((s) => cleanText(s))
     .filter((s) => s.length > 15 && !isBoilerplateText(s));
 
   if (sentences.length === 0) {
-    return `📌 [${siteName} 기사 핵심 브리핑]\n• 주요 이슈: ${title}\n• 세부 내용: 아래 원문 링크를 눌러 기사 전문을 읽어보세요.`;
+    return `📌 [${siteName} 핵심 브리핑]\n• 핵심 팩트: ${title}\n• 세부 내용: 아래 원문 링크를 눌러 기사 전문을 확인해 보세요.`;
   }
 
-  // 원문 대비 30% 분량 계산 (최소 2문장, 최대 4문장)
-  const targetSentenceCount = Math.max(2, Math.min(4, Math.ceil(sentences.length * 0.3)));
-  const selectedSentences = sentences.slice(0, targetSentenceCount);
+  // 1. 핵심 팩트 문장 추출 (수치 데이터 %, 원, 달러, 억, 조, 급락/상승 등 포함 문장)
+  const factSentences = sentences.filter((s) =>
+    /[0-9%원달러억조pt포인트]/i.test(s) || /급락|상승|하락|패닉|발표|공개|개조|허용|합의|결정/i.test(s)
+  );
 
-  return `📌 [원문 30% 핵심 요약 브리핑]\n` + selectedSentences.map((s) => `• ${s}`).join("\n");
+  // 2. 주요 원인/배경 문장 추출
+  const causeSentences = sentences.filter((s) =>
+    /원인|배경|때문|여파|인해|따라|영향|우려|반응|이유/i.test(s)
+  );
+
+  // 3. 전망/결론 문장 추출
+  const outlookSentences = sentences.filter((s) =>
+    /전망|분석|예상|가능성|목표|계획|전망이다|밝혔다|보인다|평가/i.test(s)
+  );
+
+  // 각 카테고리별 최선의 문장 채택 (없으면 순서대로 보완)
+  const factStr = factSentences[0] || sentences[0] || title;
+  const causeStr = causeSentences[0] || sentences[1] || `${title}에 따른 시장 및 주요 반응`;
+  const outlookStr = outlookSentences[0] || sentences[2] || "관련 시장 영향 및 향후 추이에 대한 주요 분석";
+
+  return (
+    `🎯 [AI 기사 핵심 3대 팩트 브리핑]\n` +
+    `• 핵심 팩트: ${factStr}\n` +
+    `• 주요 배경/원인: ${causeStr}\n` +
+    `• 향후 전망/영향: ${outlookStr}`
+  );
 }
 
 /**
@@ -302,7 +323,6 @@ async function fetchArticleFullText(articleUrl: string): Promise<string> {
     if (!res.ok) return "";
     const html = await res.text();
 
-    // 1. 네이버 뉴스 및 주요 언론사 진짜 기사 본문 컨테이너 핀포인트 파싱
     const bodyContainerMatch =
       html.match(/<div[^>]*id=["']newsct_article["'][^>]*>([\s\S]*?)<\/div>/i) ||
       html.match(/<div[^>]*class=["'][^"']*newsct_article[^"']*["'][^>]*>([\s\S]*?)<\/div>/i) ||
@@ -314,7 +334,6 @@ async function fetchArticleFullText(articleUrl: string): Promise<string> {
 
     const bodyHtml = bodyContainerMatch ? bodyContainerMatch[1] : html;
 
-    // 본문 내 <p> 및 텍스트 문단 파싱
     const pMatches = Array.from(bodyHtml.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi))
       .map((m) => cleanText(m[1]))
       .filter((t) => t.length > 15 && !isBoilerplateText(t));
@@ -323,7 +342,6 @@ async function fetchArticleFullText(articleUrl: string): Promise<string> {
       return pMatches.join(" ");
     }
 
-    // fallback: 메타 og:description 사용
     const ogDescMatch =
       html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["']/i) ||
       html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i);
@@ -380,7 +398,7 @@ function getFallbackArticles(siteName: string, url: string): CustomNewsItem[] {
     {
       id: `fallback-1-${Date.now()}`,
       title: `${siteName} 실시간 최신 기사 및 이슈 목록`,
-      summary: `📌 [${siteName} 브리핑]\n• 주요 내용: ${siteName} 최신 기사 및 이슈 목록입니다.\n• 원문 읽기 링크를 누르시면 기사 전문을 확인하실 수 있습니다.`,
+      summary: `🎯 [${siteName} 기사 핵심 브리핑]\n• 핵심 팩트: ${siteName} 최신 기사 및 이슈 목록입니다.\n• 향후 전망: 원문 읽기 링크를 누르시면 기사 전문을 확인하실 수 있습니다.`,
       date: "실시간",
       url: url || "#",
     },
