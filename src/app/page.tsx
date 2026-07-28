@@ -70,6 +70,7 @@ import { CalculatorWidget } from "./components/CalculatorWidget";
 import { ShortcutsWidget } from "./components/ShortcutsWidget";
 import { WeatherWidget } from "./components/WeatherWidget";
 import { ByteNewsWidget } from "./components/ByteNewsWidget";
+import { ThreeProWidget } from "./components/ThreeProWidget";
 import { CommuteConfig, CommuteStop } from "@/lib/types/commute";
 import { AppShortcut } from "@/lib/types/appShortcut";
 import { saveRawContent, getRawContent } from "@/lib/browser/rawStore";
@@ -1981,6 +1982,15 @@ export default function Home() {
             <span>📰</span>
             <span>바이트 경제</span>
           </button>
+          <button
+            type="button"
+            className={`${styles.widgetChip} ${activeWidget === "threepro" ? styles.widgetChipActive : ""}`}
+            onClick={() => setActiveWidget((prev) => (prev === "threepro" ? null : "threepro"))}
+            title="삼프로TV 경제/증시 심층 분석 브리핑 영상 보기"
+          >
+            <span>📺</span>
+            <span>삼프로TV</span>
+          </button>
         </div>
 
         {/* 선택된 위젯 패널 */}
@@ -2036,6 +2046,11 @@ export default function Home() {
         {activeWidget === "news" && (
           <div className={styles.widgetPanel}>
             <ByteNewsWidget onNotify={showToast} />
+          </div>
+        )}
+        {activeWidget === "threepro" && (
+          <div className={styles.widgetPanel}>
+            <ThreeProWidget onNotify={showToast} />
           </div>
         )}
       </div>
