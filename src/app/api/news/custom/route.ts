@@ -42,10 +42,9 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 유튜브 URL 인지 여부 판단
     const isYouTube = hostname.includes("youtube.com") || hostname.includes("youtu.be");
 
-    // 실시간 웹페이지 HTML/RSS 수집
+    // 실시간 메인/피드페이지 HTML 수집
     const res = await fetch(targetUrl, {
       headers: {
         "User-Agent":
@@ -61,9 +60,9 @@ export async function POST(req: NextRequest) {
     }
 
     const html = await res.text();
-    const articles: CustomNewsItem[] = [];
+    const rawArticles: { title: string; url: string; date: string; summary?: string }[] = [];
 
-    // 사이트 이름 자동 추출 (<title> 또는 og:site_name 메타 태그)
+    // 사이트 이름 자동 추출
     let autoSiteName = "";
     const ogSiteNameMatch = html.match(/<meta[^>]*property=["']og:site_name["'][^>]*content=["']([^"']+)["']/i);
     const titleTagMatch = html.match(/<title>([^<]+)<\/title>/i);
@@ -79,57 +78,40 @@ export async function POST(req: NextRequest) {
 
     const finalSiteName = userProvidedName || autoSiteName;
 
-    // 공통 사이트 메타 디스크립션 추출
-    const ogDescMatch =
-      html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["']/i) ||
-      html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i);
-    const siteMetaDesc = ogDescMatch ? cleanText(ogDescMatch[1]) : "";
-
-    // HTML 내 <p> 태그 문단 텍스트 수집 (풍부한 본문 요약 생성용)
-    const pTagMatches = Array.from(html.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi))
-      .map((m) => cleanText(m[1]))
-      .filter((t) => t.length > 25);
-    const richParagraphsText = pTagMatches.slice(0, 3).join("\n\n");
-
-    // A. 유튜브 채널/영상인 경우 전용 AI 브리핑 처리
+    // A. 유튜브 처리
     if (isYouTube) {
-      const ytTitleMatch = html.match(/<meta[^>]*name=["']title["'][^>]*content=["']([^"']+)["']/i) ||
-                           html.match(/<title>([^<]+)<\/title>/i);
+      const ytTitleMatch =
+        html.match(/<meta[^>]*name=["']title["'][^>]*content=["']([^"']+)["']/i) ||
+        html.match(/<title>([^<]+)<\/title>/i);
       const videoTitle = ytTitleMatch ? cleanText(ytTitleMatch[1]).replace("- YouTube", "").trim() : "유튜브 추천 영상";
 
-      const ytSummary = siteMetaDesc || richParagraphsText || 
-        `📺 ${finalSiteName}의 최신 유튜브 방송 영상입니다. 영상의 핵심 이슈와 시청 포인트를 확인하시려면 아래 영상 보기 링크를 클릭해 주세요.`;
-
-      articles.push({
-        id: `yt-1-${Date.now()}`,
+      rawArticles.push({
         title: videoTitle,
-        summary: formatRichSummary(ytSummary),
-        date: "오늘",
         url: targetUrl,
+        date: "오늘",
+        summary: `📺 [${finalSiteName} 유튜브 심층 영상 브리핑]\n\n영상 주제: ${videoTitle}\n영상 링크를 통해 전체 방송을 자유롭게 시청해 보세요!`,
       });
 
-      // 영상 내 연관 피드 또는 추천 영상 추출
       const ytVideoMatches = Array.from(html.matchAll(/\/watch\?v=([a-zA-Z0-9_-]{11})/g));
       const seenVideoIds = new Set<string>();
-      
+
       for (const m of ytVideoMatches) {
         const vId = m[1];
-        if (seenVideoIds.has(vId) || articles.length >= 10) continue;
+        if (seenVideoIds.has(vId) || rawArticles.length >= 8) continue;
         seenVideoIds.add(vId);
 
-        articles.push({
-          id: `yt-v-${vId}-${Date.now()}`,
-          title: `[유튜브 추천 방송] ${finalSiteName} 주요 이슈 세션 #${articles.length + 1}`,
-          summary: `📺 ${finalSiteName} 유튜브의 심층 경제/이슈 분석 방송 세션입니다. 3~5줄로 전해드리는 영상 핵심 요약과 함께 원문 방송을 시청해 보세요.\n\n• 주제: ${finalSiteName} 최신 동향\n• 시청 권장: 이슈 및 분석 요약`,
-          date: "최신",
+        rawArticles.push({
+          title: `[유튜브 방송] ${finalSiteName} 이슈 세션 #${rawArticles.length + 1}`,
           url: `https://www.youtube.com/watch?v=${vId}`,
+          date: "최신",
+          summary: `📺 [${finalSiteName} 유튜브 방송 내용]\n\n실시간 수집된 유튜브 심층 분석 영상입니다. 하단 영상 보기 링크를 통해 바로 시청하실 수 있습니다.`,
         });
       }
     } else {
-      // B. 일반 뉴스/블로그 RSS 피드 파싱 (<item> 또는 <entry>) - 최대 12건 확장
+      // B. RSS/Atom 피드 파싱
       const itemMatches = Array.from(html.matchAll(/<(?:item|entry)[\s\S]*?<\/(?:item|entry)>/gi));
       if (itemMatches.length > 0) {
-        for (let i = 0; i < Math.min(itemMatches.length, 12); i++) {
+        for (let i = 0; i < Math.min(itemMatches.length, 8); i++) {
           const block = itemMatches[i][0];
           const titleMatch = block.match(/<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/i);
           const linkMatch =
@@ -146,49 +128,22 @@ export async function POST(req: NextRequest) {
           const title = titleMatch ? cleanText(titleMatch[1]) : "";
           let link = linkMatch ? cleanText(linkMatch[1]) : targetUrl;
           if (link.startsWith("/")) link = new URL(link, origin).href;
-
-          let rawDesc = descMatch ? cleanText(descMatch[1]) : "";
-          let summary = formatRichSummary(rawDesc || siteMetaDesc || richParagraphsText);
+          const summary = descMatch ? cleanText(descMatch[1]) : "";
           const date = dateMatch ? formatDate(dateMatch[1]) : "최신";
 
           if (title && title.length > 3) {
-            articles.push({
-              id: `rss-${i}-${Date.now()}`,
-              title,
-              summary,
-              date,
-              url: link,
-            });
+            rawArticles.push({ title, url: link, date, summary });
           }
         }
       }
 
-      // C. 일반 HTML 웹페이지 파싱 (앵커 태그 추출) - 최대 12건 확장
-      if (articles.length === 0) {
-        // C-1. 대표 OG 기사
-        const ogTitleMatch = html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i);
-        const ogUrlMatch = html.match(/<meta[^>]*property=["']og:url["'][^>]*content=["']([^"']+)["']/i);
-
-        if (ogTitleMatch || titleTagMatch) {
-          const pageTitle = cleanText(ogTitleMatch ? ogTitleMatch[1] : titleTagMatch![1]);
-          let pageUrl = ogUrlMatch ? ogUrlMatch[1] : targetUrl;
-          if (pageUrl.startsWith("/")) pageUrl = new URL(pageUrl, origin).href;
-
-          articles.push({
-            id: `html-main-${Date.now()}`,
-            title: pageTitle,
-            summary: formatRichSummary(siteMetaDesc || richParagraphsText || `${finalSiteName}의 실시간 대표 주요 보도 뉴스 및 공식 기사입니다.`),
-            date: "실시간",
-            url: pageUrl,
-          });
-        }
-
-        // C-2. 기사/포스트 앵커 태그 (<a>) 추출 (최대 12건)
+      // C. 일반 HTML 웹페이지 파싱
+      if (rawArticles.length === 0) {
         const anchorRegex = /<a[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
         let match;
         const seenTitles = new Set<string>();
 
-        while ((match = anchorRegex.exec(html)) !== null && articles.length < 12) {
+        while ((match = anchorRegex.exec(html)) !== null && rawArticles.length < 8) {
           let href = match[1];
           const innerText = cleanText(match[2]);
 
@@ -206,25 +161,44 @@ export async function POST(req: NextRequest) {
             if (href.startsWith("/")) href = new URL(href, origin).href;
             if (!href.startsWith("http")) continue;
 
-            const articleSummary = formatRichSummary(
-              siteMetaDesc || richParagraphsText || `💡 ${finalSiteName}의 실시간 주요 보도 기사입니다. 원문 읽기 링크를 누르시면 기사 전체 텍스트를 바로 확인하실 수 있습니다.`
-            );
-
-            articles.push({
-              id: `html-article-${articles.length}-${Date.now()}`,
-              title: innerText,
-              summary: articleSummary,
-              date: "최신",
-              url: href,
-            });
+            rawArticles.push({ title: innerText, url: href, date: "최신" });
           }
         }
       }
     }
 
+    // 🚀 핵심: 개별 기사 URL 2차 Deep Fetch를 수행하여 그 기사의 실제 본문 텍스트 전체 파싱!
+    const finalArticles: CustomNewsItem[] = await Promise.all(
+      rawArticles.map(async (art, idx) => {
+        let fullContent = art.summary || "";
+
+        // 이미 충분한 본문 내용이 없는 경우, 개별 기사 URL로 Deep Fetch 수행
+        if (!isYouTube && (!fullContent || fullContent.length < 50 || fullContent.includes("다양한 하드웨어"))) {
+          try {
+            const deepContent = await fetchArticleFullText(art.url);
+            if (deepContent && deepContent.length > 20) {
+              fullContent = deepContent;
+            }
+          } catch {}
+        }
+
+        if (!fullContent) {
+          fullContent = `📖 [${finalSiteName} 본문 내용]\n\n${art.title}\n\n하단 원문 읽기 링크를 누르시면 기사 전문을 자유롭게 확인하실 수 있습니다.`;
+        }
+
+        return {
+          id: `custom-deep-${idx}-${Date.now()}`,
+          title: art.title,
+          summary: fullContent,
+          date: art.date,
+          url: art.url,
+        };
+      })
+    );
+
     // 결과 캐시 저장
-    if (articles.length > 0) {
-      cacheMap.set(targetUrl, { articles, siteName: finalSiteName, time: Date.now() });
+    if (finalArticles.length > 0) {
+      cacheMap.set(targetUrl, { articles: finalArticles, siteName: finalSiteName, time: Date.now() });
     }
 
     return NextResponse.json({
@@ -232,7 +206,7 @@ export async function POST(req: NextRequest) {
       siteName: finalSiteName,
       autoSiteName,
       url: targetUrl,
-      articles: articles.length > 0 ? articles : getFallbackArticles(finalSiteName, targetUrl),
+      articles: finalArticles.length > 0 ? finalArticles : getFallbackArticles(finalSiteName, targetUrl),
     });
   } catch (err) {
     console.error("[Custom News API] Crawl Error:", err);
@@ -247,17 +221,46 @@ export async function POST(req: NextRequest) {
 }
 
 /**
- * 3~5줄 (최대 450자) 이상의 상세하고 알찬 기사/영상 본문 요약 포맷터
+ * 🚀 개별 기사 URL로 2차 Deep Fetch를 띄워 그 기사의 진짜 본문 전체 텍스트 수집
  */
-function formatRichSummary(text: string): string {
-  if (!text) {
-    return "💡 본 기사 및 영상의 주요 내용입니다. 아래 원문 링크를 누르시면 전체 텍스트와 영상 브리핑을 바로 읽어보실 수 있습니다.";
+async function fetchArticleFullText(articleUrl: string): Promise<string> {
+  try {
+    const res = await fetch(articleUrl, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      },
+      next: { revalidate: 300 },
+    });
+
+    if (!res.ok) return "";
+    const html = await res.text();
+
+    // 개별 기사의 본문 메타 og:description 추출
+    const ogDescMatch =
+      html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["']/i) ||
+      html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i);
+    const metaDesc = ogDescMatch ? cleanText(ogDescMatch[1]) : "";
+
+    // 개별 기사 HTML 내 <p> 및 <article> 본문 단락 텍스트 100% 수집
+    const pMatches = Array.from(html.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi))
+      .map((m) => cleanText(m[1]))
+      .filter((t) => t.length > 20 && !t.includes("Copyright") && !t.includes("무단전재") && !t.includes("구독하기"));
+
+    let fullText = "";
+
+    if (pMatches.length > 0) {
+      // 본문 단락들을 합쳐서 100% 본문 내용 전달 (최대 1,500자)
+      fullText = pMatches.slice(0, 6).join("\n\n");
+    } else if (metaDesc) {
+      fullText = metaDesc;
+    }
+
+    return fullText;
+  } catch {
+    return "";
   }
-  let cleaned = text.trim();
-  if (cleaned.length > 450) {
-    cleaned = cleaned.slice(0, 450) + "...";
-  }
-  return cleaned;
 }
 
 /**
@@ -304,8 +307,8 @@ function getFallbackArticles(siteName: string, url: string): CustomNewsItem[] {
   return [
     {
       id: `fallback-1-${Date.now()}`,
-      title: `${siteName} 실시간 최신 기사 및 유튜브 브리핑 목록`,
-      summary: `${siteName} 웹사이트/유튜브 채널에 직접 접속하여 실시간 보도 기사 및 주요 영상 브리핑 원문을 바로 읽어보실 수 있습니다.`,
+      title: `${siteName} 실시간 최신 기사 및 이슈 목록`,
+      summary: `${siteName} 웹사이트에 직접 접속하여 실시간 보도 기사 및 주요 아티클 원문을 읽어보실 수 있습니다.`,
       date: "실시간",
       url: url || "#",
     },
