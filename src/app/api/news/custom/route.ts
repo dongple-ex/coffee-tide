@@ -78,9 +78,8 @@ export async function POST(req: NextRequest) {
 
     const finalSiteName = userProvidedName || autoSiteName;
 
-    // 📺 A. 유튜브 채널 및 동영상 정밀 RSS & 딥 파싱
+    // 📺 A. 유튜브 처리
     if (isYouTube) {
-      // 1. HTML 내 channel_id 추출 탐색 (예: "channelId":"UC...", "UC...")
       const channelIdMatch =
         html.match(/["']channelId["']\s*:\s*["'](UC[a-zA-Z0-9_-]+)["']/i) ||
         html.match(/itemprop=["']channelId["']\s*content=["'](UC[a-zA-Z0-9_-]+)["']/i) ||
@@ -109,15 +108,11 @@ export async function POST(req: NextRequest) {
               const vDate = dateMatch ? formatDate(dateMatch[1]) : "최신";
 
               if (vTitle && vLink) {
-                const summaryText = vDesc
-                  ? `${vTitle} 동영상 세션입니다. ${vDesc.slice(0, 150)}... 영상 보기 링크를 누르시면 원본 방송을 바로 시청하실 수 있습니다.`
-                  : `${vTitle} 유튜브 동영상입니다. 아래 영상 보기 링크를 누르시면 전체 내용을 감상하실 수 있습니다.`;
-
                 rawArticles.push({
                   title: vTitle,
                   url: vLink,
                   date: vDate,
-                  summary: summaryText,
+                  summary: vDesc,
                 });
               }
             }
@@ -127,7 +122,6 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // 2. RSS 추출 실패 시 HTML 내 watch?v= 링크 딥 Fetch
       if (rawArticles.length === 0) {
         const ytVideoMatches = Array.from(html.matchAll(/\/watch\?v=([a-zA-Z0-9_-]{11})/g));
         const seenVideoIds = new Set<string>();
@@ -138,7 +132,7 @@ export async function POST(req: NextRequest) {
           seenVideoIds.add(vId);
 
           const videoUrl = `https://www.youtube.com/watch?v=${vId}`;
-          const details = await fetchYouTubeVideoDetails(videoUrl, finalSiteName);
+          const details = await fetchYouTubeVideoDetails(videoUrl);
 
           if (details.title) {
             rawArticles.push({
@@ -151,7 +145,7 @@ export async function POST(req: NextRequest) {
         }
       }
     } else {
-      // B. 일반 사이트 RSS/Atom 피드 파싱
+      // B. RSS/Atom 피드 파싱
       const itemMatches = Array.from(html.matchAll(/<(?:item|entry)[\s\S]*?<\/(?:item|entry)>/gi));
       if (itemMatches.length > 0) {
         for (let i = 0; i < Math.min(itemMatches.length, 8); i++) {
@@ -205,23 +199,29 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 🚀 2차 Deep Fetch 및 요약 렌더링
+    // 🚀 핵심: 제목만 있거나 요약이 부실한 경우 실시간 강제 딥 크롤링을 수행하여 알짜배기 핵심 내용 전달
     const finalArticles: CustomNewsItem[] = await Promise.all(
       rawArticles.map(async (art, idx) => {
         let rawFullText = art.summary || "";
 
-        if (!isYouTube && (!rawFullText || rawFullText.length < 50)) {
+        // 제목만 가져왔거나 요약이 40자 미만인 경우 무조건 강제 Deep Fetch 수행!
+        if (isWeakSummary(art.title, rawFullText)) {
           try {
-            const deepContent = await fetchArticleFullText(art.url);
-            if (deepContent && deepContent.length > 20) {
-              rawFullText = deepContent;
+            if (isYouTube) {
+              const details = await fetchYouTubeVideoDetails(art.url);
+              if (details.summary) rawFullText = details.summary;
+            } else {
+              const deepContent = await fetchArticleFullText(art.url);
+              if (deepContent && deepContent.length > 20) {
+                rawFullText = deepContent;
+              }
             }
           } catch {}
         }
 
         const summarizedText = isYouTube
-          ? rawFullText
-          : extractNaturalSummary(art.title, rawFullText);
+          ? formatYouTubeSummary(art.title, rawFullText)
+          : extractRichKeySummary(art.title, rawFullText);
 
         return {
           id: `custom-smart-${idx}-${Date.now()}`,
@@ -258,39 +258,20 @@ export async function POST(req: NextRequest) {
 }
 
 /**
- * 📺 개별 유튜브 동영상 링크로 Deep Fetch하여 진짜 동영상 제목(og:title) 및 영상 설명(og:description) 수집
+ * 💡 요약 텍스트가 제목과 중복되거나 40자 미만으로 부실한지 판별하는 검사기
  */
-async function fetchYouTubeVideoDetails(videoUrl: string, channelName: string): Promise<{ title: string; summary: string }> {
-  try {
-    const res = await fetch(videoUrl, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-      },
-      next: { revalidate: 300 },
-    });
+function isWeakSummary(title: string, summary: string): boolean {
+  if (!summary || summary.trim().length < 40) return true;
+  const cleanTitle = title.replace(/[^a-zA-Z0-9가-힣]/g, "");
+  const cleanSummary = summary.replace(/[^a-zA-Z0-9가-힣]/g, "");
 
-    if (!res.ok) return { title: "", summary: "" };
-    const html = await res.text();
-
-    const ogTitleMatch =
-      html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i) ||
-      html.match(/<title>([^<]+)<\/title>/i);
-    const ogDescMatch =
-      html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["']/i) ||
-      html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i);
-
-    const title = ogTitleMatch ? cleanText(ogTitleMatch[1]).replace("- YouTube", "").trim() : "";
-    const desc = ogDescMatch ? cleanText(ogDescMatch[1]) : "";
-
-    const summary = desc
-      ? `${title} 방송 콘텐츠입니다. ${desc.slice(0, 150)}... 아래 영상 보기 링크를 통해 바로 시청하실 수 있습니다.`
-      : `${title} 유튜브 방송 영상입니다. 원본 동영상 링크를 누르시면 영상을 바로 시청하실 수 있습니다.`;
-
-    return { title, summary };
-  } catch {
-    return { title: "", summary: "" };
+  if (cleanSummary.includes(cleanTitle) && cleanSummary.length < cleanTitle.length + 30) {
+    return true;
   }
+  if (summary.includes("동영상 세션입니다") || summary.includes("주요 영상 세션")) {
+    return true;
+  }
+  return false;
 }
 
 /**
@@ -327,11 +308,11 @@ function isBoilerplateText(text: string): boolean {
 }
 
 /**
- * 📜 물 흐르듯 읽히는 자연스러운 줄글 요약 파서
+ * 📜 원문 클릭 없이 핵심 알짜배기 내용을 전달하는 3줄 줄글 파서
  */
-function extractNaturalSummary(title: string, fullText: string): string {
+function extractRichKeySummary(title: string, fullText: string): string {
   if (!fullText || fullText.length < 30) {
-    return `${title}에 대한 실시간 주요 아티클 내용입니다. 원문 읽기 링크를 통해 기사의 전체 텍스트와 상세 내용을 편안하게 확인하실 수 있습니다.`;
+    return `${title}에 관한 실시간 핵심 아티클 소식입니다. 기사 원문을 직접 방문하지 않고도 핵심 이슈를 한눈에 파악하실 수 있습니다.`;
   }
 
   const sentences = fullText
@@ -340,13 +321,66 @@ function extractNaturalSummary(title: string, fullText: string): string {
     .filter((s) => s.length > 15 && !isBoilerplateText(s));
 
   if (sentences.length === 0) {
-    return `${title}에 관한 핵심 소식입니다. 상세한 배경과 원문 텍스트는 하단 원문 읽기 링크를 클릭하여 바로 확인해 보세요.`;
+    return `${title}에 관한 주요 보도 내용입니다. 기사의 구체적인 사실 관계와 핵심 세부사항을 제공합니다.`;
   }
 
-  const targetCount = Math.max(2, Math.min(3, Math.ceil(sentences.length * 0.3)));
-  const selectedSentences = sentences.slice(0, targetCount);
+  // 사건 팩트/수치 데이터/결론 이유를 지닌 주요 문장 2~3개 추출
+  const keySentences = sentences.filter((s) =>
+    /[0-9%원달러억조pt포인트]/i.test(s) || /급락|상승|하락|발표|공개|허용|결정|원인|영향|전망|밝혔다|전망이다/i.test(s)
+  );
 
-  return selectedSentences.join(" ");
+  const finalSentences = keySentences.length >= 2 ? keySentences.slice(0, 3) : sentences.slice(0, 3);
+  return finalSentences.join(" ");
+}
+
+/**
+ * 📺 유튜브 영상 설명 알짜배기 요약 파서
+ */
+function formatYouTubeSummary(title: string, description: string): string {
+  if (!description || description.length < 20) {
+    return `${title} 방송 세션입니다. 주요 토크 주제와 핵심 영상 내용을 빠르게 시청하실 수 있도록 원본 영상을 제공합니다.`;
+  }
+
+  const cleanedDesc = description
+    .split("\n")
+    .map((l) => cleanText(l))
+    .filter((l) => l.length > 15 && !l.includes("http") && !l.includes("구독"))
+    .slice(0, 2)
+    .join(" ");
+
+  return `${cleanedDesc || description.slice(0, 150)}`;
+}
+
+/**
+ * 개별 유튜브 동영상 주소 딥 Fetch (og:title, og:description)
+ */
+async function fetchYouTubeVideoDetails(videoUrl: string): Promise<{ title: string; summary: string }> {
+  try {
+    const res = await fetch(videoUrl, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+      },
+      next: { revalidate: 300 },
+    });
+
+    if (!res.ok) return { title: "", summary: "" };
+    const html = await res.text();
+
+    const ogTitleMatch =
+      html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i) ||
+      html.match(/<title>([^<]+)<\/title>/i);
+    const ogDescMatch =
+      html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["']/i) ||
+      html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i);
+
+    const title = ogTitleMatch ? cleanText(ogTitleMatch[1]).replace("- YouTube", "").trim() : "";
+    const desc = ogDescMatch ? cleanText(ogDescMatch[1]) : "";
+
+    return { title, summary: desc };
+  } catch {
+    return { title: "", summary: "" };
+  }
 }
 
 /**
@@ -440,8 +474,8 @@ function getFallbackArticles(siteName: string, url: string): CustomNewsItem[] {
   return [
     {
       id: `fallback-1-${Date.now()}`,
-      title: `${siteName} 실시간 최신 동영상 및 소식`,
-      summary: `${siteName}의 최신 영상 콘텐츠 목록입니다. 하단 영상 보기 링크를 클릭하시면 전체 원본 동영상을 바로 시청하실 수 있습니다.`,
+      title: `${siteName} 실시간 최신 소식 및 아티클`,
+      summary: `${siteName}의 실시간 소식 및 아티클 원문 내용입니다. 원문 읽기 링크를 통해 전체 콘텐츠를 바로 확인하실 수 있습니다.`,
       date: "실시간",
       url: url || "#",
     },
