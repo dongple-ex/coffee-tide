@@ -374,16 +374,31 @@ export default function Home() {
   const [newWidgetName, setNewWidgetName] = useState("");
   const [newWidgetUrl, setNewWidgetUrl] = useState("");
 
-  const handleAddCustomWidget = () => {
-    const name = newWidgetName.trim();
-    const url = newWidgetUrl.trim();
-    if (!name || !url) return;
+  const handleAddCustomWidget = async () => {
+    const rawUrl = newWidgetUrl.trim();
+    if (!rawUrl) return;
+
+    let name = newWidgetName.trim();
+
+    // 사이트 이름이 비어있으면 URL 호스트네임/채널명에서 자동 추출하여 제목 생성
+    if (!name) {
+      try {
+        const targetUrl = rawUrl.startsWith("http") ? rawUrl : `https://${rawUrl}`;
+        const parsedHost = new URL(targetUrl).hostname.replace(/^www\./, "");
+        name = parsedHost.split(".")[0];
+        name = name.charAt(0).toUpperCase() + name.slice(1);
+      } catch {
+        name = "웹사이트";
+      }
+    }
+
+    const isYt = rawUrl.includes("youtube.com") || rawUrl.includes("youtu.be");
 
     const newWidget: CustomWidgetConfig = {
       id: `custom-${Date.now()}`,
       name,
-      url,
-      icon: "🌐",
+      url: rawUrl,
+      icon: isYt ? "📺" : "🌐",
       createdAt: new Date().toISOString(),
     };
 
@@ -397,7 +412,7 @@ export default function Home() {
     setNewWidgetUrl("");
     setShowAddCustomModal(false);
     setActiveWidget(newWidget.id);
-    showToast(`나만의 위젯 [🌐 ${name}]이 추가되었습니다!`);
+    showToast(`나만의 위젯 [${newWidget.icon} ${name}]이 자동 생성되었습니다!`);
   };
 
   const handleDeleteCustomWidget = (id: string) => {
@@ -2583,22 +2598,26 @@ export default function Home() {
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 12, fontSize: "0.82rem" }}>
               <div>
-                <label style={{ fontWeight: 600, display: "block", marginBottom: 4 }}>사이트 이름</label>
+                <label style={{ fontWeight: 600, display: "block", marginBottom: 4 }}>
+                  사이트/유튜브 웹주소 (URL) <span style={{ color: "var(--accent)", fontWeight: 700 }}>*필수</span>
+                </label>
                 <input
-                  type="text"
-                  placeholder="예: 네이버 뉴스 / 테크크런치 / 개발 블로그"
-                  value={newWidgetName}
-                  onChange={(e) => setNewWidgetName(e.target.value)}
+                  type="url"
+                  placeholder="예: https://news.naver.com 또는 https://www.youtube.com/@3ProTV"
+                  value={newWidgetUrl}
+                  onChange={(e) => setNewWidgetUrl(e.target.value)}
                   style={{ width: "100%", padding: "6px 10px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)" }}
                 />
               </div>
               <div>
-                <label style={{ fontWeight: 600, display: "block", marginBottom: 4 }}>사이트 웹주소 (URL)</label>
+                <label style={{ fontWeight: 600, display: "block", marginBottom: 4 }}>
+                  사이트 이름 <span style={{ color: "var(--text-dim)", fontWeight: 400 }}>(선택 - 비워두면 주소에서 자동 채움)</span>
+                </label>
                 <input
-                  type="url"
-                  placeholder="예: https://news.naver.com 또는 https://blog.example.com"
-                  value={newWidgetUrl}
-                  onChange={(e) => setNewWidgetUrl(e.target.value)}
+                  type="text"
+                  placeholder="미입력 시 URL 주소에서 이름이 자동으로 추출됩니다"
+                  value={newWidgetName}
+                  onChange={(e) => setNewWidgetName(e.target.value)}
                   style={{ width: "100%", padding: "6px 10px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)" }}
                 />
               </div>
