@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
 
     const finalSiteName = userProvidedName || autoSiteName;
 
-    // A. 유튜브 영상/채널 분석 처리
+    // A. 유튜브 처리
     if (isYouTube) {
       const ytTitleMatch =
         html.match(/<meta[^>]*name=["']title["'][^>]*content=["']([^"']+)["']/i) ||
@@ -88,16 +88,13 @@ export async function POST(req: NextRequest) {
       const ogDescMatch = html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["']/i);
       const videoDesc = ogDescMatch ? cleanText(ogDescMatch[1]) : "";
 
-      const ytAnalysis = analyzeYouTubeVideo(videoTitle, videoDesc, finalSiteName);
-
       rawArticles.push({
         title: videoTitle,
         url: targetUrl,
         date: "오늘",
-        summary: ytAnalysis,
+        summary: analyzeYouTubeVideo(videoTitle, videoDesc, finalSiteName),
       });
 
-      // 영상 목록 파싱
       const ytVideoMatches = Array.from(html.matchAll(/\/watch\?v=([a-zA-Z0-9_-]{11})/g));
       const seenVideoIds = new Set<string>();
 
@@ -138,7 +135,7 @@ export async function POST(req: NextRequest) {
           const summary = descMatch ? cleanText(descMatch[1]) : "";
           const date = dateMatch ? formatDate(dateMatch[1]) : "최신";
 
-          if (title && title.length > 3) {
+          if (title && title.length > 3 && !isBoilerplateText(title)) {
             rawArticles.push({ title, url: link, date, summary });
           }
         }
@@ -157,12 +154,7 @@ export async function POST(req: NextRequest) {
           if (
             innerText.length >= 10 &&
             !seenTitles.has(innerText) &&
-            !innerText.includes("로그인") &&
-            !innerText.includes("회원가입") &&
-            !innerText.includes("이용약관") &&
-            !innerText.includes("개인정보") &&
-            !innerText.includes("전체보기") &&
-            !innerText.includes("더보기")
+            !isBoilerplateText(innerText)
           ) {
             seenTitles.add(innerText);
             if (href.startsWith("/")) href = new URL(href, origin).href;
@@ -174,12 +166,12 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 🚀 핵심: 개별 기사 2차 Deep Fetch 후 원문 100% 수집 ➔ 스마트 30% AI 요약 적용!
+    // 🚀 핵심: 각 개별 기사 URL 2차 Deep Fetch 및 언론사 UI 보일러플레이트 노이즈 100% 제거
     const finalArticles: CustomNewsItem[] = await Promise.all(
       rawArticles.map(async (art, idx) => {
         let rawFullText = art.summary || "";
 
-        if (!isYouTube && (!rawFullText || rawFullText.length < 50)) {
+        if (!isYouTube) {
           try {
             const deepContent = await fetchArticleFullText(art.url);
             if (deepContent && deepContent.length > 20) {
@@ -188,7 +180,7 @@ export async function POST(req: NextRequest) {
           } catch {}
         }
 
-        // 원문 대비 30% 비율 스마트 요약
+        // 원문 대비 30% 비율 스마트 요약 (보일러플레이트 필터링 적용)
         const summarizedText = isYouTube
           ? rawFullText
           : summarizeTo30Percent(art.title, rawFullText, finalSiteName);
@@ -228,18 +220,51 @@ export async function POST(req: NextRequest) {
 }
 
 /**
- * 🚀 기사 원문 대비 30% 비율 스마트 AI 요약 파서 (가독성 30% 핵심 요점 추출)
+ * 🧹 언론사 UI 및 네비게이션 보일러플레이트 노이즈 문장 100% 판별기
+ */
+function isBoilerplateText(text: string): boolean {
+  if (!text) return true;
+  const lower = text.toLowerCase();
+  const noiseKeywords = [
+    "구독되었습니다",
+    "언론사 구독",
+    "구독 해지",
+    "뉴스판",
+    "보러가기",
+    "주요뉴스",
+    "주요기사로선정한",
+    "주요기사로 선정",
+    "닫기",
+    "무단전재",
+    "재배포 금지",
+    "무단 전재",
+    "copyright",
+    "all rights reserved",
+    "기자의 다른기사",
+    "로그인",
+    "회원가입",
+    "이용약관",
+    "개인정보",
+    "전체보기",
+    "더보기",
+  ];
+
+  return noiseKeywords.some((kw) => lower.includes(kw));
+}
+
+/**
+ * 🚀 기사 원문 대비 30% 비율 스마트 AI 요약 파서
  */
 function summarizeTo30Percent(title: string, fullText: string, siteName: string): string {
-  if (!fullText || fullText.length < 50) {
-    return `📌 [${siteName} 기사 핵심 브리핑]\n• 주요 내용: ${title}\n• 핵심 요점: 본문 이슈 및 주요 시사점을 원문 링크를 통해 바로 읽어보실 수 있습니다.`;
+  if (!fullText || fullText.length < 30) {
+    return `📌 [${siteName} 기사 핵심 브리핑]\n• 주요 내용: ${title}\n• 세부 요점: 아래 원문 읽기 링크를 누르시면 기사 전문을 바로 확인하실 수 있습니다.`;
   }
 
-  // 문단/문장 단위 분할
+  // 보일러플레이트 문장 제외 및 문단 분할
   const sentences = fullText
-    .split(/(?<=[.!?])\s+/)
+    .split(/(?<=[.!?])\s+|\n+/)
     .map((s) => cleanText(s))
-    .filter((s) => s.length > 15 && !s.includes("Copyright") && !s.includes("무단전재"));
+    .filter((s) => s.length > 15 && !isBoilerplateText(s));
 
   if (sentences.length === 0) {
     return `📌 [${siteName} 기사 핵심 브리핑]\n• 주요 이슈: ${title}\n• 세부 내용: 아래 원문 링크를 눌러 기사 전문을 읽어보세요.`;
@@ -261,7 +286,7 @@ function analyzeYouTubeVideo(title: string, description: string, channelName: st
 }
 
 /**
- * 개별 기사 URL로 2차 Deep Fetch를 띄워 100% 원문 수집
+ * 🚀 개별 기사 URL로 2차 Deep Fetch를 띄워 '진짜 기사 본문 영역'만 핀포인트 수집
  */
 async function fetchArticleFullText(articleUrl: string): Promise<string> {
   try {
@@ -277,19 +302,37 @@ async function fetchArticleFullText(articleUrl: string): Promise<string> {
     if (!res.ok) return "";
     const html = await res.text();
 
-    const ogDescMatch =
-      html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["']/i) ||
-      html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i);
-    const metaDesc = ogDescMatch ? cleanText(ogDescMatch[1]) : "";
+    // 1. 네이버 뉴스 및 주요 언론사 진짜 기사 본문 컨테이너 핀포인트 파싱
+    const bodyContainerMatch =
+      html.match(/<div[^>]*id=["']newsct_article["'][^>]*>([\s\S]*?)<\/div>/i) ||
+      html.match(/<div[^>]*class=["'][^"']*newsct_article[^"']*["'][^>]*>([\s\S]*?)<\/div>/i) ||
+      html.match(/<div[^>]*id=["']articeBody["'][^>]*>([\s\S]*?)<\/div>/i) ||
+      html.match(/<div[^>]*id=["']newsEndContents["'][^>]*>([\s\S]*?)<\/div>/i) ||
+      html.match(/<article[^>]*>([\s\S]*?)<\/article>/i) ||
+      html.match(/<div[^>]*class=["'][^"']*article_body[^"']*["'][^>]*>([\s\S]*?)<\/div>/i) ||
+      html.match(/<div[^>]*class=["'][^"']*article-body[^"']*["'][^>]*>([\s\S]*?)<\/div>/i);
 
-    const pMatches = Array.from(html.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi))
+    const bodyHtml = bodyContainerMatch ? bodyContainerMatch[1] : html;
+
+    // 본문 내 <p> 및 텍스트 문단 파싱
+    const pMatches = Array.from(bodyHtml.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi))
       .map((m) => cleanText(m[1]))
-      .filter((t) => t.length > 20 && !t.includes("Copyright") && !t.includes("무단전재") && !t.includes("구독하기"));
+      .filter((t) => t.length > 15 && !isBoilerplateText(t));
 
     if (pMatches.length > 0) {
       return pMatches.join(" ");
     }
-    return metaDesc;
+
+    // fallback: 메타 og:description 사용
+    const ogDescMatch =
+      html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["']/i) ||
+      html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i);
+    const metaDesc = ogDescMatch ? cleanText(ogDescMatch[1]) : "";
+    if (metaDesc && !isBoilerplateText(metaDesc)) {
+      return metaDesc;
+    }
+
+    return "";
   } catch {
     return "";
   }
@@ -336,8 +379,8 @@ function getFallbackArticles(siteName: string, url: string): CustomNewsItem[] {
   return [
     {
       id: `fallback-1-${Date.now()}`,
-      title: `${siteName} 실시간 최신 기사 및 유튜브 브리핑 목록`,
-      summary: `📌 [${siteName} 브리핑]\n• 주요 내용: ${siteName} 최신 기사 및 영상 목록입니다.\n• 원문 읽기 링크를 누르시면 전체 콘텐츠를 읽어보실 수 있습니다.`,
+      title: `${siteName} 실시간 최신 기사 및 이슈 목록`,
+      summary: `📌 [${siteName} 브리핑]\n• 주요 내용: ${siteName} 최신 기사 및 이슈 목록입니다.\n• 원문 읽기 링크를 누르시면 기사 전문을 확인하실 수 있습니다.`,
       date: "실시간",
       url: url || "#",
     },
