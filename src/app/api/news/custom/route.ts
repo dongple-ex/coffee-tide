@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
         if (seenVideoIds.has(vId) || rawArticles.length >= 8) continue;
         seenVideoIds.add(vId);
 
-        const sessionTitle = `[유튜브 방송] ${finalSiteName} 이슈 분석 #${rawArticles.length + 1}`;
+        const sessionTitle = `[유튜브 방송] ${finalSiteName} 세션 #${rawArticles.length + 1}`;
         rawArticles.push({
           title: sessionTitle,
           url: `https://www.youtube.com/watch?v=${vId}`,
@@ -166,7 +166,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 🚀 핵심 인사이트 파싱: 2차 Deep Fetch 수행 후 팩트/원인/전망 3대 요점 추출
+    // 🚀 모든 사이트 유형(블로그/IT/뉴스/유튜브) 맞춤형 범용 스마트 AI 브리핑 렌더링
     const finalArticles: CustomNewsItem[] = await Promise.all(
       rawArticles.map(async (art, idx) => {
         let rawFullText = art.summary || "";
@@ -180,10 +180,9 @@ export async function POST(req: NextRequest) {
           } catch {}
         }
 
-        // 단순 서론 프리뷰를 폐지하고 핵심 팩트/원인/전망 3대 브리핑 요약 적용
         const summarizedText = isYouTube
           ? rawFullText
-          : extractKeyInsights(art.title, rawFullText, finalSiteName);
+          : extractUniversalInsights(art.title, rawFullText, finalSiteName);
 
         return {
           id: `custom-smart-${idx}-${Date.now()}`,
@@ -253,61 +252,76 @@ function isBoilerplateText(text: string): boolean {
 }
 
 /**
- * 🎯 기사의 단순 서론/프리뷰 수집을 폐지하고, 핵심 팩트/원인/전망 3대 요점 추출 엔진
+ * 🌐 모든 사이트(블로그/IT/뉴스/커뮤니티)에 다 잘 어울리는 범용 스마트 AI 브리핑 파서
  */
-function extractKeyInsights(title: string, fullText: string, siteName: string): string {
+function extractUniversalInsights(title: string, fullText: string, siteName: string): string {
   if (!fullText || fullText.length < 30) {
-    return `📌 [${siteName} 기사 핵심 브리핑]\n• 핵심 팩트: ${title}\n• 주요 요점: 원문 링크를 눌러 실시간 기사 상세 내용을 확인해보세요.`;
+    return (
+      `💡 [${siteName} 핵심 요약]\n\n` +
+      `• 주요 내용: ${title}\n\n` +
+      `• 세부 요점: 아래 원문 링크를 누르시면 전체 텍스트 및 아티클 내용을 바로 읽어보실 수 있습니다.`
+    );
   }
 
-  // 문장 분할 및 보일러플레이트 제외
+  const isFinancialNews = /코스피|코스닥|주가|증시|금리|환율|매수|매도|영업이익|실적|투자/i.test(title + fullText);
+
   const sentences = fullText
     .split(/(?<=[.!?])\s+|\n+/)
     .map((s) => cleanText(s))
     .filter((s) => s.length > 15 && !isBoilerplateText(s));
 
   if (sentences.length === 0) {
-    return `📌 [${siteName} 핵심 브리핑]\n• 핵심 팩트: ${title}\n• 세부 내용: 아래 원문 링크를 눌러 기사 전문을 확인해 보세요.`;
+    return (
+      `💡 [${siteName} 핵심 요약]\n\n` +
+      `• 주요 내용: ${title}\n\n` +
+      `• 세부 요점: 원문 링크를 통해 전체 글을 확인해 보세요.`
+    );
   }
 
-  // 1. 핵심 팩트 문장 추출 (수치 데이터 %, 원, 달러, 억, 조, 급락/상승 등 포함 문장)
-  const factSentences = sentences.filter((s) =>
-    /[0-9%원달러억조pt포인트]/i.test(s) || /급락|상승|하락|패닉|발표|공개|개조|허용|합의|결정/i.test(s)
-  );
+  const trimMax = (str: string) => (str.length > 160 ? str.slice(0, 160) + "..." : str);
 
-  // 2. 주요 원인/배경 문장 추출
-  const causeSentences = sentences.filter((s) =>
-    /원인|배경|때문|여파|인해|따라|영향|우려|반응|이유/i.test(s)
-  );
+  // 경제/증시 뉴스인 경우
+  if (isFinancialNews) {
+    const factStr = trimMax(sentences[0] || title);
+    const causeStr = trimMax(sentences[1] || `${title} 관련 시장 주요 배경`);
+    const outlookStr = trimMax(sentences[2] || "전문가 영향 분석 및 향후 예측");
 
-  // 3. 전망/결론 문장 추출
-  const outlookSentences = sentences.filter((s) =>
-    /전망|분석|예상|가능성|목표|계획|전망이다|밝혔다|보인다|평가/i.test(s)
-  );
+    return (
+      `📊 [뉴스 주요 브리핑]\n\n` +
+      `• 핵심 뉴스: ${factStr}\n\n` +
+      `• 배경/여파: ${causeStr}\n\n` +
+      `• 전망/분석: ${outlookStr}`
+    );
+  }
 
-  // 각 카테고리별 최선의 문장 채택 (없으면 순서대로 보완)
-  const factStr = factSentences[0] || sentences[0] || title;
-  const causeStr = causeSentences[0] || sentences[1] || `${title}에 따른 시장 및 주요 반응`;
-  const outlookStr = outlookSentences[0] || sentences[2] || "관련 시장 영향 및 향후 추이에 대한 주요 분석";
+  // 일반 블로그 / IT / 기술 / 소식 범용 포맷
+  const mainContent = trimMax(sentences[0] || title);
+  const detailPoint = trimMax(sentences[1] || `${title}에 대한 세부 설명`);
+  const conclusion = sentences[2] ? trimMax(sentences[2]) : null;
 
-  return (
-    `🎯 [AI 기사 핵심 3대 팩트 브리핑]\n` +
-    `• 핵심 팩트: ${factStr}\n` +
-    `• 주요 배경/원인: ${causeStr}\n` +
-    `• 향후 전망/영향: ${outlookStr}`
-  );
+  let result = `💡 [핵심 내용 요약]\n\n• 주요 내용: ${mainContent}\n\n• 세부 요점: ${detailPoint}`;
+  if (conclusion) {
+    result += `\n\n• 참고/결론: ${conclusion}`;
+  }
+
+  return result;
 }
 
 /**
  * 📺 유튜브 영상 심층 분석 파서
  */
 function analyzeYouTubeVideo(title: string, description: string, channelName: string): string {
-  const descSnippet = description ? description.slice(0, 150) : `${channelName}의 최신 이슈 심층 분석 방송입니다.`;
-  return `📺 [유튜브 영상 심층 분석 브리핑]\n• 영상 주제: ${title}\n• 주요 시청 포인트: ${descSnippet}\n• 권장 사항: 영상 보기 링크를 통해 핵심 토크 세션을 시청해 보세요!`;
+  const descSnippet = description ? description.slice(0, 140) : `${channelName}의 최신 방송 심층 분석 세션입니다.`;
+  return (
+    `📺 [유튜브 영상 브리핑]\n\n` +
+    `• 방송 주제: ${title}\n\n` +
+    `• 주요 시청 포인트: ${descSnippet}\n\n` +
+    `• 권장 사항: 영상 보기 링크를 통해 세션을 시청해 보세요!`
+  );
 }
 
 /**
- * 🚀 개별 기사 URL로 2차 Deep Fetch를 띄워 '진짜 기사 본문 영역'만 핀포인트 수집
+ * 개별 기사 URL로 2차 Deep Fetch를 띄워 '진짜 기사/아티클 본문 영역' 수집
  */
 async function fetchArticleFullText(articleUrl: string): Promise<string> {
   try {
@@ -397,8 +411,8 @@ function getFallbackArticles(siteName: string, url: string): CustomNewsItem[] {
   return [
     {
       id: `fallback-1-${Date.now()}`,
-      title: `${siteName} 실시간 최신 기사 및 이슈 목록`,
-      summary: `🎯 [${siteName} 기사 핵심 브리핑]\n• 핵심 팩트: ${siteName} 최신 기사 및 이슈 목록입니다.\n• 향후 전망: 원문 읽기 링크를 누르시면 기사 전문을 확인하실 수 있습니다.`,
+      title: `${siteName} 실시간 최신 아티클 및 정보 목록`,
+      summary: `💡 [${siteName} 요약]\n\n• 주요 내용: ${siteName} 실시간 아티클 및 소식입니다.\n\n• 세부 요점: 원문 링크를 누르시면 전체 내용을 바로 읽어보실 수 있습니다.`,
       date: "실시간",
       url: url || "#",
     },
