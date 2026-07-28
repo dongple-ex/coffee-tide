@@ -1,4 +1,4 @@
-// 인증 가드 — Next 16 규약(proxy.ts). doc/as-built-reference.md §2.
+// 인증 가드 — Next 16 규약(proxy.ts). doc/01-as-built-reference.md §2.
 // 공개 경로 외 요청에 세션 쿠키를 요구. 만료 판독은 평문 보조 쿠키(SESSION_EXPIRY_COOKIE).
 
 import { NextRequest, NextResponse } from "next/server";

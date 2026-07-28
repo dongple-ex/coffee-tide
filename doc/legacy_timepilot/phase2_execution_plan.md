@@ -1,6 +1,6 @@
 # Phase 2: 단계별 세부 개발 계획
 
-> ⚠️ **역사 문서 (Phase 2 · TimePilot 시절)** — Notion 초기 연동 설계 기록입니다. 신규 작업 기준: [`00-current-state.md`](./00-current-state.md) 및 Phase 3 이후 문서.
+> ⚠️ **역사 문서 (Phase 2 · TimePilot 시절)** — Notion 초기 연동 설계 기록입니다. 신규 작업 기준: [`00-product-spec.md`](../00-product-spec.md) 및 Phase 3 이후 문서.
 
 본 파트에서는 TimePilot Phase 2 (Notion Adapter 연동 및 UI 결합) 구현을 완수하기 위해 실행해야 할 작업을 단계별로 분할하고 구체적으로 작성해야 할 소스 파일 경로와 목적을 정의합니다.
 

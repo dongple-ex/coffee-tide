@@ -1,4 +1,4 @@
-// 공통 데이터 모델 — doc/00-current-state.md §3 정본 데이터 허브 기준.
+// 공통 데이터 모델 — doc/00-product-spec.md §3 정본 데이터 허브 기준.
 // manual/paste는 1급 소스(백로그 G1), gmail은 outlook과 별도 배지(백로그 A1).
 
 export type UnifiedSource =

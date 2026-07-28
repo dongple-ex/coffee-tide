@@ -69,6 +69,7 @@ import { TimerWidget } from "./components/TimerWidget";
 import { CalculatorWidget } from "./components/CalculatorWidget";
 import { ShortcutsWidget } from "./components/ShortcutsWidget";
 import { WeatherWidget } from "./components/WeatherWidget";
+import { ByteNewsWidget } from "./components/ByteNewsWidget";
 import { CommuteConfig, CommuteStop } from "@/lib/types/commute";
 import { AppShortcut } from "@/lib/types/appShortcut";
 import { saveRawContent, getRawContent } from "@/lib/browser/rawStore";
@@ -2026,7 +2027,7 @@ export default function Home() {
       </div>
 
       <div className={styles.grid}>
-        {/* G1: 빠른 업무 추가 + 붙여넣기 — 입력 경로가 최우선 (00-current-state §4.1) */}
+        {/* G1: 빠른 업무 추가 + 붙여넣기 — 입력 경로가 최우선 (00-product-spec §4.1) */}
         <section className={`${styles.card} ${styles.colInput}`}>
           <div className={styles.cardTitle}>
             ⚡ 빠른 업무 추가

@@ -1,6 +1,6 @@
 # TimePilot Phase 2 종합 구현 계획서: Notion Adapter 연동
 
-> ⚠️ **역사 문서 (Phase 2 · TimePilot 시절)** — Notion 초기 연동 설계 기록입니다. 현행 설계에서 Notion 연동은 `.env` 고정이 아니라 커넥션 매니저를 통한 세션 저장 방식입니다([`phase3_execution_plan.md`](./phase3_execution_plan.md) 참조). 신규 작업 기준: [`00-current-state.md`](./00-current-state.md) 및 Phase 3 이후 문서.
+> ⚠️ **역사 문서 (Phase 2 · TimePilot 시절)** — Notion 초기 연동 설계 기록입니다. 현행 설계에서 Notion 연동은 `.env` 고정이 아니라 커넥션 매니저를 통한 세션 저장 방식입니다([`phase3-execution-plan.md`](../spec/phase3-execution-plan.md) 참조). 신규 작업 기준: [`00-product-spec.md`](../00-product-spec.md) 및 Phase 3 이후 문서.
 
 본 문서는 TimePilot Phase 2(Notion Adapter 연동 및 다중 소스 통합 대시보드 구축) 구현을 위한 최상위 마스터 계획서입니다. 세부 설계 및 작업 내용은 파트별 분할 문서로 작성되었으며, 본문 하단의 링크를 통해 참조하실 수 있습니다.
 

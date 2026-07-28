@@ -1,4 +1,4 @@
-// Gemini 연동 — doc/phase3_ai_flow_spec.md 프롬프트 규격 + 백로그 C1 비용 설계.
+// Gemini 연동 — doc/spec/phase3-ai-flow.md 프롬프트 규격 + 백로그 C1 비용 설계.
 // C1: ① 콘텐츠 해시 캐시(신규·변경 항목만 전송) ② 429 시 10분 쿨다운 ③ DISABLE_AI_CLASSIFY 킬스위치.
 // G4: Copilot에 현재 날짜/타임존 주입, 날짜 추정 금지, 출처 표기 강제.
 
@@ -38,7 +38,7 @@ function contentHash(item: UnifiedData): string {
     .digest("hex");
 }
 
-/** LLM 응답에서 JSON만 정제 추출 (phase3_validation_log §1.2) */
+/** LLM 응답에서 JSON만 정제 추출 (doc/spec/phase3-validation-log.md §1.2) */
 function parseJsonLoose<T>(text: string): T | null {
   const cleaned = text
     .replace(/```(?:json)?/gi, "")

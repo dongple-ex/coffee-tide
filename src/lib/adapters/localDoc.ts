@@ -1,4 +1,4 @@
-// 로컬 문서 폴더 어댑터 — .txt/.md 문서에서 업무 단서 추출 (00-current-state §3)
+// 로컬 문서 폴더 어댑터 — .txt/.md 문서에서 업무 단서 추출 (00-product-spec §3)
 
 import { promises as fs } from "node:fs";
 import { UnifiedData } from "../types/unified";

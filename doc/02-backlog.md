@@ -1,4 +1,4 @@
-# Part 7: 개선 백로그 (Tech Debt & TODO)
+# 개선 백로그 (Tech Debt & TODO)
 
 > **이 문서의 목적**: 지금 당장은 안 고쳤지만 나중에 처리해야 할 항목을 다른 개발자/에이전트가 **그대로 집어서 작업**할 수 있도록 정리한 실행형 백로그입니다.
 > 각 항목은 `문제 → 위치 → 영향 → 제안 → 완료 기준` 형식입니다. 위치의 줄 번호는 편집으로 밀릴 수 있으니 심볼/문자열로 다시 찾으세요.
@@ -181,7 +181,7 @@
 
 ## G. 제품 정본(비전)과의 격차
 
-> 근거: [`00-current-state.md`](./00-current-state.md)의 "핵심 제품 원칙"과 "현재 구현과의 차이". 정본은 **연동이 없어도 오늘의 일을 정리**하는 것을 지향하나, 현재 구현은 여전히 외부 연동을 사실상 전제로 함.
+> 근거: [`00-product-spec.md`](./00-product-spec.md)의 "핵심 제품 원칙"과 "현재 구현과의 차이". 정본은 **연동이 없어도 오늘의 일을 정리**하는 것을 지향하나, 현재 구현은 여전히 외부 연동을 사실상 전제로 함.
 
 ### G1. manual/paste 무연동 소스 미구현 — P1 (정본 핵심)
 - **문제**: 정본은 `manual`(직접 입력), `paste`(메모/메일 붙여넣기 추출)를 **1급 소스**로 규정하나, 코드의 `UnifiedData['source']`에는 없음(`outlook|notion|obsidian|slack|teams|jira|local_doc`). 연동이 하나도 없으면 대시보드가 사실상 빈 상태.
@@ -208,10 +208,10 @@
 - **완료 기준**: Copilot 응답에 기준일·출처가 일관되게 포함.
 
 ### G5. 문서 `phase4_*` dangling 참조 — ✅ 완료 (2026-07-11)
-- **처리**: `doc/README.md` 읽기 순서를 재작성하여 phase4 참조를 제거하고, manual/paste 무연동 설계의 정본을 `00-current-state.md` + 본 문서 G1으로 명시함.
+- **처리**: `doc/README.md` 읽기 순서를 재작성하여 phase4 참조를 제거하고, manual/paste 무연동 설계의 정본을 `00-product-spec.md` + 본 문서 G1으로 명시함.
 
 ### G6. Copilot 응답 카드/섹션 렌더링 — P2
-- **문제**: 정본은 Copilot 응답을 Markdown 원문 노출 대신 카드/섹션 형태로 렌더링할 것을 요구 ([`00-current-state.md`](./00-current-state.md) §5).
+- **문제**: 정본은 Copilot 응답을 Markdown 원문 노출 대신 카드/섹션 형태로 렌더링할 것을 요구 ([`00-product-spec.md`](./00-product-spec.md) §5).
 - **제안**: 경량 마크다운 렌더러 컴포넌트(프로토타입의 `MarkdownLite` 설계 참고)로 헤딩/리스트/강조를 섹션 UI로 변환. 원문 `**`, `##` 등이 그대로 보이면 안 됨.
 - **완료 기준**: Copilot 브리핑이 섹션 구분된 카드 UI로 표시되고 Markdown 문법 문자가 노출되지 않음.
 
@@ -242,7 +242,7 @@
 > 구현됨: `public/sw.js` + `src/lib/push/*` + `src/instrumentation.ts`(스케줄러) + `/api/push/*`·`/api/briefing/daily` + 대시보드 "🔔 아침 브리핑 알림" 카드. API 배선·저장·크론 트리거·만료 구독 정리는 스모크 검증 완료. **남은 확인**: 실브라우저에서 알림 켜기 → 테스트 발송 수신 (H1 실계정 검증과 함께). 아래는 설계 기록.
 - **배경**: 현재 coffeeTide는 사용자가 대시보드에 들어와야 브리핑을 받는 **pull 모델**. "알아서 도착하는" push 경로가 빠져 있음. (참고: 해피AI 'AI 업무비서 만들기' 영상, 2026-07 검토)
 - **채널 결정 (2026-07-11 사용자)**: 카톡 등 외부 메신저는 앱 등록·연동(접속) 부담이 있어 제외. **브라우저 알림으로 배달**한다.
-  - 1순위: **웹 푸시** (Service Worker + Push API + VAPID) — **탭을 닫아도** 브라우저가 백그라운드 실행 중이면 도착. PWA 로드맵(M2, [`8-mobile_strategy.md`](./8-mobile_strategy.md))과 함께 구현.
+  - 1순위: **웹 푸시** (Service Worker + Push API + VAPID) — **탭을 닫아도** 브라우저가 백그라운드 실행 중이면 도착. PWA 로드맵(M2, [`04-mobile-strategy.md`](./04-mobile-strategy.md))과 함께 구현.
   - 보조: 탭이 열려 있을 때는 인앱 Notification API(H4 메커니즘 재사용)로 즉시 표시.
   - 카톡 "나에게 보내기"·이메일은 장기 검토로 강등.
 - **제안 구현**:
@@ -254,7 +254,7 @@
 
 ## I. Phase 7 — Copilot 브리핑 고도화 (2026-07-22)
 
-> 근거: [`phase7_copilot_briefing_spec.md`](./phase7_copilot_briefing_spec.md). I1~I4는 스펙과 함께 구현 완료 — 상세는 스펙 §2와 [`as-built-reference.md`](./as-built-reference.md) 참조.
+> 근거: [`spec/phase7-copilot-briefing.md`](./spec/phase7-copilot-briefing.md). I1~I4는 스펙과 함께 구현 완료 — 상세는 스펙 §2와 [`01-as-built-reference.md`](./01-as-built-reference.md) 참조.
 
 ### I1. `GET /api/weather` — ✅ 구현 (2026-07-22, 2026-07-27 갱신)
 - **기상청 초단기실황+초단기예보(공공데이터포털) 1순위 → OpenWeatherMap 폴백**. 지역명은 BigDataCloud 역지오코딩(한글 동/구). 좌표는 소수점 2자리로 절삭해 **외부 호출에도 사용**(K9) → 서버 메모리 캐시 20분, 좌표 미저장. 키는 `DATA_GO_KR_SERVICE_KEY`(구 `WEATHER_API_KEY`)와 `OPENWEATHER_API_KEY`로 분리(K8). 키 미설정/조회 실패 시 `success:false` (그리팅은 시간대 폴백).
@@ -270,13 +270,13 @@
 
 ### I5. 위치 권한 요청 시점 옵트인 전환 — ✅ 구현 (2026-07-23)
 - **처리**: geolocation 호출을 `WelcomeCard` 마운트 시점에서 **설정 모달의 `📍 위치 & 날씨 브리핑` 토글**로 이관. 옵트인 여부는 `ct_weather_enabled`, 좌표는 `ct_weather_coords`에 캐시해 반복 권한 팝업을 막는다. 첫 진입 시 권한 팝업이 뜨지 않는다.
-- **남은 것**: 하이브리드 앱 전환 시 `@capacitor/geolocation`으로 교체(스펙 §2.1 구현 노트). 심사 대응은 `hybrid_app_release_guide.md` §2 Step 4-1과 함께.
+- **남은 것**: 하이브리드 앱 전환 시 `@capacitor/geolocation`으로 교체(스펙 §2.1 구현 노트). 심사 대응은 `05-hybrid-app-release-guide.md` §2 Step 4-1과 함께.
 
 ---
 
 ## K. 소스 점검 (2026-07-27)
 
-> 근거·상세는 [`source-fix-plan.md`](./source-fix-plan.md). K1·K3~K9·K11·K12는 **구현 완료**(커밋 `03cc9fe`, `f76d065`)이며, 여기에는 **남은 것만** 적습니다.
+> 근거·상세는 [`03-source-fix-plan.md`](./03-source-fix-plan.md). K1·K3~K9·K11·K12는 **구현 완료**(커밋 `03cc9fe`, `f76d065`)이며, 여기에는 **남은 것만** 적습니다.
 
 ### K2. `/api/commute` 하드코딩 → 공공데이터포털 실연동 — P0
 - **문제**: 출발 시각·소요시간·요금·혼잡도가 전부 상수인데 화면에는 실측치로 읽히는 문장이 나갔다. 현재는 `🧪 예시 데이터` 배지와 경고 문구로 명시 중(임시조치).
@@ -287,7 +287,7 @@
 - **완료 기준**: 화면의 모든 수치가 실 API 응답이고, 폴백 시 수치가 사라지고 딥링크만 남는다. `route.ts`의 하드코딩 상수 0개.
 
 ### K10. `page.tsx` / `page.module.css` 분할 — P3 (1~4단계 완료)
-- **진행**: 3,413 → **2,351줄**. 순수 헬퍼 → 설정 6섹션 → 업무 카드 → Copilot 패널 순으로 분리 (구조는 [`as-built-reference.md`](./as-built-reference.md) §8).
+- **진행**: 3,413 → **2,351줄**. 순수 헬퍼 → 설정 6섹션 → 업무 카드 → Copilot 패널 순으로 분리 (구조는 [`01-as-built-reference.md`](./01-as-built-reference.md) §8).
 - **남은 5단계**: 상태 훅 분리(`useManualItems`·`useWeather`·`usePushSubscription`) + `page.module.css`(1,592줄) 컴포넌트별 분할.
 - **완료 기준**: `page.tsx` 1,000줄 이하, 기능 회귀 없음.
 

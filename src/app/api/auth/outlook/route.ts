@@ -1,4 +1,4 @@
-// Outlook OAuth 시작 + 연동 해제(DELETE) — doc/as-built-reference.md §2
+// Outlook OAuth 시작 + 연동 해제(DELETE) — doc/01-as-built-reference.md §2
 
 import { randomBytes } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";

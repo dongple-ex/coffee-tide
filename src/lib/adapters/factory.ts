@@ -1,4 +1,4 @@
-// 어댑터 팩토리 — MOCK_MODE=true면 Mock 데이터 반환 (doc/3-integration_env.md 사상 계승)
+// 어댑터 팩토리 — MOCK_MODE=true면 Mock 데이터 반환 (doc/legacy_timepilot/3-integration_env.md 사상 계승)
 
 import { SessionData } from "../auth/session";
 import {

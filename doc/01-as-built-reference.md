@@ -5,8 +5,8 @@
 > **UI 명칭**: 화면에서는 Copilot을 **"AI 바리스타"** 로 부릅니다(2026-07-17 개명). 본 문서는 코드·API 이름이 `copilot`인 지점만 Copilot으로 표기합니다.
 >
 > **문서 역할 구분**:
-> - 제품 **정본 비전/기획**은 [`00-current-state.md`](./00-current-state.md).
-> - 개선/수정 백로그(남은 격차 포함)는 [`7-backlog.md`](./7-backlog.md).
+> - 제품 **정본 비전/기획**은 [`00-product-spec.md`](./00-product-spec.md).
+> - 개선/수정 백로그(남은 격차 포함)는 [`02-backlog.md`](./02-backlog.md).
 > - 문서 전체 지도는 [`README.md`](./README.md)(문서 인덱스) 참조.
 
 ---
@@ -164,7 +164,7 @@ coffeeTide는 여러 채널의 업무 데이터를 하나의 대시보드로 통
 
 ## 7. 알려진 한계 / TODO
 
-남은 항목은 **[doc/7-backlog.md](./7-backlog.md)** 및 **[doc/source-fix-plan.md](./source-fix-plan.md)** 참조. 요약:
+남은 항목은 **[doc/02-backlog.md](./02-backlog.md)** 및 **[doc/03-source-fix-plan.md](./03-source-fix-plan.md)** 참조. 요약:
 
 - **`/api/commute`가 하드코딩 예시 값** — 공공데이터포털 실연동 대기 (**K2**). 화면에는 `🧪 예시 데이터` 배지로 명시 중
 - 외부 OAuth(Outlook/Google)·Notion 실계정 E2E 미검증 — MOCK 스모크만 통과 (**H1**)

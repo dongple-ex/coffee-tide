@@ -1,5 +1,5 @@
 // 통합 수집 API — 선제(만료 임박 60초) + 반응형(401 시 1회) 토큰 리프레시(백로그 A3),
-// 병렬 수집·부분 실패 허용(00-current-state 원칙 4), AI 분류(C1 캐시), 최신순 정렬.
+// 병렬 수집·부분 실패 허용(00-product-spec 원칙 4), AI 분류(C1 캐시), 최신순 정렬.
 // phase6 Q4: Obsidian 연동 시 오늘의 LLM 산출물을 일일 다이제스트로 자동 미러링.
 
 import { NextRequest, NextResponse } from "next/server";

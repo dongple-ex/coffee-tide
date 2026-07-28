@@ -1,4 +1,4 @@
-// HTML 정제 필터 — doc/2-data_processing.md §2.2
+// HTML 정제 필터 — doc/legacy_timepilot/2-data_processing.md §2.2
 
 export function cleanHtmlContent(
   content: string,

@@ -1,4 +1,4 @@
-// AI 답장 초안 생성 + Outlook 임시보관함 저장 — doc/phase5 §2.2
+// AI 답장 초안 생성 + Outlook 임시보관함 저장 — doc/spec/phase5-write-back.md §2.2
 // /api/mails·/api/upload와 동일하게 선제(만료 임박) + 반응형(401 시 1회) 토큰 리프레시 적용.
 
 import { NextRequest, NextResponse } from "next/server";

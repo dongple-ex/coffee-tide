@@ -1,7 +1,7 @@
 # 소스 수정계획서 (2026-07-26)
 
 > **목적**: 2026-07-24까지 반영된 코드(`44c266e`)를 점검해 발견한 결함·리스크를 **다른 개발자/에이전트가 그대로 집어서 작업**할 수 있도록 정리한 실행 계획서입니다.
-> 형식은 [`7-backlog.md`](./7-backlog.md)와 동일한 `문제 → 위치 → 영향 → 수정안 → 완료 기준`입니다. 항목 ID는 백로그의 A~J와 충돌하지 않도록 **K 계열**을 사용하며, 처리 후 `7-backlog.md`로 이관합니다.
+> 형식은 [`02-backlog.md`](./02-backlog.md)와 동일한 `문제 → 위치 → 영향 → 수정안 → 완료 기준`입니다. 항목 ID는 백로그의 A~J와 충돌하지 않도록 **K 계열**을 사용하며, 처리 후 `02-backlog.md`로 이관합니다.
 > **위치의 줄 번호는 편집으로 밀립니다 — 심볼/문자열로 다시 찾으세요.**
 
 ## 0. 현재 검증 baseline (2026-07-26 측정)
@@ -12,7 +12,7 @@
 | `npm run build` | ✅ 통과 (exit 0) |
 | `npm run lint` | ❌ **실패 — 7 errors, 8 warnings** |
 
-`7-backlog.md` §작업 규약은 "검증 3종 세트 셋 다 통과"를 요구하므로, **현재 main은 규약 위반 상태**입니다. K5를 최우선으로 처리해 게이트를 복구한 뒤 나머지를 진행합니다.
+`02-backlog.md` §작업 규약은 "검증 3종 세트 셋 다 통과"를 요구하므로, **현재 main은 규약 위반 상태**입니다. K5를 최우선으로 처리해 게이트를 복구한 뒤 나머지를 진행합니다.
 
 ## 1. 우선순위 요약
 
@@ -54,14 +54,14 @@
   1. **셸 제거** — `exec` → `execFile`/`spawn`(`shell: false`, `detached: true`)로 전환. Windows는 `cmd /c start`를 쓰지 말고, URL/스킴은 `explorer.exe <url>`, 실행 파일은 경로를 직접 spawn.
   2. **입력 화이트리스트** — ① URL/딥링크: `new URL()` 파싱 성공 + 스킴 allowlist(`http`, `https`, `kakaomap`, `nmap`, `notion`, `mailto` 등) ② 로컬 실행 파일: 절대 경로 + 확장자 allowlist(`.exe`, `.lnk`, `.app`, `.sh` 제외) + `fs.existsSync` 확인. 그 외는 400.
   3. **간접 참조로 승격(권장)** — `ct_app_shortcuts`를 localStorage가 아니라 **세션에 저장**하고, 라우트는 `{ id }`만 받아 서버에서 target을 해석. 클라이언트가 임의 문자열을 실행 대상으로 지정할 수 없게 됩니다.
-  4. **실행 환경 가드** — 데스크톱 전용 기능이므로(`8-mobile_strategy.md` §3), 클라우드/프로덕션 배포(`process.env.VERCEL` 등)에서는 403 + 안내 문구 반환.
+  4. **실행 환경 가드** — 데스크톱 전용 기능이므로(`04-mobile-strategy.md` §3), 클라우드/프로덕션 배포(`process.env.VERCEL` 등)에서는 403 + 안내 문구 반환.
 - **완료 기준**: `target`에 `x" & calc & "`를 넣어도 아무것도 실행되지 않고 400을 반환한다. 정상 바로가기(브라우저 URL·설치 앱)는 그대로 동작한다.
 
 ### K2. `/api/commute` — 하드코딩 데이터를 실시간 정보처럼 표시 — P0
 
 - **문제**: 응답 전체가 상수입니다. 출발 시각 = 현재+7분, 소요 = 대중교통 48분/자차 38분, 혼잡도·요금·노선·꿀팁 문구까지 고정값이며 `home`/`work` 파라미터는 문자열 치환에만 쓰입니다.
 - **위치**: `src/app/api/commute/route.ts` 전체 (`depTime`, `durationMinutes`, `congestionText`, `routeOptions`, `smartTip`), 표시부 `src/app/components/CommuteCard.tsx`.
-- **영향**: 화면에는 "출근길 급행 열차가 약 7분 후 (08:07) 도착합니다", "🔴 혼잡 (좌석 만석, 입석 여유)", "평균 속도 72km/h"처럼 **실측치로 읽히는 문장**이 출력됩니다. 사용자가 이 값을 믿고 움직이면 제품 신뢰가 한 번에 무너집니다. `00-current-state.md` §2-5(AI 답변은 근거에 기반)의 정신과도 충돌합니다.
+- **영향**: 화면에는 "출근길 급행 열차가 약 7분 후 (08:07) 도착합니다", "🔴 혼잡 (좌석 만석, 입석 여유)", "평균 속도 72km/h"처럼 **실측치로 읽히는 문장**이 출력됩니다. 사용자가 이 값을 믿고 움직이면 제품 신뢰가 한 번에 무너집니다. `00-product-spec.md` §2-5(AI 답변은 근거에 기반)의 정신과도 충돌합니다.
 
 #### 결정 (2026-07-26, 사용자)
 
@@ -150,7 +150,7 @@
 
 - **문제**: `page.tsx`가 import만 하고 렌더링하지 않습니다(기능은 `WelcomeCard.getProactiveMessage`로 흡수됨). lint 경고 + error 각 1건도 이 파일에서 발생합니다.
 - **위치**: `src/app/components/ProactiveNudgeCard.tsx`, `src/app/components/proactiveNudgeCard.module.css`, `src/app/page.tsx`의 import 라인.
-- **수정안**: 컴포넌트·CSS 모듈·import 삭제. (되살릴 계획이 있다면 삭제 대신 `7-backlog.md`에 근거를 남기고 import만 제거.)
+- **수정안**: 컴포넌트·CSS 모듈·import 삭제. (되살릴 계획이 있다면 삭제 대신 `02-backlog.md`에 근거를 남기고 import만 제거.)
 - **완료 기준**: 미사용 import 경고와 해당 파일의 lint error가 사라지고 화면 변화가 없다.
 
 ### K8. `WEATHER_API_KEY` 단일 키로 두 공급자 호출 + 키 이름이 용도와 불일치 — P2
@@ -168,8 +168,8 @@
 
 - **문제**: `GET`은 캐시 키 용도로만 좌표를 소수점 2자리로 절삭하고, 외부 호출에는 **원본 좌표**(`latNum`, `lonNum`)를 넘깁니다. 역지오코딩(`fetchKoreanDistrictName`)은 키 없이 `api.bigdatacloud.net`으로 정밀 좌표를 그대로 전송합니다.
 - **위치**: `src/app/api/weather/route.ts` — `GET`의 `lat`/`lon` 절삭부와 `fetchKmaWeather(latNum, lonNum, …)` 호출, `fetchKoreanDistrictName`.
-- **영향**: 문서(`as-built-reference.md` §4, `phase7_copilot_briefing_spec.md`)는 "좌표 2자리 절삭·미저장"을 개인정보 보호 근거로 제시하는데, 실제로는 정밀 좌표가 외부로 나갑니다. 문서와 코드가 어긋난 상태이고, 앱 스토어 심사(`hybrid_app_release_guide.md`) 때 설명이 필요한 지점입니다.
-- **수정안**: 절삭 좌표를 외부 호출에도 사용(기상청은 5km 격자로 변환되므로 정밀도 손실 없음, 역지오코딩은 동/구 단위라 2자리로 충분). BigDataCloud 의존을 `as-built-reference.md`에 명시하고, 실패 시 `"현재 위치"` 폴백 유지.
+- **영향**: 문서(`01-as-built-reference.md` §4, `spec/phase7-copilot-briefing.md`)는 "좌표 2자리 절삭·미저장"을 개인정보 보호 근거로 제시하는데, 실제로는 정밀 좌표가 외부로 나갑니다. 문서와 코드가 어긋난 상태이고, 앱 스토어 심사(`05-hybrid-app-release-guide.md`) 때 설명이 필요한 지점입니다.
+- **수정안**: 절삭 좌표를 외부 호출에도 사용(기상청은 5km 격자로 변환되므로 정밀도 손실 없음, 역지오코딩은 동/구 단위라 2자리로 충분). BigDataCloud 의존을 `01-as-built-reference.md`에 명시하고, 실패 시 `"현재 위치"` 폴백 유지.
 - **완료 기준**: 서버에서 나가는 모든 외부 요청의 좌표가 소수점 2자리다.
 
 ### K10. `page.tsx` / `page.module.css` 분할 — P3
@@ -227,13 +227,13 @@
 
 | ID | 대상 | 내용 |
 | :-- | :-- | :-- |
-| D1 ✅ | `as-built-reference.md` §4 | 누락 라우트 3개 추가 — `/api/upload`, `/api/commute`, `/api/util/exec-app` |
-| D2 ✅ | `as-built-reference.md` §4·§6, `7-backlog.md` I1, `phase7_*.md` §2.2·§5.1 | `/api/weather` 설명 정정 — "OpenWeatherMap" → **기상청 단기예보 1순위 + OWM 폴백 + BigDataCloud 역지오코딩** (K8·K9 확정 후 최종 문구) |
-| D3 ✅ | `as-built-reference.md` §3 | localStorage 키 4개 → 실제 16개 반영 (`ct_weather_enabled/coords`, `ct_app_shortcuts`, `ct_commute_config`, `ct_work_notes`, `ct_sub_tasks`, `ct_handoff_state`, `ct_theme`, `ct_brief_time`, `ct_browser_categories`, `ct_notified_item_ids`, `ct_oauth_state`) |
-| D4 ✅ | `as-built-reference.md` §2·§7 | 세션 롤링 연장(B2) 구현 완료 반영 — 현재 "7일 고정"으로 서술돼 요약표와 모순 |
-| D5 ✅ | `7-backlog.md` | H4·B2 상세절에 ✅ 표기(요약표와 불일치), I5 상세절의 "WelcomeCard 마운트 시 즉시 요청" 서술 갱신(설정 모달 옵트인으로 이미 이관됨), 커밋 트레일러 `Opus 4.8` → 현행 표기, 최종 갱신일 |
-| D7 ⏸ | `as-built-reference.md` §4·§5·§6 | **K2 실연동 후** 반영할 것 — TAGO·도로공사 어댑터, 캐시 TTL, 폴백 규칙, `DATA_GO_KR_SERVICE_KEY`(+`WEATHER_API_KEY` 별칭), **활용신청이 필요한 API 목록**과 일 1,000건 쿼터 |
-| D6 ✅ | `README.md`, `00-current-state.md`, 신규 백로그(L1~L4) | 07-23~24 기능 등재 — Quick Widgets(Timer/Calculator/Shortcuts/Weather), 슬래시 커맨드 5종, Work Note·서브태스크·AI 재정렬, 섹션 접힘. 문서 전체가 UI 명칭 "AI 바리스타"를 한 번도 쓰지 않는 점도 통일 |
+| D1 ✅ | `01-as-built-reference.md` §4 | 누락 라우트 3개 추가 — `/api/upload`, `/api/commute`, `/api/util/exec-app` |
+| D2 ✅ | `01-as-built-reference.md` §4·§6, `02-backlog.md` I1, `spec/phase7-copilot-briefing.md` §2.2·§5.1 | `/api/weather` 설명 정정 — "OpenWeatherMap" → **기상청 단기예보 1순위 + OWM 폴백 + BigDataCloud 역지오코딩** (K8·K9 확정 후 최종 문구) |
+| D3 ✅ | `01-as-built-reference.md` §3 | localStorage 키 4개 → 실제 16개 반영 (`ct_weather_enabled/coords`, `ct_app_shortcuts`, `ct_commute_config`, `ct_work_notes`, `ct_sub_tasks`, `ct_handoff_state`, `ct_theme`, `ct_brief_time`, `ct_browser_categories`, `ct_notified_item_ids`, `ct_oauth_state`) |
+| D4 ✅ | `01-as-built-reference.md` §2·§7 | 세션 롤링 연장(B2) 구현 완료 반영 — 현재 "7일 고정"으로 서술돼 요약표와 모순 |
+| D5 ✅ | `02-backlog.md` | H4·B2 상세절에 ✅ 표기(요약표와 불일치), I5 상세절의 "WelcomeCard 마운트 시 즉시 요청" 서술 갱신(설정 모달 옵트인으로 이미 이관됨), 커밋 트레일러 `Opus 4.8` → 현행 표기, 최종 갱신일 |
+| D7 ⏸ | `01-as-built-reference.md` §4·§5·§6 | **K2 실연동 후** 반영할 것 — TAGO·도로공사 어댑터, 캐시 TTL, 폴백 규칙, `DATA_GO_KR_SERVICE_KEY`(+`WEATHER_API_KEY` 별칭), **활용신청이 필요한 API 목록**과 일 1,000건 쿼터 |
+| D6 ✅ | `README.md`, `00-product-spec.md`, 신규 백로그(L1~L4) | 07-23~24 기능 등재 — Quick Widgets(Timer/Calculator/Shortcuts/Weather), 슬래시 커맨드 5종, Work Note·서브태스크·AI 재정렬, 섹션 접힘. 문서 전체가 UI 명칭 "AI 바리스타"를 한 번도 쓰지 않는 점도 통일 |
 
 ---
 
@@ -248,7 +248,7 @@
 | **5차 — 문서** ✅ | D1~D6 | 4차까지의 결과를 as-built에 일괄 반영 (2026-07-27 완료) |
 | **6차 — 구조** | K10 | 리팩터링은 위 항목이 안정된 뒤 |
 
-**작업 규약** (`7-backlog.md` §작업 규약 준수):
+**작업 규약** (`02-backlog.md` §작업 규약 준수):
 - 항목당 브랜치 1개(`fix/k1-exec-app-hardening` 등) → 논리 단위 커밋 → `main`에 `--ff-only` 머지.
 - 모든 변경 후 **검증 3종 세트**(`tsc` / `lint` / `build`) 통과 + dev 서버 스모크(`curl -c jar …/api/auth/signin` → `-b jar`로 보호 API 호출).
 - Windows 체크아웃의 `LF will be replaced by CRLF` 경고는 무해.
@@ -263,4 +263,4 @@
 
 ---
 
-_작성: 2026-07-26 · 기준 커밋 `44c266e` · 이 계획서는 처리 완료 시 `7-backlog.md`로 이관하고 폐기합니다._
+_작성: 2026-07-26 · 기준 커밋 `44c266e` · 이 계획서는 처리 완료 시 `02-backlog.md`로 이관하고 폐기합니다._

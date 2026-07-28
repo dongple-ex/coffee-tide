@@ -1,6 +1,6 @@
 # TimePilot: AI Work Operating System (AI OS) Architecture Spec
 
-> **상태**: 💭 **장기 비전 / 브레인스토밍 문서** (2026-07-21 작성). 구명칭 "TimePilot" 시절의 엔터프라이즈 AI Work OS 구상으로, **현재 coffeeTide의 구현·설계 정본이 아닙니다.** 현재 제품의 정본은 [`00-current-state.md`](./00-current-state.md)(무연동 우선 원칙), 구현 현황은 [`as-built-reference.md`](./as-built-reference.md) 참조. 본문의 기술 스택(Kafka, K8s, Vector DB 등)과 모델명은 작성 시점의 예시이며 확정 사항이 아닙니다.
+> **상태**: 💭 **장기 비전 / 브레인스토밍 문서** (2026-07-21 작성). 구명칭 "TimePilot" 시절의 엔터프라이즈 AI Work OS 구상으로, **현재 coffeeTide의 구현·설계 정본이 아닙니다.** 현재 제품의 정본은 [`00-product-spec.md`](../00-product-spec.md)(무연동 우선 원칙), 구현 현황은 [`01-as-built-reference.md`](../01-as-built-reference.md) 참조. 본문의 기술 스택(Kafka, K8s, Vector DB 등)과 모델명은 작성 시점의 예시이며 확정 사항이 아닙니다.
 
 본 문서는 사용자의 요청을 바탕으로, 단순한 챗봇이나 도우미를 넘어 **"업무의 시작부터 완료까지 AI가 스스로 계획하고 실행하며, 인간은 최종 승인만 담당하는" AI Work OS (TimePilot)**의 아키텍처 설계서입니다.
 

@@ -1,7 +1,7 @@
 # 수정 기획서: LLM 작업 산출물 연동 (LLM Artifacts Source)
 
-> **상태**: 📋 **기획 (미구현)**. 설계 결정 확정 — **Q1**=경로를 지정해두면 동기화 시 자동 스캔, **Q4**=Obsidian 자동 미러링(동기화 시 오늘 노트 upsert). v2 후보: `.jsonl` 파싱(Q3), 전용 "오늘의 LLM" 섹션, AI 요약 옵트인(§9).
-> **관련**: 로컬 파일 기반이라 **데스크톱 전용** — 모바일 전략은 [`8-mobile_strategy.md`](./8-mobile_strategy.md) 참조.
+> **상태**: ✅ **구현 완료**. `LlmArtifactAdapter`(`src/lib/adapters/llmArtifact.ts`) + `/api/auth/llm`(폴더 경로 저장) + `/api/tasks/llm-digest`(수동 내보내기) + `/api/mails` 동기화 시 Obsidian 자동 미러링 — 구현 현황은 [`01-as-built-reference.md`](../01-as-built-reference.md) §5 참조. 설계 결정 — **Q1**=경로를 지정해두면 동기화 시 자동 스캔, **Q4**=Obsidian 자동 미러링(동기화 시 오늘 노트 upsert). v2 후보: `.jsonl` 파싱(Q3), 전용 "오늘의 LLM" 섹션, AI 요약 옵트인(§9).
+> **관련**: 로컬 파일 기반이라 **데스크톱 전용** — 모바일 전략은 [`04-mobile-strategy.md`](../04-mobile-strategy.md) 참조.
 
 ---
 
@@ -110,7 +110,7 @@ Obsidian이 연동돼 있으면, 오늘의 LLM 산출물을 **볼트에 일일 �
 - 연동관리에 "🧠 LLM 산출물" 카드(폴더 경로 입력 + 선택기) 추가. 접힘 배지/상태 라벨.
 - `badge_llm` 스타일 추가.
 - "🧠 오늘의 LLM 작업" 섹션 + "Obsidian에 오늘 요약 내보내기" 버튼.
-- `connections` 응답/상태에 `llm: boolean` 추가(google/outlook/notion/obsidian/local_doc과 동일 패턴 — 스왑 네이밍 재발 주의, `as-built-reference.md` §3 참고).
+- `connections` 응답/상태에 `llm: boolean` 추가(google/outlook/notion/obsidian/local_doc과 동일 패턴 — 스왑 네이밍 재발 주의, `01-as-built-reference.md` §3 참고).
 
 ## 12. 설정 / 보안 / 프라이버시
 
@@ -120,7 +120,7 @@ Obsidian이 연동돼 있으면, 오늘의 LLM 산출물을 **볼트에 일일 �
 
 ## 13. 제약: 데스크톱 전용
 
-`fs`로 로컬 파일을 읽으므로 **서버=사용자 PC** 전제. Obsidian/로컬 문서와 동일하게 **모바일/클라우드 배포에서는 동작 불가**. 모바일에서는 이 카드를 "데스크톱 전용"으로 숨김/안내 ([`8-mobile_strategy.md`](./8-mobile_strategy.md) §3과 연계).
+`fs`로 로컬 파일을 읽으므로 **서버=사용자 PC** 전제. Obsidian/로컬 문서와 동일하게 **모바일/클라우드 배포에서는 동작 불가**. 모바일에서는 이 카드를 "데스크톱 전용"으로 숨김/안내 ([`04-mobile-strategy.md`](../04-mobile-strategy.md) §3과 연계).
 
 ## 14. 단계별 구현 순서
 

@@ -1,4 +1,4 @@
-// PWA 매니페스트 — 홈 화면 추가(iOS 푸시 전제 조건, 8-mobile_strategy M2)와 설치형 브랜드 표면.
+// PWA 매니페스트 — 홈 화면 추가(iOS 푸시 전제 조건, 04-mobile-strategy M2)와 설치형 브랜드 표면.
 // 아이콘은 src/app/icon.svg에서 래스터화한 PNG (scratchpad gen-icons 스크립트 산출물).
 
 import type { MetadataRoute } from "next";

@@ -1,4 +1,4 @@
-// Outlook 어댑터 — Microsoft Graph 받은편지함 조회 + 답장 초안 write-back (doc/phase5 §2.2).
+// Outlook 어댑터 — Microsoft Graph 받은편지함 조회 + 답장 초안 write-back (doc/spec/phase5-write-back.md §2.2).
 // 백로그 A3 반영: 401 시 AuthExpiredError를 던져 라우트에서 반응형 리프레시 1회 재시도.
 
 import { UnifiedData } from "../types/unified";

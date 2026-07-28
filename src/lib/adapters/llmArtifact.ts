@@ -1,4 +1,4 @@
-// LLM 산출물 어댑터 — doc/phase6_llm_artifacts_spec.md §6.
+// LLM 산출물 어댑터 — doc/spec/phase6-llm-artifacts.md §6.
 // 폴더 재귀 스캔(.md/.txt), frontmatter 파싱, 원문 노출 없이 발췌만(§12 프라이버시).
 
 import { promises as fs } from "node:fs";

@@ -1,7 +1,7 @@
 # 수정 기획서: Copilot 브리핑 고도화 (상황 맞춤 그리팅 & 시간대별 제안)
 
 > **상태**: ✅ **구현 완료 (2026-07-22)**. `GET /api/weather` 라우트(`WEATHER_API_KEY` 지원) + `WelcomeCard` 비서 그리팅 컴포넌트 + `delegatable` AI 위임 태그 연동 완료.
-> **관련**: [`00-current-state.md`](./00-current-state.md)(정본 기획·제품 원칙), [`phase6_llm_artifacts_spec.md`](./phase6_llm_artifacts_spec.md)(로컬 LLM 산출물 수집), [`hybrid_app_release_guide.md`](./hybrid_app_release_guide.md) §2 Step 4-1(위치 권한), [`7-backlog.md`](./7-backlog.md)(실행형 백로그).
+> **관련**: [`00-product-spec.md`](../00-product-spec.md)(정본 기획·제품 원칙), [`phase6-llm-artifacts.md`](./phase6-llm-artifacts.md)(로컬 LLM 산출물 수집), [`05-hybrid-app-release-guide.md`](../05-hybrid-app-release-guide.md) §2 Step 4-1(위치 권한), [`02-backlog.md`](../02-backlog.md)(실행형 백로그).
 
 ---
 
@@ -43,7 +43,7 @@ coffeeTide가 초안 생성을 직접 떠안으면 이 루프와 기능이 중�
 
 > "비 오는 화요일 아침이네요. 오늘 오전에는 이런 업무에 집중해보면 어떨까요?"
 
-* **위치 획득은 `@capacitor/geolocation`으로 단일화합니다.** 이 플러그인은 웹에서 브라우저 Geolocation API로 자동 폴백하므로, 웹과 앱에 코드를 두 벌 두지 않아도 됩니다. (`hybrid_app_release_guide.md` §2 Step 4-1과 동일한 결정)
+* **위치 획득은 `@capacitor/geolocation`으로 단일화합니다.** 이 플러그인은 웹에서 브라우저 Geolocation API로 자동 폴백하므로, 웹과 앱에 코드를 두 벌 두지 않아도 됩니다. (`05-hybrid-app-release-guide.md` §2 Step 4-1과 동일한 결정)
   > **구현 노트 (2026-07-27 갱신)**: 현재 구현은 `navigator.geolocation` 직접 호출입니다(Capacitor 패키지 미설치). 호출 지점은 I5 반영으로 `WelcomeCard`가 아니라 **`page.tsx`의 `enableWeatherLocation`(설정 모달 옵트인 토글)** 과 **`captureCommuteCoords`(집·회사 좌표 지정, K12)** 두 곳입니다. 웹 단독 배포에서는 동작이 동일하며, **하이브리드 앱 착수 시점에 `@capacitor/geolocation`으로 교체**해야 합니다.
 * **저정밀(coarse)로 충분합니다.** 날씨 조회에 동 단위 이상의 정밀도는 불필요하고, 스토어 개인정보 신고 항목도 가벼워집니다.
 * **3단계 폴백 필수** — 원칙 4에 따라 각 단계 실패가 사용자를 막지 않아야 합니다.
@@ -89,13 +89,13 @@ export interface UnifiedData {
 
 * 선택 필드이므로 기존 데이터와 호환됩니다.
 * **폴백 경로 대응 필요** — `fallbackEngine.ts`의 `classifyOne()`은 이 필드를 채우지 않습니다. AI 없이 동작할 때 태그가 없는 것은 정상이며, UI는 `undefined`를 "위임 불가"가 아니라 "판별 안 됨"으로 다뤄야 합니다.
-* `00-current-state.md` §3 정본 데이터 허브 표에도 반영합니다.
+* `00-product-spec.md` §3 정본 데이터 허브 표에도 반영합니다.
 
 ---
 
 ## 3. 제품 원칙 정합성
 
-`00-current-state.md` §2 기준 자체 점검입니다.
+`00-product-spec.md` §2 기준 자체 점검입니다.
 
 | 원칙 | 적용 |
 | :--- | :--- |
@@ -107,13 +107,13 @@ export interface UnifiedData {
 
 **남은 개인정보 이슈 1건**: 날씨 조회를 위해 좌표가 제3자 API로 전송됩니다. 규모는 작지만 coffeeTide가 사용자 데이터를 외부로 내보내는 첫 경로입니다.
 
-현재 개인정보 관련 원칙은 `src/lib/push/store.ts:19` 코드 주석에만 존재하고 `00-current-state.md`에는 해당 절이 없습니다. **이 기회에 정본 문서로 승격시킬 것을 권합니다** — 스토어 출시 시 개인정보처리방침 작성에도 그대로 필요한 내용입니다.
+현재 개인정보 관련 원칙은 `src/lib/push/store.ts:19` 코드 주석에만 존재하고 `00-product-spec.md`에는 해당 절이 없습니다. **이 기회에 정본 문서로 승격시킬 것을 권합니다** — 스토어 출시 시 개인정보처리방침 작성에도 그대로 필요한 내용입니다.
 
 ---
 
 ## 4. 작업 항목 및 완료 기준
 
-`7-backlog.md`에 **I1~I4로 등록 완료** (2026-07-22 구현과 함께 완료 처리, I5는 후속 검토로 오픈).
+`02-backlog.md`에 **I1~I4로 등록 완료** (2026-07-22 구현과 함께 완료 처리, I5는 후속 검토로 오픈).
 
 | 순서 | 항목 | 비고 |
 | :-- | :--- | :--- |
@@ -139,11 +139,11 @@ export interface UnifiedData {
 → **(a) 템플릿으로 구현** (`WelcomeCard.tsx`의 시간대 테마 + 날씨 문구 조합). 비용 0·지연 0·폴백 불필요. 그리팅은 브리핑 본문이 아니라 인사말이라, 비용 대비 효용이 낮습니다.
 
 **5.3. 개인정보 원칙의 정본 승격 범위** — 📋 **미결 (오픈 유지)**
-`00-current-state.md`에 개인정보 절을 신설한다면 어디까지 담을지 — 외부 전송 목록, 외부 저장 금지 항목, 보관 기간. §3 참조. 스토어 출시(개인정보처리방침 작성) 전까지 결정 필요.
+`00-product-spec.md`에 개인정보 절을 신설한다면 어디까지 담을지 — 외부 전송 목록, 외부 저장 금지 항목, 보관 기간. §3 참조. 스토어 출시(개인정보처리방침 작성) 전까지 결정 필요.
 
 **5.4. 위치 권한 요청 시점** — ⚠️ **현 구현: 첫 진입 즉시 요청. 출시 전 재검토 필요 (백로그 I5)**
 첫 진입 즉시 요청할지, 그리팅 영역의 "날씨 켜기"를 눌렀을 때 요청할지. 즉시 요청은 이탈률을 높이고, 앱 심사에서도 목적 불명확으로 지적받을 수 있습니다.
-→ 현재 구현은 `WelcomeCard` 마운트 시 즉시 요청합니다. 웹 MVP에서는 허용하되, **앱 스토어 심사 전에 옵트인(버튼 클릭 시 요청) 방식으로 전환을 재검토**합니다 — `7-backlog.md` I5로 등록.
+→ 현재 구현은 `WelcomeCard` 마운트 시 즉시 요청합니다. 웹 MVP에서는 허용하되, **앱 스토어 심사 전에 옵트인(버튼 클릭 시 요청) 방식으로 전환을 재검토**합니다 — `02-backlog.md` I5로 등록.
 
 ---
 

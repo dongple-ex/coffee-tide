@@ -1,4 +1,4 @@
-// 로컬 파일 스캔 공용 유틸 — 데스크톱 전용 (서버=사용자 PC 전제, doc/8-mobile_strategy.md §4)
+// 로컬 파일 스캔 공용 유틸 — 데스크톱 전용 (서버=사용자 PC 전제, doc/04-mobile-strategy.md §4)
 
 import { promises as fs } from "node:fs";
 import path from "node:path";

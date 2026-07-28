@@ -1,6 +1,6 @@
 # Phase 2: 예외 처리 및 검증 로직 명세
 
-> ⚠️ **역사 문서 (Phase 2 · TimePilot 시절)** — Notion 초기 연동 설계 기록입니다. 신규 작업 기준: [`00-current-state.md`](./00-current-state.md) 및 Phase 3 이후 문서.
+> ⚠️ **역사 문서 (Phase 2 · TimePilot 시절)** — Notion 초기 연동 설계 기록입니다. 신규 작업 기준: [`00-product-spec.md`](../00-product-spec.md) 및 Phase 3 이후 문서.
 
 본 파트에서는 Notion API 연동 개발 이후 안정적인 예외 차단 및 정상 데이터 파싱을 입증하기 위한 오작동 대응 전략 및 검증 절차를 정의합니다.
 

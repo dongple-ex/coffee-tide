@@ -6,14 +6,14 @@
 
 - **서비스 도메인(예정)**: `coffeeTide.dongple.kr`
 - **이전 프로젝트명**: TimePilot — 역사 문서의 TimePilot 표기는 coffeeTide를 가리킵니다.
-- **현재 상태**: **MVP 구현 완료 (2026-07-11)** — 무연동 코어(manual/paste·Copilot·자동화 규칙)와 6종 연동(Outlook·Gmail·Notion·Obsidian·로컬 문서·LLM 산출물) 구조가 동작합니다. 외부 OAuth는 실계정 검증 전입니다(`doc/7-backlog.md` H 항목).
+- **현재 상태**: **MVP 구현 완료 (2026-07-11)** — 무연동 코어(manual/paste·Copilot·자동화 규칙)와 6종 연동(Outlook·Gmail·Notion·Obsidian·로컬 문서·LLM 산출물) 구조가 동작합니다. 외부 OAuth는 실계정 검증 전입니다(`doc/02-backlog.md` H 항목).
 
 ## 핵심 가치
 - 무연동 우선 설계
 - 자연스러운 업무 입력 (manual, paste)
 - AI Copilot + 자동화
 - 다중 플랫폼 연결
-- 웹 우선 (모바일 전략: `doc/8-mobile_strategy.md`)
+- 웹 우선 (모바일 전략: `doc/04-mobile-strategy.md`)
 
 ## 빠른 시작
 
@@ -36,4 +36,4 @@ npm run build       # next build
 
 ## 문서 위치
 - `doc/` : 모든 설계 및 기획 문서 — 읽기 순서는 [`doc/README.md`](./doc/README.md) 참조
-- 구현 기준 기술 레퍼런스: [`doc/as-built-reference.md`](./doc/as-built-reference.md)
+- 구현 기준 기술 레퍼런스: [`doc/01-as-built-reference.md`](./doc/01-as-built-reference.md)

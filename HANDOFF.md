@@ -30,8 +30,8 @@
 ---
 
 ## 🚧 이어서 진행 가능한 다음 과제
-- [ ] 외부 연동(Outlook/Google/Notion) 실계정 E2E 검증 (`7-backlog.md` H1)
-- [ ] Google Calendar & Drive 연동 백로그 (`7-backlog.md` H3)
+- [ ] 외부 연동(Outlook/Google/Notion) 실계정 E2E 검증 (`02-backlog.md` H1)
+- [ ] Google Calendar & Drive 연동 백로그 (`02-backlog.md` H3)
 - [ ] 키워드 뉴스피드 & AI 3줄 요약 연동 검토
 
 ---

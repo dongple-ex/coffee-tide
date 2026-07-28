@@ -1,6 +1,6 @@
 # Phase 2: Notion API 연동 규격 및 데이터 매핑 명세
 
-> ⚠️ **역사 문서 (Phase 2 · TimePilot 시절)** — Notion 초기 연동 설계 기록입니다. 신규 작업 기준: [`00-current-state.md`](./00-current-state.md) 및 Phase 3 이후 문서.
+> ⚠️ **역사 문서 (Phase 2 · TimePilot 시절)** — Notion 초기 연동 설계 기록입니다. 신규 작업 기준: [`00-product-spec.md`](../00-product-spec.md) 및 Phase 3 이후 문서.
 
 본 파트에서는 TimePilot Phase 2의 Notion 통합에 필요한 API 연동 방식, 데이터 스키마 및 가공 처리 설계를 정의합니다.
 

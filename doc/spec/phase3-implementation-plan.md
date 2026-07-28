@@ -38,6 +38,6 @@
 
 ## 3. 파트별 세부 기술 명세서 목록
 
-*   **[Part 3-1: AI Action Engine 및 AI 비서 기술 명세](./phase3_ai_flow_spec.md)**: AI 처리 아키텍처, JSON Output Mode 시스템 프롬프트 엔지니어링 및 Copilot 브리핑 프롬프트 명세서 포함.
-*   **[Part 3-2: 단계별 세부 작업 계획](./phase3_execution_plan.md)**: 패키지 설치, 파일별 역할 구성 및 Step 1 ~ Step 4까지의 개발 순서 정의.
-*   **[Part 3-3: 예외 처리 및 검증 로직 명세](./phase3_validation_log.md)**: Gemini API 401/429 에러 복구용 로컬 Fallback 규칙 설계, JSON 파싱 예외 처리 및 테스트 시나리오 정의.
+*   **[Part 3-1: AI Action Engine 및 AI 비서 기술 명세](./phase3-ai-flow.md)**: AI 처리 아키텍처, JSON Output Mode 시스템 프롬프트 엔지니어링 및 Copilot 브리핑 프롬프트 명세서 포함.
+*   **[Part 3-2: 단계별 세부 작업 계획](./phase3-execution-plan.md)**: 패키지 설치, 파일별 역할 구성 및 Step 1 ~ Step 4까지의 개발 순서 정의.
+*   **[Part 3-3: 예외 처리 및 검증 로직 명세](./phase3-validation-log.md)**: Gemini API 401/429 에러 복구용 로컬 Fallback 규칙 설계, JSON 파싱 예외 처리 및 테스트 시나리오 정의.

@@ -1,7 +1,7 @@
 ﻿# coffeeTide 현재 정본 기획서
 
-> 프로젝트명: **coffeeTide** (구 TimePilot) · 서비스 도메인(예정): `coffeeTide.dongple.kr` · 기본 플랫폼: **웹** (모바일 전략: [`8-mobile_strategy.md`](./8-mobile_strategy.md))
-> 이 문서가 제품의 정본 기획입니다. **2026-07-11 MVP 구현 완료** — 구현 현황은 [`as-built-reference.md`](./as-built-reference.md), 남은 격차는 [`7-backlog.md`](./7-backlog.md) 참조.
+> 프로젝트명: **coffeeTide** (구 TimePilot) · 서비스 도메인(예정): `coffeeTide.dongple.kr` · 기본 플랫폼: **웹** (모바일 전략: [`04-mobile-strategy.md`](./04-mobile-strategy.md))
+> 이 문서가 제품의 정본 기획입니다. **2026-07-11 MVP 구현 완료** — 구현 현황은 [`01-as-built-reference.md`](./01-as-built-reference.md), 남은 격차는 [`02-backlog.md`](./02-backlog.md) 참조.
 > **명칭 안내**: 본 문서의 "Copilot"은 화면에서 **"AI 바리스타"** 로 표시됩니다(2026-07-17 개명). 코드·API 이름은 `copilot` 그대로입니다.
 
 ## 1. 제품 한 줄 정의
@@ -47,9 +47,9 @@ coffeeTide는 **커피 한 잔 하면서 오늘을 정리하는 AI 업무 비서
 | `outlook` | Microsoft Graph 메일 | 선택 | 답장 초안 생성 |
 | `notion` | Notion DB 태스크 | 선택 | 페이지 상태 완료 처리 |
 | `gmail` | Google Gmail·Calendar·Drive | 선택 | 읽기 전용 (답장 초안은 백로그) |
-| `llm` | 로컬 LLM 도구 산출물(`MEMORY.md` 등) 폴더 스캔 | 선택 | Obsidian 일일 다이제스트 미러링 ([`phase6_llm_artifacts_spec.md`](./phase6_llm_artifacts_spec.md)) |
+| `llm` | 로컬 LLM 도구 산출물(`MEMORY.md` 등) 폴더 스캔 | 선택 | Obsidian 일일 다이제스트 미러링 ([`phase6-llm-artifacts.md`](./spec/phase6-llm-artifacts.md)) |
 
-소스와 무관하게, AI 분류 시 각 항목에 **`delegatable`(위임 가능) 표식**이 부여될 수 있습니다 — "로컬 LLM 도구(Claude Code 등)로 넘길 만한 업무"를 가리키는 힌트이며 실행 버튼이 아닙니다. AI 없이 동작할 때는 채워지지 않으며, 이때 `undefined`는 "위임 불가"가 아니라 "판별 안 됨"입니다. ([`phase7_copilot_briefing_spec.md`](./phase7_copilot_briefing_spec.md) §2.4)
+소스와 무관하게, AI 분류 시 각 항목에 **`delegatable`(위임 가능) 표식**이 부여될 수 있습니다 — "로컬 LLM 도구(Claude Code 등)로 넘길 만한 업무"를 가리키는 힌트이며 실행 버튼이 아닙니다. AI 없이 동작할 때는 채워지지 않으며, 이때 `undefined`는 "위임 불가"가 아니라 "판별 안 됨"입니다. ([`spec/phase7-copilot-briefing.md`](./spec/phase7-copilot-briefing.md) §2.4)
 
 ## 4. 사용자 흐름 정본
 
@@ -82,7 +82,7 @@ coffeeTide는 **커피 한 잔 하면서 오늘을 정리하는 AI 업무 비서
 
 ## 5. 구현 필수 요구사항 (정본 준수 체크리스트)
 
-구현·수정 시 아래를 항상 지켜야 합니다. 2026-07-11 MVP에서 모두 반영되었으며([`7-backlog.md`](./7-backlog.md) G 항목), 이후 변경에서도 회귀하면 안 됩니다.
+구현·수정 시 아래를 항상 지켜야 합니다. 2026-07-11 MVP에서 모두 반영되었으며([`02-backlog.md`](./02-backlog.md) G 항목), 이후 변경에서도 회귀하면 안 됩니다.
 
 - `UnifiedData.source`에 `manual`, `paste`, `local_doc`, `obsidian`을 명시합니다. (G1 ✅)
 - 외부 연동이 없어도 Copilot 입력창이 활성화되어야 합니다. (G3 ✅)

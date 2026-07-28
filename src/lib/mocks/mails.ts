@@ -1,4 +1,4 @@
-// Mock 데이터 — doc/2-data_processing.md §3 + doc/phase2_notion_spec.md §3 기반.
+// Mock 데이터 — doc/legacy_timepilot/2-data_processing.md §3 + doc/legacy_timepilot/phase2_notion_spec.md §3 기반.
 // 백로그 A2 반영: 각 Mock의 source 라벨은 실제 출처와 일치.
 
 import { UnifiedData } from "../types/unified";

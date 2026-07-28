@@ -1,5 +1,5 @@
-// 로컬 Fallback 엔진 — Gemini 불가(키 없음/쿼터/파싱 실패) 시 대체 (phase3_validation_log §1).
-// AI 없이도 분류·브리핑·규칙 파싱·붙여넣기 추출이 동작해야 함 (00-current-state 원칙 4).
+// 로컬 Fallback 엔진 — Gemini 불가(키 없음/쿼터/파싱 실패) 시 대체 (doc/spec/phase3-validation-log.md §1).
+// AI 없이도 분류·브리핑·규칙 파싱·붙여넣기 추출이 동작해야 함 (00-product-spec 원칙 4).
 
 import { CATEGORY_LABELS, SOURCE_LABELS, UnifiedCategory, UnifiedData } from "../types/unified";
 import { AutomationRule } from "../automation/rules";
@@ -36,7 +36,7 @@ export function classifyAll(items: UnifiedData[]): UnifiedData[] {
   });
 }
 
-/** Copilot 브리핑 템플릿 — phase3_ai_flow_spec §3의 4개 섹션 + G4(기준일·출처 명시) */
+/** Copilot 브리핑 템플릿 — phase3-ai-flow §3의 4개 섹션 + G4(기준일·출처 명시) */
 export function copilotBriefing(
   items: UnifiedData[],
   dateLabel: string

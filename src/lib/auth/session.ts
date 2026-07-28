@@ -1,4 +1,4 @@
-// 세션 쿠키 암호화/복호화 — doc/as-built-reference.md §2.
+// 세션 쿠키 암호화/복호화 — doc/01-as-built-reference.md §2.
 // tp_session: AES-256-GCM 암호화 페이로드(HttpOnly), tp_session_expiry: proxy 만료 판독용 평문 보조 쿠키.
 // 쿠키 이름은 cookieNames.ts가 단일 정의처 (proxy.ts와 공유 — tp_ 접두사 유지 사유도 그곳 참조).
 // 백로그 B1 반영: 프로덕션에서 SESSION_ENCRYPTION_SECRET 미설정이면 부팅 실패.
@@ -24,7 +24,7 @@ export interface SessionData {
   // Notion
   notionToken?: string;
   notionDbId?: string;
-  // 로컬 파일 기반 연동 (데스크톱 전용 — doc/8-mobile_strategy.md §3)
+  // 로컬 파일 기반 연동 (데스크톱 전용 — doc/04-mobile-strategy.md §3)
   obsidianVaultPath?: string;
   localDocPaths?: string[]; // 로컬 문서는 여러 폴더 지원 (최대 5개)
   llmArtifactsPath?: string;

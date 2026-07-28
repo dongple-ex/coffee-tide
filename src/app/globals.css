@@ -1,4 +1,4 @@
-/* 테마 팔레트 3종 — 다크(기본, doc/4-execution_plan.md Step 1), 라이트, 커피타이드.
+/* 테마 팔레트 3종 — 다크(기본, doc/legacy_timepilot/4-execution_plan.md Step 1), 라이트, 커피타이드.
    전환: html[data-theme] 속성 + localStorage(ct_theme). */
 
 :root {

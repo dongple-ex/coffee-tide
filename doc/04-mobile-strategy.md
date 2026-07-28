@@ -1,7 +1,7 @@
-# Part 8: 모바일 전략
+# 모바일 전략
 
 > **결정: coffeeTide는 웹 코어를 유지하되, 하이브리드(WebView) 방식의 네이티브 앱 래퍼를 통해 앱 스토어 출시를 진행합니다.**
-> 관련 문서: [`00-current-state.md`](./00-current-state.md)(정본 기획), [`phase6_llm_artifacts_spec.md`](./phase6_llm_artifacts_spec.md) §13(데스크톱 전용 제약), [`7-backlog.md`](./7-backlog.md) E3(반응형 점검).
+> 관련 문서: [`00-product-spec.md`](./00-product-spec.md)(정본 기획), [`phase6-llm-artifacts.md`](./spec/phase6-llm-artifacts.md) §13(데스크톱 전용 제약), [`02-backlog.md`](./02-backlog.md) E3(반응형 점검).
 
 ---
 
@@ -30,7 +30,7 @@
 | `outlook` / `notion` / `gmail` 연동 | ✅ 가능 | OAuth·API가 서버 경유라 제약 없음 |
 | `local_doc` (로컬 문서 폴더) | ❌ 불가 | 연동 카드 숨김 + "데스크톱 전용" 안내 |
 | `obsidian` (볼트 스캔·캡처·미러링) | ❌ 불가 | 연동 카드 숨김 + "데스크톱 전용" 안내 |
-| `llm` (LLM 산출물 폴더 스캔) | ❌ 불가 | 연동 카드 숨김 + "데스크톱 전용" 안내 ([`phase6`](./phase6_llm_artifacts_spec.md) §13) |
+| `llm` (LLM 산출물 폴더 스캔) | ❌ 불가 | 연동 카드 숨김 + "데스크톱 전용" 안내 ([`phase6`](./spec/phase6-llm-artifacts.md) §13) |
 | 네이티브 폴더 선택기 (`/api/util/select-folder`) | ❌ 불가 | 해당 기능 진입점 자체를 미노출 |
 
 판별 방식: User-Agent 스니핑보다 **배포 형태 기준**(§4)으로 기능을 게이팅하고, 화면 크기는 레이아웃에만 사용합니다.

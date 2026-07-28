@@ -1,4 +1,4 @@
-// Google OAuth (Gmail·Calendar·Drive readonly) — doc/as-built-reference.md §2.
+// Google OAuth (Gmail·Calendar·Drive readonly) — doc/01-as-built-reference.md §2.
 // access_type=offline + prompt=consent 로 refresh token 확보.
 
 export const GOOGLE_SCOPES = [
