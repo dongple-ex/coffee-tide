@@ -72,6 +72,7 @@ import { WeatherWidget } from "./components/WeatherWidget";
 import { ByteNewsWidget } from "./components/ByteNewsWidget";
 import { ThreeProWidget } from "./components/ThreeProWidget";
 import { CustomNewsWidget, CustomWidgetConfig } from "./components/CustomNewsWidget";
+import type { CustomSitePreview } from "@/lib/news/types";
 import { CommuteConfig, CommuteStop } from "@/lib/types/commute";
 import { AppShortcut } from "@/lib/types/appShortcut";
 import { saveRawContent, getRawContent } from "@/lib/browser/rawStore";
@@ -373,32 +374,119 @@ export default function Home() {
   const [showAddCustomModal, setShowAddCustomModal] = useState(false);
   const [newWidgetName, setNewWidgetName] = useState("");
   const [newWidgetUrl, setNewWidgetUrl] = useState("");
+  const [addChecking, setAddChecking] = useState(false);
+  const [addFeedback, setAddFeedback] = useState<{
+    kind: "ok" | "error";
+    message: string;
+    samples?: string[];
+    /** 검증에 실패해도 사용자가 직접 등록을 강행할 수 있는 상태 */
+    allowForce?: boolean;
+  } | null>(null);
 
-  const handleAddCustomWidget = async () => {
-    const rawUrl = newWidgetUrl.trim();
-    if (!rawUrl) return;
+  const closeAddCustomModal = () => {
+    setShowAddCustomModal(false);
+    setNewWidgetName("");
+    setNewWidgetUrl("");
+    setAddFeedback(null);
+    setAddChecking(false);
+  };
 
-    let name = newWidgetName.trim();
+  /** 프로토콜 보정 + 형식 검증. 실패 시 사유 문자열을 돌려준다. */
+  const parseWidgetUrl = (raw: string): { url: URL } | { error: string } => {
+    const trimmed = raw.trim();
+    if (!trimmed) return { error: "사이트 주소를 입력해 주세요." };
+    let url: URL;
+    try {
+      url = new URL(/^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`);
+    } catch {
+      return { error: "주소 형식이 올바르지 않습니다. 예) news.naver.com" };
+    }
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      return { error: "http/https 주소만 등록할 수 있습니다." };
+    }
+    if (!url.hostname.includes(".")) {
+      return { error: "도메인이 올바르지 않습니다. 예) www.example.com" };
+    }
+    return { url };
+  };
 
-    // 사이트 이름이 비어있으면 URL 호스트네임/채널명에서 자동 추출하여 제목 생성
-    if (!name) {
+  const pickWidgetIcon = (href: string): string => {
+    const lower = href.toLowerCase();
+    if (lower.includes("youtube.com") || lower.includes("youtu.be")) return "📺";
+    if (/(blog|tistory|velog|brunch|medium|substack|note)/.test(lower)) return "✍️";
+    if (/(news|press|times|daily|economy|herald)/.test(lower)) return "📰";
+    return "🌐";
+  };
+
+  const handleAddCustomWidget = async (force = false) => {
+    const parsed = parseWidgetUrl(newWidgetUrl);
+    if ("error" in parsed) {
+      setAddFeedback({ kind: "error", message: parsed.error });
+      return;
+    }
+    const target = parsed.url;
+
+    // 같은 사이트를 두 번 등록해 칩이 중복되는 것을 막는다.
+    const normalize = (u: string) =>
+      u.trim().replace(/^https?:\/\//i, "").replace(/\/+$/, "").toLowerCase();
+    const duplicate = customWidgets.find((w) => normalize(w.url) === normalize(target.href));
+    if (duplicate) {
+      setAddFeedback({
+        kind: "error",
+        message: `이미 등록된 사이트입니다 — [${duplicate.icon || "🌐"} ${duplicate.name}] 칩을 사용해 주세요.`,
+      });
+      return;
+    }
+
+    let resolvedName = newWidgetName.trim();
+    let checkedCount = 0;
+
+    // 등록 전에 실제로 최신 글을 읽을 수 있는지 확인한다 (동작 안 하는 칩 방지).
+    if (!force) {
+      setAddChecking(true);
+      setAddFeedback(null);
       try {
-        const targetUrl = rawUrl.startsWith("http") ? rawUrl : `https://${rawUrl}`;
-        const parsedHost = new URL(targetUrl).hostname.replace(/^www\./, "");
-        name = parsedHost.split(".")[0];
-        name = name.charAt(0).toUpperCase() + name.slice(1);
+        const res = await fetch("/api/news/custom/preview", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: target.href }),
+        });
+        const data = (await res.json()) as CustomSitePreview;
+
+        if (!data.success) {
+          setAddFeedback({
+            kind: "error",
+            message: data.hint ? `${data.reason} ${data.hint}` : data.reason || "최신 글을 찾지 못했습니다.",
+            allowForce: true,
+          });
+          return;
+        }
+
+        checkedCount = data.count;
+        if (!resolvedName) resolvedName = data.siteName;
       } catch {
-        name = "웹사이트";
+        setAddFeedback({
+          kind: "error",
+          message: "연결 확인에 실패했습니다. 네트워크를 확인해 주세요.",
+          allowForce: true,
+        });
+        return;
+      } finally {
+        setAddChecking(false);
       }
     }
 
-    const isYt = rawUrl.includes("youtube.com") || rawUrl.includes("youtu.be");
+    if (!resolvedName) {
+      const host = target.hostname.replace(/^www\./, "");
+      const head = host.split(".")[0];
+      resolvedName = head.charAt(0).toUpperCase() + head.slice(1);
+    }
 
     const newWidget: CustomWidgetConfig = {
       id: `custom-${Date.now()}`,
-      name,
-      url: rawUrl,
-      icon: isYt ? "📺" : "🌐",
+      name: resolvedName,
+      url: target.href,
+      icon: pickWidgetIcon(target.href),
       createdAt: new Date().toISOString(),
     };
 
@@ -408,11 +496,13 @@ export default function Home() {
       return next;
     });
 
-    setNewWidgetName("");
-    setNewWidgetUrl("");
-    setShowAddCustomModal(false);
+    closeAddCustomModal();
     setActiveWidget(newWidget.id);
-    showToast(`나만의 위젯 [${newWidget.icon} ${name}]이 자동 생성되었습니다!`);
+    showToast(
+      checkedCount > 0
+        ? `[${newWidget.icon} ${resolvedName}] 위젯 추가 완료 — 최신 글 ${checkedCount}건을 확인했습니다!`
+        : `[${newWidget.icon} ${resolvedName}] 위젯을 추가했습니다.`
+    );
   };
 
   const handleDeleteCustomWidget = (id: string) => {
@@ -2057,7 +2147,7 @@ export default function Home() {
               type="button"
               className={`${styles.widgetChip} ${activeWidget === w.id ? styles.widgetChipActive : ""}`}
               onClick={() => setActiveWidget((prev) => (prev === w.id ? null : w.id))}
-              title={`${w.name} 최신 소식 및 3줄 요약 보기`}
+              title={`${w.name} 최신 글 핵심 브리핑 보기`}
             >
               <span>{w.icon || "🌐"}</span>
               <span>{w.name}</span>
@@ -2583,10 +2673,10 @@ export default function Home() {
 
       {/* 🌐 사이트 추가 모달 */}
       {showAddCustomModal && (
-        <div className={`${styles.overlay} ${styles.overlayTop}`} onClick={() => setShowAddCustomModal(false)}>
+        <div className={`${styles.overlay} ${styles.overlayTop}`} onClick={closeAddCustomModal}>
           <div
             className={`${styles.modal}`}
-            style={{ maxWidth: 420 }}
+            style={{ maxWidth: 460 }}
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
@@ -2594,7 +2684,7 @@ export default function Home() {
           >
             <div className={styles.cardTitle} style={{ marginBottom: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span>🌐 나만의 뉴스/블로그 사이트 추가</span>
-              <button className={styles.iconBtn} onClick={() => setShowAddCustomModal(false)}>✕</button>
+              <button className={styles.iconBtn} onClick={closeAddCustomModal}>✕</button>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 12, fontSize: "0.82rem" }}>
               <div>
@@ -2602,29 +2692,85 @@ export default function Home() {
                   사이트/유튜브 웹주소 (URL) <span style={{ color: "var(--accent)", fontWeight: 700 }}>*필수</span>
                 </label>
                 <input
+                  className={styles.input}
                   type="url"
-                  placeholder="예: https://news.naver.com 또는 https://www.youtube.com/@3ProTV"
+                  autoFocus
+                  placeholder="예: news.naver.com, 블로그주소/rss, youtube.com/@3protv"
                   value={newWidgetUrl}
-                  onChange={(e) => setNewWidgetUrl(e.target.value)}
-                  style={{ width: "100%", padding: "6px 10px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)" }}
+                  onChange={(e) => {
+                    setNewWidgetUrl(e.target.value);
+                    if (addFeedback) setAddFeedback(null);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !addChecking) void handleAddCustomWidget();
+                  }}
+                  style={{ width: "100%" }}
                 />
+                <div style={{ color: "var(--text-dim)", fontSize: "0.72rem", marginTop: 4, lineHeight: 1.5 }}>
+                  RSS 주소(/rss, /feed)를 넣으면 본문까지 가장 정확하게 읽어옵니다.
+                </div>
               </div>
               <div>
                 <label style={{ fontWeight: 600, display: "block", marginBottom: 4 }}>
-                  사이트 이름 <span style={{ color: "var(--text-dim)", fontWeight: 400 }}>(선택 - 비워두면 주소에서 자동 채움)</span>
+                  사이트 이름 <span style={{ color: "var(--text-dim)", fontWeight: 400 }}>(선택 - 비워두면 사이트에서 자동 인식)</span>
                 </label>
                 <input
+                  className={styles.input}
                   type="text"
-                  placeholder="미입력 시 URL 주소에서 이름이 자동으로 추출됩니다"
+                  placeholder="미입력 시 사이트 제목에서 자동으로 가져옵니다"
                   value={newWidgetName}
                   onChange={(e) => setNewWidgetName(e.target.value)}
-                  style={{ width: "100%", padding: "6px 10px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)" }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !addChecking) void handleAddCustomWidget();
+                  }}
+                  style={{ width: "100%" }}
                 />
               </div>
+
+              {addChecking && (
+                <div style={{ color: "var(--text-dim)", fontSize: "0.76rem" }}>
+                  ☕ 사이트에 연결해 최신 글을 읽을 수 있는지 확인하는 중입니다...
+                </div>
+              )}
+
+              {addFeedback && !addChecking && (
+                <div
+                  style={{
+                    border: `1px solid ${addFeedback.kind === "ok" ? "rgba(43,91,238,0.35)" : "rgba(255,77,77,0.35)"}`,
+                    background: addFeedback.kind === "ok" ? "rgba(43,91,238,0.08)" : "rgba(255,77,77,0.07)",
+                    borderRadius: 8,
+                    padding: "10px 12px",
+                    fontSize: "0.76rem",
+                    lineHeight: 1.55,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 6,
+                  }}
+                >
+                  <span>
+                    {addFeedback.kind === "ok" ? "✅ " : "⚠️ "}
+                    {addFeedback.message}
+                  </span>
+                  {addFeedback.allowForce && (
+                    <button
+                      className={styles.btn}
+                      style={{ alignSelf: "flex-start" }}
+                      onClick={() => void handleAddCustomWidget(true)}
+                    >
+                      그래도 등록하기
+                    </button>
+                  )}
+                </div>
+              )}
+
               <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 8 }}>
-                <button className={styles.btn} onClick={() => setShowAddCustomModal(false)}>취소</button>
-                <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={handleAddCustomWidget}>
-                  ✨ 위젯 칩 생성하기
+                <button className={styles.btn} onClick={closeAddCustomModal}>취소</button>
+                <button
+                  className={`${styles.btn} ${styles.btnPrimary}`}
+                  onClick={() => void handleAddCustomWidget()}
+                  disabled={addChecking || !newWidgetUrl.trim()}
+                >
+                  {addChecking ? "확인 중..." : "✨ 연결 확인 후 추가"}
                 </button>
               </div>
             </div>

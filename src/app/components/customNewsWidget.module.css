@@ -63,6 +63,76 @@
   color: #ff4d4d;
 }
 
+/* 📌 사이트 전체 핵심 브리핑 — 개별 기사보다 먼저 읽히도록 상단에 고정 */
+.briefingBox {
+  background: linear-gradient(180deg, rgba(43, 91, 238, 0.14), rgba(43, 91, 238, 0.05));
+  border: 1px solid rgba(43, 91, 238, 0.32);
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.briefingLabel {
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--accent);
+}
+
+.briefingHeadline {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.45;
+}
+
+.briefingList {
+  margin: 2px 0 0;
+  padding-left: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.briefingList li {
+  font-size: 0.76rem;
+  color: var(--text-dim);
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.errorBox {
+  background: rgba(255, 77, 77, 0.07);
+  border: 1px solid rgba(255, 77, 77, 0.28);
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.errorTitle {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.4;
+}
+
+.errorHint {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
+.errorActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+
 .articleList {
   display: flex;
   flex-direction: column;
@@ -133,6 +203,37 @@
   border-radius: 8px;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+/* 숫자·근거·전망 팩트 불릿 */
+.pointList {
+  margin: 8px 0 0;
+  padding-left: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.pointList li {
+  font-size: 0.755rem;
+  color: var(--text-dim);
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.pointList li::marker {
+  color: var(--accent);
+}
+
+.thinBadge {
+  font-size: 0.64rem;
+  font-weight: 700;
+  color: #d99a2b;
+  background: rgba(217, 154, 43, 0.14);
+  border: 1px solid rgba(217, 154, 43, 0.3);
+  border-radius: 4px;
+  padding: 1px 4px;
+  margin-right: 6px;
 }
 
 .readLink {

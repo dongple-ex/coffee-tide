@@ -277,6 +277,112 @@ export async function parseRule(text: string): Promise<AutomationRule | null> {
   }
 }
 
+/* ------------------------------------------------------------------ */
+/* 커스텀 사이트 위젯 — 최신 글 핵심 브리핑                              */
+/* ------------------------------------------------------------------ */
+
+export interface NewsSummaryInput {
+  id: string;
+  title: string;
+  /** 딥 페치로 확보한 원문(길면 앞부분만 전송) */
+  text: string;
+}
+
+export interface NewsSummaryResult {
+  summary: string;
+  points: string[];
+}
+
+export interface SiteSummaryOutput {
+  byId: Record<string, NewsSummaryResult>;
+  briefing: { headline: string; keyPoints: string[] } | null;
+  aiUsed: boolean;
+}
+
+const NEWS_SUMMARY_SYSTEM = `역할: 바쁜 직장인이 원문을 열지 않아도 되도록 기사/영상/블로그 원문을 압축하는 한국어 요약 편집자입니다.
+
+작성 규칙 (위반 금지):
+- 제공된 원문에 실제로 있는 내용만 사용하고, 없는 사실·수치·전망을 지어내지 마세요.
+- "~에 관한 소식입니다", "핵심을 한눈에 파악할 수 있습니다" 같은 알맹이 없는 홍보 문구는 절대 쓰지 마세요.
+- summary: 무슨 일이 있었는지 사실 위주로 2~3문장(180~360자)의 자연스러운 줄글. 제목을 그대로 반복하지 마세요.
+- points: 숫자·금액·기간·비교·원인·전망처럼 '알맹이'가 있는 항목만 2~4개. 각 항목은 25~90자의 완결된 문장.
+- 원문이 짧아 근거가 부족하면 points를 빈 배열로 두고, summary에 확보된 사실만 담으세요.
+- 유튜브 설명란의 광고·구매 링크·구독 유도 문구는 내용이 아니므로 무시하세요. 다만 "00:00 주제" 형태의 타임스탬프 목차가 있으면 그 주제들을 points로 정리하세요.
+- briefing.headline: 이 사이트의 오늘 상황을 한 문장으로 요약.
+- briefing.keyPoints: 여러 글을 관통하는 핵심 3~4개. 각 항목 앞에 관련 글의 주제를 짧게 언급.
+
+출력 형식: 아래 구조의 순수 JSON 객체만 출력하세요. 마크다운·설명·코드펜스 금지.
+{
+  "articles": [{ "id": "입력 id", "summary": "줄글 요약", "points": ["핵심1", "핵심2"] }],
+  "briefing": { "headline": "한 줄 총평", "keyPoints": ["핵심1", "핵심2", "핵심3"] }
+}`;
+
+/**
+ * 수집한 최신 글들을 한 번의 호출로 일괄 요약 + 사이트 전체 브리핑 생성.
+ * 키가 없거나 쿼터 쿨다운/파싱 실패 시 aiUsed=false로 반환하고 호출부가 로컬 요약을 유지한다.
+ */
+export async function summarizeSiteContent(
+  siteName: string,
+  items: NewsSummaryInput[],
+  kind: "article" | "video" = "article"
+): Promise<SiteSummaryOutput> {
+  const empty: SiteSummaryOutput = { byId: {}, briefing: null, aiUsed: false };
+  if (items.length === 0) return empty;
+  if (!apiKey() || Date.now() < quotaCooldownUntil) return empty;
+
+  const payload = {
+    site: siteName,
+    contentType: kind === "video" ? "유튜브 영상(제목+설명)" : "기사/블로그 원문",
+    articles: items.slice(0, 8).map((i) => ({
+      id: i.id,
+      title: i.title,
+      text: i.text.slice(0, 2500),
+    })),
+  };
+
+  try {
+    const raw = await callGemini(NEWS_SUMMARY_SYSTEM, JSON.stringify(payload));
+    const parsed = parseJsonLoose<{
+      articles?: { id?: string; summary?: string; points?: unknown }[];
+      briefing?: { headline?: string; keyPoints?: unknown };
+    }>(raw);
+    if (!parsed || !Array.isArray(parsed.articles)) throw new Error("summary JSON parse failed");
+
+    const byId: Record<string, NewsSummaryResult> = {};
+    for (const a of parsed.articles) {
+      const id = String(a?.id ?? "");
+      const summary = String(a?.summary ?? "").trim();
+      if (!id || !summary) continue;
+      byId[id] = {
+        summary,
+        points: toStringList(a?.points, 4, 160),
+      };
+    }
+    if (Object.keys(byId).length === 0) throw new Error("summary empty");
+
+    const headline = String(parsed.briefing?.headline ?? "").trim();
+    const keyPoints = toStringList(parsed.briefing?.keyPoints, 4, 220);
+
+    return {
+      byId,
+      briefing: headline ? { headline, keyPoints } : null,
+      aiUsed: true,
+    };
+  } catch (err) {
+    console.warn("[Warning] Gemini 요약 실패 — 로컬 요약기로 대체합니다.", err);
+    return empty;
+  }
+}
+
+function toStringList(value: unknown, max: number, maxLen: number): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((v) => String(v ?? "").trim())
+    .filter((v) => v.length >= 8)
+    .slice(0, max)
+    .map((v) => (v.length > maxLen ? `${v.slice(0, maxLen - 1)}…` : v));
+}
+
 /** 붙여넣기 텍스트에서 업무 추출 (G1 paste 경로) */
 export async function extractTasks(
   text: string

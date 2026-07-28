@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { CustomNewsItem } from "../api/news/custom/route";
+import React, { useCallback, useEffect, useState } from "react";
+import type { CustomNewsItem, CustomNewsResponse, SiteBriefing } from "@/lib/news/types";
 import styles from "./customNewsWidget.module.css";
 
 export interface CustomWidgetConfig {
@@ -18,37 +18,67 @@ interface CustomNewsWidgetProps {
   onDelete?: (id: string) => void;
 }
 
+interface LoadError {
+  reason: string;
+  hint?: string;
+}
+
 export function CustomNewsWidget({ widget, onNotify, onDelete }: CustomNewsWidgetProps) {
   const [articles, setArticles] = useState<CustomNewsItem[]>([]);
+  const [briefing, setBriefing] = useState<SiteBriefing | null>(null);
+  const [aiUsed, setAiUsed] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [error, setError] = useState<LoadError | null>(null);
+  const [expandedIds, setExpandedIds] = useState<string[]>([]);
 
-  const fetchCustomArticles = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/news/custom", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: widget.url, siteName: widget.name }),
-      });
-      if (!res.ok) throw new Error();
-      const data = (await res.json()) as { articles?: CustomNewsItem[] };
-      if (data.articles) {
-        setArticles(data.articles);
-        if (data.articles.length > 0) {
-          setExpandedId(data.articles[0].id);
+  const fetchCustomArticles = useCallback(
+    async (refresh = false) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch("/api/news/custom", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: widget.url, siteName: widget.name, refresh }),
+        });
+        const data = (await res.json()) as CustomNewsResponse;
+
+        if (!data.success || data.articles.length === 0) {
+          setArticles([]);
+          setBriefing(null);
+          setError({
+            reason: data.reason ?? "최신 글을 가져오지 못했습니다.",
+            hint: data.hint,
+          });
+          return;
         }
+
+        setArticles(data.articles);
+        setBriefing(data.briefing ?? null);
+        setAiUsed(Boolean(data.aiUsed));
+        // 첫 글은 펼친 상태로 두어 새로고침 직후 바로 핵심을 읽을 수 있게 한다.
+        setExpandedIds(data.articles.length > 0 ? [data.articles[0].id] : []);
+      } catch {
+        setError({
+          reason: `${widget.name} 소식을 가져오는 중 통신 오류가 발생했습니다.`,
+          hint: "네트워크 상태를 확인한 뒤 다시 시도해 주세요.",
+        });
+      } finally {
+        setLoading(false);
       }
-    } catch {
-      onNotify?.(`앗, ${widget.name} 소식을 가져오는 중 오류가 발생했어요.`);
-    } finally {
-      setLoading(false);
-    }
-  };
+    },
+    [widget.url, widget.name]
+  );
 
   useEffect(() => {
     void fetchCustomArticles();
-  }, [widget.url, widget.name]);
+  }, [fetchCustomArticles]);
+
+  const toggleExpand = (id: string) => {
+    setExpandedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  };
+
+  const allExpanded = articles.length > 0 && expandedIds.length === articles.length;
 
   return (
     <div className={styles.container}>
@@ -56,15 +86,30 @@ export function CustomNewsWidget({ widget, onNotify, onDelete }: CustomNewsWidge
         <div className={styles.title}>
           <span>{widget.icon || "🌐"}</span>
           <span>{widget.name}</span>
-          <span className={styles.titleBadge}>CUSTOM</span>
+          {articles.length > 0 && (
+            <span className={styles.titleBadge}>{aiUsed ? "AI 요약" : "핵심 요약"}</span>
+          )}
         </div>
         <div className={styles.actionBtns}>
+          {articles.length > 0 && (
+            <button
+              type="button"
+              className={styles.btn}
+              onClick={() =>
+                setExpandedIds(allExpanded ? [] : articles.map((a) => a.id))
+              }
+              title={allExpanded ? "모든 요약 접기" : "모든 요약 펼치기"}
+            >
+              {allExpanded ? "⌃ 접기" : "⌄ 모두 펼치기"}
+            </button>
+          )}
           <button
             type="button"
             className={styles.btn}
             onClick={() => {
-              void fetchCustomArticles();
-              onNotify?.(`${widget.name} 최신 소식을 읽어왔습니다 🌐`);
+              void fetchCustomArticles(true).then(() => {
+                onNotify?.(`${widget.name} 최신 소식을 다시 읽어왔습니다 🌐`);
+              });
             }}
             disabled={loading}
           >
@@ -83,26 +128,78 @@ export function CustomNewsWidget({ widget, onNotify, onDelete }: CustomNewsWidge
         </div>
       </div>
 
-      {loading && articles.length === 0 ? (
-        <div className={styles.loadingHint}>{widget.name} 최신 소식을 수집하는 중입니다... ☕</div>
-      ) : (
+      {loading && articles.length === 0 && (
+        <div className={styles.loadingHint}>
+          {widget.name}의 최신 글을 읽고 핵심만 추리는 중입니다... ☕
+        </div>
+      )}
+
+      {!loading && error && (
+        <div className={styles.errorBox}>
+          <div className={styles.errorTitle}>⚠️ {error.reason}</div>
+          {error.hint && <div className={styles.errorHint}>{error.hint}</div>}
+          <div className={styles.errorActions}>
+            <button type="button" className={styles.btn} onClick={() => void fetchCustomArticles(true)}>
+              ↻ 다시 시도
+            </button>
+            <a href={widget.url} target="_blank" rel="noreferrer" className={styles.readLink}>
+              사이트 직접 열기 ↗
+            </a>
+          </div>
+        </div>
+      )}
+
+      {briefing && !error && (
+        <div className={styles.briefingBox}>
+          <div className={styles.briefingLabel}>📌 지금 핵심 브리핑</div>
+          <div className={styles.briefingHeadline}>{briefing.headline}</div>
+          {briefing.keyPoints.length > 0 && (
+            <ul className={styles.briefingList}>
+              {briefing.keyPoints.map((point, i) => (
+                <li key={`${i}-${point.slice(0, 12)}`}>{point}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {articles.length > 0 && (
         <div className={styles.articleList}>
           {articles.map((item) => {
-            const isExpanded = expandedId === item.id;
+            const isExpanded = expandedIds.includes(item.id);
             return (
               <div
                 key={item.id}
                 className={`${styles.articleItem} ${isExpanded ? styles.articleItemActive : ""}`}
-                onClick={() => setExpandedId(isExpanded ? null : item.id)}
+                onClick={() => toggleExpand(item.id)}
               >
                 <div className={styles.articleHeader}>
                   <span className={styles.catTag}>{widget.name}</span>
-                  <span className={styles.articleDate}>{item.date}</span>
+                  <span className={styles.articleDate}>
+                    {item.depth === "title" && <span className={styles.thinBadge}>제목만</span>}
+                    {item.date}
+                  </span>
                 </div>
                 <div className={styles.articleTitle}>{item.title}</div>
+
                 {isExpanded && (
                   <>
-                    <div className={styles.articleSummary}>{item.summary}</div>
+                    {item.summary ? (
+                      <div className={styles.articleSummary}>{item.summary}</div>
+                    ) : (
+                      <div className={styles.articleSummary}>
+                        이 글은 본문을 공개하지 않아 요약을 만들지 못했습니다. 원문에서 확인해 주세요.
+                      </div>
+                    )}
+
+                    {item.points.length > 0 && (
+                      <ul className={styles.pointList}>
+                        {item.points.map((p, i) => (
+                          <li key={`${item.id}-p${i}`}>{p}</li>
+                        ))}
+                      </ul>
+                    )}
+
                     <a
                       href={item.url}
                       target="_blank"
@@ -110,7 +207,7 @@ export function CustomNewsWidget({ widget, onNotify, onDelete }: CustomNewsWidge
                       className={styles.readLink}
                       onClick={(e) => e.stopPropagation()}
                     >
-                      🔗 원문 기사 읽기 ↗
+                      🔗 원문 전체 읽기 ↗
                     </a>
                   </>
                 )}
