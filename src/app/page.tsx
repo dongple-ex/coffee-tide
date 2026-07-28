@@ -71,6 +71,7 @@ import { ShortcutsWidget } from "./components/ShortcutsWidget";
 import { WeatherWidget } from "./components/WeatherWidget";
 import { ByteNewsWidget } from "./components/ByteNewsWidget";
 import { ThreeProWidget } from "./components/ThreeProWidget";
+import { CustomNewsWidget, CustomWidgetConfig } from "./components/CustomNewsWidget";
 import { CommuteConfig, CommuteStop } from "@/lib/types/commute";
 import { AppShortcut } from "@/lib/types/appShortcut";
 import { saveRawContent, getRawContent } from "@/lib/browser/rawStore";
@@ -80,6 +81,7 @@ import { SubTask } from "@/lib/types/unified";
 
 const LS_RAW_ENABLED = "ct_raw_enabled";
 const LS_DRIVE_BACKUP_ENABLED = "ct_drive_backup_enabled";
+const LS_CUSTOM_WIDGETS = "ct_custom_widgets";
 
 const POLL_MS = 30_000;
 
@@ -365,6 +367,48 @@ export default function Home() {
     })
   );
   const [activeWidget, setActiveWidget] = useState<string | null>(null);
+  const [customWidgets, setCustomWidgets] = useState<CustomWidgetConfig[]>(() =>
+    loadLS<CustomWidgetConfig[]>(LS_CUSTOM_WIDGETS, [])
+  );
+  const [showAddCustomModal, setShowAddCustomModal] = useState(false);
+  const [newWidgetName, setNewWidgetName] = useState("");
+  const [newWidgetUrl, setNewWidgetUrl] = useState("");
+
+  const handleAddCustomWidget = () => {
+    const name = newWidgetName.trim();
+    const url = newWidgetUrl.trim();
+    if (!name || !url) return;
+
+    const newWidget: CustomWidgetConfig = {
+      id: `custom-${Date.now()}`,
+      name,
+      url,
+      icon: "🌐",
+      createdAt: new Date().toISOString(),
+    };
+
+    setCustomWidgets((prev) => {
+      const next = [...prev, newWidget];
+      saveLS(LS_CUSTOM_WIDGETS, next);
+      return next;
+    });
+
+    setNewWidgetName("");
+    setNewWidgetUrl("");
+    setShowAddCustomModal(false);
+    setActiveWidget(newWidget.id);
+    showToast(`나만의 위젯 [🌐 ${name}]이 추가되었습니다!`);
+  };
+
+  const handleDeleteCustomWidget = (id: string) => {
+    setCustomWidgets((prev) => {
+      const next = prev.filter((w) => w.id !== id);
+      saveLS(LS_CUSTOM_WIDGETS, next);
+      return next;
+    });
+    if (activeWidget === id) setActiveWidget(null);
+    showToast("커스텀 위젯이 삭제되었습니다.");
+  };
   const widgetListRef = useRef<HTMLDivElement>(null);
   const isWidgetDragging = useRef(false);
   const widgetStartX = useRef(0);
@@ -1991,6 +2035,30 @@ export default function Home() {
             <span>📺</span>
             <span>삼프로TV</span>
           </button>
+          {/* 사용자가 동적으로 등록한 커스텀 위젯 칩들 */}
+          {customWidgets.map((w) => (
+            <button
+              key={w.id}
+              type="button"
+              className={`${styles.widgetChip} ${activeWidget === w.id ? styles.widgetChipActive : ""}`}
+              onClick={() => setActiveWidget((prev) => (prev === w.id ? null : w.id))}
+              title={`${w.name} 최신 소식 및 3줄 요약 보기`}
+            >
+              <span>{w.icon || "🌐"}</span>
+              <span>{w.name}</span>
+            </button>
+          ))}
+          {/* 사이트 추가 칩 */}
+          <button
+            type="button"
+            className={styles.widgetChip}
+            onClick={() => setShowAddCustomModal(true)}
+            title="새로운 뉴스/블로그 사이트 URL을 등록하여 나만의 위젯 칩 추가"
+            style={{ borderStyle: "dashed" }}
+          >
+            <span>➕</span>
+            <span>사이트 추가</span>
+          </button>
         </div>
 
         {/* 선택된 위젯 패널 */}
@@ -2053,6 +2121,19 @@ export default function Home() {
             <ThreeProWidget onNotify={showToast} />
           </div>
         )}
+        {/* 커스텀 위젯 패널 */}
+        {customWidgets.map((w) => {
+          if (activeWidget !== w.id) return null;
+          return (
+            <div key={w.id} className={styles.widgetPanel}>
+              <CustomNewsWidget
+                widget={w}
+                onNotify={showToast}
+                onDelete={(id) => handleDeleteCustomWidget(id)}
+              />
+            </div>
+          );
+        })}
       </div>
 
       <div className={styles.grid}>
@@ -2484,6 +2565,53 @@ export default function Home() {
       )}
 
       {toast && <div className={styles.toast}>{toast}</div>}
+
+      {/* 🌐 사이트 추가 모달 */}
+      {showAddCustomModal && (
+        <div className={`${styles.overlay} ${styles.overlayTop}`} onClick={() => setShowAddCustomModal(false)}>
+          <div
+            className={`${styles.modal}`}
+            style={{ maxWidth: 420 }}
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label="나만의 사이트 위젯 추가"
+          >
+            <div className={styles.cardTitle} style={{ marginBottom: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span>🌐 나만의 뉴스/블로그 사이트 추가</span>
+              <button className={styles.iconBtn} onClick={() => setShowAddCustomModal(false)}>✕</button>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12, fontSize: "0.82rem" }}>
+              <div>
+                <label style={{ fontWeight: 600, display: "block", marginBottom: 4 }}>사이트 이름</label>
+                <input
+                  type="text"
+                  placeholder="예: 네이버 뉴스 / 테크크런치 / 개발 블로그"
+                  value={newWidgetName}
+                  onChange={(e) => setNewWidgetName(e.target.value)}
+                  style={{ width: "100%", padding: "6px 10px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)" }}
+                />
+              </div>
+              <div>
+                <label style={{ fontWeight: 600, display: "block", marginBottom: 4 }}>사이트 웹주소 (URL)</label>
+                <input
+                  type="url"
+                  placeholder="예: https://news.naver.com 또는 https://blog.example.com"
+                  value={newWidgetUrl}
+                  onChange={(e) => setNewWidgetUrl(e.target.value)}
+                  style={{ width: "100%", padding: "6px 10px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)" }}
+                />
+              </div>
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 8 }}>
+                <button className={styles.btn} onClick={() => setShowAddCustomModal(false)}>취소</button>
+                <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={handleAddCustomWidget}>
+                  ✨ 위젯 칩 생성하기
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
