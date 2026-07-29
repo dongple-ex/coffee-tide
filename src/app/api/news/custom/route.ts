@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
       throw new Error(`HTTP ${res.status}`);
     }
 
-    const html = await res.text();
+    let html = await res.text();
     const rawArticles: { title: string; url: string; date: string; summary?: string }[] = [];
 
     // 사이트 이름 자동 추출
@@ -148,26 +148,47 @@ export async function POST(req: NextRequest) {
         }
       }
     } else if (isNaverSports) {
-      // ⚽ B. 네이버 스포츠 전용 딥링크 파서 (a[href*="/read"], a[href*="/news/read"])
-      const anchorRegex = /<a[^>]*href=["']([^"']*(?:\/read|\/news\/read)[^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi;
-      let match;
-      const seenTitles = new Set<string>();
+      // ⚽ B. 네이버 스포츠 전용 정밀 딥 파서 (sports.news.naver.com 뉴스 섹션 지원)
+      const parseSportsAnchors = (sourceHtml: string) => {
+        const seenTitles = new Set<string>();
+        const anchorRegex = /<a[^>]*href=["']([^"']*(?:\/read|\/news\/read|oid=)[^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi;
+        let m;
 
-      while ((match = anchorRegex.exec(html)) !== null && rawArticles.length < 8) {
-        let href = match[1];
-        const innerText = cleanText(match[2]);
+        while ((m = anchorRegex.exec(sourceHtml)) !== null && rawArticles.length < 8) {
+          let href = m[1];
+          const innerText = cleanText(m[2]);
 
-        if (
-          innerText.length >= 8 &&
-          !seenTitles.has(innerText) &&
-          !isBoilerplateText(innerText)
-        ) {
-          seenTitles.add(innerText);
-          if (href.startsWith("/")) href = new URL(href, origin).href;
-          if (!href.startsWith("http")) continue;
+          if (
+            innerText.length >= 6 &&
+            !seenTitles.has(innerText) &&
+            !isBoilerplateText(innerText)
+          ) {
+            seenTitles.add(innerText);
+            if (href.startsWith("/")) href = new URL(href, origin).href;
+            if (!href.startsWith("http")) continue;
 
-          rawArticles.push({ title: innerText, url: href, date: "스포츠" });
+            rawArticles.push({ title: innerText, url: href, date: "스포츠" });
+          }
         }
+      };
+
+      parseSportsAnchors(html);
+
+      // 네이버 스포츠 메인페이지 수집 기사가 부족할 경우, 스포츠 뉴스 전용 파이프라인 추가 Fetch
+      if (rawArticles.length < 3) {
+        try {
+          const sportsNewsRes = await fetch("https://sports.news.naver.com/index", {
+            headers: {
+              "User-Agent":
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+            },
+            next: { revalidate: 180 },
+          });
+          if (sportsNewsRes.ok) {
+            const sportsNewsHtml = await sportsNewsRes.text();
+            parseSportsAnchors(sportsNewsHtml);
+          }
+        } catch {}
       }
     } else {
       // C. 일반 RSS/Atom 피드 파싱
