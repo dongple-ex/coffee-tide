@@ -147,7 +147,15 @@ export function CustomNewsWidget({ widget, onNotify, onDelete, onUpdateName }: C
               }
               title={allExpanded ? "모든 요약 접기" : "모든 요약 펼치기"}
             >
-              {allExpanded ? "⌃" : "⌄"}
+              {allExpanded ? (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="18 15 12 9 6 15"></polyline>
+                </svg>
+              ) : (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              )}
             </button>
           )}
           <button
@@ -159,18 +167,27 @@ export function CustomNewsWidget({ widget, onNotify, onDelete, onUpdateName }: C
               });
             }}
             disabled={loading}
-            title="새로고침 (↻)"
+            title="새로고침"
           >
-            {loading ? "…" : "↻"}
+            {loading ? (
+              "…"
+            ) : (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
+              </svg>
+            )}
           </button>
           {onDelete && (
             <button
               type="button"
               className={`${styles.iconOnlyBtn} ${styles.btnDanger}`}
               onClick={() => onDelete(widget.id)}
-              title="이 위젯 삭제 (✕)"
+              title="이 위젯 삭제"
             >
-              ✕
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
             </button>
           )}
         </div>
