@@ -243,6 +243,8 @@ export default function Home() {
   // 원칙 4(부분 실패 허용): 수집 API 실패·세션 만료는 화면을 막지 않고 배너로 안내
   const [fetchFailed, setFetchFailed] = useState(false);
   const [sessionExpired, setSessionExpired] = useState(false);
+  // 빠른 위젯 도구함 한눈에 전체보기 토글 state
+  const [isWidgetDrawerExpanded, setIsWidgetDrawerExpanded] = useState(false);
   const [rules, setRules] = useState<AutomationRule[]>(() =>
     loadLS<AutomationRule[]>(LS_RULES, [])
   );
@@ -2065,7 +2067,12 @@ export default function Home() {
       {/* 🧩 확장형 빠른 위젯 바 (Widget Toolbar) */}
       <div className={styles.widgetBarSection}>
         <div className={styles.widgetBarHeader}>
-          <span className={styles.widgetBarTitle}>
+          <button
+            type="button"
+            className={styles.widgetBarTitleBtn}
+            onClick={() => setIsWidgetDrawerExpanded((prev) => !prev)}
+            title={isWidgetDrawerExpanded ? "한줄로 접기" : "모든 위젯 칩 한눈에 넓게 보기"}
+          >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <rect x="3" y="3" width="7" height="7"></rect>
               <rect x="14" y="3" width="7" height="7"></rect>
@@ -2073,10 +2080,13 @@ export default function Home() {
               <rect x="3" y="14" width="7" height="7"></rect>
             </svg>
             빠른 위젯 도구함
-          </span>
+            <span className={styles.drawerToggleBadge}>
+              {isWidgetDrawerExpanded ? "⌃ 접기" : "⫶⫶ 한눈에 보기 ⌄"}
+            </span>
+          </button>
         </div>
         <div
-          className={styles.widgetList}
+          className={`${styles.widgetList} ${isWidgetDrawerExpanded ? styles.widgetListExpanded : ""}`}
           ref={widgetListRef}
           onMouseDown={handleWidgetMouseDown}
           onMouseLeave={handleWidgetMouseLeaveOrUp}
