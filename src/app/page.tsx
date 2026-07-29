@@ -514,6 +514,14 @@ export default function Home() {
     if (activeWidget === id) setActiveWidget(null);
     showToast("커스텀 위젯이 삭제되었습니다.");
   };
+
+  const handleUpdateCustomWidgetName = (id: string, newName: string) => {
+    setCustomWidgets((prev) => {
+      const next = prev.map((w) => (w.id === id ? { ...w, name: newName } : w));
+      saveLS(LS_CUSTOM_WIDGETS, next);
+      return next;
+    });
+  };
   const widgetListRef = useRef<HTMLDivElement>(null);
   const isWidgetDragging = useRef(false);
   const widgetStartX = useRef(0);
@@ -2235,6 +2243,7 @@ export default function Home() {
                 widget={w}
                 onNotify={showToast}
                 onDelete={(id) => handleDeleteCustomWidget(id)}
+                onUpdateName={(id, newName) => handleUpdateCustomWidgetName(id, newName)}
               />
             </div>
           );

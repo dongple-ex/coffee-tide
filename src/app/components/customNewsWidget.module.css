@@ -24,6 +24,52 @@
   gap: 6px;
 }
 
+.clickableTitle {
+  cursor: pointer;
+  border-bottom: 1px dashed transparent;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.clickableTitle:hover {
+  border-bottom-color: var(--accent);
+  color: var(--accent);
+}
+
+.editIcon {
+  font-size: 0.72rem;
+  opacity: 0.4;
+  transition: opacity 0.15s ease;
+}
+
+.clickableTitle:hover .editIcon {
+  opacity: 1;
+}
+
+.titleEditInput {
+  background: var(--bg);
+  border: 1px solid var(--accent);
+  color: var(--text);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  outline: none;
+  width: 140px;
+}
+
+.editBtn {
+  background: var(--accent-dim);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
 .titleBadge {
   background: rgba(43, 91, 238, 0.12);
   border: 1px solid rgba(43, 91, 238, 0.3);
@@ -38,6 +84,28 @@
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+.iconOnlyBtn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  border-radius: 6px;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.iconOnlyBtn:hover {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .btn {

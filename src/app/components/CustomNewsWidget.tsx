@@ -16,6 +16,7 @@ interface CustomNewsWidgetProps {
   widget: CustomWidgetConfig;
   onNotify?: (msg: string) => void;
   onDelete?: (id: string) => void;
+  onUpdateName?: (id: string, newName: string) => void;
 }
 
 interface LoadError {
@@ -23,13 +24,26 @@ interface LoadError {
   hint?: string;
 }
 
-export function CustomNewsWidget({ widget, onNotify, onDelete }: CustomNewsWidgetProps) {
+export function CustomNewsWidget({ widget, onNotify, onDelete, onUpdateName }: CustomNewsWidgetProps) {
   const [articles, setArticles] = useState<CustomNewsItem[]>([]);
   const [briefing, setBriefing] = useState<SiteBriefing | null>(null);
   const [aiUsed, setAiUsed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<LoadError | null>(null);
   const [expandedIds, setExpandedIds] = useState<string[]>([]);
+
+  // 인라인 제목 편집 state
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editingName, setEditingName] = useState(widget.name);
+
+  const handleSaveTitle = () => {
+    const trimmed = editingName.trim();
+    if (trimmed && trimmed !== widget.name && onUpdateName) {
+      onUpdateName(widget.id, trimmed);
+      onNotify?.(`위젯 이름이 [${trimmed}] (으)로 변경되었습니다 ✏️`);
+    }
+    setIsEditingTitle(false);
+  };
 
   const fetchCustomArticles = useCallback(
     async (refresh = false) => {
@@ -59,9 +73,11 @@ export function CustomNewsWidget({ widget, onNotify, onDelete }: CustomNewsWidge
         // 첫 글은 펼친 상태로 두어 새로고침 직후 바로 핵심을 읽을 수 있게 한다.
         setExpandedIds(data.articles.length > 0 ? [data.articles[0].id] : []);
       } catch {
+        setArticles([]);
+        setBriefing(null);
         setError({
-          reason: `${widget.name} 소식을 가져오는 중 통신 오류가 발생했습니다.`,
-          hint: "네트워크 상태를 확인한 뒤 다시 시도해 주세요.",
+          reason: "네트워크 오류로 최신 소식을 읽어오지 못했습니다.",
+          hint: "인터넷 연결을 확인하고 다시 시도해 주세요.",
         });
       } finally {
         setLoading(false);
@@ -85,7 +101,38 @@ export function CustomNewsWidget({ widget, onNotify, onDelete }: CustomNewsWidge
       <div className={styles.header}>
         <div className={styles.title}>
           <span>{widget.icon || "🌐"}</span>
-          <span>{widget.name}</span>
+          {isEditingTitle ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <input
+                type="text"
+                value={editingName}
+                onChange={(e) => setEditingName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleSaveTitle();
+                  if (e.key === "Escape") setIsEditingTitle(false);
+                }}
+                className={styles.titleEditInput}
+                autoFocus
+              />
+              <button type="button" className={styles.editBtn} onClick={handleSaveTitle} title="저장">
+                ✓
+              </button>
+              <button type="button" className={styles.editBtn} onClick={() => setIsEditingTitle(false)} title="취소">
+                ✕
+              </button>
+            </div>
+          ) : (
+            <span
+              className={styles.clickableTitle}
+              onClick={() => {
+                setEditingName(widget.name);
+                setIsEditingTitle(true);
+              }}
+              title="클릭하여 위젯 이름 수정"
+            >
+              {widget.name} <span className={styles.editIcon}>✏️</span>
+            </span>
+          )}
           {articles.length > 0 && (
             <span className={styles.titleBadge}>{aiUsed ? "AI 요약" : "핵심 요약"}</span>
           )}
@@ -94,35 +141,36 @@ export function CustomNewsWidget({ widget, onNotify, onDelete }: CustomNewsWidge
           {articles.length > 0 && (
             <button
               type="button"
-              className={styles.btn}
+              className={styles.iconOnlyBtn}
               onClick={() =>
                 setExpandedIds(allExpanded ? [] : articles.map((a) => a.id))
               }
               title={allExpanded ? "모든 요약 접기" : "모든 요약 펼치기"}
             >
-              {allExpanded ? "⌃ 접기" : "⌄ 모두 펼치기"}
+              {allExpanded ? "⌃" : "⌄"}
             </button>
           )}
           <button
             type="button"
-            className={styles.btn}
+            className={styles.iconOnlyBtn}
             onClick={() => {
               void fetchCustomArticles(true).then(() => {
                 onNotify?.(`${widget.name} 최신 소식을 다시 읽어왔습니다 🌐`);
               });
             }}
             disabled={loading}
+            title="새로고침 (↻)"
           >
-            {loading ? "읽는 중..." : "↻ 갱신"}
+            {loading ? "…" : "↻"}
           </button>
           {onDelete && (
             <button
               type="button"
-              className={`${styles.btn} ${styles.btnDanger}`}
+              className={`${styles.iconOnlyBtn} ${styles.btnDanger}`}
               onClick={() => onDelete(widget.id)}
-              title="이 커스텀 위젯 삭제"
+              title="이 위젯 삭제 (✕)"
             >
-              🗑️ 삭제
+              ✕
             </button>
           )}
         </div>
