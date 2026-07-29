@@ -192,7 +192,7 @@ export function CustomNewsWidget({ widget, onNotify, onDelete }: CustomNewsWidge
                       </div>
                     )}
 
-                    {item.points.length > 0 && (
+                    {Array.isArray(item.points) && item.points.length > 0 && (
                       <ul className={styles.pointList}>
                         {item.points.map((p, i) => (
                           <li key={`${item.id}-p${i}`}>{p}</li>
