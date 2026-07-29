@@ -539,11 +539,18 @@ export function looksLikeArticleLink(href: string, origin: string): boolean {
   // 언론사는 기사 전용 서브도메인(n.news.naver.com 등)을 쓰는 경우가 많아 등록 도메인 단위로 비교한다.
   if (registrableDomain(u.hostname) !== registrableDomain(base.hostname)) return false;
   const path = u.pathname;
-  if (path === "/" || path.length < 6) return false;
+  const search = u.search;
+  if (path === "/" || path.length < 5) return false;
   if (/\.(jpg|jpeg|png|gif|svg|webp|pdf|zip|mp4|css|js)$/i.test(path)) return false;
   if (/(login|signup|join|member|privacy|terms|subscribe|search|tag|category|about|contact)/i.test(path)) {
     return false;
   }
+
+  // 네이버 스포츠 / 모바일 스포츠 기사 URL 특별 통과 (oid=, aid=, /read, /article/)
+  if (/(oid=|aid=|\/read|\/article\/)/i.test(path + search)) {
+    return true;
+  }
+
   // 기사 URL은 보통 숫자 ID 또는 충분히 긴 슬러그를 가진다.
-  return /\d{3,}/.test(path) || path.split("/").filter(Boolean).some((seg) => seg.length >= 12);
+  return /\d{3,}/.test(path) || path.split("/").filter(Boolean).some((seg) => seg.length >= 10);
 }

@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
     }
 
     const isYouTube = hostname.includes("youtube.com") || hostname.includes("youtu.be");
-    const isNaverSports = hostname.includes("sports.naver.com") || hostname.includes("sports.news.naver.com");
+    const isNaverSports = /sports\.naver\.com|sports\.news\.naver\.com|m\.sports\.naver\.com/i.test(targetUrl);
 
     // 실시간 메인/피드페이지 HTML 수집
     const res = await fetch(targetUrl, {
