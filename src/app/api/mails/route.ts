@@ -1,5 +1,7 @@
 // 통합 수집 API — 선제(만료 임박 60초) + 반응형(401 시 1회) 토큰 리프레시(백로그 A3),
 // 병렬 수집·부분 실패 허용(00-product-spec 원칙 4), AI 분류(C1 캐시), 최신순 정렬.
+// 수집 상한: 현재 시각 기준 최근 COLLECT_WINDOW_DAYS(14)일 이내 항목만 (collectWindow.ts 단일 기준).
+// 건수 차등 표시 창(3/7/14일)은 클라이언트 병합 파이프라인(mergeView.ts)에서 선택된다.
 // phase6 Q4: Obsidian 연동 시 오늘의 LLM 산출물을 일일 다이제스트로 자동 미러링.
 
 import { NextRequest, NextResponse } from "next/server";
@@ -8,6 +10,7 @@ import { AuthExpiredError } from "@/lib/adapters/outlook";
 import { ObsidianAdapter } from "@/lib/adapters/obsidian";
 import { classifyTasks } from "@/lib/ai/gemini";
 import { readSession, touchSession, unauthorized } from "@/lib/auth/cookies";
+import { isWithinCollectWindow } from "@/lib/collectWindow";
 import { REFRESH_WINDOW_MS, refreshChannel } from "@/lib/auth/refresh";
 import { SessionData } from "@/lib/auth/session";
 import { UnifiedData } from "@/lib/types/unified";
@@ -88,7 +91,9 @@ export async function GET(request: NextRequest) {
     })
   );
 
-  const merged = collected.flat();
+  // 시간 윈도우 강제 — 채널별 쿼리 푸시다운(outlook/gmail)과 무관하게 여기가 최종 관문.
+  // AI 분류 전에 걸러 윈도우 밖 항목에 분류 비용을 쓰지 않는다.
+  const merged = collected.flat().filter((i) => isWithinCollectWindow(i.created_at));
   const { items: classified, aiUsed } = await classifyTasks(merged);
   classified.sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()

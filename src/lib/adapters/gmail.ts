@@ -19,8 +19,9 @@ export class GmailAdapter {
     return res;
   }
 
-  async fetchRecent(limit = 10): Promise<UnifiedData[]> {
-    const listRes = await this.api(`/messages?maxResults=${limit}&labelIds=INBOX`);
+  async fetchRecent(limit = 10, sinceDays?: number): Promise<UnifiedData[]> {
+    const q = sinceDays ? `&q=${encodeURIComponent(`newer_than:${sinceDays}d`)}` : "";
+    const listRes = await this.api(`/messages?maxResults=${limit}&labelIds=INBOX${q}`);
     if (!listRes.ok) throw new Error(`Gmail list ${listRes.status}`);
     const list = (await listRes.json()) as { messages?: { id: string }[] };
     const ids = (list.messages || []).map((m) => m.id);

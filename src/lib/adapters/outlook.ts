@@ -36,9 +36,12 @@ export class OutlookAdapter {
     return res;
   }
 
-  async fetchRecent(limit = 10): Promise<UnifiedData[]> {
+  async fetchRecent(limit = 10, sinceIso?: string): Promise<UnifiedData[]> {
+    const filter = sinceIso
+      ? `&$filter=${encodeURIComponent(`receivedDateTime ge ${sinceIso}`)}`
+      : "";
     const res = await this.graph(
-      `/me/mailFolders/inbox/messages?$top=${limit}&$orderby=receivedDateTime desc&$select=id,subject,body,receivedDateTime,from,webLink,importance`
+      `/me/mailFolders/inbox/messages?$top=${limit}&$orderby=receivedDateTime desc${filter}&$select=id,subject,body,receivedDateTime,from,webLink,importance`
     );
     if (!res.ok) throw new Error(`Graph messages ${res.status}`);
     const json = (await res.json()) as { value?: GraphMessage[] };

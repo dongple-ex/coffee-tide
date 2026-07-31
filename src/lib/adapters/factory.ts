@@ -1,6 +1,7 @@
 // 어댑터 팩토리 — MOCK_MODE=true면 Mock 데이터 반환 (doc/legacy_timepilot/3-integration_env.md 사상 계승)
 
 import { SessionData } from "../auth/session";
+import { COLLECT_WINDOW_DAYS, COLLECT_WINDOW_MS } from "../collectWindow";
 import {
   MOCK_LLM_ITEMS,
   MOCK_MAILS,
@@ -38,11 +39,13 @@ export function buildFetchers(session: SessionData): Partial<
   const fetchers: ReturnType<typeof buildFetchers> = {};
   if (session.outlookToken) {
     const adapter = new OutlookAdapter(session.outlookToken);
-    fetchers.outlook = () => adapter.fetchRecent(10);
+    // 윈도우를 쿼리에 푸시다운 — 오래된 메일에 개수 상한(10건)을 낭비하지 않는다
+    fetchers.outlook = () =>
+      adapter.fetchRecent(10, new Date(Date.now() - COLLECT_WINDOW_MS).toISOString());
   }
   if (session.googleToken) {
     const adapter = new GmailAdapter(session.googleToken);
-    fetchers.google = () => adapter.fetchRecent(10);
+    fetchers.google = () => adapter.fetchRecent(10, COLLECT_WINDOW_DAYS);
   }
   if (session.notionToken && session.notionDbId) {
     const adapter = new NotionAdapter(session.notionToken, session.notionDbId);
