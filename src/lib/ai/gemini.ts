@@ -181,7 +181,8 @@ export async function askCopilot(
   });
 
   if (!apiKey() || Date.now() < quotaCooldownUntil) {
-    return { answer: copilotBriefing(items, dateLabel), aiUsed: false };
+    // 생성 시 분류가 실패해 category가 빈 항목도 브리핑에서 빠지지 않도록 로컬 분류로 보충
+    return { answer: copilotBriefing(classifyAll(items), dateLabel), aiUsed: false };
   }
 
   const system = `역할: 사용자의 감성적이고 주도적인 개인 AI 업무 비서(coffeeTide AI 바리스타)입니다. 제공된 업무 데이터 컨텍스트를 기반으로 사용자가 오늘 진행할 업무를 브리핑합니다.

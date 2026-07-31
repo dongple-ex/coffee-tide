@@ -184,25 +184,25 @@
 
 > 근거: [`00-product-spec.md`](./00-product-spec.md)의 "핵심 제품 원칙"과 "현재 구현과의 차이". 정본은 **연동이 없어도 오늘의 일을 정리**하는 것을 지향하나, 현재 구현은 여전히 외부 연동을 사실상 전제로 함.
 
-### G1. manual/paste 무연동 소스 미구현 — P1 (정본 핵심)
-- **문제**: 정본은 `manual`(직접 입력), `paste`(메모/메일 붙여넣기 추출)를 **1급 소스**로 규정하나, 코드의 `UnifiedData['source']`에는 없음(`outlook|notion|obsidian|slack|teams|jira|local_doc`). 연동이 하나도 없으면 대시보드가 사실상 빈 상태.
-- **위치**: `src/lib/types/unified.ts`(source 유니온), `src/app/api/mails/route.ts`(수집), `src/app/page.tsx`(입력 UI 부재).
-- **제안**: `source`에 `manual`·`paste` 추가 → 빠른 업무 추가 폼 + 붙여넣기 추출(로컬/AI) → 세션 또는 localStorage에 저장 → 통합 파이프라인 병합. 완료/보류/삭제 로컬 write-back.
-- **완료 기준**: 아무 연동 없이도 업무 1건 등록 → 분류·행동지침·Copilot 브리핑까지 동작 (정본 §6 성공 기준).
+### G1. manual/paste 무연동 소스 — ✅ 구현 (2026-07-31 무연동 E2E 재검증)
+- **문제(원래)**: 정본은 `manual`(직접 입력), `paste`(메모/메일 붙여넣기 추출)를 **1급 소스**로 규정하나 미구현이었음.
+- **구현**: `UnifiedSource`에 `manual`·`paste` 포함, 빠른 추가 폼(`addManual` → `/api/tasks/classify`), 붙여넣기 추출(`importPaste` → `/api/tasks/extract`), `ct_manual_items` localStorage 영속, 완료/보류/삭제 로컬 write-back(`setLocalStatus`/`deleteLocal`).
+- **검증 (2026-07-31)**: 연동 토큰 0·AI 키 0 상태에서 게스트 세션으로 E2E 스모크 — ① 수동 등록→분류(`approval_required`+행동지침) ② 붙여넣기→`paste` 소스 3건 추출·분류 ③ Copilot 브리핑에 최우선 업무·출처(직접 입력)·기준일 표기. 전부 통과 (정본 §6 성공 기준 충족).
+- **보강 (2026-07-31)**: 생성 시 분류 실패로 category가 빈 항목이 폴백 브리핑에서 누락되던 빈틈 수정 — `askCopilot` 폴백 경로에서 `classifyAll`로 보충 후 브리핑.
 
-### G2. 빈 화면 안내가 연동 전제 — P2
+### G2. 빈 화면 안내가 연동 전제 — ✅ 구현 (입력 우선 안내, 2026-07-31 코드 확인)
 - **문제**: 미연동 시 안내가 "서비스를 연결해 주세요" 중심.
 - **위치**: `src/app/page.tsx`의 `!isAnyConnected` 빈 상태 문구(todo/recent 섹션).
 - **제안**: "업무를 직접 추가하거나 문서를 가져오세요"를 기본 안내로. (G1 선행 권장)
 - **완료 기준**: 미연동 사용자에게 입력 경로가 우선 제시됨.
 
-### G3. Copilot이 무연동 시 비활성 — P2
+### G3. Copilot이 무연동 시 비활성 — ✅ 구현 (항상 활성, 2026-07-31 무연동 스모크 확인)
 - **문제**: `isAnyConnected`가 false면 Copilot 입력이 `disabled`. 정본은 수동 데이터만으로도 Copilot 동작을 요구.
 - **위치**: `src/app/page.tsx`의 Copilot `<input>/<button>` `disabled={... || !isAnyConnected}`.
 - **제안**: 표시할 업무(manual 포함)가 있으면 활성화하도록 조건 변경.
 - **완료 기준**: 수동 업무만 있어도 Copilot 브리핑 가능.
 
-### G4. Copilot 날짜/출처 근거 규칙 — P2
+### G4. Copilot 날짜/출처 근거 규칙 — ✅ 구현 (Gemini 프롬프트 절대 규칙 + 폴백 기준일·출처, 2026-07-31 스모크 확인)
 - **문제**: 정본은 "현재 날짜/타임존을 컨텍스트로 받고 추정 금지, 제안에 출처(파일/메일/페이지명) 표기"를 요구. 현재 프롬프트는 이를 보장하지 않음.
 - **위치**: `src/lib/ai/gemini.ts`(askCopilot 프롬프트/컨텍스트).
 - **제안**: 요청 시 현재 날짜/타임존을 컨텍스트로 주입, 시스템 지침에 "날짜 추정 금지 + 출처 표기" 명시.
