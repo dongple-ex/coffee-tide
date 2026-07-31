@@ -31,6 +31,12 @@ import {
   UnifiedData,
 } from "@/lib/types/unified";
 import { ACTION_LABEL, ERROR_SOURCE_LABELS, FIELD_LABEL } from "@/lib/labels";
+import {
+  isWithinCollectWindow,
+  normalizeViewWindow,
+  ViewWindowSetting,
+  WINDOW_TIERS_DAYS,
+} from "@/lib/collectWindow";
 import { buildMergedView, TODO_CATS } from "@/lib/mergeView";
 import {
   loadLS,
@@ -42,6 +48,7 @@ import {
   LS_DISMISSED,
   LS_FOLLOWUP,
   LS_HANDOFF_STATE,
+  LS_VIEW_WINDOW,
   LS_MANUAL,
   LS_RULES,
   LS_SUB_TASKS,
@@ -85,6 +92,7 @@ const LS_DRIVE_BACKUP_ENABLED = "ct_drive_backup_enabled";
 const LS_CUSTOM_WIDGETS = "ct_custom_widgets";
 
 const POLL_MS = 30_000;
+const TICK_MS = 60_000;
 
 // 퇴근 핸드오프는 **UI 스냅샷 전용**이다. 업무 데이터의 정본은 ct_manual_items / ct_dismissed_ids이며,
 // 여기에 복제하면 localStorage(약 5MB)를 이중으로 먹고 어느 쪽이 최신인지도 모호해진다.
@@ -250,7 +258,11 @@ export default function Home() {
   );
   const [dismissed, setDismissed] = useState<string[]>(() => loadLS<string[]>(LS_DISMISSED, []));
   const [followupHours, setFollowupHours] = useState(() => loadLS<number>(LS_FOLLOWUP, 24));
+  const [viewWindow, setViewWindow] = useState<ViewWindowSetting>(() =>
+    normalizeViewWindow(loadLS<unknown>(LS_VIEW_WINDOW, "auto"))
+  );
   const [notifPerm, setNotifPerm] = useState<NotificationPermission>(getNotificationPermission);
+  const [nowTick, setNowTick] = useState(() => Date.now());
 
   const [quickTitle, setQuickTitle] = useState("");
   const [showPaste, setShowPaste] = useState(false);
@@ -824,7 +836,9 @@ export default function Home() {
   // ── 브라우저 폴더 스캔 — 서버 /api/mails 파이프라인(수집→AI 분류→C1 캐시) 미러 ──
   const scanBrowser = useCallback(async () => {
     if (!supportsFsAccess()) return;
-    const { items, complete, folders } = await scanBrowserFolders();
+    const { items: scanned, complete, folders } = await scanBrowserFolders();
+    // 서버 수집과 동일한 시간 윈도우 적용 (collectWindow.ts 단일 기준)
+    const items = scanned.filter((i) => isWithinCollectWindow(i.created_at));
     setBrowserFolders(folders);
 
     // 분류 캐시 적용 (llm 항목은 reference 고정이라 캐시 불필요)
@@ -929,6 +943,9 @@ export default function Home() {
   useEffect(() => {
     saveLS(LS_FOLLOWUP, followupHours);
   }, [followupHours]);
+  useEffect(() => {
+    saveLS(LS_VIEW_WINDOW, viewWindow);
+  }, [viewWindow]);
 
   // 테마 적용 — html[data-theme] + localStorage 영속
   useEffect(() => {
@@ -953,6 +970,7 @@ export default function Home() {
         else if (e.key === LS_RULES) setRules(JSON.parse(e.newValue));
         else if (e.key === LS_DISMISSED) setDismissed(JSON.parse(e.newValue));
         else if (e.key === LS_FOLLOWUP) setFollowupHours(JSON.parse(e.newValue));
+        else if (e.key === LS_VIEW_WINDOW) setViewWindow(normalizeViewWindow(JSON.parse(e.newValue)));
       } catch {
         // 손상된 값은 무시 — 다음 정상 저장에서 수렴
       }
@@ -1022,7 +1040,9 @@ export default function Home() {
         [...serverMails, ...browserItems],
         dismissed,
         rules,
-        followupHours
+        followupHours,
+        undefined,
+        viewWindow
       )
         .filter((i) => i.status !== "completed")
         .slice(0, 50);
@@ -1033,7 +1053,7 @@ export default function Home() {
       });
     }, 2000);
     return () => clearTimeout(timer);
-  }, [manualItems, serverMails, browserItems, dismissed, rules, followupHours, pushEndpoint]);
+  }, [manualItems, serverMails, browserItems, dismissed, rules, followupHours, viewWindow, pushEndpoint]);
 
   // 30초 폴링 — 백그라운드 탭에서는 중단, 복귀 시 즉시 갱신 (C2: 콜백 identity 안정화)
   useEffect(() => {
@@ -1057,12 +1077,29 @@ export default function Home() {
     };
   }, [phase, fetchMails, scanBrowser]);
 
+  // 1분 틱 타이머 — 새로고침 없이 팔로업 초과 판정·시간 텍스트·긴급 알림·대기/긴급 카운트를
+  // 1분마다 자동 갱신한다. 백그라운드 탭에서는 중단하고 복귀 시 즉시 따라잡는다.
+  useEffect(() => {
+    if (phase !== "ready") return;
+    const interval = setInterval(() => {
+      if (!document.hidden) setNowTick(Date.now());
+    }, TICK_MS);
+    const onVisible = () => {
+      if (!document.hidden) setNowTick(Date.now());
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [phase]);
+
   // 병합 파이프라인은 규칙 적용+정렬이 있어 키 입력마다 재계산하지 않도록 메모이제이션
-  // (overdue 시각은 30초 폴링이 serverMails를 갱신할 때마다 재계산돼 충분히 신선하다)
+  // (overdue 시각은 1분 틱 타이머(nowTick) 갱신 시마다 재계산돼 실시간으로 유지된다)
   const merged = useMemo(
     () =>
-      buildMergedView(manualItems, [...serverMails, ...browserItems], dismissed, rules, followupHours),
-    [manualItems, serverMails, browserItems, dismissed, rules, followupHours]
+      buildMergedView(manualItems, [...serverMails, ...browserItems], dismissed, rules, followupHours, nowTick, viewWindow),
+    [manualItems, serverMails, browserItems, dismissed, rules, followupHours, nowTick, viewWindow]
   );
 
   const handleLogoutHandoff = useCallback(async () => {
@@ -1974,6 +2011,25 @@ export default function Home() {
               <option value={12}>12시간</option>
               <option value={24}>24시간</option>
               <option value={48}>48시간</option>
+            </select>
+          </label>
+          <label>
+            표시 기간{" "}
+            <select
+              className={styles.input}
+              style={{ width: "auto", display: "inline-block", padding: "4px 8px" }}
+              value={String(viewWindow)}
+              onChange={(e) =>
+                setViewWindow(e.target.value === "auto" ? "auto" : Number(e.target.value))
+              }
+              aria-label="외부 항목 표시 기간"
+            >
+              <option value="auto">자동 (건수 차등)</option>
+              {WINDOW_TIERS_DAYS.map((d) => (
+                <option key={d} value={d}>
+                  최근 {d}일
+                </option>
+              ))}
             </select>
           </label>
         </div>

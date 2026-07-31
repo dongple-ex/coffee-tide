@@ -4,6 +4,7 @@
 // 정렬·에스컬레이션 규칙을 화면 없이 검증할 수 있다.
 
 import { applyRules, AutomationRule, ProcessedData } from "@/lib/automation/rules";
+import { isWithinDays, pickWindowDays, ViewWindowSetting } from "@/lib/collectWindow";
 import { UnifiedData } from "@/lib/types/unified";
 
 export type ViewItem = ProcessedData & { overdue: number };
@@ -19,14 +20,16 @@ export function buildMergedView(
   serverMails: UnifiedData[],
   dismissed: string[],
   rules: AutomationRule[],
-  followupHours: number
+  followupHours: number,
+  nowTimestamp?: number,
+  viewWindow: ViewWindowSetting = "auto"
 ): ViewItem[] {
   const manualIds = new Set(manualItems.map((i) => i.id));
   const all = [...manualItems, ...serverMails.filter((m) => !manualIds.has(m.id))];
   const visible = all.filter((i) => !dismissed.includes(i.id));
   const processed = applyRules(visible, rules);
 
-  const now = Date.now();
+  const now = nowTimestamp ?? Date.now();
   const withOverdue: ViewItem[] = processed.map((i) => {
     const hours = Math.floor((now - Date.parse(i.created_at)) / 3_600_000);
     const overdue =
@@ -36,10 +39,24 @@ export function buildMergedView(
     return { ...i, overdue };
   });
 
+  // 표시 창 (collectWindow.ts §2) — 설정이 "auto"면 외부 항목 건수에 따라 3/7/14일
+  // 자동 선택, 숫자면 그 일수로 고정. 수동 항목·핀 고정·팔로업 초과 항목은 창과
+  // 무관하게 유지한다 — 창이 좁아진다고 방치 업무(에스컬레이션 대상)가 화면에서
+  // 사라지면 팔로업 기능이 무력화된다.
+  const external = withOverdue.filter((i) => !manualIds.has(i.id));
+  const windowDays = viewWindow === "auto" ? pickWindowDays(external, now) : viewWindow;
+  const kept = withOverdue.filter(
+    (i) =>
+      manualIds.has(i.id) ||
+      i.pinned ||
+      i.overdue > 0 ||
+      isWithinDays(i.created_at, windowDays, now)
+  );
+
   // 정렬: pin 고정 → 팔로업 에스컬레이션 → 나머지(원래 순서)
-  const pinned = withOverdue.filter((i) => i.pinned);
-  const escalated = withOverdue.filter((i) => !i.pinned && i.overdue > 0);
-  const rest = withOverdue.filter((i) => !i.pinned && i.overdue === 0);
+  const pinned = kept.filter((i) => i.pinned);
+  const escalated = kept.filter((i) => !i.pinned && i.overdue > 0);
+  const rest = kept.filter((i) => !i.pinned && i.overdue === 0);
   return [...pinned, ...escalated, ...rest];
 }
 
