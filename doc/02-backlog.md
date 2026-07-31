@@ -211,7 +211,7 @@
 ### G5. 문서 `phase4_*` dangling 참조 — ✅ 완료 (2026-07-11)
 - **처리**: `doc/README.md` 읽기 순서를 재작성하여 phase4 참조를 제거하고, manual/paste 무연동 설계의 정본을 `00-product-spec.md` + 본 문서 G1으로 명시함.
 
-### G6. Copilot 응답 카드/섹션 렌더링 — P2
+### G6. Copilot 응답 카드/섹션 렌더링 — ✅ 구현 (`markdownLite.tsx`, 2026-07-31 코드 확인)
 - **문제**: 정본은 Copilot 응답을 Markdown 원문 노출 대신 카드/섹션 형태로 렌더링할 것을 요구 ([`00-product-spec.md`](./00-product-spec.md) §5).
 - **제안**: 경량 마크다운 렌더러 컴포넌트(프로토타입의 `MarkdownLite` 설계 참고)로 헤딩/리스트/강조를 섹션 UI로 변환. 원문 `**`, `##` 등이 그대로 보이면 안 됨.
 - **완료 기준**: Copilot 브리핑이 섹션 구분된 카드 UI로 표시되고 Markdown 문법 문자가 노출되지 않음.
