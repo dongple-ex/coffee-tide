@@ -2246,9 +2246,6 @@ export default function Home() {
       <div className={styles.grid}>
         {/* G1: 빠른 업무 추가 + 붙여넣기 — 입력 경로가 최우선 (00-product-spec §4.1) */}
         <section className={`${styles.card} ${styles.colInput}`}>
-          <div className={styles.cardTitle}>
-            ⚡ 빠른 업무 추가
-          </div>
           <QuickAddBar
             quickTitle={quickTitle}
             onQuickTitleChange={setQuickTitle}

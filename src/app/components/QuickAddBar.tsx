@@ -30,17 +30,23 @@ export function QuickAddBar({
   dynamicPasteSteps,
 }: QuickAddBarProps) {
   return (
-    <div style={{ marginBottom: 12 }}>
-      <div className={styles.cardHeaderSmall}>
-        <span>빠른 추가</span>
+    <div>
+      <div
+        className={styles.cardTitle}
+        style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}
+      >
+        <span>⚡ 빠른 업무 추가</span>
         <button
-          className={styles.linkBtn}
+          type="button"
+          className={`${styles.btn} ${styles.cardTitleBtn}`}
           onClick={onToggleShowPaste}
           aria-expanded={showPaste}
+          style={{ fontSize: "0.78rem", padding: "4px 10px" }}
         >
-          {showPaste ? "접기" : "📄 긴 텍스트에서 추출"}
+          {showPaste ? "접기" : "📋 메모/회의록 붙여넣기"}
         </button>
       </div>
+
       <div className={styles.formRow}>
         <input
           className={styles.input}
@@ -54,8 +60,17 @@ export function QuickAddBar({
           추가
         </button>
       </div>
+
       {showPaste && (
-        <div style={{ marginTop: 8 }}>
+        <div
+          style={{
+            marginTop: 10,
+            padding: 12,
+            background: "rgba(0, 0, 0, 0.02)",
+            borderRadius: 10,
+            border: "1px dashed var(--border)",
+          }}
+        >
           <textarea
             className={styles.textarea}
             placeholder="메모·메일·회의록을 붙여넣으면 할 일만 쏙 골라낼게요"

@@ -19,7 +19,14 @@
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 12px;
+}
+
+.headerGroupLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .headerRowStart {
@@ -28,6 +35,57 @@
   justify-content: flex-start;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.headerToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 8px 14px;
+}
+
+.headerToolbarGroup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.headerSelectLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.headerSelect {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 4px 8px;
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.headerSelect:hover,
+.headerSelect:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.notifActiveBtn {
+  background: var(--accent-dim, rgba(245, 158, 11, 0.15));
+  border-color: var(--accent, #f59e0b);
+  color: var(--accent, #f59e0b);
 }
 
 .logo {
