@@ -41,26 +41,27 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 12px;
+  flex-wrap: nowrap;
+  gap: 8px;
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 8px 14px;
+  border-radius: 10px;
+  padding: 4px 10px;
+  overflow-x: auto;
 }
 
 .headerToolbarGroup {
   display: flex;
   align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
+  gap: 8px;
+  flex-wrap: nowrap;
 }
 
 .headerSelectLabel {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 0.78rem;
+  gap: 4px;
+  font-size: 0.74rem;
   color: var(--text-dim);
   white-space: nowrap;
 }
@@ -68,10 +69,10 @@
 .headerSelect {
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 6px;
   color: var(--text);
-  padding: 4px 8px;
-  font-size: 0.78rem;
+  padding: 2px 6px;
+  font-size: 0.74rem;
   cursor: pointer;
   transition: border-color 0.15s ease;
 }
@@ -168,13 +169,18 @@
 .refreshBtn {
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 999px;
   color: var(--text);
-  padding: 6px 10px;
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  padding: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  box-sizing: border-box;
+  flex-shrink: 0;
   transition: all 0.2s ease;
 }
 

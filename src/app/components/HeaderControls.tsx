@@ -119,36 +119,35 @@ export function HeaderControls({
         </div>
       </div>
 
-      {/* Row 2: Unified Control Toolbar */}
+      {/* Row 2: Compact 1-Line Control Toolbar */}
       <div className={styles.headerToolbar}>
-        <div className={styles.headerToolbarGroup}>
-          <button
-            className={styles.connMenuBtn}
-            onClick={onToggleConn}
-            aria-expanded={showConn}
-            aria-haspopup="dialog"
-            aria-label="설정 열기/닫기"
+        <button
+          className={styles.connMenuBtn}
+          style={{ padding: "3px 8px", fontSize: "0.76rem", borderRadius: "6px" }}
+          onClick={onToggleConn}
+          aria-expanded={showConn}
+          aria-haspopup="dialog"
+          aria-label="설정 열기/닫기"
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
           >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="m12 14 4-4" />
-              <path d="M3.34 19a10 10 0 1 1 17.32 0" />
-            </svg>
-            설정
-          </button>
-        </div>
+            <path d="m12 14 4-4" />
+            <path d="M3.34 19a10 10 0 1 1 17.32 0" />
+          </svg>
+          설정
+        </button>
 
         <div className={styles.headerToolbarGroup}>
           <label className={styles.headerSelectLabel}>
-            <span>팔로업 기준</span>
+            <span>팔로업</span>
             <select
               className={styles.headerSelect}
               value={followupHours}
@@ -160,8 +159,9 @@ export function HeaderControls({
               <option value={48}>48시간</option>
             </select>
           </label>
+
           <label className={styles.headerSelectLabel}>
-            <span>표시 기간</span>
+            <span>표시</span>
             <select
               className={styles.headerSelect}
               value={String(viewWindow)}
@@ -170,7 +170,7 @@ export function HeaderControls({
               }
               aria-label="외부 항목 표시 기간"
             >
-              <option value="auto">자동 (건수 차등)</option>
+              <option value="auto">자동</option>
               {WINDOW_TIERS_DAYS.map((d) => (
                 <option key={d} value={d}>
                   최근 {d}일
@@ -178,8 +178,9 @@ export function HeaderControls({
               ))}
             </select>
           </label>
+
           <label className={styles.headerSelectLabel}>
-            <span>수집 건수</span>
+            <span>수집</span>
             <select
               className={styles.headerSelect}
               value={fetchLimit}
@@ -187,7 +188,7 @@ export function HeaderControls({
               aria-label="채널별 수집 건수 상한"
             >
               <option value={10}>10건</option>
-              <option value={20}>20건 (기본)</option>
+              <option value={20}>20건</option>
               <option value={50}>50건</option>
             </select>
           </label>
