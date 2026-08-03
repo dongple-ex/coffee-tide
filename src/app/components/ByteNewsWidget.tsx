@@ -10,11 +10,10 @@ interface ByteNewsWidgetProps {
 
 export function ByteNewsWidget({ onNotify }: ByteNewsWidgetProps) {
   const [articles, setArticles] = useState<ByteNewsArticle[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const fetchNews = async () => {
-    setLoading(true);
+  const fetchNews = React.useCallback(async () => {
     try {
       const res = await fetch("/api/news/byte");
       if (!res.ok) throw new Error();
@@ -30,11 +29,32 @@ export function ByteNewsWidget({ onNotify }: ByteNewsWidgetProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [onNotify]);
 
   useEffect(() => {
-    void fetchNews();
-  }, []);
+    let cancelled = false;
+    fetch("/api/news/byte")
+      .then((res) => (res.ok ? (res.json() as Promise<{ articles?: ByteNewsArticle[] }>) : null))
+      .then((data) => {
+        if (cancelled) return;
+        if (data?.articles) {
+          setArticles(data.articles);
+          if (data.articles.length > 0) {
+            setExpandedId(data.articles[0].id);
+          }
+        }
+        setLoading(false);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          onNotify?.("앗, 바리스타 기사를 가져오는 중 오류가 발생했어요.");
+          setLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [onNotify]);
 
   return (
     <div className={styles.container}>
@@ -48,6 +68,7 @@ export function ByteNewsWidget({ onNotify }: ByteNewsWidgetProps) {
           type="button"
           className={styles.refreshBtn}
           onClick={() => {
+            setLoading(true);
             void fetchNews();
             onNotify?.("최신 바이트 경제 기사를 읽어왔습니다 📰");
           }}

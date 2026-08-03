@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
   try {
     const body = (await req.json()) as { url?: string; siteName?: string };
     const rawUrl = body.url?.trim();
-    let userProvidedName = body.siteName?.trim() || "";
+    const userProvidedName = body.siteName?.trim() || "";
 
     if (!rawUrl) {
       return NextResponse.json(
@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
       throw new Error(`HTTP ${res.status}`);
     }
 
-    let html = await res.text();
+    const html = await res.text();
     const rawArticles: { title: string; url: string; date: string; summary?: string }[] = [];
 
     // 사이트 이름 자동 추출

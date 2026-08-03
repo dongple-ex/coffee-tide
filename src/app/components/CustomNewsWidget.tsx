@@ -28,7 +28,7 @@ export function CustomNewsWidget({ widget, onNotify, onDelete, onUpdateName }: C
   const [articles, setArticles] = useState<CustomNewsItem[]>([]);
   const [briefing, setBriefing] = useState<SiteBriefing | null>(null);
   const [aiUsed, setAiUsed] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<LoadError | null>(null);
   const [expandedIds, setExpandedIds] = useState<string[]>([]);
 
@@ -47,7 +47,7 @@ export function CustomNewsWidget({ widget, onNotify, onDelete, onUpdateName }: C
 
   const fetchCustomArticles = useCallback(
     async (refresh = false) => {
-      setLoading(true);
+      if (refresh) setLoading(true);
       setError(null);
       try {
         const res = await fetch("/api/news/custom", {
@@ -87,8 +87,45 @@ export function CustomNewsWidget({ widget, onNotify, onDelete, onUpdateName }: C
   );
 
   useEffect(() => {
-    void fetchCustomArticles();
-  }, [fetchCustomArticles]);
+    let cancelled = false;
+    fetch("/api/news/custom", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url: widget.url, siteName: widget.name, refresh: false }),
+    })
+      .then((res) => (res.ok ? (res.json() as Promise<CustomNewsResponse>) : null))
+      .then((data) => {
+        if (cancelled) return;
+        if (!data || !data.success || data.articles.length === 0) {
+          setArticles([]);
+          setBriefing(null);
+          setError({
+            reason: data?.reason ?? "최신 글을 가져오지 못했습니다.",
+            hint: data?.hint,
+          });
+        } else {
+          setArticles(data.articles);
+          setBriefing(data.briefing ?? null);
+          setAiUsed(Boolean(data.aiUsed));
+          setExpandedIds(data.articles.length > 0 ? [data.articles[0].id] : []);
+        }
+        setLoading(false);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setArticles([]);
+          setBriefing(null);
+          setError({
+            reason: "네트워크 오류로 최신 소식을 읽어오지 못했습니다.",
+            hint: "인터넷 연결을 확인하고 다시 시도해 주세요.",
+          });
+          setLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [widget.url, widget.name]);
 
   const toggleExpand = (id: string) => {
     setExpandedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));

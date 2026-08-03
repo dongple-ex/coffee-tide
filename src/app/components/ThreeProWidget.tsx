@@ -10,11 +10,10 @@ interface ThreeProWidgetProps {
 
 export function ThreeProWidget({ onNotify }: ThreeProWidgetProps) {
   const [videos, setVideos] = useState<ThreeProVideo[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const fetchVideos = async () => {
-    setLoading(true);
+  const fetchVideos = React.useCallback(async () => {
     try {
       const res = await fetch("/api/news/threepro");
       if (!res.ok) throw new Error();
@@ -30,11 +29,32 @@ export function ThreeProWidget({ onNotify }: ThreeProWidgetProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [onNotify]);
 
   useEffect(() => {
-    void fetchVideos();
-  }, []);
+    let cancelled = false;
+    fetch("/api/news/threepro")
+      .then((res) => (res.ok ? (res.json() as Promise<{ videos?: ThreeProVideo[] }>) : null))
+      .then((data) => {
+        if (cancelled) return;
+        if (data?.videos) {
+          setVideos(data.videos);
+          if (data.videos.length > 0) {
+            setExpandedId(data.videos[0].id);
+          }
+        }
+        setLoading(false);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          onNotify?.("앗, 삼프로TV 브리핑을 가져오는 중 오류가 발생했어요.");
+          setLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [onNotify]);
 
   return (
     <div className={styles.container}>
@@ -48,6 +68,7 @@ export function ThreeProWidget({ onNotify }: ThreeProWidgetProps) {
           type="button"
           className={styles.refreshBtn}
           onClick={() => {
+            setLoading(true);
             void fetchVideos();
             onNotify?.("최신 삼프로TV 경제 브리핑을 가져왔습니다 📺");
           }}
