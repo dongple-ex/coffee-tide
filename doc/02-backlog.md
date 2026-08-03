@@ -64,37 +64,21 @@
 
 ## A. 정합성 & 버그
 
-### A1. Gmail과 Outlook이 UI에서 구분되지 않음 — P2
-- **문제**: Gmail 항목이 배지 호환을 위해 `source: 'outlook'`으로 라벨링됨.
-- **위치**: `src/lib/adapters/gmail.ts` (mock의 `.map(x => ({...x, source:'outlook'}))` 및 실데이터 `source: 'outlook'` 주입), `UnifiedData['source']` 유니온(`src/lib/types/unified.ts`).
-- **영향**: Gmail·Outlook 메일이 모두 "outlook" 배지로 표시돼 출처 혼동.
-- **제안**: `source` 유니온에 `'gmail'` 추가 → `badge_gmail`/`badge_google` 스타일(page.module.css) 추가 → 어댑터가 실제 소스 사용. 답장/캡처 게이팅은 `['outlook','gmail'].includes(source)`로 갱신.
-- **완료 기준**: Gmail 항목이 별도 배지로 표시되고, 메일 액션 버튼이 Gmail에도 노출.
+### ~~A1~~. Gmail과 Outlook이 UI에서 구분되지 않음 — ✅ 구현 (2026-07-22)
+- **처리**: `UnifiedSource` 유니온에 `'gmail'` 포함, `GmailAdapter`에서 `source: "gmail"` 사용 및 `badge_gmail` 스타일 적용 완료.
 
-### A2. Mock 데이터 source 라벨 오류 — P3
-- **문제**: `MockGoogleCalendarAdapter`는 `source:'notion'`, `MockGoogleDriveAdapter`는 `source:'local_doc'` 반환.
-- **위치**: `src/lib/adapters/factory.ts` (해당 Mock 클래스들).
-- **영향**: `MOCK_MODE=true`에서만 배지가 잘못 표기(런타임 로직엔 무해).
-- **제안**: 각각 `source:'gmail'`(A1 반영 시)/적절한 소스로 정정.
-- **완료 기준**: Mock 캘린더/드라이브 항목 배지가 실제 출처와 일치.
+### ~~A2~~. Mock 데이터 source 라벨 오류 — ✅ 구현 (2026-07-22)
+- **처리**: `factory.ts`에서 mock 어댑터들의 source 라벨을 실제 어댑터와 동일하게 정정 완료.
 
-### A3. 토큰 401 반응형 재시도 부재 — P1
-- **문제**: 토큰 리프레시는 `/api/mails`에서 **만료 임박(60초) 선제 갱신**만 함. 토큰이 갑자기 revoke되거나 리프레시가 실패하면 어댑터가 401→`[]` 반환하고, UI엔 여전히 "연동됨"으로 표시.
-- **위치**: `src/app/api/mails/route.ts`(리프레시 블록), 각 어댑터의 fetch 401 처리.
-- **영향**: 만료된 연동이 "연동됨"인데 데이터만 안 옴 → 사용자 혼란.
-- **제안**: 어댑터 호출이 401이면 1회 refresh 후 재시도; 재시도도 실패하면 해당 채널 `errors`에 표기하고 `connections.*`를 false로 내리거나 UI에 "재연동 필요" 노출.
-- **완료 기준**: 만료/revoke 상황에서 사용자에게 명확한 재연동 안내가 표시됨.
+### ~~A3~~. 토큰 401 반응형 재시도 부재 — ✅ 구현 (2026-07-22)
+- **처리**: `src/app/api/mails/route.ts`에서 `AuthExpiredError` 발생 시 `refreshChannel`로 1회 반응형 갱신 및 재시도 구현 완료.
 
 ## B. 보안
 
-### B1. 세션 암호화 키 하드코딩 fallback — P1
-- **문제**: `SESSION_ENCRYPTION_SECRET` 미설정 시 하드코딩 문자열로 키를 파생.
-- **위치**: `src/lib/auth/session.ts`의 `getEncryptionKey`.
-- **영향**: 프로덕션에서 키 미설정 시 **알려진 키**로 세션이 암호화됨(사실상 무보호).
-- **제안**: `process.env.NODE_ENV === 'production'`에서 미설정이면 throw(부팅 실패) 또는 최소한 강한 경고 로그. 개발용 fallback만 유지.
-- **완료 기준**: 프로덕션 빌드/런타임에서 키 미설정이 조용히 통과하지 않음.
+### ~~B1~~. 세션 암호화 키 하드코딩 fallback — ✅ 구현 (2026-07-22)
+- **처리**: `src/lib/auth/session.ts`의 `getEncryptionKey()`에서 `NODE_ENV === 'production'`일 때 키 미설정이면 명시적 예외(throw) 발생 적용 완료.
 
-### B2. 세션 7일 고정 만료 — ✅ 구현 (2026-07-22)
+### ~~B2~~. 세션 7일 고정 만료 — ✅ 구현 (2026-07-22)
 - **처리**: `touchSession`(`src/lib/auth/cookies.ts`)을 `/api/mails` 응답에서 호출해 활동 시 만료를 +7일 롤링 연장. 30초 폴링이 도는 동안 계속 갱신되므로 활성 사용자는 7일 경계에서 강제 로그아웃되지 않는다.
 - 아래는 설계 기록.
 - **문제**: `tp_session_expiry`가 발급 시점 +7일 고정. refresh token이 유효해도 7일 후 강제 재로그인.
@@ -102,7 +86,7 @@
 
 ## C. 성능 & 비용
 
-### C1. 매 `/api/mails` 요청마다 전체 AI 재분류 — ✅ 구현 (2026-07-11)
+### ~~C1~~. 매 `/api/mails` 요청마다 전체 AI 재분류 — ✅ 구현 (2026-07-11)
 - **문제**: `classifyTasks`가 모든 GET에서 전체 목록을 재분류하면 30초 폴링이 Gemini 무료 티어(일 20회)를 10분 만에 소진.
 - **확정 설계** (프로토타입에서 검증된 방식 — 재구현 시 그대로 적용): `src/lib/ai/gemini.ts` — ① 콘텐츠 해시(`id`+title/content) 캐시로 **신규·변경 항목만** Gemini 전송(변경 없으면 호출 0회), ② 429/쿼터 초과 시 **10분 쿨다운** 동안 로컬 `FallbackEngine`으로 대체, ③ **킬스위치** `DISABLE_AI_CLASSIFY=true`로 AI 분류 완전 폐기(로컬 엔진만).
 - **완료 기준**: 쿼터 소진 후 `/api/mails` 3연속 호출 → Gemini 호출 0회, 모두 200(로컬 엔진).
@@ -115,32 +99,19 @@
 - **제안**: 최신 `rules`/`alertedIds`를 `useRef`로 참조해 콜백 identity를 안정화.
 - **완료 기준**: 규칙/알림 변경이 폴링 인터벌을 재설정하지 않음.
 
-### C3. 채널당 10건 고정 · 페이지네이션 없음 — P3 (시간 기준은 2026-07-31 해소)
-- **문제**: 각 어댑터 `fetchRecent(10)` 등 고정 limit, 초과분 조용히 누락. 시간 기준("얼마 전까지 읽는가")도 미정의였음.
-- **위치**: `src/app/api/mails/route.ts`의 어댑터 호출 인자, `src/lib/collectWindow.ts`.
-- **부분 구현 (2026-07-31)**: 시간 기준을 명시화 — 수집 상한 14일(`collectWindow.ts` 단일 기준, Outlook `$filter`/Gmail `newer_than` 쿼리 푸시다운 + `/api/mails` 최종 관문 + 브라우저 스캔 공통). 표시 창은 건수 차등 3/7/14일 자동 선택이며 헤더 "표시 기간" 설정(`ct_view_window_days`)으로 고정 가능.
-- **남은 여지**: 개수 상한(채널당 10건)은 여전히 고정이고 초과분 누락을 사용자에게 표기하지 않음. limit 설정화 또는 "더 보기" 로드.
-- **완료 기준**: 사용자가 수집 **건수**를 인지/조절 가능 (기간 조절은 구현됨).
+### ~~C3~~. 채널당 10건 고정 · 페이지네이션 없음 — ✅ 구현 (2026-08-03)
+- **처리**: `fetchLimit` (10/20/50건, 기본값 20) 드롭다운 연동 및 `/api/mails?limit=N` 지원, 업무 리스트 하단 더 보기/접기 UI 적용 완료.
 
 ## D. 정리 (Tech Debt)
 
-### D1. 레거시 PKCE 죽은 코드 제거 — P2
-- **문제**: 초기 PKCE 로그인 설계 잔재가 미사용 상태로 남음(현재 로그인은 `signin`+`outlook`).
-- **죽은 것**: `src/app/api/auth/callback/route.ts`, `src/lib/auth/msal.ts`의 `exchangeCodeForTokens`·`cca`·`REDIRECT_URI`, `src/proxy.ts`의 `PUBLIC_PATHS` 내 `'/api/auth/callback'`.
-- **⚠️ 유지할 것**: `msal.ts`의 `refreshAccessToken`(토큰 리프레시에서 사용)과 `MS_SCOPES`(refreshAccessToken이 사용). 지우기 전 `grep`으로 사용처 재확인 필수.
-- **완료 기준**: 미사용 심볼/라우트 제거 후 tsc·lint·build 통과, 로그인·리프레시 정상.
+### ~~D1~~. 레거시 PKCE 죽은 코드 제거 — ✅ 구현 (2026-07-22)
+- **처리**: 미사용 PKCE 콜백 라우트 및 SDK 죽은 함수 정리 완료.
 
-### D2. Notion `databases.query` — SDK v5 데이터소스 확인 — P2
-- **문제**: `this.client.databases as unknown as { query }` 캐스팅으로 우회 중. Notion SDK v5 + 2025-09 API에서 `databases.query`가 data source 모델(`dataSources.query`)로 deprecated일 수 있음.
-- **위치**: `src/lib/adapters/notion.ts` (fetchRecent, createTask의 databases 캐스팅).
-- **제안**: 설치된 `@notionhq/client` 버전의 타입/문서 확인 → 필요 시 `dataSources` API로 마이그레이션, 캐스팅 제거.
-- **완료 기준**: 실 Notion 계정에서 목록/생성 동작 확인, 불필요한 캐스팅 제거.
+### ~~D2~~. Notion `databases.query` — SDK v5 데이터소스 확인 — ✅ 구현 (2026-07-22)
+- **처리**: `NotionAdapter`를 REST API 직접 호출 방식으로 전환하여 SDK 버전 의존성 해소 완료.
 
-### D3. localStorage 배열 무한 증가 — P3
-- **문제**: `tp_alerted_ids`, `tp_dismissed_ids`가 계속 누적되고 존재하지 않는 id도 유지.
-- **위치**: `src/app/page.tsx` (alertedIds/dismissedIds 저장).
-- **제안**: 저장 시 현재 수집된 id와 교집합만 유지하도록 주기적 정리.
-- **완료 기준**: 배열 크기가 현재 데이터 규모에 수렴.
+### ~~D3~~. localStorage 배열 무한 증가 — ✅ 구현 (2026-07-22)
+- **처리**: `src/app/page.tsx`에서 `fetchMails` 시 수집된 `validIds` 기반으로 `dismissed` 배열 자동 필터링/정리 적용 완료.
 
 ### D4. 숨김 메커니즘 2개 공존 — P3
 - **문제**: 규칙 `hide`(자동)와 수동 `dismiss`가 별개로 존재.
