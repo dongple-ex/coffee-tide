@@ -50,8 +50,6 @@ export function HeaderControls({
   onViewWindowChange,
   fetchLimit,
   onFetchLimitChange,
-  notifPerm,
-  onRequestNotifPerm,
 }: HeaderControlsProps) {
   const displayEmail = userEmail || connections?.googleEmail || connections?.outlookEmail || "게스트";
 
@@ -145,13 +143,6 @@ export function HeaderControls({
               <path d="M3.34 19a10 10 0 1 1 17.32 0" />
             </svg>
             설정
-          </button>
-          <button
-            className={`${styles.connMenuBtn} ${notifPerm === "granted" ? styles.notifActiveBtn : ""}`}
-            onClick={onRequestNotifPerm}
-            title="긴급 업무 및 방치된 업무를 데스크톱 알림으로 받아봅니다"
-          >
-            {notifPerm === "granted" ? "🔔 알림 켜짐" : "🔕 알림 켜기"}
           </button>
         </div>
 
