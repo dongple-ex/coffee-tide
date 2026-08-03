@@ -23,46 +23,50 @@ export function isMockMode(): boolean {
 type Fetcher = () => Promise<UnifiedData[]>;
 
 /** 세션의 연동 상태에 맞춰 소스별 수집 함수를 구성 (phase3 Step 3: 동적 선택 동기화) */
-export function buildFetchers(session: SessionData): Partial<
+export function buildFetchers(
+  session: SessionData,
+  limit: number = 20
+): Partial<
   Record<"outlook" | "google" | "notion" | "obsidian" | "local_doc" | "llm", Fetcher>
 > {
+  const safeLimit = Math.min(Math.max(1, limit), 50);
   if (isMockMode()) {
     return {
-      outlook: async () => MOCK_MAILS.filter((m) => m.source === "outlook"),
-      google: async () => MOCK_MAILS.filter((m) => m.source === "gmail"),
-      notion: async () => MOCK_NOTION_PAGES,
-      obsidian: async () => MOCK_OBSIDIAN_ITEMS,
-      llm: async () => MOCK_LLM_ITEMS,
+      outlook: async () => MOCK_MAILS.filter((m) => m.source === "outlook").slice(0, safeLimit),
+      google: async () => MOCK_MAILS.filter((m) => m.source === "gmail").slice(0, safeLimit),
+      notion: async () => MOCK_NOTION_PAGES.slice(0, safeLimit),
+      obsidian: async () => MOCK_OBSIDIAN_ITEMS.slice(0, safeLimit),
+      llm: async () => MOCK_LLM_ITEMS.slice(0, safeLimit),
     };
   }
 
   const fetchers: ReturnType<typeof buildFetchers> = {};
   if (session.outlookToken) {
     const adapter = new OutlookAdapter(session.outlookToken);
-    // 윈도우를 쿼리에 푸시다운 — 오래된 메일에 개수 상한(10건)을 낭비하지 않는다
+    // 윈도우를 쿼리에 푸시다운 — 오래된 메일에 개수 상한을 낭비하지 않는다
     fetchers.outlook = () =>
-      adapter.fetchRecent(10, new Date(Date.now() - COLLECT_WINDOW_MS).toISOString());
+      adapter.fetchRecent(safeLimit, new Date(Date.now() - COLLECT_WINDOW_MS).toISOString());
   }
   if (session.googleToken) {
     const adapter = new GmailAdapter(session.googleToken);
-    fetchers.google = () => adapter.fetchRecent(10, COLLECT_WINDOW_DAYS);
+    fetchers.google = () => adapter.fetchRecent(safeLimit, COLLECT_WINDOW_DAYS);
   }
   if (session.notionToken && session.notionDbId) {
     const adapter = new NotionAdapter(session.notionToken, session.notionDbId);
-    fetchers.notion = () => adapter.fetchRecent(10);
+    fetchers.notion = () => adapter.fetchRecent(safeLimit);
   }
   if (session.obsidianVaultPath) {
     const adapter = new ObsidianAdapter(session.obsidianVaultPath);
-    fetchers.obsidian = () => adapter.fetchRecent(10);
+    fetchers.obsidian = () => adapter.fetchRecent(safeLimit);
   }
   if (session.localDocPaths && session.localDocPaths.length > 0) {
     const adapters = session.localDocPaths.map((p) => new LocalDocAdapter(p));
     fetchers.local_doc = async () =>
-      (await Promise.all(adapters.map((a) => a.fetchRecent(10)))).flat();
+      (await Promise.all(adapters.map((a) => a.fetchRecent(safeLimit)))).flat();
   }
   if (session.llmArtifactsPath) {
     const adapter = new LlmArtifactAdapter(session.llmArtifactsPath);
-    fetchers.llm = () => adapter.fetchArtifacts({ limit: 20 });
+    fetchers.llm = () => adapter.fetchArtifacts({ limit: safeLimit });
   }
   return fetchers;
 }

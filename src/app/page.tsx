@@ -35,7 +35,6 @@ import {
   isWithinCollectWindow,
   normalizeViewWindow,
   ViewWindowSetting,
-  WINDOW_TIERS_DAYS,
 } from "@/lib/collectWindow";
 import { buildMergedView, TODO_CATS } from "@/lib/mergeView";
 import {
@@ -46,6 +45,7 @@ import {
   LS_BROWSER_CAT,
   LS_COMMUTE_CONFIG,
   LS_DISMISSED,
+  LS_FETCH_LIMIT,
   LS_FOLLOWUP,
   LS_HANDOFF_STATE,
   LS_VIEW_WINDOW,
@@ -58,12 +58,9 @@ import {
   LS_WORK_NOTES,
 } from "@/lib/localStore";
 import { useModalA11y } from "./hooks/useModalA11y";
-import { AutomationRulesSection } from "./components/settings/AutomationRulesSection";
-import { CommuteSection } from "./components/settings/CommuteSection";
-import { ConnectionsSection } from "./components/settings/ConnectionsSection";
-import { NotificationSection } from "./components/settings/NotificationSection";
-import { ShortcutsSection } from "./components/settings/ShortcutsSection";
-import { WeatherSection } from "./components/settings/WeatherSection";
+import { HeaderControls, Theme } from "./components/HeaderControls";
+import { QuickAddBar } from "./components/QuickAddBar";
+import { SettingsModal } from "./components/SettingsModal";
 import CafeWait from "./components/cafeWait";
 import { TaskItemCard } from "./components/TaskItemCard";
 import { CopilotComposer } from "./components/copilot/CopilotComposer";
@@ -128,8 +125,6 @@ const DEFAULT_APP_SHORTCUTS: AppShortcut[] = [
     enabled: true,
   },
 ];
-
-type Theme = "dark" | "light" | "coffee" | "mega" | "kustom";
 
 export interface DynamicCafeContext {
   taskCount?: number;
@@ -261,6 +256,9 @@ export default function Home() {
   const [viewWindow, setViewWindow] = useState<ViewWindowSetting>(() =>
     normalizeViewWindow(loadLS<unknown>(LS_VIEW_WINDOW, "auto"))
   );
+  const [fetchLimit, setFetchLimit] = useState<number>(() => loadLS<number>(LS_FETCH_LIMIT, 20));
+  const [visibleTodoCount, setVisibleTodoCount] = useState<number>(10);
+  const [visibleRestCount, setVisibleRestCount] = useState<number>(10);
   const [notifPerm, setNotifPerm] = useState<NotificationPermission>(getNotificationPermission);
   const [nowTick, setNowTick] = useState(() => Date.now());
 
@@ -798,9 +796,10 @@ export default function Home() {
   }, [weatherEnabled, weatherCoords, fetchWeatherData]);
 
   // ── 서버 동기화 ──────────────────────────────
-  const fetchMails = useCallback(async (silent = false) => {
+  const fetchMails = useCallback(async (silent = false, limitOverride?: number) => {
     try {
-      const res = await fetch("/api/mails");
+      const limitToUse = limitOverride ?? fetchLimit;
+      const res = await fetch(`/api/mails?limit=${limitToUse}`);
       if (res.status === 401) {
         // 사용 중(silent 폴링) 세션 만료는 화면을 유지한 채 배너로 안내 — 작성 중인 내용을 지키기 위함
         if (silent) setSessionExpired(true);
@@ -831,7 +830,7 @@ export default function Home() {
       setFetchFailed(true);
       setPhase((p) => (p === "loading" ? "ready" : p));
     }
-  }, []);
+  }, [fetchLimit]);
 
   // ── 브라우저 폴더 스캔 — 서버 /api/mails 파이프라인(수집→AI 분류→C1 캐시) 미러 ──
   const scanBrowser = useCallback(async () => {
@@ -1919,121 +1918,49 @@ export default function Home() {
 
   return (
     <main className={styles.page}>
-      <header className={styles.header}>
-        <div className={styles.headerRow}>
-          <div className={styles.logo}>
-            <IcedAmericano size={26} /> coffee<span>Tide</span>
-          </div>
-          <div className={styles.headerActionsRight}>
-            <span className={styles.userEmail} title={connections?.googleEmail || connections?.outlookEmail || "게스트"}>
-              {connections?.googleEmail || connections?.outlookEmail || "게스트"}
-            </span>
-            <select
-              className={`${styles.input} ${styles.selectCompact}`}
-              style={{ width: "auto", padding: "2px 6px" }}
-              value={theme}
-              onChange={(e) => setTheme(e.target.value as Theme)}
-              aria-label="테마 선택"
-            >
-              <option value="dark">🌙 다크</option>
-              <option value="light">☀️ 라이트</option>
-              <option value="coffee">🥤 커피타이드</option>
-              <option value="mega">💛 메가커피</option>
-              <option value="kustom">💙 커스텀커피</option>
-            </select>
-            <button
-              className={styles.logoutBtnSmall}
-              onClick={() => void handleLogoutHandoff()}
-            >
-              퇴근하기
-            </button>
-          </div>
-        </div>
-        <div className={styles.headerRowStart} style={{ justifyContent: "space-between", alignItems: "center", width: "100%" }}>
-          <div className={styles.stats}>
-            <span className={styles.statChip}>
-              대기 <b>{activeCount}</b>
-            </span>
-            <span className={styles.statChip}>
-              긴급 <b>{urgentCount}</b>
-            </span>
-            <span className={styles.statChip}>
-              오늘 완료 <b>{doneCount}</b>
-            </span>
-          </div>
-          <button
-            className={styles.refreshBtn}
-            onClick={() => void handleRefreshAll()}
-            disabled={isDataRefreshing}
-            aria-label="연결 데이터 새로고침"
-            title="연결 데이터 새로고침"
-          >
-            <svg
-              className={isDataRefreshing ? styles.spinIcon : ""}
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M21.5 2v6h-6M2.5 22v-6h6" />
-              <path d="M2 11.5a10 10 0 0 1 18.8-4.3L21.5 8M22 12.5a10 10 0 0 1-18.8 4.3L2.5 16" />
-            </svg>
-          </button>
-        </div>
-        <div className={styles.headerRowStart}>
-          <button
-            className={styles.connMenuBtn}
-            onClick={() => setShowConn((v) => !v)}
-            aria-expanded={showConn}
-            aria-haspopup="dialog"
-            aria-label="설정 열기/닫기"
-            style={{ display: "inline-flex", alignItems: "center" }}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 6 }}>
-              <path d="m12 14 4-4"/>
-              <path d="M3.34 19a10 10 0 1 1 17.32 0"/>
-            </svg>
-            설정
-          </button>
-          <label>
-            팔로업 기준{" "}
-            <select
-              className={styles.input}
-              style={{ width: "auto", display: "inline-block", padding: "4px 8px" }}
-              value={followupHours}
-              onChange={(e) => setFollowupHours(Number(e.target.value))}
-              aria-label="팔로업 에스컬레이션 기준 시간"
-            >
-              <option value={12}>12시간</option>
-              <option value={24}>24시간</option>
-              <option value={48}>48시간</option>
-            </select>
-          </label>
-          <label>
-            표시 기간{" "}
-            <select
-              className={styles.input}
-              style={{ width: "auto", display: "inline-block", padding: "4px 8px" }}
-              value={String(viewWindow)}
-              onChange={(e) =>
-                setViewWindow(e.target.value === "auto" ? "auto" : Number(e.target.value))
-              }
-              aria-label="외부 항목 표시 기간"
-            >
-              <option value="auto">자동 (건수 차등)</option>
-              {WINDOW_TIERS_DAYS.map((d) => (
-                <option key={d} value={d}>
-                  최근 {d}일
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-      </header>
+      <HeaderControls
+        userEmail={connections?.googleEmail || connections?.outlookEmail || undefined}
+        connections={connections ?? undefined}
+        theme={theme}
+        onThemeChange={(nextTheme) => {
+          setTheme(nextTheme);
+          saveLS(LS_THEME, nextTheme);
+        }}
+        onLogoutHandoff={() => void handleLogoutHandoff()}
+        activeCount={activeCount}
+        urgentCount={urgentCount}
+        doneCount={doneCount}
+        isDataRefreshing={isDataRefreshing}
+        onRefreshAll={() => void handleRefreshAll()}
+        showConn={showConn}
+        onToggleConn={() => setShowConn((v) => !v)}
+        followupHours={followupHours}
+        onFollowupHoursChange={(hours) => {
+          setFollowupHours(hours);
+          saveLS(LS_FOLLOWUP, hours);
+        }}
+        viewWindow={viewWindow}
+        onViewWindowChange={(val) => {
+          setViewWindow(val);
+          saveLS(LS_VIEW_WINDOW, val);
+        }}
+        fetchLimit={fetchLimit}
+        onFetchLimitChange={(limit) => {
+          setFetchLimit(limit);
+          saveLS(LS_FETCH_LIMIT, limit);
+          void fetchMails(true, limit);
+        }}
+        notifPerm={notifPerm}
+        onRequestNotifPerm={async () => {
+          const res = await requestNotificationPermission();
+          setNotifPerm(res);
+          if (res === "granted") {
+            showToast("🔔 브라우저 데스크톱 알림이 활성화되었습니다!");
+          } else {
+            showToast("알림 권한이 거부되어 있습니다. 브라우저 설정에서 허용해 주세요.");
+          }
+        }}
+      />
 
       {handoffRestoredInfo && (
         <div className={styles.handoffBanner}>
@@ -2321,47 +2248,19 @@ export default function Home() {
         <section className={`${styles.card} ${styles.colInput}`}>
           <div className={styles.cardTitle}>
             ⚡ 빠른 업무 추가
-            <button
-              className={`${styles.btn} ${styles.cardTitleBtn}`}
-              onClick={() => setShowPaste((v) => !v)}
-            >
-              📋 메모/회의록 붙여넣기
-            </button>
           </div>
-          <div className={styles.formRow}>
-            <input
-              className={styles.input}
-              placeholder="예: 내일까지 주간 보고서 제출"
-              value={quickTitle}
-              onChange={(e) => setQuickTitle(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && addManual()}
-              aria-label="빠른 업무 추가 입력"
-            />
-            <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={addManual}>
-              추가
-            </button>
-          </div>
-          {showPaste && (
-            <div>
-              <textarea
-                className={styles.textarea}
-                placeholder="메모·메일·회의록을 붙여넣으면 할 일만 쏙 골라낼게요"
-                value={pasteText}
-                onChange={(e) => setPasteText(e.target.value)}
-                aria-label="붙여넣기 가져오기 입력"
-              />
-              <div className={styles.formRow} style={{ marginTop: 8 }}>
-                <button
-                  className={`${styles.btn} ${styles.btnPrimary}`}
-                  disabled={pasteBusy || !pasteText.trim()}
-                  onClick={importPaste}
-                >
-                  {pasteBusy ? <CafeWait steps={dynamicPasteSteps} interval={1200} /> : "할 일 골라내기"}
-                </button>
-              </div>
-            </div>
-          )}
-
+          <QuickAddBar
+            quickTitle={quickTitle}
+            onQuickTitleChange={setQuickTitle}
+            onAddManual={addManual}
+            showPaste={showPaste}
+            onToggleShowPaste={() => setShowPaste((v) => !v)}
+            pasteText={pasteText}
+            onPasteTextChange={setPasteText}
+            pasteBusy={pasteBusy}
+            onImportPaste={importPaste}
+            dynamicPasteSteps={dynamicPasteSteps}
+          />
         </section>
 
         {/* G3/G6: Copilot — 무연동에서도 활성, MarkdownLite 렌더링 */}
@@ -2458,7 +2357,34 @@ export default function Home() {
                 {!isAnyConnected && " Outlook/Notion 연동은 나중에 해도 충분해요."}
               </div>
             ) : (
-              <div className={styles.list}>{todoItems.map(renderItem)}</div>
+              <>
+                <div className={styles.list}>
+                  {todoItems.slice(0, visibleTodoCount).map(renderItem)}
+                </div>
+                {todoItems.length > 10 && (
+                  <div style={{ display: "flex", justifyContent: "center", marginTop: 12 }}>
+                    {visibleTodoCount < todoItems.length ? (
+                      <button
+                        type="button"
+                        className={styles.connMenuBtn}
+                        onClick={() =>
+                          setVisibleTodoCount((prev) => Math.min(prev + 10, todoItems.length))
+                        }
+                      >
+                        ▼ 더 보기 ({todoItems.length - visibleTodoCount}건 남음)
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className={styles.connMenuBtn}
+                        onClick={() => setVisibleTodoCount(10)}
+                      >
+                        ▲ 접기 (처음 10건만 보기)
+                      </button>
+                    )}
+                  </div>
+                )}
+              </>
             )
           )}
         </section>
@@ -2548,7 +2474,34 @@ export default function Home() {
                 가져오면 채워드릴게요.
               </div>
             ) : (
-              <div className={styles.list}>{restItems.map(renderItem)}</div>
+              <>
+                <div className={styles.list}>
+                  {restItems.slice(0, visibleRestCount).map(renderItem)}
+                </div>
+                {restItems.length > 10 && (
+                  <div style={{ display: "flex", justifyContent: "center", marginTop: 12 }}>
+                    {visibleRestCount < restItems.length ? (
+                      <button
+                        type="button"
+                        className={styles.connMenuBtn}
+                        onClick={() =>
+                          setVisibleRestCount((prev) => Math.min(prev + 10, restItems.length))
+                        }
+                      >
+                        ▼ 더 보기 ({restItems.length - visibleRestCount}건 남음)
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className={styles.connMenuBtn}
+                        onClick={() => setVisibleRestCount(10)}
+                      >
+                        ▲ 접기 (처음 10건만 보기)
+                      </button>
+                    )}
+                  </div>
+                )}
+              </>
             )
           )}
         </section>
@@ -2556,159 +2509,75 @@ export default function Home() {
 
       {/* 설정 — 상단 메뉴로 여닫는 오버레이 패널 */}
       {showConn && (
-        <div className={`${styles.overlay} ${styles.overlayTop}`} onClick={() => setShowConn(false)}>
-          <div
-            ref={connPanelRef}
-            tabIndex={-1}
-            className={`${styles.modal} ${styles.connPanel}`}
-            onClick={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-            aria-label="설정"
-          >
-            <div className={styles.stickyModalHeader}>
-              <div className={styles.cardTitle} style={{ margin: 0, display: "flex", alignItems: "center" }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 6 }}>
-                  <path d="m12 14 4-4"/>
-                  <path d="M3.34 19a10 10 0 1 1 17.32 0"/>
-                </svg>
-                설정
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <button
-                  className={`${styles.btn} ${styles.btnDanger}`}
-                  style={{ padding: "4px 10px", fontSize: "0.78rem" }}
-                  onClick={async () => {
-                    try {
-                      await fetch("/api/auth/signout", { method: "POST" });
-                    } catch {}
-                    setPhase("landing");
-                  }}
-                >
-                  로그아웃 (접속 종료)
-                </button>
-                <button
-                  className={styles.iconBtn}
-                  onClick={() => setShowConn(false)}
-                  aria-label="설정 닫기"
-                  style={{ fontSize: "1.1rem", padding: "4px 8px" }}
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
-
-            <AutomationRulesSection
-              rules={rules}
-              onChangeRules={setRules}
-              ruleInput={ruleInput}
-              onChangeRuleInput={setRuleInput}
-              ruleBusy={ruleBusy}
-              onAddRule={addRule}
-            />
-
-            <NotificationSection
-              pushSupported={pushSupported}
-              pushEndpoint={pushEndpoint}
-              pushBusy={pushBusy}
-              notifPerm={notifPerm}
-              briefTime={briefTime}
-              onChangeBriefTime={(v) => void saveBriefTime(v)}
-              onToggle={(enable) => void toggleNotification(enable)}
-              onTestPush={() => void testPush()}
-            />
-
-            <WeatherSection
-              enabled={weatherEnabled}
-              busy={weatherBusy}
-              weather={weatherData}
-              onEnable={enableWeatherLocation}
-              onDisable={disableWeatherLocation}
-            />
-
-            <CommuteSection
-              config={commuteConfig}
-              onChange={(next) => {
-                setCommuteConfig(next);
-                saveLS(LS_COMMUTE_CONFIG, next);
-              }}
-              onCaptureCoords={captureCommuteCoords}
-            />
-
-            <ShortcutsSection
-              shortcuts={appShortcuts}
-              onChange={(next) => {
-                setAppShortcuts(next);
-                saveLS(LS_APP_SHORTCUTS, next);
-              }}
-              onNotify={showToast}
-            />
-
-            {/* 📄 회의록/메모 원문 보관 및 Google Drive 백업 설정 */}
-            <div className={styles.card} style={{ marginBottom: 16 }}>
-              <div className={styles.cardTitle} style={{ fontSize: "0.9rem", marginBottom: 12 }}>
-                📄 회의록/메모 원문 보관 및 Google Drive 백업 설정
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 12, fontSize: "0.82rem" }}>
-                <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer" }}>
-                  <div>
-                    <span style={{ fontWeight: 600 }}>💾 PC 대용량 스토리지(IndexedDB) 원문 보관</span>
-                    <div style={{ fontSize: "0.74rem", color: "var(--text-dim)", marginTop: 2 }}>
-                      붙여넣은 메모/회의록 원문 텍스트 전체를 PC 내 대용량 저장소에 무제한 보관합니다.
-                    </div>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={rawEnabled}
-                    onChange={(e) => {
-                      const checked = e.target.checked;
-                      setRawEnabled(checked);
-                      saveLS(LS_RAW_ENABLED, checked);
-                      showToast(checked ? "PC 원문 보관 기능이 켜졌습니다." : "PC 원문 보관 기능이 꺼졌습니다.");
-                    }}
-                  />
-                </label>
-                <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", paddingTop: 8, borderTop: "1px dashed var(--border)" }}>
-                  <div>
-                    <span style={{ fontWeight: 600 }}>📁 Google Drive 일자별 (`CoffeeTide/YYYY-MM-DD/`) 마크다운 백업</span>
-                    <div style={{ fontSize: "0.74rem", color: "var(--text-dim)", marginTop: 2 }}>
-                      구글 로그인 상태 시 Google Drive의 일자별 폴더에 원문을 마크다운 파일로 자동 동기화합니다.
-                    </div>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={driveBackupEnabled}
-                    onChange={(e) => {
-                      const checked = e.target.checked;
-                      setDriveBackupEnabled(checked);
-                      saveLS(LS_DRIVE_BACKUP_ENABLED, checked);
-                      showToast(checked ? "Google Drive 일자별 백업 기능이 켜졌습니다." : "Google Drive 일자별 백업 기능이 꺼졌습니다.");
-                    }}
-                  />
-                </label>
-              </div>
-            </div>
-
-            <ConnectionsSection
-              connections={connections}
-              errors={errors}
-              fsaSupported={fsaSupported}
-              browserObsidian={browserObsidian}
-              browserDocs={browserDocs}
-              browserLlm={browserLlm}
-              browserNeedsPermission={browserNeedsPermission}
-              onDisconnect={(route, method) => void disconnect(route, method)}
-              onConnectPath={(route, path) => void connectPath(route, path)}
-              onConnectNotion={connectNotion}
-              onAddLocalDocFolder={addLocalDocFolder}
-              onRemoveLocalDocFolder={(path) => void removeLocalDocFolder(path)}
-              onConnectBrowserFolder={(kind) => void connectBrowserFolder(kind)}
-              onDisconnectBrowserFolder={(key) => void disconnectBrowserFolder(key)}
-              onRegrantBrowserFolders={() => void regrantBrowserFolders()}
-              onPickFolder={pickFolder}
-            />
-          </div>
-        </div>
+        <SettingsModal
+          connPanelRef={connPanelRef}
+          onClose={() => setShowConn(false)}
+          onSignout={async () => {
+            try {
+              await fetch("/api/auth/signout", { method: "POST" });
+            } catch {}
+            setPhase("landing");
+          }}
+          rules={rules}
+          onChangeRules={setRules}
+          ruleInput={ruleInput}
+          onChangeRuleInput={setRuleInput}
+          ruleBusy={ruleBusy}
+          onAddRule={addRule}
+          pushSupported={Boolean(pushSupported)}
+          pushEndpoint={pushEndpoint}
+          pushBusy={pushBusy}
+          notifPerm={notifPerm}
+          briefTime={briefTime}
+          onChangeBriefTime={(v) => void saveBriefTime(v)}
+          onToggleNotification={(enable) => void toggleNotification(enable)}
+          onTestPush={() => void testPush()}
+          weatherEnabled={weatherEnabled}
+          weatherBusy={weatherBusy}
+          weatherData={weatherData}
+          onEnableWeatherLocation={enableWeatherLocation}
+          onDisableWeatherLocation={disableWeatherLocation}
+          commuteConfig={commuteConfig}
+          onChangeCommuteConfig={(next) => {
+            setCommuteConfig(next);
+            saveLS(LS_COMMUTE_CONFIG, next);
+          }}
+          onCaptureCommuteCoords={captureCommuteCoords}
+          appShortcuts={appShortcuts}
+          onChangeAppShortcuts={(next) => {
+            setAppShortcuts(next);
+            saveLS(LS_APP_SHORTCUTS, next);
+          }}
+          onNotify={showToast}
+          rawEnabled={rawEnabled}
+          onChangeRawEnabled={(checked) => {
+            setRawEnabled(checked);
+            saveLS(LS_RAW_ENABLED, checked);
+            showToast(checked ? "PC 원문 보관 기능이 켜졌습니다." : "PC 원문 보관 기능이 꺼졌습니다.");
+          }}
+          driveBackupEnabled={driveBackupEnabled}
+          onChangeDriveBackupEnabled={(checked) => {
+            setDriveBackupEnabled(checked);
+            saveLS(LS_DRIVE_BACKUP_ENABLED, checked);
+            showToast(checked ? "Google Drive 일자별 백업 기능이 켜졌습니다." : "Google Drive 일자별 백업 기능이 꺼졌습니다.");
+          }}
+          connections={connections}
+          errors={errors}
+          fsaSupported={fsaSupported}
+          browserObsidian={browserObsidian}
+          browserDocs={browserDocs}
+          browserLlm={browserLlm}
+          browserNeedsPermission={browserNeedsPermission}
+          onDisconnect={(route, method) => void disconnect(route, method as "POST" | "DELETE" | undefined)}
+          onConnectPath={(route, path) => void connectPath(route, path)}
+          onConnectNotion={connectNotion}
+          onAddLocalDocFolder={addLocalDocFolder}
+          onRemoveLocalDocFolder={(path) => void removeLocalDocFolder(path)}
+          onConnectBrowserFolder={(kind) => void connectBrowserFolder(kind)}
+          onDisconnectBrowserFolder={(key) => void disconnectBrowserFolder(key)}
+          onRegrantBrowserFolders={() => void regrantBrowserFolders()}
+          onPickFolder={pickFolder}
+        />
       )}
 
       {/* 답장 초안 모달 (phase5 §3) */}

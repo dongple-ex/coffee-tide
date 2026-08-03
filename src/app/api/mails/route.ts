@@ -20,7 +20,9 @@ type Channel = "outlook" | "google" | "notion" | "obsidian" | "local_doc" | "llm
 export async function GET(request: NextRequest) {
   let session = await readSession();
   if (!session) return unauthorized();
-  void request;
+
+  const limitParam = request.nextUrl.searchParams.get("limit");
+  const fetchLimit = limitParam ? Number(limitParam) : 20;
 
   // 선제 리프레시 — 만료 임박(60초 이내) 채널만
   if (!isMockMode()) {
@@ -41,7 +43,7 @@ export async function GET(request: NextRequest) {
   const errors: Partial<Record<Channel, string>> = {};
 
   async function collect(channel: Channel, current: SessionData): Promise<UnifiedData[]> {
-    const fetcher = buildFetchers(current)[channel];
+    const fetcher = buildFetchers(current, fetchLimit)[channel];
     if (!fetcher) return [];
     return fetcher();
   }

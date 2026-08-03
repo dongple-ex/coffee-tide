@@ -8,6 +8,7 @@ export const LS_RULES = "ct_automation_rules";
 export const LS_DISMISSED = "ct_dismissed_ids";
 export const LS_FOLLOWUP = "ct_followup_hours";
 export const LS_VIEW_WINDOW = "ct_view_window_days";
+export const LS_FETCH_LIMIT = "ct_fetch_limit";
 export const LS_BRIEF_TIME = "ct_brief_time";
 export const LS_THEME = "ct_theme";
 export const LS_WEATHER_ENABLED = "ct_weather_enabled";
