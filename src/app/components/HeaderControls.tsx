@@ -6,7 +6,7 @@ import { ConnectionState } from "@/lib/types/unified";
 import { ViewWindowSetting, WINDOW_TIERS_DAYS } from "@/lib/collectWindow";
 import styles from "../page.module.css";
 
-export type Theme = "dark" | "light" | "coffee" | "mega" | "kustom";
+export type Theme = "dark" | "light" | "coffee" | "notebook" | "mega" | "kustom";
 
 export interface HeaderControlsProps {
   userEmail?: string;
@@ -110,6 +110,7 @@ export function HeaderControls({
             <option value="dark">🌙 다크</option>
             <option value="light">☀️ 라이트</option>
             <option value="coffee">🥤 커피타이드</option>
+            <option value="notebook">📝 필기공책</option>
             <option value="mega">💛 메가커피</option>
             <option value="kustom">💙 커스텀커피</option>
           </select>

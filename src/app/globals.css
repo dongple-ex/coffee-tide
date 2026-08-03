@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&family=Gowun+Batang:wght@400;700&display=swap");
+
 /* 테마 팔레트 3종 — 다크(기본, doc/legacy_timepilot/4-execution_plan.md Step 1), 라이트, 커피타이드.
    전환: html[data-theme] 속성 + localStorage(ct_theme). */
 
@@ -85,6 +87,33 @@
   --danger: #ff6b5e;
   --warn: #ffb454;
   --ok: #8fce8f;
+}
+
+:root[data-theme="notebook"] {
+  /* 📝 필기 공책 테마 — 모눈종이 필기 노트 + 손글씨/원고지 감성 (tistory fcnotebook 타겟) */
+  --bg: #f9f6f0;
+  --card: #ffffff;
+  --card-hover: #fffdf7;
+  --card-hover-border: #d3c4ad;
+  --border: #e6decb;
+  --text: #2b241f;
+  --text-dim: #75685a;
+  --accent: #8b5a2b;
+  --accent-dim: rgba(139, 90, 43, 0.12);
+  --accent-contrast: #ffffff;
+  --danger: #d93838;
+  --warn: #c27803;
+  --ok: #2e7d32;
+  --radius: 12px;
+}
+
+:root[data-theme="notebook"] body {
+  background-color: #f9f6f0;
+  background-image:
+    linear-gradient(to right, rgba(185, 170, 150, 0.14) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(185, 170, 150, 0.14) 1px, transparent 1px);
+  background-size: 24px 24px;
+  font-family: "Gowun Batang", "Gaegu", "Segoe UI", serif;
 }
 
 * {

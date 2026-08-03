@@ -1731,3 +1731,89 @@
   max-height: none !important;
   padding-bottom: 8px !important;
 }
+
+/* 📝 필기 공책 테마 (Notebook Paper Aesthetic) 세부 컴포넌트 커스텀 */
+:global([data-theme="notebook"]) .card {
+  background-color: #ffffff;
+  border: 1px solid #e4dac8;
+  box-shadow: 0 4px 14px rgba(110, 85, 60, 0.06), 0 1px 3px rgba(0, 0, 0, 0.03);
+  position: relative;
+}
+
+:global([data-theme="notebook"]) .cardTitle {
+  font-family: "Gaegu", "Gowun Batang", cursive, serif;
+  font-size: 1.22rem;
+  font-weight: 700;
+  color: #4a3828;
+  border-bottom: 2px dashed #ece1ce;
+  padding-bottom: 6px;
+}
+
+:global([data-theme="notebook"]) .item {
+  background-color: #fdfcf9;
+  border: 1px solid #eee5d3;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  font-family: "Gowun Batang", serif;
+}
+
+:global([data-theme="notebook"]) .itemPinned {
+  background-color: #fefce8;
+  border-color: #fef08a;
+  box-shadow: 0 2px 8px rgba(234, 179, 8, 0.15);
+}
+
+:global([data-theme="notebook"]) .statChip {
+  background: #fffdf8;
+  border: 1px solid #e2d7c4;
+  font-family: "Gaegu", sans-serif;
+  font-size: 0.95rem;
+}
+
+:global([data-theme="notebook"]) .headerToolbar {
+  background-color: #ffffff;
+  background-image: linear-gradient(to right, rgba(185, 170, 150, 0.1) 1px, transparent 1px);
+  background-size: 20px 20px;
+  border: 1px solid #e2d6c3;
+}
+
+:global([data-theme="notebook"]) .badge_outlook {
+  background: rgba(37, 99, 235, 0.1);
+  color: #1d4ed8;
+  border: 1px solid rgba(37, 99, 235, 0.25);
+}
+
+:global([data-theme="notebook"]) .badge_gmail {
+  background: rgba(220, 38, 38, 0.1);
+  color: #b91c1c;
+  border: 1px solid rgba(220, 38, 38, 0.25);
+}
+
+:global([data-theme="notebook"]) .badge_notion {
+  background: rgba(44, 40, 37, 0.08);
+  color: #2c2520;
+  border: 1px solid rgba(44, 40, 37, 0.2);
+}
+
+:global([data-theme="notebook"]) .badge_obsidian {
+  background: rgba(147, 51, 234, 0.1);
+  color: #7e22ce;
+  border: 1px solid rgba(147, 51, 234, 0.25);
+}
+
+:global([data-theme="notebook"]) .badge_manual {
+  background: rgba(217, 119, 6, 0.12);
+  color: #b45309;
+  border: 1px solid rgba(217, 119, 6, 0.25);
+}
+
+:global([data-theme="notebook"]) .badge_paste {
+  background: rgba(13, 148, 136, 0.12);
+  color: #0f766e;
+  border: 1px solid rgba(13, 148, 136, 0.25);
+}
+
+:global([data-theme="notebook"]) .badge_llm {
+  background: rgba(79, 70, 229, 0.1);
+  color: #4338ca;
+  border: 1px solid rgba(79, 70, 229, 0.25);
+}
