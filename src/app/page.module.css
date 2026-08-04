@@ -1754,12 +1754,12 @@
 
 :global([data-theme="notebook"]) .cardTitle {
   font-family: "FC Script", "Nanum Pen Script", "Gaegu", cursive, sans-serif;
-  font-size: 1.4rem;
+  font-size: 1.2rem;
   font-weight: 700;
   color: #c83b3b;
   border-bottom: 1px solid #e8e0d0;
-  padding-bottom: 6px;
-  letter-spacing: 0.01em;
+  padding-bottom: 4px;
+  letter-spacing: -0.01em;
 }
 
 :global([data-theme="notebook"]) .item {
@@ -1768,8 +1768,9 @@
   border-bottom: 1px solid #ded4c0;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
   font-family: "FC Script", "Nanum Pen Script", "Gaegu", cursive, sans-serif;
-  font-size: 1.25rem;
-  line-height: 1.55;
+  font-size: 1.05rem;
+  line-height: 1.4;
+  letter-spacing: -0.01em;
 }
 
 :global([data-theme="notebook"]) .itemPinned {
@@ -1782,15 +1783,15 @@
   background: #fffdf8;
   border: 1px solid #e2d7c4;
   font-family: "FC Script", "Nanum Pen Script", "Gaegu", cursive, sans-serif;
-  font-size: 1.1rem;
+  font-size: 0.95rem;
   font-weight: 700;
 }
 
 :global([data-theme="notebook"]) .input,
 :global([data-theme="notebook"]) .textarea {
   font-family: "FC Script", "Nanum Pen Script", "Gaegu", cursive, sans-serif;
-  font-size: 1.25rem;
-  line-height: 1.55;
+  font-size: 1.05rem;
+  line-height: 1.4;
 }
 
 :global([data-theme="notebook"]) .headerToolbar {
