@@ -171,9 +171,9 @@
   border: 1px solid var(--border);
   border-radius: 999px;
   color: var(--text);
-  width: 28px;
-  height: 28px;
-  min-width: 28px;
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
   padding: 0;
   display: inline-flex;
   align-items: center;
@@ -182,6 +182,12 @@
   box-sizing: border-box;
   flex-shrink: 0;
   transition: all 0.2s ease;
+}
+
+.refreshBtn svg {
+  width: 17px;
+  height: 17px;
+  display: block;
 }
 
 .refreshBtn:hover {
