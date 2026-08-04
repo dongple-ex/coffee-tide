@@ -60,17 +60,28 @@ export function buildMapLinks({
   const o = encodeURIComponent(origin);
   const d = encodeURIComponent(destination);
 
-  const kakaoWebUrl = `https://map.kakao.com/?sName=${o}&eName=${d}`;
-  const naverWebUrl = `https://map.naver.com/p/search/${d}`;
+  const hasCoords = isValidCoords(originCoords) && isValidCoords(destCoords);
 
-  if (!isValidCoords(originCoords) || !isValidCoords(destCoords)) {
+  // 카카오맵 공식 Web Link API URL:
+  // 좌표가 있을 때: https://map.kakao.com/link/from/출발지,lat,lng/to/목적지,lat,lng
+  // 좌표가 없을 때: https://map.kakao.com/link/to/목적지
+  const kakaoWebUrl = hasCoords
+    ? `https://map.kakao.com/link/from/${o},${originCoords.lat},${originCoords.lng}/to/${d},${destCoords.lat},${destCoords.lng}`
+    : `https://map.kakao.com/link/to/${d}`;
+
+  // 네이버지도 공식 Web Link URL:
+  const naverWebUrl = hasCoords
+    ? `https://map.naver.com/p/directions/${originCoords.lng},${originCoords.lat},${o}/${destCoords.lng},${destCoords.lat},${d}/${isCar ? "car" : "transit"}`
+    : `https://map.naver.com/p/search/${d}`;
+
+  if (!hasCoords) {
     return { kakaoWebUrl, naverWebUrl, kakaoAppScheme: null, naverAppScheme: null, hasCoords: false };
   }
 
   const kakaoAppScheme =
     `kakaomap://route?sp=${originCoords.lat},${originCoords.lng}` +
     `&ep=${destCoords.lat},${destCoords.lng}` +
-    `&by=${isCar ? "car" : "publictransit"}`;
+    `&by=${isCar ? "CAR" : "PUBLICTRANSIT"}`;
 
   const naverAppScheme =
     `nmap://route/${isCar ? "car" : "public"}` +
