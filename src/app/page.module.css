@@ -1744,41 +1744,45 @@
   padding-bottom: 8px !important;
 }
 
-/* 📝 필기 공책 테마 (Notebook Paper Aesthetic) 세부 컴포넌트 커스텀 */
+/* 📝 필기 공책 테마 (Notebook Paper Aesthetic — 프라치노 공책/fcnotebook 스킨 룩앤필) */
 :global([data-theme="notebook"]) .card {
   background-color: #ffffff;
-  border: 1px solid #e4dac8;
-  box-shadow: 0 4px 14px rgba(110, 85, 60, 0.06), 0 1px 3px rgba(0, 0, 0, 0.03);
+  border: 1px solid #e5dccb;
+  box-shadow: 0 4px 14px rgba(110, 85, 60, 0.05), 0 1px 3px rgba(0, 0, 0, 0.03);
   position: relative;
 }
 
 :global([data-theme="notebook"]) .cardTitle {
-  font-family: "Gaegu", "Gowun Batang", cursive, serif;
-  font-size: 1.22rem;
+  font-family: "Noto Sans KR", "Pretendard", -apple-system, sans-serif;
+  font-size: 1.15rem;
   font-weight: 700;
-  color: #4a3828;
-  border-bottom: 2px dashed #ece1ce;
-  padding-bottom: 6px;
+  color: #c83b3b; /* 프라치노 공책 헤더 레드 포인트 */
+  border-bottom: 1px solid #e8e0d0;
+  padding-bottom: 8px;
+  letter-spacing: -0.02em;
 }
 
 :global([data-theme="notebook"]) .item {
-  background-color: #fdfcf9;
-  border: 1px solid #eee5d3;
+  background-color: #ffffff;
+  border: 1px solid #e8e0d2;
+  border-bottom: 1px solid #ded4c0;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
-  font-family: "Gowun Batang", serif;
+  font-family: "Noto Sans KR", "Pretendard", sans-serif;
+  line-height: 1.65;
 }
 
 :global([data-theme="notebook"]) .itemPinned {
   background-color: #fefce8;
   border-color: #fef08a;
-  box-shadow: 0 2px 8px rgba(234, 179, 8, 0.15);
+  box-shadow: 0 2px 8px rgba(234, 179, 8, 0.12);
 }
 
 :global([data-theme="notebook"]) .statChip {
   background: #fffdf8;
   border: 1px solid #e2d7c4;
-  font-family: "Gaegu", sans-serif;
-  font-size: 0.95rem;
+  font-family: "Noto Sans KR", sans-serif;
+  font-size: 0.8rem;
+  font-weight: 500;
 }
 
 :global([data-theme="notebook"]) .headerToolbar {
