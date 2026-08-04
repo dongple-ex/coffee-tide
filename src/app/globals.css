@@ -1,5 +1,15 @@
 @import url("https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&family=Nanum+Brush+Script&family=Nanum+Pen+Script&display=swap");
 
+@font-face {
+  font-family: "FC Script";
+  font-style: normal;
+  font-weight: 400;
+  src: local("※"),
+    url("https://cdn.jsdelivr.net/gh/kaniwari/fcresources@1.2/font/font_script.woff2") format("woff2"),
+    url("https://cdn.jsdelivr.net/gh/kaniwari/fcresources@1.2/font/font_script.woff") format("woff");
+  font-display: swap;
+}
+
 /* 테마 팔레트 3종 — 다크(기본, doc/legacy_timepilot/4-execution_plan.md Step 1), 라이트, 커피타이드.
    전환: html[data-theme] 속성 + localStorage(ct_theme). */
 
@@ -90,7 +100,7 @@
 }
 
 :root[data-theme="notebook"] {
-  /* 🥤 커피타이드 — 모눈종이 필기 노트 + 리얼 한글 손글씨(나눔손글씨 펜 / 붓) 폰트 감성 */
+  /* 🥤 커피타이드 — 프라치노 공책 정품 "FC Script" 손글씨 폰트 + 모눈종이 노트 감성 */
   --bg: #f9f7f2;
   --card: #ffffff;
   --card-hover: #fffdf9;
@@ -113,16 +123,16 @@
     linear-gradient(to right, rgba(190, 175, 155, 0.12) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(190, 175, 155, 0.12) 1px, transparent 1px);
   background-size: 24px 24px;
-  font-family: "Nanum Pen Script", "Nanum Brush Script", "Gaegu", cursive, sans-serif;
-  font-size: 1.3rem;
-  line-height: 1.55;
+  font-family: "FC Script", "Nanum Pen Script", "Gaegu", cursive, sans-serif;
+  font-size: 1.25rem;
+  line-height: 1.6;
 }
 
 :root[data-theme="notebook"] input,
 :root[data-theme="notebook"] textarea,
 :root[data-theme="notebook"] select,
 :root[data-theme="notebook"] button {
-  font-family: "Nanum Pen Script", "Nanum Brush Script", "Gaegu", cursive, sans-serif;
+  font-family: "FC Script", "Nanum Pen Script", "Gaegu", cursive, sans-serif;
 }
 
 * {
