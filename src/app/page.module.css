@@ -171,9 +171,10 @@
   border: 1px solid var(--border);
   border-radius: 999px;
   color: var(--text);
-  width: 30px;
-  height: 30px;
-  min-width: 30px;
+  width: 26px;
+  height: 26px;
+  min-width: 26px;
+  max-width: 26px;
   padding: 0;
   display: inline-flex;
   align-items: center;
@@ -181,12 +182,13 @@
   cursor: pointer;
   box-sizing: border-box;
   flex-shrink: 0;
+  aspect-ratio: 1 / 1;
   transition: all 0.2s ease;
 }
 
 .refreshBtn svg {
-  width: 17px;
-  height: 17px;
+  width: 15px;
+  height: 15px;
   display: block;
 }
 
