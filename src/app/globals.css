@@ -73,7 +73,7 @@
 }
 
 :root[data-theme="coffee"] {
-  /* 🥤 커피타이드 — 에스프레소 배경에 카라멜 포인트 */
+  /* ☕ 에스프레소 — 에스프레소 배경에 카라멜 포인트 */
   --bg: #1b120c;
   --card: #2a1d14;
   --card-hover: #33241a;
@@ -90,7 +90,7 @@
 }
 
 :root[data-theme="notebook"] {
-  /* 📝 필기 공책 테마 — 모눈종이 필기 노트 + 손글씨/원고지 감성 (tistory fcnotebook 타겟) */
+  /* 🥤 커피타이드 — 모눈종이 필기 노트 + 손글씨/원고지 감성 (tistory fcnotebook 타겟) */
   --bg: #f9f6f0;
   --card: #ffffff;
   --card-hover: #fffdf7;
