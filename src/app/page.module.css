@@ -1744,7 +1744,7 @@
   padding-bottom: 8px !important;
 }
 
-/* 📝 필기 공책 테마 (Notebook Paper Aesthetic — 프라치노 공책 정품 FC Script 폰트 룩앤필) */
+/* 📝 필기 공책 테마 (Notebook Paper Aesthetic — 기본 UI는 깔끔한 Pretendard + AI 브리핑은 낭만적인 FC Script 손글씨) */
 :global([data-theme="notebook"]) .card {
   background-color: #ffffff;
   border: 1px solid #e5dccb;
@@ -1753,13 +1753,13 @@
 }
 
 :global([data-theme="notebook"]) .cardTitle {
-  font-family: "FC Script", "Nanum Pen Script", "Gaegu", cursive, sans-serif;
-  font-size: 1.2rem;
+  font-family: "Pretendard", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif;
+  font-size: 1.15rem;
   font-weight: 700;
-  color: #c83b3b;
+  color: #c83b3b; /* 프라치노 공책 헤더 레드 포인트 */
   border-bottom: 1px solid #e8e0d0;
-  padding-bottom: 4px;
-  letter-spacing: -0.01em;
+  padding-bottom: 8px;
+  letter-spacing: -0.02em;
 }
 
 :global([data-theme="notebook"]) .item {
@@ -1767,9 +1767,9 @@
   border: 1px solid #e8e0d2;
   border-bottom: 1px solid #ded4c0;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
-  font-family: "FC Script", "Nanum Pen Script", "Gaegu", cursive, sans-serif;
-  font-size: 1.05rem;
-  line-height: 1.4;
+  font-family: "Pretendard", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif;
+  font-size: 0.94rem;
+  line-height: 1.65;
   letter-spacing: -0.01em;
 }
 
@@ -1782,16 +1782,38 @@
 :global([data-theme="notebook"]) .statChip {
   background: #fffdf8;
   border: 1px solid #e2d7c4;
-  font-family: "FC Script", "Nanum Pen Script", "Gaegu", cursive, sans-serif;
-  font-size: 0.95rem;
-  font-weight: 700;
+  font-family: "Pretendard", sans-serif;
+  font-size: 0.8rem;
+  font-weight: 500;
 }
 
 :global([data-theme="notebook"]) .input,
 :global([data-theme="notebook"]) .textarea {
+  font-family: "Pretendard", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif;
+  font-size: 0.94rem;
+  line-height: 1.65;
+}
+
+/* ☕ AI 바리스타 브리핑 영역 전용: 낭만적인 FC Script 정품 손글씨 폰트 적용 */
+:global([data-theme="notebook"]) .copilotBody,
+:global([data-theme="notebook"]) .chatQaGroup,
+:global([data-theme="notebook"]) .qaAnswer,
+:global([data-theme="notebook"]) .qaQuestion,
+:global([data-theme="notebook"]) .msgHint {
   font-family: "FC Script", "Nanum Pen Script", "Gaegu", cursive, sans-serif;
-  font-size: 1.05rem;
-  line-height: 1.4;
+}
+
+:global([data-theme="notebook"]) .copilotBody p,
+:global([data-theme="notebook"]) .copilotBody li,
+:global([data-theme="notebook"]) .copilotBody span,
+:global([data-theme="notebook"]) .copilotBody div,
+:global([data-theme="notebook"]) .copilotBody strong,
+:global([data-theme="notebook"]) .copilotBody h1,
+:global([data-theme="notebook"]) .copilotBody h2,
+:global([data-theme="notebook"]) .copilotBody h3 {
+  font-family: "FC Script", "Nanum Pen Script", "Gaegu", cursive, sans-serif;
+  font-size: 1.15rem;
+  line-height: 1.5;
 }
 
 :global([data-theme="notebook"]) .headerToolbar {
