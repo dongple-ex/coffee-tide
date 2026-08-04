@@ -1744,7 +1744,7 @@
   padding-bottom: 8px !important;
 }
 
-/* 📝 필기 공책 테마 (Notebook Paper Aesthetic — 프라치노 공책/fcnotebook 스킨 Pretendard 정품 폰트 룩앤필) */
+/* 📝 필기 공책 테마 (Notebook Paper Aesthetic — 나눔손글씨 펜 / 나눔손글씨 붓 정품 폰트 룩앤필) */
 :global([data-theme="notebook"]) .card {
   background-color: #ffffff;
   border: 1px solid #e5dccb;
@@ -1753,13 +1753,13 @@
 }
 
 :global([data-theme="notebook"]) .cardTitle {
-  font-family: "Pretendard", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif;
-  font-size: 1.15rem;
+  font-family: "Nanum Pen Script", "Nanum Brush Script", "Gaegu", cursive, sans-serif;
+  font-size: 1.5rem;
   font-weight: 700;
-  color: #c83b3b; /* 프라치노 공책 헤더 레드 포인트 */
+  color: #c83b3b;
   border-bottom: 1px solid #e8e0d0;
-  padding-bottom: 8px;
-  letter-spacing: -0.02em;
+  padding-bottom: 6px;
+  letter-spacing: 0.01em;
 }
 
 :global([data-theme="notebook"]) .item {
@@ -1767,10 +1767,9 @@
   border: 1px solid #e8e0d2;
   border-bottom: 1px solid #ded4c0;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
-  font-family: "Pretendard", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif;
-  font-size: 0.94rem;
-  line-height: 1.65;
-  letter-spacing: -0.01em;
+  font-family: "Nanum Pen Script", "Nanum Brush Script", "Gaegu", cursive, sans-serif;
+  font-size: 1.35rem;
+  line-height: 1.5;
 }
 
 :global([data-theme="notebook"]) .itemPinned {
@@ -1782,16 +1781,16 @@
 :global([data-theme="notebook"]) .statChip {
   background: #fffdf8;
   border: 1px solid #e2d7c4;
-  font-family: "Pretendard", sans-serif;
-  font-size: 0.8rem;
-  font-weight: 500;
+  font-family: "Nanum Pen Script", "Nanum Brush Script", "Gaegu", cursive, sans-serif;
+  font-size: 1.15rem;
+  font-weight: 700;
 }
 
 :global([data-theme="notebook"]) .input,
 :global([data-theme="notebook"]) .textarea {
-  font-family: "Pretendard", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif;
-  font-size: 0.94rem;
-  line-height: 1.65;
+  font-family: "Nanum Pen Script", "Nanum Brush Script", "Gaegu", cursive, sans-serif;
+  font-size: 1.35rem;
+  line-height: 1.5;
 }
 
 :global([data-theme="notebook"]) .headerToolbar {
