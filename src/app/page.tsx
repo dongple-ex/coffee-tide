@@ -429,7 +429,7 @@ export default function Home() {
 
   const pickWidgetIcon = (href: string): string => {
     const lower = href.toLowerCase();
-    if (lower.includes("youtube.com") || lower.includes("youtu.be")) return "📺";
+    if (lower.includes("youtube.com") || lower.includes("youtu.be")) return "▶️";
     if (/(blog|tistory|velog|brunch|medium|substack|note)/.test(lower)) return "✍️";
     if (/(news|press|times|daily|economy|herald)/.test(lower)) return "📰";
     return "🌐";
@@ -801,7 +801,7 @@ export default function Home() {
   }, [weatherEnabled, weatherCoords, fetchWeatherData]);
 
   // ── 서버 동기화 ──────────────────────────────
-  const fetchMails = useCallback(async (silent = false, limitOverride?: number) => {
+  const fetchMails = useCallback(async (silent = false, limitOverride?: number): Promise<MailsResponse | null> => {
     try {
       const limitToUse = limitOverride ?? fetchLimit;
       const res = await fetch(`/api/mails?limit=${limitToUse}`);
@@ -809,7 +809,7 @@ export default function Home() {
         // 사용 중(silent 폴링) 세션 만료는 화면을 유지한 채 배너로 안내 — 작성 중인 내용을 지키기 위함
         if (silent) setSessionExpired(true);
         else setPhase("landing");
-        return;
+        return null;
       }
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = (await res.json()) as MailsResponse;
@@ -829,11 +829,13 @@ export default function Home() {
         if (next.length !== prev.length) saveLS(LS_DISMISSED, next);
         return next;
       });
+      return data;
     } catch {
       // 원칙 4(부분 실패 허용): 수집 API가 죽어도 무연동 기능(직접 추가·붙여넣기·바리스타)은 막지 않는다.
       // 401은 위에서 처리 — 여기 오는 실패는 네트워크/서버 오류이므로 대시보드로 진입시키고 배너로 알린다.
       setFetchFailed(true);
       setPhase((p) => (p === "loading" ? "ready" : p));
+      return null;
     }
   }, [fetchLimit]);
 
@@ -905,18 +907,38 @@ export default function Home() {
     if (isDataRefreshing) return;
     setIsDataRefreshing(true);
     try {
-      await fetchMails(true);
+      // 사용자가 새로고침 버튼을 누르면 AI 쿨다운을 즉시 리셋 후 재시도
+      await fetch("/api/util/reset-ai-cooldown", { method: "POST" }).catch(() => {});
+      const data = await fetchMails(true);
+      void scanBrowser();
+
       if (weatherEnabled && weatherCoords) {
         const weather = await fetchWeatherData(weatherCoords.lat, weatherCoords.lon);
         if (weather) setWeatherData(weather);
       }
-      showToast("날짜·시간대 및 연결 최신 데이터를 불러왔습니다. ☕");
+
+      const fetchedCount = data?.mails?.length ?? 0;
+      const aiError = Boolean(data?.ai_error);
+
+      if (fetchedCount > 0) {
+        showToast(
+          aiError
+            ? `최신 수집 데이터 ${fetchedCount}건 동기화 완료 (AI는 로컬 규칙 대체) ☕`
+            : `최신 수집 데이터 ${fetchedCount}건 동기화 완료 ☕`
+        );
+      } else {
+        showToast(
+          aiError
+            ? "외부 동기화 항목 없음 — 현재 수동/로컬 데이터만 유지 중입니다 (AI 쿼터 대기) ☕"
+            : "새로 들어온 외부 동기화 항목이 없습니다 (현재 데이터 최신 상태) ☕"
+        );
+      }
     } catch {
-      showToast("데이터를 불러오는 중 오류가 발생했습니다.");
+      showToast("동기화 확인 중 오류가 발생했습니다.");
     } finally {
       setIsDataRefreshing(false);
     }
-  }, [isDataRefreshing, fetchMails, weatherEnabled, weatherCoords, fetchWeatherData, showToast]);
+  }, [isDataRefreshing, fetchMails, scanBrowser, weatherEnabled, weatherCoords, fetchWeatherData, showToast]);
 
   // 브라우저 폴더 연동 복원 — FSA 지원 감지 + 저장 핸들 스캔 (권한 상태 포함)
   useEffect(() => {
@@ -1495,8 +1517,8 @@ export default function Home() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 1024 * 1024) {
-      showToast("1MB 이하의 텍스트 파일만 업로드할 수 있어요.");
+    if (file.size > 2 * 1024 * 1024) {
+      showToast("2MB 이하의 문서(.docx, .txt, .md)만 업로드할 수 있어요.");
       e.target.value = "";
       return;
     }
@@ -2132,24 +2154,7 @@ export default function Home() {
             <span>⭐</span>
             <span>바로가기 즐겨찾기</span>
           </button>
-          <button
-            type="button"
-            className={`${styles.widgetChip} ${activeWidget === "news" ? styles.widgetChipActive : ""}`}
-            onClick={() => setActiveWidget((prev) => (prev === "news" ? null : "news"))}
-            title="바이트컴퍼니 데일리바이트 경제/비즈니스 뉴스 기사 읽기"
-          >
-            <span>📰</span>
-            <span>바이트 경제</span>
-          </button>
-          <button
-            type="button"
-            className={`${styles.widgetChip} ${activeWidget === "threepro" ? styles.widgetChipActive : ""}`}
-            onClick={() => setActiveWidget((prev) => (prev === "threepro" ? null : "threepro"))}
-            title="삼프로TV 경제/증시 심층 분석 브리핑 영상 보기"
-          >
-            <span>📺</span>
-            <span>삼프로TV</span>
-          </button>
+
           {/* 사용자가 동적으로 등록한 커스텀 위젯 칩들 */}
           {customWidgets.map((w) => (
             <button
@@ -2226,16 +2231,7 @@ export default function Home() {
             <ShortcutsWidget shortcuts={appShortcuts} onError={showToast} />
           </div>
         )}
-        {activeWidget === "news" && (
-          <div className={styles.widgetPanel}>
-            <ByteNewsWidget onNotify={showToast} />
-          </div>
-        )}
-        {activeWidget === "threepro" && (
-          <div className={styles.widgetPanel}>
-            <ThreeProWidget onNotify={showToast} />
-          </div>
-        )}
+
         {/* 커스텀 위젯 패널 */}
         {customWidgets.map((w) => {
           if (activeWidget !== w.id) return null;
