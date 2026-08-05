@@ -6,10 +6,11 @@ import { AuthExpiredError } from "@/lib/adapters/outlook";
 import { readSession, writeSession } from "@/lib/auth/cookies";
 import { refreshChannel, refreshGoogleIfExpiring } from "@/lib/auth/refresh";
 import { UnifiedData } from "@/lib/types/unified";
+import { extractTextFromDocx } from "@/lib/adapters/docxParser";
 
 // manual 항목은 localStorage(약 5MB 한도)에 통째로 저장되므로 크기를 제한한다.
-const MAX_FILE_BYTES = 1 * 1024 * 1024;
-const TEXT_EXTENSIONS = [".txt", ".md", ".markdown", ".csv", ".json", ".log"];
+const MAX_FILE_BYTES = 2 * 1024 * 1024;
+const TEXT_EXTENSIONS = [".txt", ".md", ".markdown", ".csv", ".json", ".log", ".docx"];
 
 // 원칙 4(부분 실패 허용): Drive는 증강 기능 — 어떤 저장 실패도 업로드(일회성 분석) 자체를 막지 않는다
 const DRIVE_SKIP_NOTICE =
@@ -17,7 +18,7 @@ const DRIVE_SKIP_NOTICE =
 const DRIVE_RETRY_NOTICE =
   "Drive 저장은 못 했어요 — 일회성 항목으로 등록했어요. 잠시 후 다시 올려주시면 영구 저장할게요.";
 
-function isTextFile(file: File): boolean {
+function isSupportedFile(file: File): boolean {
   if (file.type.startsWith("text/") || file.type === "application/json") return true;
   const name = file.name.toLowerCase();
   return TEXT_EXTENSIONS.some((ext) => name.endsWith(ext));
@@ -37,18 +38,24 @@ export async function POST(req: NextRequest) {
     }
     if (file.size > MAX_FILE_BYTES) {
       return NextResponse.json(
-        { error: "1MB 이하의 텍스트 파일만 받을 수 있어요" },
+        { error: "2MB 이하의 문서/텍스트 파일만 받을 수 있어요" },
         { status: 413 }
       );
     }
-    if (!isTextFile(file)) {
+    if (!isSupportedFile(file)) {
       return NextResponse.json(
-        { error: "텍스트 파일(.txt, .md, .csv, .json 등)만 받을 수 있어요" },
+        { error: "지원 대상 문서(.txt, .md, .docx, .csv, .json 등)만 받을 수 있어요" },
         { status: 415 }
       );
     }
 
-    const textContent = await file.text();
+    let textContent = "";
+    if (file.name.toLowerCase().endsWith(".docx")) {
+      const ab = await file.arrayBuffer();
+      textContent = await extractTextFromDocx(ab);
+    } else {
+      textContent = await file.text();
+    }
     let sessionChanged = false;
     let driveSaved = false;
     let driveNotice: string | undefined;
