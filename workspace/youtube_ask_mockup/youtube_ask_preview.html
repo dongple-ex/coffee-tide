@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YouTube 질문하기 미리보기 (목업)</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family:"Roboto","Noto Sans KR",Arial,sans-serif;
+    background:#0f0f0f; color:#f1f1f1;
+  }
+  a { color:inherit; text-decoration:none; }
+
+  /* ── top bar ─────────────────────────── */
+  .topbar {
+    display:flex; align-items:center; justify-content:space-between;
+    height:56px; padding:0 16px; position:sticky; top:0; background:#0f0f0f; z-index:10;
+  }
+  .topbar-left { display:flex; align-items:center; gap:16px; }
+  .hamburger { width:24px; cursor:pointer; }
+  .hamburger div { height:2px; background:#f1f1f1; margin:5px 0; border-radius:1px; }
+  .logo { display:flex; align-items:flex-start; gap:4px; cursor:pointer; }
+  .logo-icon {
+    width:32px; height:22px; background:#ff0000; border-radius:6px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .logo-icon::after {
+    content:""; border-left:9px solid #fff; border-top:5.5px solid transparent; border-bottom:5.5px solid transparent;
+  }
+  .logo-text { font-size:20px; font-weight:700; letter-spacing:-1px; }
+  .logo-kr { font-size:9px; color:#aaa; margin-top:-2px; }
+  .searchbox {
+    flex:1; max-width:540px; display:flex; margin:0 40px;
+  }
+  .searchbox input {
+    flex:1; background:#121212; border:1px solid #303030; border-right:none;
+    border-radius:20px 0 0 20px; padding:8px 16px; color:#f1f1f1; font-size:15px; outline:none;
+  }
+  .search-btn {
+    width:60px; background:#222; border:1px solid #303030; border-radius:0 20px 20px 0;
+    display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:16px;
+  }
+  .mic {
+    width:38px; height:38px; border-radius:50%; background:#181818;
+    display:flex; align-items:center; justify-content:center; margin-left:12px; cursor:pointer;
+  }
+  .avatar-sm {
+    width:32px; height:32px; border-radius:50%;
+    background:linear-gradient(135deg,#4a6f8a,#2c4257);
+    display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700;
+  }
+
+  /* ── layout ──────────────────────────── */
+  .page {
+    display:flex; gap:24px; max-width:1600px; margin:0 auto; padding:20px 24px;
+  }
+  .main { flex:1; min-width:0; }
+  .side { width:426px; flex-shrink:0; }
+
+  /* ── player ──────────────────────────── */
+  .player {
+    position:relative; width:100%; aspect-ratio:16/9;
+    border-radius:12px; overflow:hidden;
+    background:
+      linear-gradient(rgba(2,10,30,.55),rgba(2,10,30,.55)),
+      repeating-linear-gradient(80deg, transparent 0 70px, rgba(80,200,255,.55) 70px 72px),
+      repeating-linear-gradient(-10deg, transparent 0 70px, rgba(80,200,255,.45) 70px 72px),
+      radial-gradient(ellipse at 50% 120%, #0b2a4a 0%, #04101f 70%);
+  }
+  .caption {
+    position:absolute; left:50%; bottom:14%; transform:translateX(-50%);
+    text-align:center; font-size:clamp(14px,2.2vw,26px); font-weight:700; line-height:1.5; white-space:nowrap;
+  }
+  .caption span { background:rgba(8,8,8,.75); padding:2px 8px; box-decoration-break:clone; }
+  .player-controls {
+    position:absolute; left:0; right:0; bottom:0; padding:8px 14px;
+    background:linear-gradient(transparent, rgba(0,0,0,.7));
+    display:flex; align-items:center; gap:14px; font-size:13px; color:#eee;
+  }
+  .progress { position:absolute; left:12px; right:12px; bottom:44px; height:3px; background:rgba(255,255,255,.3); border-radius:2px; }
+  .progress::before { content:""; position:absolute; left:0; top:0; bottom:0; width:23%; background:#f00; border-radius:2px; }
+  .progress::after { content:""; position:absolute; left:23%; top:50%; width:13px; height:13px; background:#f00; border-radius:50%; transform:translate(-50%,-50%); }
+
+  /* ── title + actions ─────────────────── */
+  .video-title { font-size:20px; font-weight:700; margin:14px 0 10px; }
+  .action-row { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; }
+  .channel { display:flex; align-items:center; gap:12px; }
+  .avatar {
+    width:40px; height:40px; border-radius:50%;
+    background:linear-gradient(135deg,#3a6ea5,#1d3b57);
+    display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:700;
+  }
+  .ch-name { font-size:15px; font-weight:600; }
+  .ch-sub { font-size:12px; color:#aaa; }
+  .btn {
+    border:none; cursor:pointer; font-size:14px; font-weight:600;
+    border-radius:18px; padding:0 16px; height:36px;
+    background:#272727; color:#f1f1f1; display:flex; align-items:center; gap:6px;
+  }
+  .btn:hover { background:#3f3f3f; }
+  .btn-join { background:transparent; border:1px solid #3f3f3f; }
+  .btn-sub { background:#f1f1f1; color:#0f0f0f; border-radius:18px; }
+  .btn-sub:hover { background:#d9d9d9; }
+  .actions { display:flex; align-items:center; gap:8px; }
+  .like-group { display:flex; }
+  .like-group .btn:first-child { border-radius:18px 0 0 18px; border-right:1px solid #3f3f3f; }
+  .like-group .btn:last-child { border-radius:0 18px 18px 0; padding:0 12px; }
+  .btn-ask { position:relative; }
+  .btn-ask.active { background:#263850; outline:1px solid #3ea6ff; }
+  .spark { color:#aecbfa; }
+
+  .desc {
+    margin-top:14px; background:#272727; border-radius:12px; padding:12px 14px; font-size:14px; color:#ddd;
+  }
+  .desc b { color:#fff; }
+
+  /* ── Ask panel (side) ────────────────── */
+  .ask-panel {
+    border:1px solid #303030; border-radius:14px; overflow:hidden;
+    display:flex; flex-direction:column; height:640px; background:#161616;
+  }
+  .ask-header {
+    display:flex; align-items:center; gap:8px; padding:12px 16px; border-bottom:1px solid #303030;
+  }
+  .ask-header .spark { font-size:17px; }
+  .ask-header h2 { font-size:16px; font-weight:600; flex:1; }
+  .chip-beta {
+    font-size:11px; font-weight:600; color:#aecbfa; border:1px solid #3d5a80;
+    border-radius:10px; padding:1px 8px;
+  }
+  .ask-close { background:none; border:none; color:#aaa; font-size:20px; cursor:pointer; line-height:1; }
+  .ask-body { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:14px; }
+  .ask-note { font-size:12px; color:#888; text-align:center; }
+  .bubble-user {
+    align-self:flex-end; max-width:85%; background:#263850; color:#e8f0fe;
+    border-radius:16px 16px 4px 16px; padding:10px 14px; font-size:14px; line-height:1.55;
+  }
+  .bubble-ai {
+    align-self:flex-start; max-width:92%; background:#222; border:1px solid #303030;
+    border-radius:16px 16px 16px 4px; padding:12px 14px; font-size:14px; line-height:1.65; color:#e3e3e3;
+  }
+  .bubble-ai .ai-tag { display:flex; align-items:center; gap:6px; font-size:12px; color:#aecbfa; margin-bottom:6px; font-weight:600; }
+  .bubble-ai ul { margin:6px 0 2px 18px; }
+  .bubble-ai li { margin:3px 0; }
+  .ts-link { color:#3ea6ff; cursor:pointer; font-weight:600; }
+  .suggest-row { display:flex; flex-wrap:wrap; gap:8px; }
+  .suggest {
+    font-size:13px; color:#aecbfa; background:#1d2a3a; border:1px solid #2c4257;
+    border-radius:16px; padding:6px 12px; cursor:pointer;
+  }
+  .suggest:hover { background:#263850; }
+  .ask-input-row { border-top:1px solid #303030; padding:10px 12px; display:flex; gap:8px; align-items:center; }
+  .ask-input {
+    flex:1; background:#0f0f0f; border:1px solid #3f3f3f; border-radius:20px;
+    padding:9px 16px; color:#f1f1f1; font-size:14px; outline:none;
+  }
+  .ask-input:focus { border-color:#3ea6ff; }
+  .ask-send {
+    width:38px; height:38px; border-radius:50%; border:none; cursor:pointer;
+    background:#3ea6ff; color:#0f0f0f; font-size:16px; font-weight:700;
+  }
+  .ask-disclaimer { font-size:11px; color:#777; text-align:center; padding:0 14px 10px; }
+
+  /* related list placeholder */
+  .related { margin-top:16px; display:flex; flex-direction:column; gap:10px; }
+  .rel-item { display:flex; gap:10px; }
+  .rel-thumb { width:168px; height:94px; border-radius:8px; flex-shrink:0;
+    background:linear-gradient(135deg,#233,#101820); }
+  .rel-meta { font-size:13px; color:#aaa; padding-top:2px; }
+  .rel-meta b { display:block; color:#f1f1f1; font-size:14px; font-weight:600; margin-bottom:4px; line-height:1.4; }
+
+  .mock-badge {
+    position:fixed; right:14px; bottom:14px; z-index:50;
+    background:#5a2020; color:#ffd7d7; font-size:12px; font-weight:600;
+    border:1px solid #a33; border-radius:8px; padding:6px 10px; opacity:.9;
+  }
+
+  @media (max-width:1100px){
+    .page { flex-direction:column; }
+    .side { width:100%; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="hamburger"><div></div><div></div><div></div></div>
+    <div class="logo">
+      <div class="logo-icon"></div>
+      <div><span class="logo-text">YouTube</span></div>
+      <div class="logo-kr">KR</div>
+    </div>
+  </div>
+  <div class="searchbox">
+    <input type="text" placeholder="검색">
+    <div class="search-btn">🔍</div>
+  </div>
+  <div style="display:flex;align-items:center;">
+    <div class="mic">🎙️</div>
+    <div style="width:20px"></div>
+    <div class="avatar-sm">S</div>
+  </div>
+</div>
+
+<div class="page">
+  <div class="main">
+    <div class="player">
+      <div class="caption">
+        <span>80% 이상 버리고 있는 건데 오늘 7개의 기능을</span><br>
+        <span>알려드릴</span>
+      </div>
+      <div class="progress"></div>
+      <div class="player-controls">
+        <span>▶</span><span>⏭</span><span>🔊</span>
+        <span>13:42 / 1:01:25</span>
+        <span style="margin-left:auto">자막 ⚙️ ⛶</span>
+      </div>
+    </div>
+
+    <div class="video-title">무료 AI 영상중 최고일 겁니다. '클로드 1시간 올인원 강의'</div>
+
+    <div class="action-row">
+      <div class="channel">
+        <div class="avatar">찍</div>
+        <div>
+          <div class="ch-name">찍붓</div>
+          <div class="ch-sub">구독자 3.37만명</div>
+        </div>
+        <button class="btn btn-join">가입</button>
+        <button class="btn btn-sub">구독</button>
+      </div>
+      <div class="actions">
+        <div class="like-group">
+          <button class="btn">👍 1.2천</button>
+          <button class="btn">👎</button>
+        </div>
+        <button class="btn">↗ 공유</button>
+        <button class="btn btn-ask active" id="askBtn" onclick="togglePanel()">
+          <span class="spark">✦</span> 질문하기
+        </button>
+        <button class="btn">🔖 저장</button>
+        <button class="btn" style="padding:0 10px;">⋯</button>
+      </div>
+    </div>
+
+    <div class="desc">
+      조회수 4.1만회 &nbsp; 3일 전 &nbsp; <b>#클로드 #Claude #AI강의</b><br>
+      클로드를 제대로 쓰는 사람이 거의 없습니다. 이 영상 하나로 핵심 기능 7가지를 전부 정리해 드립니다. ...더보기
+    </div>
+  </div>
+
+  <div class="side">
+    <!-- 질문하기(Ask) 패널: 버튼을 누른 직후 열린 상태 -->
+    <div class="ask-panel" id="askPanel">
+      <div class="ask-header">
+        <span class="spark">✦</span>
+        <h2>질문하기</h2>
+        <span class="chip-beta">실험실</span>
+        <button class="ask-close" onclick="togglePanel()">✕</button>
+      </div>
+      <div class="ask-body">
+        <div class="ask-note">이 동영상에 관해 무엇이든 물어보세요</div>
+
+        <div class="bubble-user">이 영상에서 소개하는 7가지 기능을 요약해 줘</div>
+
+        <div class="bubble-ai">
+          <div class="ai-tag"><span class="spark">✦</span> AI 답변</div>
+          이 영상에서는 클로드 사용자 대부분이 놓치고 있는 핵심 기능 7가지를 소개합니다.
+          <ul>
+            <li><span class="ts-link">02:14</span> 프로젝트 기능으로 컨텍스트 고정하기</li>
+            <li><span class="ts-link">09:31</span> 아티팩트로 결과물 바로 만들기</li>
+            <li><span class="ts-link">17:05</span> 파일 업로드·분석 활용법</li>
+            <li><span class="ts-link">24:48</span> 커스텀 지침으로 답변 스타일 고정</li>
+            <li><span class="ts-link">33:20</span> 웹 검색 연동</li>
+            <li><span class="ts-link">41:57</span> 코드 실행과 데이터 분석</li>
+            <li><span class="ts-link">50:12</span> 자동화 활용 예시</li>
+          </ul>
+          강의 후반부에는 실무 활용 예시가 이어집니다.
+        </div>
+
+        <div class="suggest-row">
+          <div class="suggest">이 영상 요약해 줘</div>
+          <div class="suggest">초보자가 먼저 볼 구간은?</div>
+          <div class="suggest">무료로 쓸 수 있는 기능만 알려줘</div>
+        </div>
+      </div>
+      <div class="ask-input-row">
+        <input class="ask-input" type="text" placeholder="이 동영상에 관해 질문하기...">
+        <button class="ask-send">↑</button>
+      </div>
+      <div class="ask-disclaimer">AI 답변에는 실수가 있을 수 있습니다. 중요한 정보는 확인하세요.</div>
+    </div>
+
+    <div class="related" id="relatedList" style="display:none;">
+      <div class="rel-item"><div class="rel-thumb"></div><div class="rel-meta"><b>클로드 프로젝트 기능 완벽 정리</b>찍붓<br>조회수 2.8만회 · 2주 전</div></div>
+      <div class="rel-item"><div class="rel-thumb"></div><div class="rel-meta"><b>AI 자동화 입문 가이드</b>찍붓<br>조회수 5.1만회 · 1개월 전</div></div>
+      <div class="rel-item"><div class="rel-thumb"></div><div class="rel-meta"><b>프롬프트 잘 쓰는 법 10가지</b>찍붓<br>조회수 9.4만회 · 2개월 전</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="mock-badge">화면 재현용 목업 · 실제 YouTube 아님</div>
+
+<script>
+  function togglePanel() {
+    var panel = document.getElementById('askPanel');
+    var rel = document.getElementById('relatedList');
+    var btn = document.getElementById('askBtn');
+    var open = panel.style.display !== 'none';
+    panel.style.display = open ? 'none' : 'flex';
+    rel.style.display = open ? 'flex' : 'none';
+    btn.classList.toggle('active', !open);
+  }
+</script>
+
+</body>
+</html>
