@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { askCopilot } from "@/lib/ai/gemini";
+import { CopilotUserConfig } from "@/lib/ai/harness";
 import { readSession, unauthorized } from "@/lib/auth/cookies";
 import { UnifiedData } from "@/lib/types/unified";
 
@@ -14,6 +15,7 @@ export async function POST(request: NextRequest) {
     question?: string;
     items?: UnifiedData[];
     timezone?: string;
+    copilotConfig?: CopilotUserConfig;
   };
 
   const question = body.question?.trim() || "오늘 해야 할 일을 브리핑해줘";
@@ -22,7 +24,8 @@ export async function POST(request: NextRequest) {
   const { answer, aiUsed } = await askCopilot(
     question,
     items,
-    body.timezone || "Asia/Seoul"
+    body.timezone || "Asia/Seoul",
+    body.copilotConfig
   );
   return NextResponse.json({ answer, ai_fallback: !aiUsed });
 }

@@ -83,10 +83,12 @@ import { saveRawContent, getRawContent } from "@/lib/browser/rawStore";
 import styles from "./page.module.css";
 
 import { SubTask } from "@/lib/types/unified";
+import { CopilotUserConfig, DEFAULT_COPILOT_CONFIG } from "@/lib/ai/harness";
 
 const LS_RAW_ENABLED = "ct_raw_enabled";
 const LS_DRIVE_BACKUP_ENABLED = "ct_drive_backup_enabled";
 const LS_CUSTOM_WIDGETS = "ct_custom_widgets";
+const LS_COPILOT_CONFIG = "ct_copilot_config";
 
 const POLL_MS = 30_000;
 const TICK_MS = 60_000;
@@ -275,6 +277,9 @@ export default function Home() {
 
   const [copilotMessages, setCopilotMessages] = useState<CopilotMessage[]>(
     () => handoffSnapshot?.copilotMessages ?? []
+  );
+  const [copilotConfig, setCopilotConfig] = useState<CopilotUserConfig>(
+    () => loadLS<CopilotUserConfig>(LS_COPILOT_CONFIG, DEFAULT_COPILOT_CONFIG)
   );
   const [copilotInput, setCopilotInput] = useState("");
   const [copilotBusy, setCopilotBusy] = useState(false);
@@ -937,6 +942,9 @@ export default function Home() {
     saveLS(LS_RULES, rules);
   }, [rules]);
   useEffect(() => {
+    saveLS(LS_COPILOT_CONFIG, copilotConfig);
+  }, [copilotConfig]);
+  useEffect(() => {
     saveLS(LS_DISMISSED, dismissed);
   }, [dismissed]);
   useEffect(() => {
@@ -1465,6 +1473,7 @@ export default function Home() {
           question,
           items: merged.filter((i) => i.status !== "completed"),
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          copilotConfig,
         }),
       });
       const json = (await res.json()) as { answer?: string; ai_fallback?: boolean };
@@ -2517,6 +2526,8 @@ export default function Home() {
           }}
           rules={rules}
           onChangeRules={setRules}
+          copilotConfig={copilotConfig}
+          onChangeCopilotConfig={setCopilotConfig}
           ruleInput={ruleInput}
           onChangeRuleInput={setRuleInput}
           ruleBusy={ruleBusy}

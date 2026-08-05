@@ -6,9 +6,11 @@ import { AppShortcut } from "@/lib/types/appShortcut";
 import { CommuteConfig } from "@/lib/types/commute";
 import { ConnectionState } from "@/lib/types/unified";
 import { BrowserFolderInfo, BrowserFolderKind } from "@/lib/browser/localFolders";
+import { CopilotUserConfig } from "@/lib/ai/harness";
+import { CopilotCustomSection } from "./settings/CopilotCustomSection";
 import { AutomationRulesSection } from "./settings/AutomationRulesSection";
-import { CommuteSection } from "./settings/CommuteSection";
 import { ConnectionsSection } from "./settings/ConnectionsSection";
+import { CommuteSection } from "./settings/CommuteSection";
 import { NotificationSection } from "./settings/NotificationSection";
 import { ShortcutsSection } from "./settings/ShortcutsSection";
 import { WeatherSection } from "./settings/WeatherSection";
@@ -19,6 +21,8 @@ export interface SettingsModalProps {
   connPanelRef: RefObject<HTMLDivElement | null>;
   onClose: () => void;
   onSignout: () => void;
+  copilotConfig: CopilotUserConfig;
+  onChangeCopilotConfig: (next: CopilotUserConfig) => void;
   rules: AutomationRule[];
   onChangeRules: (rules: AutomationRule[]) => void;
   ruleInput: string;
@@ -70,6 +74,8 @@ export function SettingsModal({
   connPanelRef,
   onClose,
   onSignout,
+  copilotConfig,
+  onChangeCopilotConfig,
   rules,
   onChangeRules,
   ruleInput,
@@ -163,6 +169,11 @@ export function SettingsModal({
             </button>
           </div>
         </div>
+
+        <CopilotCustomSection
+          config={copilotConfig}
+          onChangeConfig={onChangeCopilotConfig}
+        />
 
         <AutomationRulesSection
           rules={rules}

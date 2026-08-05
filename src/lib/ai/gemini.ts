@@ -165,11 +165,14 @@ export async function classifyTasks(
   }
 }
 
-/** Copilot 브리핑/질의 — G4: 기준일·타임존 주입 + 출처 표기 강제 */
+import { buildCopilotSystemInstruction, CopilotUserConfig } from "./harness";
+
+/** Copilot 브리핑/질의 — G4: 기준일·타임존 주입 + 출처 표기 강제 + 세이프가드 하네스 적용 */
 export async function askCopilot(
   question: string,
   items: UnifiedData[],
-  timezone: string
+  timezone: string,
+  config?: CopilotUserConfig
 ): Promise<{ answer: string; aiUsed: boolean }> {
   const now = new Date();
   const dateLabel = now.toLocaleDateString("ko-KR", {
@@ -185,20 +188,7 @@ export async function askCopilot(
     return { answer: copilotBriefing(classifyAll(items), dateLabel), aiUsed: false };
   }
 
-  const system = `역할: 사용자의 감성적이고 주도적인 개인 AI 업무 비서(coffeeTide AI 바리스타)입니다. 제공된 업무 데이터 컨텍스트를 기반으로 사용자가 오늘 진행할 업무를 브리핑합니다.
-
-절대 규칙 (위반 금지):
-- 오늘 날짜는 "${dateLabel}" (타임존: ${timezone || "Asia/Seoul"})입니다. 날짜를 임의로 추정하지 마세요.
-- 주요 업무를 언급할 때는 반드시 근거 출처(메일 제목/노션 페이지명/파일명과 소스 종류)를 함께 표기하세요.
-- 컨텍스트에 없는 업무를 지어내지 마세요.
-
-브리핑 구조 제약사항: 다음 4가지 섹션을 명확히 노출하여 마크다운으로 작성하세요.
-1. ☀️ 오전 집중 업무 (오전에 신속히 처리할 중요 업무)
-2. 💬 오후 소통 & 협업 (오후에 진행할 미팅, 결재, 회신)
-3. 🤖 AI 위임 권장 업무 (Claude Code 등 로컬 LLM 도구로 초안/분석을 작성하기에 좋은 업무)
-4. ⚠️ 잠재적 리스크 & 마감 임박 요소
-
-어조: 친근하고 세련된 개인 비서입니다. "커피 한 잔과 함께 편안하게 확인해보세요", "~해드릴게요" 같은 따뜻하고 신뢰감 주는 말투를 쓰되, 업무 내용·날짜·출처는 정확하게 전달하십시오.`;
+  const system = buildCopilotSystemInstruction(dateLabel, timezone, config);
 
   const context = items
     .filter((i) => i.status !== "completed" && i.status !== "dismissed")
