@@ -11,7 +11,7 @@ export const EXCLUDED_DIRS = new Set([
   ".next",
 ]);
 
-const MAX_FILE_BYTES = 512 * 1024; // 과대 파일 스킵 (phase6 §12)
+const MAX_FILE_BYTES = 2 * 1024 * 1024; // 과대 파일 스킵 (.docx 바이너리 수용)
 
 export interface ScannedFile {
   fullPath: string;

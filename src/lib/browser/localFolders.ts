@@ -5,6 +5,7 @@
 // 만료됐으면 사용자 제스처에서 requestPermission으로 복구한다.
 
 import { UnifiedData } from "@/lib/types/unified";
+import { extractTextFromDocx } from "@/lib/adapters/docxParser";
 
 export type BrowserFolderKind = "obsidian" | "local_doc" | "llm";
 
@@ -301,13 +302,19 @@ async function scanLocalDoc(
   handle: FileSystemDirectoryHandle,
   folderName: string
 ): Promise<UnifiedData[]> {
-  const files = await walk(handle, [".md", ".txt"], 100);
+  const files = await walk(handle, [".md", ".txt", ".docx"], 100);
   const items: UnifiedData[] = [];
   for (const f of files) {
     if (items.length >= 10) break;
-    let text: string;
+    let text = "";
+    const ext = f.relPath.slice(f.relPath.lastIndexOf(".")).toLowerCase();
     try {
-      text = await f.file.text();
+      if (ext === ".docx") {
+        const ab = await f.file.arrayBuffer();
+        text = await extractTextFromDocx(ab);
+      } else {
+        text = await f.file.text();
+      }
     } catch {
       continue;
     }

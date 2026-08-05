@@ -13,8 +13,8 @@ import {
   parseRuleFallback,
 } from "./fallbackEngine";
 
-const MODEL = "gemini-2.5-flash";
-const COOLDOWN_MS = 10 * 60 * 1000;
+const MODEL = "gemini-flash-latest";
+const COOLDOWN_MS = 10 * 60 * 1000; // 10분 쿨다운
 const PROMPT_VERSION = "v2";
 
 // 서버 메모리 캐시 (C1 알려진 한계: 프로세스 재시작 시 소멸)
@@ -23,6 +23,11 @@ const classifyCache = new Map<
   { category: UnifiedCategory; actionDirective: string; delegatable?: boolean }
 >();
 let quotaCooldownUntil = 0;
+
+/** 사용자가 연결/데이터 새로고침 버튼을 누를 때 백엔드 쿨다운 즉시 리셋 */
+export function resetGeminiCooldown(): void {
+  quotaCooldownUntil = 0;
+}
 
 function apiKey(): string | undefined {
   return process.env.GEMINI_API_KEY || undefined;
@@ -54,10 +59,14 @@ function parseJsonLoose<T>(text: string): T | null {
   }
 }
 
-async function callGemini(systemInstruction: string, userText: string): Promise<string> {
+async function callGemini(
+  systemInstruction: string,
+  userText: string,
+  ignoreCooldown = false
+): Promise<string> {
   const key = apiKey();
   if (!key) throw new Error("GEMINI_API_KEY not set");
-  if (Date.now() < quotaCooldownUntil) throw new Error("quota cooldown active");
+  if (!ignoreCooldown && Date.now() < quotaCooldownUntil) throw new Error("quota cooldown active");
 
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${key}`,
@@ -76,6 +85,10 @@ async function callGemini(systemInstruction: string, userText: string): Promise<
     throw new Error("quota exceeded");
   }
   if (!res.ok) throw new Error(`Gemini ${res.status}: ${await res.text()}`);
+  
+  // 성공 시 쿨다운 즉시 해제
+  quotaCooldownUntil = 0;
+  
   const json = (await res.json()) as {
     candidates?: { content?: { parts?: { text?: string }[] } }[];
   };
@@ -183,8 +196,7 @@ export async function askCopilot(
     weekday: "long",
   });
 
-  if (!apiKey() || Date.now() < quotaCooldownUntil) {
-    // 생성 시 분류가 실패해 category가 빈 항목도 브리핑에서 빠지지 않도록 로컬 분류로 보충
+  if (!apiKey()) {
     return { answer: copilotBriefing(classifyAll(items), dateLabel), aiUsed: false };
   }
 
@@ -204,7 +216,8 @@ export async function askCopilot(
   try {
     const answer = await callGemini(
       system,
-      `업무 데이터(JSON):\n${JSON.stringify(context)}\n\n사용자 질문: ${question}`
+      `업무 데이터(JSON):\n${JSON.stringify(context)}\n\n사용자 질문: ${question}`,
+      true // askCopilot은 쿨다운 차단 무시하고 항상 직접 구글 Gemini 호출
     );
     if (!answer.trim()) throw new Error("empty answer");
     return { answer, aiUsed: true };
@@ -398,3 +411,154 @@ export async function extractTasks(
     return extractTasksFallback(text);
   }
 }
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error ?? "");
+}
+
+/** 이미 사용자에게 보여줄 만큼 다듬어진 에러인지 (그대로 다시 throw) */
+const USER_FACING_ERROR = /AI 호출 한도|AI 모델을 찾을 수 없|API 키 권한|API 호출 오류/;
+
+/** YouTube URL을 전달받아 영상 내용을 AI로 분석/요약 */
+export async function analyzeYoutube(url: string): Promise<string> {
+  const key = apiKey();
+  if (!key) throw new Error("GEMINI_API_KEY not set");
+
+  const system = `역할: 당신은 유튜브 영상 분석 전문가입니다.
+사용자가 제공하는 영상을 바탕으로 내용을 파악하고 핵심 내용을 요약해 주세요.
+출력 형식: 반드시 아래 JSON 형식을 준수하세요.
+{
+  "text": "3~5개의 불릿 포인트(•)로 작성된 핵심 요약 텍스트"
+}
+불필요한 인사말 없이 JSON만 출력하세요.`;
+
+  const query = "이 영상을 분석해 줘.";
+
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${key}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: system }] },
+          contents: [{
+            role: "user",
+            parts: [
+              { fileData: { fileUri: url, mimeType: "video/mp4" } },
+              { text: query }
+            ]
+          }],
+          generationConfig: { responseMimeType: "application/json" }
+        }),
+      }
+    );
+
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error(`[coffeeTide] YouTube AI 에러 원본:`, errText);
+      if (res.status === 429) {
+        quotaCooldownUntil = Date.now() + COOLDOWN_MS;
+        throw new Error("AI 호출 한도를 초과했습니다. 잠시 후 다시 시도해 주세요.");
+      }
+      if (res.status === 404) throw new Error("AI 모델을 찾을 수 없습니다. 모델 설정을 확인해 주세요.");
+      if (res.status === 403) throw new Error("API 키 권한을 확인해 주세요.");
+      throw new Error(`API 호출 오류 (${res.status}): ${errText}`);
+    }
+
+    const data = await res.json();
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!text) throw new Error("no text from Gemini");
+
+    const parsed = JSON.parse(text);
+    return parsed.text || "요약을 생성하지 못했습니다.";
+  } catch (error) {
+    const message = errorMessage(error);
+    if (USER_FACING_ERROR.test(message)) throw error;
+    console.error("[coffeeTide] YouTube AI 분석 실패:", error);
+    throw new Error(message || "비공개이거나 접근할 수 없는 영상입니다. (또는 AI 호출 한도 초과)");
+  }
+}
+
+export interface YoutubeChatResponse {
+  text: string;
+  timestamps?: { time: string; seconds: number; label: string }[];
+}
+
+/** YouTube AI 채팅 대화형 분석 */
+export async function chatYoutube(url: string, messages: { role: "user" | "model"; content: string }[]): Promise<YoutubeChatResponse> {
+  const key = apiKey();
+  if (!key) throw new Error("GEMINI_API_KEY not set");
+
+  const systemInstruction = `역할: 당신은 유튜브 영상 분석 전문가이자 대화형 AI 챗봇입니다.
+사용자가 제공하는 영상을 바탕으로 내용을 파악하고 질문에 친절하게 답변하세요.
+영상과 관련 없는 질문 시 영상 내용에 대해 대화하도록 안내하세요.
+가독성을 높이기 위해 불릿 포인트나 이모지를 적절히 활용하세요.
+
+중요: 반환 시 반드시 아래 JSON 형식을 준수하세요.
+{
+  "text": "응답 내용 (마크다운 포맷 가능)",
+  "timestamps": [
+    { "time": "02:14", "seconds": 134, "label": "언급된 내용의 요약 제목" }
+  ]
+}
+영상에서 특정 시점이 중요하게 언급되면 timestamps 배열에 정보를 담아주세요. 없다면 빈 배열을 반환하세요.`;
+
+  // Gemini contents 포맷으로 변환 (첫 user 메시지에만 fileData 포함)
+  let firstUserFound = false;
+  const contents = messages.map((msg) => {
+    if (!firstUserFound && msg.role === "user") {
+      firstUserFound = true;
+      return {
+        role: msg.role,
+        parts: [
+          { fileData: { fileUri: url, mimeType: "video/mp4" } },
+          { text: msg.content }
+        ]
+      };
+    }
+    return {
+      role: msg.role,
+      parts: [{ text: msg.content }]
+    };
+  });
+
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${key}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: systemInstruction }] },
+          contents,
+          generationConfig: { responseMimeType: "application/json" }
+        }),
+      }
+    );
+
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error(`[coffeeTide] YouTube AI 에러 원본:`, errText);
+      if (res.status === 429) {
+        quotaCooldownUntil = Date.now() + COOLDOWN_MS;
+        throw new Error("AI 호출 한도를 초과했습니다. 잠시 후 다시 시도해 주세요.");
+      }
+      if (res.status === 404) throw new Error("AI 모델을 찾을 수 없습니다. 모델 설정을 확인해 주세요.");
+      if (res.status === 403) throw new Error("API 키 권한을 확인해 주세요.");
+      throw new Error(`API 호출 오류 (${res.status}): ${errText}`);
+    }
+
+    const data = await res.json();
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!text) throw new Error("no text from Gemini");
+
+    return JSON.parse(text) as YoutubeChatResponse;
+  } catch (error) {
+    const message = errorMessage(error);
+    if (USER_FACING_ERROR.test(message)) throw error;
+    console.error("[coffeeTide] YouTube AI 채팅 실패:", error);
+    throw new Error(message || "비공개이거나 접근할 수 없는 영상입니다. (또는 AI 호출 한도 초과)");
+  }
+}
+

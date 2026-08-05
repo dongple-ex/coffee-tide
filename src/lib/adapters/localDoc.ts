@@ -4,24 +4,35 @@ import { promises as fs } from "node:fs";
 import { UnifiedData } from "../types/unified";
 import { walkFiles } from "./fsScan";
 import { cleanHtmlContent, toBase64Url } from "./textUtils";
+import { extractTextFromDocx } from "./docxParser";
 
 export class LocalDocAdapter {
   constructor(private rootPath: string) {}
 
   async fetchRecent(limit = 10): Promise<UnifiedData[]> {
-    const files = await walkFiles(this.rootPath, [".md", ".txt", ".html", ".htm", ".xml"], 100);
+    const files = await walkFiles(
+      this.rootPath,
+      [".md", ".txt", ".html", ".htm", ".xml", ".docx"],
+      100
+    );
     const items: UnifiedData[] = [];
 
     for (const file of files) {
       if (items.length >= limit) break;
-      let text: string;
+      let text = "";
+      const ext = file.relPath.slice(file.relPath.lastIndexOf(".")).toLowerCase();
+
       try {
-        text = await fs.readFile(file.fullPath, "utf8");
+        if (ext === ".docx") {
+          const buf = await fs.readFile(file.fullPath);
+          text = await extractTextFromDocx(buf);
+        } else {
+          text = await fs.readFile(file.fullPath, "utf8");
+        }
       } catch {
         continue;
       }
 
-      const ext = file.relPath.slice(file.relPath.lastIndexOf(".")).toLowerCase();
       if (ext === ".html" || ext === ".htm" || ext === ".xml") {
         text = cleanHtmlContent(text);
       }
