@@ -1,8 +1,19 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import type { CustomNewsItem, CustomNewsResponse, SiteBriefing } from "@/lib/news/types";
 import styles from "./customNewsWidget.module.css";
+
+interface ChatMessage {
+  role: "user" | "model";
+  content: string;
+  timestamps?: { time: string; seconds: number; label: string }[];
+}
+
+const getYoutubeVideoId = (url: string) => {
+  const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([^&?]+)/);
+  return match ? match[1] : null;
+};
 
 export interface CustomWidgetConfig {
   id: string;
@@ -32,6 +43,81 @@ export function CustomNewsWidget({ widget, onNotify, onDelete, onUpdateName }: C
   const [error, setError] = useState<LoadError | null>(null);
   const [expandedIds, setExpandedIds] = useState<string[]>([]);
 
+  const [chatHistories, setChatHistories] = useState<Record<string, ChatMessage[]>>({});
+  const [chatInputs, setChatInputs] = useState<Record<string, string>>({});
+  const [isChatOpen, setIsChatOpen] = useState<Record<string, boolean>>({});
+  
+  const [analyzingIds, setAnalyzingIds] = useState<string[]>([]);
+  /** AI 답변이 도착했지만 아직 사용자가 확인하지 않은 카드 id */
+  const [answeredIds, setAnsweredIds] = useState<string[]>([]);
+
+  // 답변 도착 시점에 "지금 보고 있는 카드인지" 판단하려면 최신 값이 필요하다.
+  // 비동기 응답 콜백은 요청 시점의 state를 클로저로 붙잡고 있으므로 ref로 미러링한다.
+  const expandedRef = useRef<string[]>([]);
+  const chatOpenRef = useRef<Record<string, boolean>>({});
+  useEffect(() => {
+    expandedRef.current = expandedIds;
+  }, [expandedIds]);
+  useEffect(() => {
+    chatOpenRef.current = isChatOpen;
+  }, [isChatOpen]);
+
+  /** 사용자가 해당 카드의 답변을 확인한 것으로 처리 */
+  const clearAnswered = (id: string) =>
+    setAnsweredIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : prev));
+
+  // ── 채팅 영역 높이: 화면 하단까지만 ──────────────────
+  // 대화가 길어져도 카드가 무한히 늘어나지 않도록, 메시지 영역의 최대 높이를
+  // "뷰포트 하단 - 메시지 영역 상단"으로 잡고 내부 스크롤로 처리한다.
+  const chatBodyRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const [chatMaxH, setChatMaxH] = useState<Record<string, number>>({});
+
+  const measureChatBodies = useCallback(() => {
+    setChatMaxH((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      for (const [id, el] of Object.entries(chatBodyRefs.current)) {
+        if (!el || !el.isConnected) continue;
+        const { top } = el.getBoundingClientRect();
+        // 입력창(38px) + 상하 패딩/여백 몫으로 약 80px를 남긴다. 너무 납작해지지 않도록 하한 140px.
+        const h = Math.max(140, Math.round(window.innerHeight - top - 80));
+        if (next[id] !== h) {
+          next[id] = h;
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, []);
+
+  useEffect(() => {
+    measureChatBodies();
+    let raf = 0;
+    const onViewportChange = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(measureChatBodies);
+    };
+    // capture:true — 페이지뿐 아니라 위젯 내부 스크롤 컨테이너의 스크롤도 잡는다.
+    window.addEventListener("scroll", onViewportChange, true);
+    window.addEventListener("resize", onViewportChange);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("scroll", onViewportChange, true);
+      window.removeEventListener("resize", onViewportChange);
+    };
+  }, [measureChatBodies, isChatOpen, expandedIds, chatHistories]);
+
+  // 새 메시지가 붙으면 해당 채팅창을 맨 아래로 (답변이 스크롤 밖에 숨지 않도록)
+  const lastMsgCountRef = useRef<Record<string, number>>({});
+  useEffect(() => {
+    for (const [id, msgs] of Object.entries(chatHistories)) {
+      if (lastMsgCountRef.current[id] === msgs.length) continue;
+      lastMsgCountRef.current[id] = msgs.length;
+      const el = chatBodyRefs.current[id];
+      if (el) el.scrollTop = el.scrollHeight;
+    }
+  }, [chatHistories, analyzingIds]);
+
   // 인라인 제목 편집 state
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editingName, setEditingName] = useState(widget.name);
@@ -43,6 +129,69 @@ export function CustomNewsWidget({ widget, onNotify, onDelete, onUpdateName }: C
       onNotify?.(`위젯 이름이 [${trimmed}] (으)로 변경되었습니다 ✏️`);
     }
     setIsEditingTitle(false);
+  };
+
+  const handleToggleChat = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsChatOpen((prev) => ({ ...prev, [id]: !prev[id] }));
+    clearAnswered(id);
+
+    if (!chatHistories[id]) {
+      setChatHistories((prev) => ({
+        ...prev,
+        [id]: [{ role: "model", content: "이 영상에 관해 무엇이든 물어보세요! ✨" }]
+      }));
+    }
+  };
+
+  const handleSendYoutubeChat = async (id: string, url: string, e?: React.FormEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    const input = chatInputs[id]?.trim();
+    if (!input || analyzingIds.includes(id)) return;
+
+    const newMessages: ChatMessage[] = [
+      ...(chatHistories[id] || []),
+      { role: "user", content: input }
+    ];
+
+    setChatHistories((prev) => ({ ...prev, [id]: newMessages }));
+    setChatInputs((prev) => ({ ...prev, [id]: "" }));
+    setAnalyzingIds((prev) => [...prev, id]);
+    clearAnswered(id); // 새 질문을 보내면 이전 도착 표식은 리셋
+
+    try {
+      const res = await fetch("/api/ai/youtube-chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url, messages: newMessages }),
+      });
+      const data = await res.json();
+      if (data.reply) {
+        setChatHistories((prev) => ({
+          ...prev,
+          [id]: [...newMessages, { role: "model", content: data.reply, timestamps: data.timestamps || [] }]
+        }));
+      } else {
+        throw new Error(data.error || "응답 실패");
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error && error.message ? error.message : "앗, 분석 중 오류가 발생했습니다.";
+      setChatHistories((prev) => ({
+        ...prev,
+        [id]: [...newMessages, { role: "model", content: message }]
+      }));
+    } finally {
+      setAnalyzingIds((prev) => prev.filter((x) => x !== id));
+      // 답변(또는 에러)이 도착했을 때 해당 채팅창을 펼쳐 보고 있지 않았다면 카드에 표식을 남긴다.
+      const watching = expandedRef.current.includes(id) && Boolean(chatOpenRef.current[id]);
+      if (!watching) {
+        setAnsweredIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+      }
+    }
   };
 
   const fetchCustomArticles = useCallback(
@@ -129,6 +278,7 @@ export function CustomNewsWidget({ widget, onNotify, onDelete, onUpdateName }: C
 
   const toggleExpand = (id: string) => {
     setExpandedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+    clearAnswered(id);
   };
 
   const allExpanded = articles.length > 0 && expandedIds.length === articles.length;
@@ -269,15 +419,21 @@ export function CustomNewsWidget({ widget, onNotify, onDelete, onUpdateName }: C
         <div className={styles.articleList}>
           {articles.map((item) => {
             const isExpanded = expandedIds.includes(item.id);
+            const isAnswered = answeredIds.includes(item.id);
+            const isAnalyzing = analyzingIds.includes(item.id);
             return (
               <div
                 key={item.id}
-                className={`${styles.articleItem} ${isExpanded ? styles.articleItemActive : ""}`}
+                className={`${styles.articleItem} ${isExpanded ? styles.articleItemActive : ""} ${
+                  isAnswered ? styles.articleItemAnswered : ""
+                }`}
                 onClick={() => toggleExpand(item.id)}
               >
                 <div className={styles.articleHeader}>
                   <span className={styles.catTag}>{widget.name}</span>
                   <span className={styles.articleDate}>
+                    {isAnalyzing && <span className={styles.analyzingBadge}>AI 분석 중…</span>}
+                    {isAnswered && <span className={styles.answerBadge}>✦ AI 답변 도착</span>}
                     {item.depth === "title" && <span className={styles.thinBadge}>제목만</span>}
                     {item.date}
                   </span>
@@ -286,31 +442,150 @@ export function CustomNewsWidget({ widget, onNotify, onDelete, onUpdateName }: C
 
                 {isExpanded && (
                   <>
-                    {item.summary ? (
-                      <div className={styles.articleSummary}>{item.summary}</div>
-                    ) : (
-                      <div className={styles.articleSummary}>
-                        이 글은 본문을 공개하지 않아 요약을 만들지 못했습니다. 원문에서 확인해 주세요.
+                    {(() => {
+                      const ytId = item.url.match(/youtube\.com|youtu\.be/i) ? getYoutubeVideoId(item.url) : null;
+                      
+                      if (ytId) {
+                        return (
+                          <div className={styles.articleSummary} style={{ padding: 0, overflow: "hidden", border: "none" }}>
+                            <iframe
+                              id={`yt-player-${item.id}`}
+                              width="100%"
+                              height="240"
+                              src={`https://www.youtube.com/embed/${ytId}?enablejsapi=1`}
+                              title="YouTube video player"
+                              frameBorder="0"
+                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                              referrerPolicy="strict-origin-when-cross-origin"
+                              allowFullScreen
+                            ></iframe>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <>
+                          {item.summary ? (
+                            <div className={styles.articleSummary}>{item.summary}</div>
+                          ) : (
+                            <div className={styles.articleSummary}>
+                              이 글은 본문을 공개하지 않아 요약을 만들지 못했습니다. 원문에서 확인해 주세요.
+                            </div>
+                          )}
+
+                          {Array.isArray(item.points) && item.points.length > 0 && (
+                            <ul className={styles.pointList}>
+                              {item.points.map((p, i) => (
+                                <li key={`${item.id}-p${i}`}>{p}</li>
+                              ))}
+                            </ul>
+                          )}
+
+                          <a
+                            href={item.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className={styles.readLink}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            🔗 원문 전체 읽기 ↗
+                          </a>
+                        </>
+                      );
+                    })()}
+                    
+                    {item.url.match(/youtube\.com|youtu\.be/i) && (
+                      <div style={{ marginTop: 12 }}>
+                        {isChatOpen[item.id] ? (
+                          <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+                            <div style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                              <div style={{ fontWeight: 600, fontSize: "0.9rem" }}>✨ AI 질문하기 <span style={{fontSize: "0.65rem", padding: "2px 6px", border:"1px solid var(--accent)", borderRadius:10, color: "var(--accent)", marginLeft: 6}}>실험실</span></div>
+                              <button onClick={(e) => handleToggleChat(item.id, e)} style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: "1.1rem", color: "var(--text-dim)" }}>✕</button>
+                            </div>
+                            <div
+                              ref={(el) => {
+                                chatBodyRefs.current[item.id] = el;
+                              }}
+                              style={{ padding: "14px", display: "flex", flexDirection: "column", gap: 12, maxHeight: chatMaxH[item.id] ?? 300, overflowY: "auto", overscrollBehavior: "contain" }}
+                            >
+                              {(chatHistories[item.id] || []).map((msg, idx) => (
+                                <div key={idx} style={{ alignSelf: msg.role === "user" ? "flex-end" : "flex-start", maxWidth: "85%", background: msg.role === "user" ? "var(--accent-dim)" : "var(--card-hover)", color: "var(--text)", border: "1px solid var(--border)", padding: "10px 14px", borderRadius: msg.role === "user" ? "16px 16px 4px 16px" : "16px 16px 16px 4px", fontSize: "0.85rem", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
+                                  {msg.role === "model" && <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--accent)", marginBottom: 6 }}>✦ AI 답변</div>}
+                                  {msg.content}
+                                  {msg.role === "model" && msg.timestamps && msg.timestamps.length > 0 && (
+                                    <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
+                                      {msg.timestamps.map((ts, tsIdx) => (
+                                        <button
+                                          key={tsIdx}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            const iframe = document.getElementById(`yt-player-${item.id}`) as HTMLIFrameElement;
+                                            if (iframe && iframe.contentWindow) {
+                                              iframe.contentWindow.postMessage(JSON.stringify({
+                                                event: "command",
+                                                func: "seekTo",
+                                                args: [ts.seconds, true]
+                                              }), "*");
+                                              iframe.contentWindow.postMessage(JSON.stringify({
+                                                event: "command",
+                                                func: "playVideo",
+                                                args: []
+                                              }), "*");
+                                            }
+                                          }}
+                                          style={{ background: "var(--card)", border: "1px solid var(--border)", color: "var(--accent)", borderRadius: 6, padding: "4px 8px", cursor: "pointer", fontSize: "0.75rem", textAlign: "left", display: "flex", alignItems: "center", gap: 6 }}
+                                        >
+                                          <span style={{ fontWeight: "bold" }}>{ts.time}</span>
+                                          <span style={{ color: "var(--text-dim)" }}>{ts.label}</span>
+                                        </button>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                              {analyzingIds.includes(item.id) && (
+                                <div style={{ alignSelf: "flex-start", maxWidth: "85%", background: "var(--card-hover)", color: "var(--text-dim)", padding: "10px 14px", borderRadius: "16px 16px 16px 4px", fontSize: "0.85rem" }}>
+                                  답변을 생각 중입니다...
+                                </div>
+                              )}
+                            </div>
+                            <form 
+                              onSubmit={(e) => handleSendYoutubeChat(item.id, item.url, e)} 
+                              onClick={(e) => e.stopPropagation()}
+                              style={{ display: "flex", padding: "10px 12px", borderTop: "1px solid var(--border)", gap: 8, alignItems: "center" }}
+                            >
+                              <input 
+                                type="text" 
+                                placeholder="이 동영상에 관해 질문하기..." 
+                                value={chatInputs[item.id] || ""}
+                                onChange={(e) => setChatInputs(prev => ({ ...prev, [item.id]: e.target.value }))}
+                                disabled={analyzingIds.includes(item.id)}
+                                onClick={(e) => e.stopPropagation()}
+                                onKeyDown={(e) => e.stopPropagation()}
+                                style={{ flex: 1, background: "var(--card-hover)", border: "1px solid var(--border)", borderRadius: 20, padding: "9px 16px", color: "var(--text)", outline: "none", fontSize: "0.85rem" }}
+                              />
+                              <button 
+                                type="submit" 
+                                disabled={analyzingIds.includes(item.id) || !chatInputs[item.id]?.trim()}
+                                onClick={(e) => e.stopPropagation()}
+                                style={{ width: 38, height: 38, borderRadius: "50%", background: "var(--accent)", color: "var(--accent-contrast)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "bold", opacity: (analyzingIds.includes(item.id) || !chatInputs[item.id]?.trim()) ? 0.3 : 1 }}
+                              >
+                                ↑
+                              </button>
+                            </form>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            className={styles.btn}
+                            style={{ width: "100%", justifyContent: "center", border: "1px dashed var(--accent)" }}
+                            onClick={(e) => handleToggleChat(item.id, e)}
+                          >
+                            <span style={{ color: "var(--accent)", marginRight: 6 }}>✦</span> 질문하기
+                          </button>
+                        )}
                       </div>
                     )}
-
-                    {Array.isArray(item.points) && item.points.length > 0 && (
-                      <ul className={styles.pointList}>
-                        {item.points.map((p, i) => (
-                          <li key={`${item.id}-p${i}`}>{p}</li>
-                        ))}
-                      </ul>
-                    )}
-
-                    <a
-                      href={item.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className={styles.readLink}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      🔗 원문 전체 읽기 ↗
-                    </a>
                   </>
                 )}
               </div>
