@@ -1744,7 +1744,7 @@
   padding-bottom: 8px !important;
 }
 
-/* 📝 필기 공책 테마 (Notebook Paper Aesthetic — 헤더/폼/버튼은 깔끔한 Pretendard + 브리핑, 행동 지침, 아이템, 안내 박스는 FC Script 손글씨) */
+/* 📝 필기 공책 테마 (Notebook Paper Aesthetic — 다른 테마와 동일하게 컴팩트한 글씨 크기 핏) */
 :global([data-theme="notebook"]) .card {
   background-color: #ffffff;
   border: 1px solid #e5dccb;
@@ -1754,11 +1754,11 @@
 
 :global([data-theme="notebook"]) .cardTitle {
   font-family: "Pretendard", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif;
-  font-size: 1.15rem;
+  font-size: 0.95rem;
   font-weight: 700;
   color: #c83b3b; /* 프라치노 공책 헤더 레드 포인트 */
   border-bottom: 1px solid #e8e0d0;
-  padding-bottom: 8px;
+  padding-bottom: 6px;
   letter-spacing: -0.02em;
 }
 
@@ -1779,11 +1779,11 @@
 :global([data-theme="notebook"]) .input,
 :global([data-theme="notebook"]) .textarea {
   font-family: "Pretendard", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif;
-  font-size: 0.94rem;
-  line-height: 1.65;
+  font-size: 0.88rem;
+  line-height: 1.5;
 }
 
-/* ☕ 낭만적인 FC Script 정품 손글씨 폰트 적용 (AI 브리핑, 행동 지침 아이템, 빈 상태 안내 박스) */
+/* ☕ 낭만적인 FC Script 정품 손글씨 폰트 적용 (AI 브리핑, 행동 지침 아이템, 빈 상태 안내 박스 - 다른 테마와 동일 비율 핏) */
 :global([data-theme="notebook"]) .emptyState,
 :global([data-theme="notebook"]) .item,
 :global([data-theme="notebook"]) .copilotBody,
@@ -1799,8 +1799,8 @@
 :global([data-theme="notebook"]) .emptyState b,
 :global([data-theme="notebook"]) .emptyState span {
   font-family: "FC Script", "Nanum Pen Script", "Gaegu", cursive, sans-serif;
-  font-size: 1.15rem;
-  line-height: 1.5;
+  font-size: 0.96rem;
+  line-height: 1.45;
 }
 
 :global([data-theme="notebook"]) .item,
@@ -1810,8 +1810,8 @@
 :global([data-theme="notebook"]) .item strong,
 :global([data-theme="notebook"]) .item b {
   font-family: "FC Script", "Nanum Pen Script", "Gaegu", cursive, sans-serif;
-  font-size: 1.12rem;
-  line-height: 1.5;
+  font-size: 0.96rem;
+  line-height: 1.45;
 }
 
 :global([data-theme="notebook"]) .copilotBody p,
@@ -1823,8 +1823,8 @@
 :global([data-theme="notebook"]) .copilotBody h2,
 :global([data-theme="notebook"]) .copilotBody h3 {
   font-family: "FC Script", "Nanum Pen Script", "Gaegu", cursive, sans-serif;
-  font-size: 1.15rem;
-  line-height: 1.5;
+  font-size: 0.98rem;
+  line-height: 1.45;
 }
 
 :global([data-theme="notebook"]) .headerToolbar {
