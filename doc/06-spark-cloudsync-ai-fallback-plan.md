@@ -1,4 +1,4 @@
-# [구현 계획서] Spark 브리핑 위젯, CloudSync 동기화 및 AI 엔진 폴백 구조 개선
+# [구현 계획서] 06. Spark 브리핑 위젯, CloudSync 동기화 및 AI 엔진 폴백 구조 개선
 
 Gemini Spark 외부 에이전트 브리핑 인제스트 위젯을 도입하고, Supabase/SQLite 기반의 다중 기기 실시간 상태 동기화(CloudSync) 시스템 구축 및 AI API 미응답/429 발생 시에도 100% 정상 작동을 보장하는 로컬 FallbackEngine 아키텍처를 고도화합니다.
 
