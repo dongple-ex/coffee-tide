@@ -256,6 +256,30 @@ export function SettingsModal({
                 onChange={(e) => onChangeDriveBackupEnabled(e.target.checked)}
               />
             </label>
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                cursor: "pointer",
+                paddingTop: 8,
+                borderTop: "1px dashed var(--border)",
+              }}
+            >
+              <div>
+                <span style={{ fontWeight: 600 }}>⚡ Gemini Spark 24시간 클라우드 브리핑 자동 수신</span>
+                <div style={{ fontSize: "0.74rem", color: "var(--text-dim)", marginTop: 2 }}>
+                  Google 클라우드에서 자율 실행된 Gemini Spark 브리핑(메일/일정/승인건)을 메인 업무 항목 및 AI 바리스타 답변으로 수신합니다.
+                </div>
+              </div>
+              <input
+                type="checkbox"
+                defaultChecked={true}
+                onChange={(e) => {
+                  onNotify?.(e.target.checked ? "Gemini Spark 24h 클라우드 수신이 켜졌습니다 ⚡" : "Gemini Spark 수신이 꺼졌습니다.");
+                }}
+              />
+            </label>
           </div>
         </div>
 

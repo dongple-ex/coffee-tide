@@ -9,7 +9,8 @@ export type UnifiedSource =
   | "outlook"
   | "gmail"
   | "notion"
-  | "llm";
+  | "llm"
+  | "spark";
 
 export type UnifiedCategory =
   | "urgent"
@@ -35,6 +36,7 @@ export interface SubTask {
 export interface UnifiedData {
   id: string;
   source: UnifiedSource;
+  sourceApp?: string;
   title: string;
   content: string;
   created_at: string; // ISO 8601
@@ -87,5 +89,6 @@ export const SOURCE_LABELS: Record<UnifiedSource, string> = {
   outlook: "Outlook",
   gmail: "Gmail",
   notion: "Notion",
-  llm: "LLM",
+  llm: "로컬 LLM",
+  spark: "Gemini Spark",
 };

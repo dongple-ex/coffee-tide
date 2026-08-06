@@ -20,6 +20,7 @@ const PUBLIC_PATHS = [
   "/api/auth/google/signin",
   "/api/auth/google/callback",
   "/api/briefing/daily", // 외부 크론 트리거 (CRON_SECRET으로 자체 인증)
+  "/api/spark/ingest", // Gemini Spark 수신 Webhook
 ];
 
 export default function proxy(request: NextRequest) {

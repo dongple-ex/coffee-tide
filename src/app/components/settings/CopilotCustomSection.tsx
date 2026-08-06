@@ -65,8 +65,8 @@ export function CopilotCustomSection({ config, onChangeConfig }: Props) {
             onChange={handleChangeTone}
             style={{ width: "100%", marginBottom: "6px" }}
           >
-            <option value="friendly">☕ 친근하고 따뜻한 개인 비서 ("~해드릴게요")</option>
-            <option value="formal">👔 정중하고 격식 있는 수석 비서 ("~하십시오")</option>
+            <option value="friendly">☕ 친근하고 따뜻한 개인 비서 (&quot;~해드릴게요&quot;)</option>
+            <option value="formal">👔 정중하고 격식 있는 수석 비서 (&quot;~하십시오&quot;)</option>
             <option value="concise">⚡ 극도로 간결한 개조식 보고 (결론·핵심 위주)</option>
             <option value="custom">✍️ 사용자 지정 말투 직접 작성</option>
           </select>

@@ -320,6 +320,17 @@ export function CustomNewsWidget({ widget, onNotify, onDelete, onUpdateName }: C
               {widget.name} <span className={styles.editIcon}>✏️</span>
             </span>
           )}
+          {onDelete && (
+            <button
+              type="button"
+              className={`${styles.iconOnlyBtn} ${styles.btnDanger}`}
+              onClick={() => onDelete(widget.id)}
+              title="이 위젯 삭제"
+              style={{ width: 22, height: 22, fontSize: "0.7rem", marginLeft: 2 }}
+            >
+              🗑️
+            </button>
+          )}
           {articles.length > 0 && (
             <span className={styles.titleBadge}>{aiUsed ? "AI 요약" : "핵심 요약"}</span>
           )}
@@ -364,19 +375,6 @@ export function CustomNewsWidget({ widget, onNotify, onDelete, onUpdateName }: C
               </svg>
             )}
           </button>
-          {onDelete && (
-            <button
-              type="button"
-              className={`${styles.iconOnlyBtn} ${styles.btnDanger}`}
-              onClick={() => onDelete(widget.id)}
-              title="이 위젯 삭제"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="18" y1="6" x2="6" y2="18"></line>
-                <line x1="6" y1="6" x2="18" y2="18"></line>
-              </svg>
-            </button>
-          )}
         </div>
       </div>
 

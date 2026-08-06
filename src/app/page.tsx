@@ -76,6 +76,7 @@ import { WeatherWidget } from "./components/WeatherWidget";
 import { ByteNewsWidget } from "./components/ByteNewsWidget";
 import { ThreeProWidget } from "./components/ThreeProWidget";
 import { CustomNewsWidget, CustomWidgetConfig } from "./components/CustomNewsWidget";
+import { SparkBriefingWidget } from "./components/SparkBriefingWidget";
 import type { CustomSitePreview } from "@/lib/news/types";
 import { CommuteConfig, CommuteStop } from "@/lib/types/commute";
 import { AppShortcut } from "@/lib/types/appShortcut";

@@ -14,7 +14,7 @@ import {
 } from "./fallbackEngine";
 
 const MODEL = "gemini-flash-latest";
-const COOLDOWN_MS = 10 * 60 * 1000; // 10분 쿨다운
+const COOLDOWN_MS = 1 * 60 * 1000; // 1분 쿨다운 (구글 429 Retry 시간 기준)
 const PROMPT_VERSION = "v2";
 
 // 서버 메모리 캐시 (C1 알려진 한계: 프로세스 재시작 시 소멸)
@@ -33,7 +33,7 @@ function apiKey(): string | undefined {
   return process.env.GEMINI_API_KEY || undefined;
 }
 
-function classifyDisabled(): boolean {
+export function classifyDisabled(): boolean {
   return process.env.DISABLE_AI_CLASSIFY === "true";
 }
 
@@ -95,7 +95,7 @@ async function callGemini(
   return json.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
 }
 
-const CLASSIFY_SYSTEM = `역할: 수신된 업무 데이터를 분석하여 알맞은 카테고리로 분류하고, 로컬 LLM 도구(Claude Code 등)로 넘길 만한 '위임 가능' 여부를 판별합니다.
+export const CLASSIFY_SYSTEM = `역할: 수신된 업무 데이터를 분석하여 알맞은 카테고리로 분류하고, 로컬 LLM 도구(Claude Code 등)로 넘길 만한 '위임 가능' 여부를 판별합니다.
 
 분류 규칙:
 1. urgent: 서버 다운, 긴급 점검, 금일 즉시 마감 등 즉각적인 조치 및 비상 대응이 필요한 건.
@@ -113,7 +113,7 @@ const CLASSIFY_SYSTEM = `역할: 수신된 업무 데이터를 분석하여 알�
   { "id": "데이터고유ID", "category": "분류값", "actionDirective": "무엇을 해야 하는지 1줄 요약", "delegatable": true_또는_false }
 ]`;
 
-const VALID_CATEGORIES: UnifiedCategory[] = [
+export const VALID_CATEGORIES: UnifiedCategory[] = [
   "urgent",
   "approval_required",
   "meeting",
@@ -129,53 +129,19 @@ const VALID_CATEGORIES: UnifiedCategory[] = [
 export async function classifyTasks(
   items: UnifiedData[]
 ): Promise<{ items: UnifiedData[]; aiUsed: boolean }> {
-  // 캐시 히트 우선 적용
-  const withCache = items.map((item) => {
+  // 1. 캐시 및 로컬 규칙 엔진(FallbackEngine)으로 1차 즉시 분류 (쿼터 낭비 0건 보장)
+  const classifiedWithLocal = items.map((item) => {
     const cached = classifyCache.get(contentHash(item));
-    return cached ? { ...item, ...cached } : item;
+    if (cached) return { ...item, ...cached };
+    
+    // 이미 분류된 것은 유지, 없는 것은 초고속 로컬 규칙 엔진으로 1차 분류
+    if (item.category && item.actionDirective) return item;
+    const local = classifyOne(item.title, item.content);
+    return { ...item, ...local };
   });
-  const pending = withCache.filter((i) => !i.category || !i.actionDirective);
 
-  if (pending.length === 0) return { items: withCache, aiUsed: false };
-
-  if (classifyDisabled() || !apiKey() || Date.now() < quotaCooldownUntil) {
-    return { items: classifyAll(withCache), aiUsed: false };
-  }
-
-  try {
-    const payload = pending.map((i) => ({
-      id: i.id,
-      title: i.title,
-      content: i.content.slice(0, 400),
-    }));
-    const raw = await callGemini(CLASSIFY_SYSTEM, JSON.stringify(payload));
-    const parsed = parseJsonLoose<
-      { id: string; category: string; actionDirective: string; delegatable?: boolean }[]
-    >(raw);
-    if (!parsed) throw new Error("classify JSON parse failed");
-
-    const byId = new Map(parsed.map((p) => [p.id, p]));
-    const result = withCache.map((item) => {
-      const ai = byId.get(item.id);
-      if (!ai || !VALID_CATEGORIES.includes(ai.category as UnifiedCategory)) {
-        // 개별 누락은 로컬 규칙으로 보충
-        if (item.category && item.actionDirective) return item;
-        const local = classifyOne(item.title, item.content);
-        return { ...item, ...local };
-      }
-      const value = {
-        category: ai.category as UnifiedCategory,
-        actionDirective: ai.actionDirective || "내용을 확인하세요",
-        delegatable: ai.delegatable !== undefined ? Boolean(ai.delegatable) : undefined,
-      };
-      classifyCache.set(contentHash(item), value);
-      return { ...item, ...value };
-    });
-    return { items: result, aiUsed: true };
-  } catch (err) {
-    console.warn("[Warning] Gemini API unavailable. Falling back to local rules.", err);
-    return { items: classifyAll(withCache), aiUsed: false };
-  }
+  // 메일 폴링 시 불필요한 Gemini API 연속 호출을 방지하여 API 쿼터를 완벽하게 보호
+  return { items: classifiedWithLocal, aiUsed: false };
 }
 
 import { buildCopilotSystemInstruction, CopilotUserConfig } from "./harness";
@@ -197,7 +163,7 @@ export async function askCopilot(
   });
 
   if (!apiKey()) {
-    return { answer: copilotBriefing(classifyAll(items), dateLabel), aiUsed: false };
+    return { answer: copilotBriefing(classifyAll(items), dateLabel, question), aiUsed: false };
   }
 
   const system = buildCopilotSystemInstruction(dateLabel, timezone, config);
@@ -223,7 +189,7 @@ export async function askCopilot(
     return { answer, aiUsed: true };
   } catch (err) {
     console.warn("[Warning] Gemini API unavailable. Falling back to local briefing.", err);
-    return { answer: copilotBriefing(items, dateLabel), aiUsed: false };
+    return { answer: copilotBriefing(items, dateLabel, question), aiUsed: false };
   }
 }
 
