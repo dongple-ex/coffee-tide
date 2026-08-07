@@ -5,7 +5,7 @@
 
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { AutomationRule, ProcessedData } from "@/lib/automation/rules";
 import {
   BROWSER_ID_PREFIX,
@@ -94,6 +94,9 @@ const LS_COPILOT_CONFIG = "ct_copilot_config";
 
 const POLL_MS = 30_000;
 const TICK_MS = 60_000;
+const subscribeHydration = () => () => {};
+const getClientHydrated = () => true;
+const getServerHydrated = () => false;
 
 // 퇴근 핸드오프는 **UI 스냅샷 전용**이다. 업무 데이터의 정본은 ct_manual_items / ct_dismissed_ids이며,
 // 여기에 복제하면 localStorage(약 5MB)를 이중으로 먹고 어느 쪽이 최신인지도 모호해진다.
@@ -239,6 +242,11 @@ function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
 type Phase = "loading" | "landing" | "ready";
 
 export default function Home() {
+  const isHydrated = useSyncExternalStore(
+    subscribeHydration,
+    getClientHydrated,
+    getServerHydrated
+  );
   const [phase, setPhase] = useState<Phase>("loading");
   const [authUserEmail, setAuthUserEmail] = useState<string>();
   const [authBusy, setAuthBusy] = useState(false);
@@ -1974,8 +1982,11 @@ export default function Home() {
   }
 
   const dynamicLoadingSteps = useMemo(
-    () => getDynamicCafeSteps({ taskCount: merged.length, urgentCount, type: "loading" }),
-    [merged.length, urgentCount]
+    () =>
+      isHydrated
+        ? getDynamicCafeSteps({ taskCount: merged.length, urgentCount, type: "loading" })
+        : ["coffeeTide를 준비하고 있어요…"],
+    [isHydrated, merged.length, urgentCount]
   );
   const dynamicCopilotSteps = useMemo(
     () => getDynamicCafeSteps({ taskCount: merged.length, urgentCount, type: "copilot" }),
