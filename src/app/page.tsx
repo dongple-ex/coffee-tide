@@ -73,8 +73,6 @@ import { TimerWidget } from "./components/TimerWidget";
 import { CalculatorWidget } from "./components/CalculatorWidget";
 import { ShortcutsWidget } from "./components/ShortcutsWidget";
 import { WeatherWidget } from "./components/WeatherWidget";
-import { ByteNewsWidget } from "./components/ByteNewsWidget";
-import { ThreeProWidget } from "./components/ThreeProWidget";
 import { CustomNewsWidget, CustomWidgetConfig } from "./components/CustomNewsWidget";
 import { SparkBriefingWidget } from "./components/SparkBriefingWidget";
 import type { CustomSitePreview } from "@/lib/news/types";
@@ -85,9 +83,12 @@ import styles from "./page.module.css";
 
 import { SubTask } from "@/lib/types/unified";
 import { CopilotUserConfig, DEFAULT_COPILOT_CONFIG } from "@/lib/ai/harness";
+import { createBrowserSupabaseClient } from "@/lib/supabase/client";
+import { useCloudSync } from "./hooks/useCloudSync";
 
 const LS_RAW_ENABLED = "ct_raw_enabled";
 const LS_DRIVE_BACKUP_ENABLED = "ct_drive_backup_enabled";
+const LS_SPARK_ENABLED = "ct_spark_enabled";
 const LS_CUSTOM_WIDGETS = "ct_custom_widgets";
 const LS_COPILOT_CONFIG = "ct_copilot_config";
 
@@ -239,6 +240,9 @@ type Phase = "loading" | "landing" | "ready";
 
 export default function Home() {
   const [phase, setPhase] = useState<Phase>("loading");
+  const [authUserEmail, setAuthUserEmail] = useState<string>();
+  const [authBusy, setAuthBusy] = useState(false);
+  const [authError, setAuthError] = useState<string>();
   const [serverMails, setServerMails] = useState<UnifiedData[]>([]);
   const [manualItems, setManualItems] = useState<UnifiedData[]>(() =>
     loadLS<UnifiedData[]>(LS_MANUAL, [])
@@ -255,6 +259,8 @@ export default function Home() {
     loadLS<AutomationRule[]>(LS_RULES, [])
   );
   const [dismissed, setDismissed] = useState<string[]>(() => loadLS<string[]>(LS_DISMISSED, []));
+  const { fetchUserData, syncUserData } = useCloudSync();
+  const cloudHydratedRef = useRef(false);
   const [followupHours, setFollowupHours] = useState(() => loadLS<number>(LS_FOLLOWUP, 24));
   const [viewWindow, setViewWindow] = useState<ViewWindowSetting>(() =>
     normalizeViewWindow(loadLS<unknown>(LS_VIEW_WINDOW, "auto"))
@@ -284,6 +290,8 @@ export default function Home() {
   );
   const [copilotInput, setCopilotInput] = useState("");
   const [copilotBusy, setCopilotBusy] = useState(false);
+  const [sparkEnabled, setSparkEnabled] = useState<boolean>(() => loadLS<boolean>(LS_SPARK_ENABLED, false));
+  const [sparkBriefing, setSparkBriefing] = useState<string | null>(null);
   const [welcomeCardCollapsed, setWelcomeCardCollapsed] = useState(
     () => handoffSnapshot?.welcomeCardCollapsed ?? false
   );
@@ -305,6 +313,27 @@ export default function Home() {
       }
     });
   }, [copilotMessages, expandedQaKeys]);
+
+  // Spark는 질문 없이도 최신 수신 리포트를 브리핑 맨 위에 노출한다.
+  useEffect(() => {
+    if (phase !== "ready" || !sparkEnabled) return;
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const res = await fetch("/api/copilot?includeSpark=1");
+        if (!res.ok) return;
+        const data = (await res.json()) as { answer?: string | null; spark_autonomous?: boolean };
+        if (!cancelled) setSparkBriefing(data.spark_autonomous ? data.answer ?? null : null);
+      } catch {
+        if (!cancelled) setSparkBriefing(null);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [phase, sparkEnabled]);
 
   /** 답변 펼침 토글 — 펼치면 미읽음 표시도 해제한다 */
   const toggleQaPair = useCallback((pairId: string) => {
@@ -840,6 +869,56 @@ export default function Home() {
     }
   }, [fetchLimit]);
 
+  useEffect(() => {
+    let active = true;
+    try {
+      const supabase = createBrowserSupabaseClient();
+      void supabase.auth.getUser().then(async ({ data }) => {
+        if (!active) return;
+        setAuthUserEmail(data.user?.email);
+        if (data.user) {
+          await fetch("/api/auth/bootstrap", { method: "POST" }).catch(() => null);
+          if (active) void fetchMails(true);
+        }
+        const authErrorCode = new URLSearchParams(window.location.search).get("authError");
+        if (authErrorCode) {
+          setAuthError("Google 로그인 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+        }
+      });
+      const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+        if (active) setAuthUserEmail(session?.user.email);
+      });
+
+      return () => {
+        active = false;
+        listener.subscription.unsubscribe();
+      };
+    } catch {
+      queueMicrotask(() => {
+        if (active) setAuthError("Supabase 인증 환경변수가 설정되지 않았습니다.");
+      });
+      return () => {
+        active = false;
+      };
+    }
+  }, [fetchMails]);
+
+  const startGoogleSignIn = useCallback(async () => {
+    setAuthBusy(true);
+    setAuthError(undefined);
+    try {
+      const supabase = createBrowserSupabaseClient();
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: `${window.location.origin}/auth/callback` },
+      });
+      if (error) throw error;
+    } catch (error) {
+      setAuthBusy(false);
+      setAuthError(error instanceof Error ? error.message : "Google 로그인을 시작하지 못했습니다.");
+    }
+  }, []);
+
   // ── 브라우저 폴더 스캔 — 서버 /api/mails 파이프라인(수집→AI 분류→C1 캐시) 미러 ──
   const scanBrowser = useCallback(async () => {
     if (!supportsFsAccess()) return;
@@ -901,6 +980,37 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void fetchMails();
   }, [fetchMails]);
+
+  useEffect(() => {
+    if (phase !== "ready" || cloudHydratedRef.current) return;
+    let cancelled = false;
+
+    void fetchUserData().then((cloudState) => {
+      if (cancelled) return;
+      if (cloudState) {
+        setManualItems(cloudState.items);
+        setCustomWidgets(cloudState.widgets);
+        setRules(cloudState.rules);
+        setDismissed(cloudState.dismissedIds);
+        saveLS(LS_MANUAL, cloudState.items);
+        saveLS(LS_CUSTOM_WIDGETS, cloudState.widgets);
+        saveLS(LS_RULES, cloudState.rules);
+        saveLS(LS_DISMISSED, cloudState.dismissedIds);
+      } else {
+        syncUserData({ items: manualItems, widgets: customWidgets, rules, dismissedIds: dismissed });
+      }
+      cloudHydratedRef.current = true;
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [phase, fetchUserData, syncUserData, manualItems, customWidgets, rules, dismissed]);
+
+  useEffect(() => {
+    if (phase !== "ready" || !cloudHydratedRef.current) return;
+    syncUserData({ items: manualItems, widgets: customWidgets, rules, dismissedIds: dismissed });
+  }, [phase, manualItems, customWidgets, rules, dismissed, syncUserData]);
 
   const [isDataRefreshing, setIsDataRefreshing] = useState(false);
 
@@ -1492,12 +1602,13 @@ export default function Home() {
       const res = await fetch("/api/copilot", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          question,
-          items: merged.filter((i) => i.status !== "completed"),
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-          copilotConfig,
-        }),
+          body: JSON.stringify({
+            question,
+            items: merged.filter((i) => i.status !== "completed"),
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            copilotConfig,
+            includeSpark: sparkEnabled,
+          }),
       });
       const json = (await res.json()) as { answer?: string; ai_fallback?: boolean };
       setCopilotMessages((prev) => [
@@ -1574,7 +1685,10 @@ export default function Home() {
       });
       const json = (await res.json()) as { rule?: AutomationRule; error?: string };
       if (!json.rule) throw new Error(json.error);
-      setRules((prev) => [...prev, json.rule!]);
+      setRules((prev) => [
+        ...prev,
+        { ...json.rule!, id: json.rule!.id ?? `rule-${Date.now()}-${Math.random().toString(36).slice(2, 7)}` },
+      ]);
       setRuleInput("");
       showToast(`규칙 접수! ${FIELD_LABEL[json.rule.field]}에 '${json.rule.value}' → ${ACTION_LABEL[json.rule.action]}`);
     } catch (err) {
@@ -1896,13 +2010,20 @@ export default function Home() {
           <p className={styles.landingDesc}>
             커피 한 잔 하면서 오늘을 정리하는 AI 업무 비서예요.
             <br />
-            회원가입도, 연동도 없이 지금 바로 시작할 수 있어요.
+            Google 계정으로 로그인하면 내 데이터를 안전하게 동기화할 수 있어요.
           </p>
-          <a className={styles.landingBtn} href="/api/auth/signin">
-            coffeeTide 시작하기
-          </a>
+          <button
+            type="button"
+            className={styles.landingBtn}
+            onClick={() => void startGoogleSignIn()}
+            disabled={authBusy}
+            aria-busy={authBusy}
+          >
+            {authBusy ? "Google 로그인 연결 중…" : "Google로 coffeeTide 시작하기"}
+          </button>
+          {authError && <p className={styles.authError}>{authError}</p>}
           <p className={styles.landingHint}>
-            게스트로 조용히 입장해요. Outlook·Notion 연동은 내키실 때 하셔도 늦지 않아요.
+            Gmail·Drive·Outlook 연동은 로그인 후 필요할 때 별도로 연결할 수 있어요.
           </p>
         </div>
       </main>
@@ -1951,7 +2072,7 @@ export default function Home() {
   return (
     <main className={styles.page}>
       <HeaderControls
-        userEmail={connections?.googleEmail || connections?.outlookEmail || undefined}
+        userEmail={authUserEmail || connections?.googleEmail || connections?.outlookEmail || undefined}
         connections={connections ?? undefined}
         theme={theme}
         onThemeChange={(nextTheme) => {
@@ -2155,6 +2276,17 @@ export default function Home() {
             <span>⭐</span>
             <span>바로가기 즐겨찾기</span>
           </button>
+          {sparkEnabled && (
+            <button
+              type="button"
+              className={`${styles.widgetChip} ${activeWidget === "spark" ? styles.widgetChipActive : ""}`}
+              onClick={() => setActiveWidget((prev) => (prev === "spark" ? null : "spark"))}
+              title="Gemini Spark 수신 리포트 상세 보기"
+            >
+              <span>⚡</span>
+              <span>Gemini Spark</span>
+            </button>
+          )}
 
           {/* 사용자가 동적으로 등록한 커스텀 위젯 칩들 */}
           {customWidgets.map((w) => (
@@ -2232,6 +2364,11 @@ export default function Home() {
             <ShortcutsWidget shortcuts={appShortcuts} onError={showToast} />
           </div>
         )}
+        {activeWidget === "spark" && sparkEnabled && (
+          <div className={styles.widgetPanel}>
+            <SparkBriefingWidget onNotify={showToast} />
+          </div>
+        )}
 
         {/* 커스텀 위젯 패널 */}
         {customWidgets.map((w) => {
@@ -2282,6 +2419,7 @@ export default function Home() {
             messages={copilotMessages}
             busy={copilotBusy}
             waitSteps={dynamicCopilotSteps}
+            sparkBriefing={sparkEnabled ? sparkBriefing : null}
             hasItems={merged.length > 0}
             expandedKeys={expandedQaKeys}
             unreadKeys={unreadQaKeys}
@@ -2519,6 +2657,8 @@ export default function Home() {
             try {
               await fetch("/api/auth/signout", { method: "POST" });
             } catch {}
+            setAuthUserEmail(undefined);
+            cloudHydratedRef.current = false;
             setPhase("landing");
           }}
           rules={rules}
@@ -2565,6 +2705,16 @@ export default function Home() {
             setDriveBackupEnabled(checked);
             saveLS(LS_DRIVE_BACKUP_ENABLED, checked);
             showToast(checked ? "Google Drive 일자별 백업 기능이 켜졌습니다." : "Google Drive 일자별 백업 기능이 꺼졌습니다.");
+          }}
+          sparkEnabled={sparkEnabled}
+          onChangeSparkEnabled={(checked) => {
+            setSparkEnabled(checked);
+            saveLS(LS_SPARK_ENABLED, checked);
+            if (!checked) {
+              setSparkBriefing(null);
+              setActiveWidget((current) => (current === "spark" ? null : current));
+            }
+            showToast(checked ? "Gemini Spark 24시간 클라우드 수신이 켜졌습니다 ⚡" : "Gemini Spark 수신이 꺼졌습니다.");
           }}
           connections={connections}
           errors={errors}

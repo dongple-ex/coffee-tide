@@ -991,6 +991,26 @@
   text-align: center;
 }
 
+.sparkAutonomousBriefing {
+  border: 1px solid rgba(250, 204, 21, 0.52);
+  background: linear-gradient(135deg, rgba(250, 204, 21, 0.14), rgba(99, 102, 241, 0.12));
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+}
+
+.sparkAutonomousBadge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 3px 8px;
+  margin-bottom: 8px;
+  color: #fef3c7;
+  background: rgba(161, 98, 7, 0.72);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
 /* Q&A 세션 카드 그룹화 — 접기/펼치기 & 스크롤 없는 전체보기 */
 .chatQaGroup {
   border: 1px solid var(--border);
@@ -1543,6 +1563,8 @@
 
 .landingBtn {
   display: inline-block;
+  border: 0;
+  cursor: pointer;
   background: var(--accent);
   color: var(--accent-contrast);
   font-weight: 700;
@@ -1550,6 +1572,17 @@
   border-radius: 12px;
   padding: 13px 34px;
   transition: filter 0.15s;
+}
+
+.landingBtn:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
+.authError {
+  margin: 14px 0 0;
+  color: #e55f6f;
+  font-size: 0.82rem;
 }
 
 .landingBtn:hover {

@@ -2,7 +2,11 @@ node_modules/
 .next/
 data/
 out/
-.env.local
-.env*.local
+# Local/runtime environment files (secrets)
+.env
+.env.*
+!.env.example
+.vercel/
 *.tsbuildinfo
 next-env.d.ts
+scratch/*.log

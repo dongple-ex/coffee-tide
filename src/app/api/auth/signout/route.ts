@@ -3,7 +3,10 @@
 
 import { NextResponse } from "next/server";
 import { clearSession } from "@/lib/auth/cookies";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export async function POST() {
+  const supabase = await createServerSupabaseClient();
+  if (supabase) await supabase.auth.signOut();
   return clearSession(NextResponse.json({ success: true }));
 }

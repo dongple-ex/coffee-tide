@@ -36,6 +36,29 @@ export function classifyAll(items: UnifiedData[]): UnifiedData[] {
   });
 }
 
+const SPARK_BRIEFING_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+function isRecentSparkItem(item: UnifiedData, now = Date.now()): boolean {
+  if (item.source !== "spark") return false;
+  const receivedAt = Date.parse(item.created_at);
+  return Number.isFinite(receivedAt) && receivedAt <= now && now - receivedAt <= SPARK_BRIEFING_MAX_AGE_MS;
+}
+
+/** 최근 24시간 Spark 수신 리포트를 질문·완료 상태와 관계없이 브리핑 최상단에 표시한다. */
+export function buildSparkAutonomousBriefing(items: UnifiedData[]): string | null {
+  const sparkItems = items.filter((item) => isRecentSparkItem(item));
+  if (sparkItems.length === 0) return null;
+
+  const lines = ["### ⚡ [Gemini Spark 24시간 자율 비서 답변]"];
+  sparkItems.forEach((item) => {
+    const source = item.sourceApp || item.author.name || "Gemini Spark";
+    lines.push(`- **[${source}] ${item.title}**`);
+    if (item.content) lines.push(`  - 📝 Spark 분석: ${item.content}`);
+    if (item.actionDirective) lines.push(`  - 💡 추천 조치: ${item.actionDirective}`);
+  });
+  return lines.join("\n");
+}
+
 /** Copilot 브리핑 템플릿 — phase3-ai-flow §3의 4개 섹션 + G4(기준일·출처 명시) */
 export function copilotBriefing(
   items: UnifiedData[],
@@ -44,6 +67,7 @@ export function copilotBriefing(
 ): string {
   const active = items.filter((i) => i.status !== "completed" && i.status !== "dismissed");
   const q = question?.trim() || "";
+  const sparkBriefing = buildSparkAutonomousBriefing(items);
 
   // 1. 특정 질문(Spark/드라이브/보고서/특정 키워드)에 대한 직접 조치 답변 처리
   if (q && q !== "오늘 해야 할 일을 브리핑해줘") {
@@ -66,7 +90,7 @@ export function copilotBriefing(
       });
       lines.push("");
       lines.push(`> ☕ 참고: 로컬 인텔리전스 엔진이 수신된 업무 데이터를 바탕으로 정리했습니다.`);
-      return lines.join("\n");
+      return sparkBriefing ? `${sparkBriefing}\n\n${lines.join("\n")}` : lines.join("\n");
     }
   }
 
@@ -74,10 +98,6 @@ export function copilotBriefing(
   const byCat = (c: UnifiedCategory) => active.filter((i) => i.category === c);
   const cite = (i: UnifiedData) => `**${i.title}** (${SOURCE_LABELS[i.source] || i.source})`;
 
-  // Spark 수신 항목은 completed 상태여도 24시간 내 자율 수신 리포트로 자동 포함
-  const sparkItems = items.filter(
-    (i) => i.source === "spark" || i.id.startsWith("spark-") || (i.sourceApp && i.sourceApp.length > 0)
-  );
   const priority = [...byCat("urgent"), ...byCat("approval_required"), ...byCat("action_required")];
   const meetings = byCat("meeting");
 
@@ -85,14 +105,8 @@ export function copilotBriefing(
   lines.push(`## 오늘의 브리핑 (기준일: ${dateLabel})`);
   lines.push("");
 
-  // ⚡ Spark 자율 비서 수신 소식이 있으면 질문 없이도 제일 먼저 자동 렌더링
-  if (sparkItems.length > 0) {
-    lines.push(`### ⚡ [Gemini Spark 24시간 자율 비서 답변]`);
-    sparkItems.forEach((s) => {
-      lines.push(`- **${s.title}** (출처: ${s.sourceApp || "Gemini Spark"})`);
-      if (s.content) lines.push(`  - 📝 Spark 요약: ${s.content}`);
-      if (s.actionDirective) lines.push(`  - 💡 Spark 추천: ${s.actionDirective}`);
-    });
+  if (sparkBriefing) {
+    lines.push(sparkBriefing);
     lines.push("");
   }
 

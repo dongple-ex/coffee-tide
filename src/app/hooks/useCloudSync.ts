@@ -3,14 +3,15 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { UserCloudState } from "@/lib/db/syncAdapter";
 
-export function useCloudSync(_userId?: string) {
+export function useCloudSync() {
   const [syncStatus, setSyncStatus] = useState<"idle" | "syncing" | "synced" | "guest">("idle");
   const [provider, setProvider] = useState<string>("guest");
   const saveTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const fetchUserData = useCallback(async (id: string): Promise<UserCloudState | null> => {
+  const fetchUserData = useCallback(async (): Promise<UserCloudState | null> => {
     try {
-      const res = await fetch(`/api/user/sync?userId=${encodeURIComponent(id)}`);
+      const res = await fetch("/api/user/sync");
+      if (!res.ok) throw new Error(`Cloud sync read failed: ${res.status}`);
       const data = await res.json();
       if (data.success) {
         setProvider(data.provider || "guest");
@@ -28,7 +29,7 @@ export function useCloudSync(_userId?: string) {
     }
   }, []);
 
-  const syncUserData = useCallback((id: string, state: UserCloudState) => {
+  const syncUserData = useCallback((state: UserCloudState) => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
 
     saveTimerRef.current = setTimeout(async () => {
@@ -37,8 +38,9 @@ export function useCloudSync(_userId?: string) {
         const res = await fetch("/api/user/sync", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId: id, state }),
+          body: JSON.stringify({ state }),
         });
+        if (!res.ok) throw new Error(`Cloud sync write failed: ${res.status}`);
         const data = await res.json();
         if (data.success && data.provider !== "guest") {
           setSyncStatus("synced");

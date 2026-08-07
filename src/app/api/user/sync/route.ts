@@ -1,66 +1,79 @@
 import { NextResponse } from "next/server";
-import { getCloudUserData, saveCloudUserData } from "@/lib/db/syncAdapter";
+import { getCloudUserData, saveCloudUserData, type UserCloudState } from "@/lib/db/syncAdapter";
 import { getActiveDbProvider } from "@/lib/db/client";
+import { readSession, unauthorized } from "@/lib/auth/cookies";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
-export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const userId = searchParams.get("userId");
+interface CloudIdentity {
+  id: string;
+  email: string;
+  supabase?: SupabaseClient;
+}
 
-  if (!userId) {
-    return NextResponse.json({ success: false, error: "userId is required." }, { status: 400 });
+async function getCloudIdentity(provider: ReturnType<typeof getActiveDbProvider>): Promise<CloudIdentity | null> {
+  if (provider === "supabase") {
+    const supabase = await createServerSupabaseClient();
+    if (!supabase) return null;
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error || !user?.email) return null;
+    return { id: user.id, email: user.email, supabase };
   }
 
+  const session = await readSession();
+  return session ? { id: session.userEmail, email: session.userEmail } : null;
+}
+
+export async function GET() {
   const provider = getActiveDbProvider();
   if (provider === "guest") {
     return NextResponse.json({
       success: true,
       provider: "guest",
-      message: "No cloud DB configured. Using guest local storage.",
+      message: "No cloud DB configured. Using local storage.",
       state: null,
     });
   }
 
-  const state = await getCloudUserData(userId);
-  return NextResponse.json({
-    success: true,
-    provider,
-    state,
-  });
+  const identity = await getCloudIdentity(provider);
+  if (!identity) return unauthorized();
+
+  const state = await getCloudUserData(identity.id, identity.supabase);
+  return NextResponse.json({ success: true, provider, state });
 }
 
-export async function POST(req: Request) {
+export async function POST(request: Request) {
   try {
-    const body = await req.json();
-    const { userId, state } = body;
-
-    if (!userId || !state) {
-      return NextResponse.json(
-        { success: false, error: "userId and state are required." },
-        { status: 400 }
-      );
-    }
-
     const provider = getActiveDbProvider();
     if (provider === "guest") {
       return NextResponse.json({
         success: true,
         provider: "guest",
         saved: false,
-        message: "Guest mode. Saved to client local storage only.",
+        message: "Guest mode. Saved to browser local storage only.",
       });
     }
 
-    const saved = await saveCloudUserData(userId, state);
-    return NextResponse.json({
-      success: true,
-      provider,
-      saved,
-    });
-  } catch (error: unknown) {
-    const errMessage = error instanceof Error ? error.message : "Failed to sync user data.";
-    return NextResponse.json(
-      { success: false, error: errMessage },
-      { status: 500 }
+    const identity = await getCloudIdentity(provider);
+    if (!identity) return unauthorized();
+
+    const body = (await request.json()) as { state?: UserCloudState };
+    if (!body.state) {
+      return NextResponse.json({ success: false, error: "state is required." }, { status: 400 });
+    }
+
+    const saved = await saveCloudUserData(
+      identity.id,
+      identity.email,
+      body.state,
+      identity.supabase
     );
+    return NextResponse.json(
+      { success: saved, provider, saved },
+      { status: saved ? 200 : 502 }
+    );
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Failed to sync user data.";
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }

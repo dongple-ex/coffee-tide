@@ -12,6 +12,8 @@ interface Props {
   busy: boolean;
   /** 대기 중 표시할 카페 연출 문구 */
   waitSteps: string[];
+  /** 질문 없이 서버에서 수신한 최근 24시간 Spark 브리핑 */
+  sparkBriefing?: string | null;
   /** 표시할 업무가 하나도 없을 때 안내 문구를 보강한다 */
   hasItems: boolean;
   expandedKeys: Set<string>;
@@ -24,6 +26,7 @@ export function CopilotConversation({
   messages,
   busy,
   waitSteps,
+  sparkBriefing,
   hasItems,
   expandedKeys,
   unreadKeys,
@@ -33,6 +36,12 @@ export function CopilotConversation({
 
   return (
     <div className={styles.copilotBody} ref={bodyRef}>
+      {sparkBriefing && (
+        <section className={styles.sparkAutonomousBriefing} aria-label="Gemini Spark 자율 수신 브리핑">
+          <div className={styles.sparkAutonomousBadge}>⚡ Gemini Spark 자율 수신</div>
+          <MarkdownLite text={sparkBriefing} />
+        </section>
+      )}
       {pairs.length === 0 ? (
         <div className={styles.msgHint}>
           “오늘 뭐 해야 해?”라고 주문하듯 편하게 물어보세요 ☕

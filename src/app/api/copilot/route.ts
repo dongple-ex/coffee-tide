@@ -1,25 +1,78 @@
 import { NextRequest, NextResponse } from "next/server";
 import { askCopilot } from "@/lib/ai/gemini";
+import { buildSparkAutonomousBriefing } from "@/lib/ai/fallbackEngine";
 import { CopilotUserConfig } from "@/lib/ai/harness";
 import { readSession, unauthorized } from "@/lib/auth/cookies";
 import { UnifiedData } from "@/lib/types/unified";
-import { getSparkUnifiedItems } from "@/lib/adapters/sparkSync";
+import { getRecentSparkUnifiedItems } from "@/lib/adapters/sparkSync";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+function mergeById(items: UnifiedData[]): UnifiedData[] {
+  return [...new Map(items.map((item) => [item.id, item])).values()];
+}
+
+interface CopilotIdentity {
+  id: string;
+  supabase?: SupabaseClient;
+}
+
+async function getCopilotIdentity(): Promise<CopilotIdentity | null> {
+  const supabase = await createServerSupabaseClient();
+  if (supabase) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) return { id: user.id, supabase };
+  }
+  const session = await readSession();
+  return session ? { id: session.userEmail } : null;
+}
+
+async function autonomousSparkResponse(identity: CopilotIdentity) {
+  const sparkItems = await getRecentSparkUnifiedItems(identity.id, identity.supabase);
+  const answer = buildSparkAutonomousBriefing(sparkItems);
+  return {
+    answer,
+    spark_autonomous: answer !== null,
+    spark_item_count: sparkItems.length,
+  };
+}
+
+/** 질문 없이도 활성화된 클라이언트가 최신 Spark 브리핑을 안전하게 조회한다. */
+export async function GET(request: NextRequest) {
+  const identity = await getCopilotIdentity();
+  if (!identity) return unauthorized();
+  if (request.nextUrl.searchParams.get("includeSpark") !== "1") {
+    return NextResponse.json({ answer: null, spark_autonomous: false, spark_item_count: 0 });
+  }
+  return NextResponse.json(await autonomousSparkResponse(identity));
+}
 
 export async function POST(request: NextRequest) {
-  const session = await readSession();
-  if (!session) return unauthorized();
+  const identity = await getCopilotIdentity();
+  if (!identity) return unauthorized();
 
   const body = (await request.json().catch(() => ({}))) as {
     question?: string;
     items?: UnifiedData[];
     timezone?: string;
     copilotConfig?: CopilotUserConfig;
+    includeSpark?: boolean;
+    autonomousSparkBriefing?: boolean;
   };
+
+  if (body.autonomousSparkBriefing) {
+    if (!body.includeSpark) {
+      return NextResponse.json({ answer: null, spark_autonomous: false, spark_item_count: 0 });
+    }
+    return NextResponse.json(await autonomousSparkResponse(identity));
+  }
 
   const question = body.question?.trim() || "오늘 해야 할 일을 브리핑해줘";
   const clientItems = Array.isArray(body.items) ? body.items.slice(0, 80) : [];
-  const sparkItems = getSparkUnifiedItems();
-  const items = [...sparkItems, ...clientItems];
+  const sparkItems = body.includeSpark
+    ? await getRecentSparkUnifiedItems(identity.id, identity.supabase)
+    : [];
+  const items = mergeById([...sparkItems, ...clientItems]);
 
   const { answer, aiUsed } = await askCopilot(
     question,

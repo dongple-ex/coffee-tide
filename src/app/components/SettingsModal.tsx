@@ -52,6 +52,8 @@ export interface SettingsModalProps {
   onChangeRawEnabled: (enabled: boolean) => void;
   driveBackupEnabled: boolean;
   onChangeDriveBackupEnabled: (enabled: boolean) => void;
+  sparkEnabled: boolean;
+  onChangeSparkEnabled: (enabled: boolean) => void;
   connections: ConnectionState | null;
   errors?: Partial<Record<string, string>>;
   fsaSupported: boolean;
@@ -105,6 +107,8 @@ export function SettingsModal({
   onChangeRawEnabled,
   driveBackupEnabled,
   onChangeDriveBackupEnabled,
+  sparkEnabled,
+  onChangeSparkEnabled,
   connections,
   errors,
   fsaSupported,
@@ -274,10 +278,8 @@ export function SettingsModal({
               </div>
               <input
                 type="checkbox"
-                defaultChecked={true}
-                onChange={(e) => {
-                  onNotify?.(e.target.checked ? "Gemini Spark 24h 클라우드 수신이 켜졌습니다 ⚡" : "Gemini Spark 수신이 꺼졌습니다.");
-                }}
+                checked={sparkEnabled}
+                onChange={(e) => onChangeSparkEnabled(e.target.checked)}
               />
             </label>
           </div>

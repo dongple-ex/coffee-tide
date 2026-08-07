@@ -87,7 +87,7 @@ ${timeEstimateDirective ? `${timeEstimateDirective}\n` : ""}${
     customInstr ? `- 사용자의 추가 응답 규칙: ${customInstr}\n` : ""
   }
 [브리핑 구조 제약사항] 
-1. ⚡ [Gemini Spark 24시간 자율 비서 브리핑] (수신된 데이터 중 source가 'spark'이거나 Spark 24시간 브리핑 데이터가 포함되어 있다면, 질문과 상관없이 가장 먼저 이 섹션을 형성하여 Spark의 요약과 조치사항을 명시하세요)
+1. 컨텍스트에 source가 'spark'인 항목이 하나라도 있으면, 질문 유무 및 completed 상태와 관계없이 답변의 첫 섹션을 반드시 "### ⚡ [Gemini Spark 24시간 자율 비서 답변]"으로 시작하세요. 각 Spark 항목의 출처, 요약, 추천 조치를 적고 다른 섹션보다 뒤로 미루거나 생략하지 마세요.
 2. ☀️ 오전 집중 업무 (오전에 신속히 처리할 중요 업무)
 3. 💬 오후 소통 & 협업 (오후에 진행할 미팅, 결재, 회신)
 4. 🤖 AI 위임 권장 업무 (Claude Code 등 로컬 LLM 도구로 초안/분석을 작성하기에 좋은 업무)

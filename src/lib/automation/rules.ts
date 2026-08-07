@@ -5,6 +5,8 @@
 import { UnifiedData } from "../types/unified";
 
 export interface AutomationRule {
+  /** CloudSync용 안정 식별자. 이전 localStorage 규칙에는 없을 수 있다. */
+  id?: string;
   field: "any" | "source" | "sender" | "title" | "content";
   value: string;
   action: "pin" | "urgent" | "mute" | "hide";

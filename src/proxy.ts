@@ -2,7 +2,9 @@
 // 공개 경로 외 요청에 세션 쿠키를 요구. 만료 판독은 평문 보조 쿠키(SESSION_EXPIRY_COOKIE).
 
 import { NextRequest, NextResponse } from "next/server";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { SESSION_COOKIE, SESSION_EXPIRY_COOKIE } from "@/lib/auth/cookieNames";
+import { getSupabasePublicConfig } from "@/lib/supabase/config";
 
 const PUBLIC_PATHS = [
   "/",
@@ -19,33 +21,59 @@ const PUBLIC_PATHS = [
   "/api/auth/outlook/callback",
   "/api/auth/google/signin",
   "/api/auth/google/callback",
+  "/auth/callback",
   "/api/briefing/daily", // 외부 크론 트리거 (CRON_SECRET으로 자체 인증)
   "/api/spark/ingest", // Gemini Spark 수신 Webhook
 ];
 
-export default function proxy(request: NextRequest) {
+export default async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  let response = NextResponse.next({ request });
+  let hasSupabaseUser = false;
+  const config = getSupabasePublicConfig();
+  if (config) {
+    const supabase = createServerClient(config.url, config.publishableKey, {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet, headersToSet) {
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+          response = NextResponse.next({ request });
+          cookiesToSet.forEach(({ name, value, options }) => {
+            response.cookies.set(name, value, options as CookieOptions);
+          });
+          Object.entries(headersToSet).forEach(([name, value]) => {
+            response.headers.set(name, value);
+          });
+        },
+      },
+    });
+    const { data: { user } } = await supabase.auth.getUser();
+    hasSupabaseUser = Boolean(user);
+  }
 
   if (
     PUBLIC_PATHS.includes(pathname) ||
     pathname.startsWith("/_next") ||
     pathname === "/favicon.ico"
   ) {
-    return NextResponse.next();
+    return response;
   }
 
   const session = request.cookies.get(SESSION_COOKIE)?.value;
   const expiry = request.cookies.get(SESSION_EXPIRY_COOKIE)?.value;
   const expired = expiry ? Number(expiry) < Date.now() : false;
 
-  if (!session || expired) {
+  if ((!session || expired) && !hasSupabaseUser) {
     if (pathname.startsWith("/api/")) {
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     }
     return NextResponse.redirect(new URL("/", request.url));
   }
 
-  return NextResponse.next();
+  return response;
 }
 
 export const config = {

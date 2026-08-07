@@ -169,9 +169,11 @@ export async function askCopilot(
   const system = buildCopilotSystemInstruction(dateLabel, timezone, config);
 
   const context = items
-    .filter((i) => i.status !== "completed" && i.status !== "dismissed")
+    // 최근 Spark 리포트는 완료 상태여도 자동 브리핑의 근거이므로 전달한다.
+    .filter((i) => i.source === "spark" || (i.status !== "completed" && i.status !== "dismissed"))
     .map((i) => ({
       source: i.source,
+      sourceApp: i.sourceApp,
       title: i.title,
       content: i.content.slice(0, 300),
       category: i.category,
