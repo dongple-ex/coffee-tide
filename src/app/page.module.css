@@ -1574,6 +1574,30 @@
   transition: filter 0.15s;
 }
 
+.landingActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
+.landingGuestBtn {
+  display: inline-block;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 32px;
+  color: var(--text);
+  background: var(--surface);
+  font-size: 1rem;
+  font-weight: 700;
+  transition: border-color 0.15s, filter 0.15s;
+}
+
+.landingGuestBtn:hover {
+  border-color: var(--accent);
+  filter: brightness(1.08);
+}
+
 .landingBtn:disabled {
   cursor: wait;
   opacity: 0.72;

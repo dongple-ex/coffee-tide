@@ -2021,20 +2021,25 @@ export default function Home() {
           <p className={styles.landingDesc}>
             커피 한 잔 하면서 오늘을 정리하는 AI 업무 비서예요.
             <br />
-            Google 계정으로 로그인하면 내 데이터를 안전하게 동기화할 수 있어요.
+            Google 계정으로 동기화하거나, 게스트로 가볍게 시작할 수 있어요.
           </p>
-          <button
-            type="button"
-            className={styles.landingBtn}
-            onClick={() => void startGoogleSignIn()}
-            disabled={authBusy}
-            aria-busy={authBusy}
-          >
-            {authBusy ? "Google 로그인 연결 중…" : "Google로 coffeeTide 시작하기"}
-          </button>
+          <div className={styles.landingActions}>
+            <button
+              type="button"
+              className={styles.landingBtn}
+              onClick={() => void startGoogleSignIn()}
+              disabled={authBusy}
+              aria-busy={authBusy}
+            >
+              {authBusy ? "Google 로그인 연결 중…" : "Google로 로그인"}
+            </button>
+            <a className={styles.landingGuestBtn} href="/api/auth/signin">
+              게스트로 입장
+            </a>
+          </div>
           {authError && <p className={styles.authError}>{authError}</p>}
           <p className={styles.landingHint}>
-            Gmail·Drive·Outlook 연동은 로그인 후 필요할 때 별도로 연결할 수 있어요.
+            게스트 데이터는 이 브라우저에만 저장돼요. Gmail·Drive·Outlook은 입장 후 연결할 수 있어요.
           </p>
         </div>
       </main>
