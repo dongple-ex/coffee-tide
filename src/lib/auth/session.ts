@@ -16,7 +16,7 @@ export interface SessionData {
   outlookRefreshToken?: string;
   outlookTokenExpiry?: number; // epoch ms
   outlookEmail?: string;
-  // Google (Gmail·Calendar·Drive readonly)
+  // Google (Gmail 읽기·Calendar 일정 쓰기·Drive 앱 파일)
   googleToken?: string;
   googleRefreshToken?: string;
   googleTokenExpiry?: number;

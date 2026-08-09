@@ -65,6 +65,7 @@ import CafeWait from "./components/cafeWait";
 import { TaskItemCard } from "./components/TaskItemCard";
 import { CopilotComposer } from "./components/copilot/CopilotComposer";
 import { CopilotConversation } from "./components/copilot/CopilotConversation";
+import { CalendarDraftCard } from "./components/copilot/CalendarDraftCard";
 import { buildQaPairs, CopilotMessage } from "@/lib/copilotPairs";
 import IcedAmericano from "./components/icedAmericano";
 import { WelcomeCard, WeatherData } from "./components/WelcomeCard";
@@ -74,7 +75,6 @@ import { CalculatorWidget } from "./components/CalculatorWidget";
 import { ShortcutsWidget } from "./components/ShortcutsWidget";
 import { WeatherWidget } from "./components/WeatherWidget";
 import { CustomNewsWidget, CustomWidgetConfig } from "./components/CustomNewsWidget";
-import { SparkBriefingWidget } from "./components/SparkBriefingWidget";
 import type { CustomSitePreview } from "@/lib/news/types";
 import { CommuteConfig, CommuteStop } from "@/lib/types/commute";
 import { AppShortcut } from "@/lib/types/appShortcut";
@@ -85,12 +85,15 @@ import { SubTask } from "@/lib/types/unified";
 import { CopilotUserConfig, DEFAULT_COPILOT_CONFIG } from "@/lib/ai/harness";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { useCloudSync } from "./hooks/useCloudSync";
+import type { CalendarEventDraft } from "@/lib/calendar/types";
+import { GoogleIdentityButton } from "./components/auth/GoogleIdentityButton";
 
 const LS_RAW_ENABLED = "ct_raw_enabled";
 const LS_DRIVE_BACKUP_ENABLED = "ct_drive_backup_enabled";
 const LS_SPARK_ENABLED = "ct_spark_enabled";
 const LS_CUSTOM_WIDGETS = "ct_custom_widgets";
 const LS_COPILOT_CONFIG = "ct_copilot_config";
+const GOOGLE_IDENTITY_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? "";
 
 const POLL_MS = 30_000;
 const TICK_MS = 60_000;
@@ -298,8 +301,12 @@ export default function Home() {
   );
   const [copilotInput, setCopilotInput] = useState("");
   const [copilotBusy, setCopilotBusy] = useState(false);
+  const [calendarDraft, setCalendarDraft] = useState<CalendarEventDraft | null>(null);
+  const [calendarCreateBusy, setCalendarCreateBusy] = useState(false);
+  const [calendarReconnectRequired, setCalendarReconnectRequired] = useState(false);
   const [sparkEnabled, setSparkEnabled] = useState<boolean>(() => loadLS<boolean>(LS_SPARK_ENABLED, false));
   const [sparkBriefing, setSparkBriefing] = useState<string | null>(null);
+  const [sparkBriefingLoading, setSparkBriefingLoading] = useState(false);
   const [welcomeCardCollapsed, setWelcomeCardCollapsed] = useState(
     () => handoffSnapshot?.welcomeCardCollapsed ?? false
   );
@@ -328,6 +335,8 @@ export default function Home() {
     let cancelled = false;
 
     void (async () => {
+      await Promise.resolve();
+      if (!cancelled) setSparkBriefingLoading(true);
       try {
         const res = await fetch("/api/copilot?includeSpark=1");
         if (!res.ok) return;
@@ -335,6 +344,8 @@ export default function Home() {
         if (!cancelled) setSparkBriefing(data.spark_autonomous ? data.answer ?? null : null);
       } catch {
         if (!cancelled) setSparkBriefing(null);
+      } finally {
+        if (!cancelled) setSparkBriefingLoading(false);
       }
     })();
 
@@ -911,21 +922,16 @@ export default function Home() {
     }
   }, [fetchMails]);
 
-  const startGoogleSignIn = useCallback(async () => {
-    setAuthBusy(true);
-    setAuthError(undefined);
-    try {
-      const supabase = createBrowserSupabaseClient();
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: { redirectTo: `${window.location.origin}/auth/callback` },
-      });
-      if (error) throw error;
-    } catch (error) {
-      setAuthBusy(false);
-      setAuthError(error instanceof Error ? error.message : "Google 로그인을 시작하지 못했습니다.");
+  const finishGoogleIdSignIn = useCallback(async (email: string) => {
+    const bootstrap = await fetch("/api/auth/bootstrap", { method: "POST" });
+    if (!bootstrap.ok) {
+      const detail = (await bootstrap.json().catch(() => ({}))) as { error?: string };
+      throw new Error(detail.error ?? "CoffeeTide 로그인 세션을 만들지 못했습니다.");
     }
-  }, []);
+    setAuthUserEmail(email);
+    await fetchMails(false);
+    setAuthBusy(false);
+  }, [fetchMails]);
 
   // ── 브라우저 폴더 스캔 — 서버 /api/mails 파이프라인(수집→AI 분류→C1 캐시) 미러 ──
   const scanBrowser = useCallback(async () => {
@@ -1519,6 +1525,8 @@ export default function Home() {
 
     if (cmd === "/clear" || cmd === "/clean") {
       setCopilotMessages([]);
+      setCalendarDraft(null);
+      setCalendarReconnectRequired(false);
       setCopilotInput("");
       showToast("AI 바리스타 대화 내역을 깨끗하게 정리했어요! ☕");
       return true;
@@ -1618,7 +1626,15 @@ export default function Home() {
             includeSpark: sparkEnabled,
           }),
       });
-      const json = (await res.json()) as { answer?: string; ai_fallback?: boolean };
+      const json = (await res.json()) as {
+        answer?: string;
+        ai_fallback?: boolean;
+        calendar_draft?: CalendarEventDraft;
+      };
+      if (json.calendar_draft) {
+        setCalendarDraft(json.calendar_draft);
+        setCalendarReconnectRequired(false);
+      }
       setCopilotMessages((prev) => [
         ...prev,
         { role: "ai", text: json.answer ?? "앗, 주문이 밀렸나 봐요 ☕ 잠시 후 다시 물어봐 주세요.", fallback: json.ai_fallback },
@@ -1630,6 +1646,50 @@ export default function Home() {
       ]);
     } finally {
       setCopilotBusy(false);
+    }
+  }
+
+  async function confirmCalendarDraft() {
+    if (!calendarDraft || calendarCreateBusy) return;
+    setCalendarCreateBusy(true);
+    try {
+      const response = await fetch("/api/calendar/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ draft: calendarDraft }),
+      });
+      const result = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        eventUrl?: string;
+        title?: string;
+        reconnectRequired?: boolean;
+      };
+      if (!response.ok) {
+        if (result.reconnectRequired) setCalendarReconnectRequired(true);
+        const reconnectHint = result.reconnectRequired
+          ? " 아래의 Google 연결 버튼으로 다시 권한을 승인해 주세요."
+          : "";
+        throw new Error(`${result.error ?? `HTTP ${response.status}`}${reconnectHint}`);
+      }
+
+      const title = result.title ?? calendarDraft.title;
+      const link = result.eventUrl ? ` [Google Calendar에서 열기](${result.eventUrl})` : "";
+      setCopilotMessages((previous) => [
+        ...previous,
+        { role: "ai", text: `✅ **${title}** 일정을 Google Calendar에 등록했어요.${link}` },
+      ]);
+      setCalendarDraft(null);
+      setCalendarReconnectRequired(false);
+      showToast("Google Calendar에 일정을 등록했습니다. 📅");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "일정 등록에 실패했습니다.";
+      setCopilotMessages((previous) => [
+        ...previous,
+        { role: "ai", text: `⚠️ ${message}` },
+      ]);
+      showToast(message);
+    } finally {
+      setCalendarCreateBusy(false);
     }
   }
 
@@ -2024,22 +2084,20 @@ export default function Home() {
             Google 계정으로 동기화하거나, 게스트로 가볍게 시작할 수 있어요.
           </p>
           <div className={styles.landingActions}>
-            <button
-              type="button"
-              className={styles.landingBtn}
-              onClick={() => void startGoogleSignIn()}
-              disabled={authBusy}
-              aria-busy={authBusy}
-            >
-              {authBusy ? "Google 로그인 연결 중…" : "Google로 로그인"}
-            </button>
+            <GoogleIdentityButton
+              clientId={GOOGLE_IDENTITY_CLIENT_ID}
+              busy={authBusy}
+              onBusyChange={setAuthBusy}
+              onSuccess={finishGoogleIdSignIn}
+              onError={(message) => setAuthError(message || undefined)}
+            />
             <a className={styles.landingGuestBtn} href="/api/auth/signin">
               게스트로 입장
             </a>
           </div>
           {authError && <p className={styles.authError}>{authError}</p>}
           <p className={styles.landingHint}>
-            게스트 데이터는 이 브라우저에만 저장돼요. Gmail·Drive·Outlook은 입장 후 연결할 수 있어요.
+            Google 로그인은 CoffeeTide 화면에서 안전하게 처리돼요. Gmail·Calendar·Drive는 입장 후 별도로 연결할 수 있어요.
           </p>
         </div>
       </main>
@@ -2096,11 +2154,6 @@ export default function Home() {
           saveLS(LS_THEME, nextTheme);
         }}
         onLogoutHandoff={() => void handleLogoutHandoff()}
-        activeCount={activeCount}
-        urgentCount={urgentCount}
-        doneCount={doneCount}
-        isDataRefreshing={isDataRefreshing}
-        onRefreshAll={() => void handleRefreshAll()}
         showConn={showConn}
         onToggleConn={() => setShowConn((v) => !v)}
         followupHours={followupHours}
@@ -2292,18 +2345,6 @@ export default function Home() {
             <span>⭐</span>
             <span>바로가기 즐겨찾기</span>
           </button>
-          {sparkEnabled && (
-            <button
-              type="button"
-              className={`${styles.widgetChip} ${activeWidget === "spark" ? styles.widgetChipActive : ""}`}
-              onClick={() => setActiveWidget((prev) => (prev === "spark" ? null : "spark"))}
-              title="Gemini Spark 수신 리포트 상세 보기"
-            >
-              <span>⚡</span>
-              <span>Gemini Spark</span>
-            </button>
-          )}
-
           {/* 사용자가 동적으로 등록한 커스텀 위젯 칩들 */}
           {customWidgets.map((w) => (
             <button
@@ -2380,12 +2421,6 @@ export default function Home() {
             <ShortcutsWidget shortcuts={appShortcuts} onError={showToast} />
           </div>
         )}
-        {activeWidget === "spark" && sparkEnabled && (
-          <div className={styles.widgetPanel}>
-            <SparkBriefingWidget onNotify={showToast} />
-          </div>
-        )}
-
         {/* 커스텀 위젯 패널 */}
         {customWidgets.map((w) => {
           if (activeWidget !== w.id) return null;
@@ -2421,7 +2456,43 @@ export default function Home() {
 
         {/* G3/G6: Copilot — 무연동에서도 활성, MarkdownLite 렌더링 */}
         <section className={`${styles.card} ${styles.colCopilot}`}>
-          <div className={styles.cardTitle}>☕ AI 바리스타</div>
+          <div className={`${styles.cardTitle} ${styles.copilotCardTitle}`}>
+            <span className={styles.copilotTitleLabel}>☕ AI 바리스타</span>
+            <div className={styles.copilotStatus} aria-label="현재 업무 상태">
+              <span className={styles.statChip}>
+                대기 <b>{activeCount}</b>
+              </span>
+              <span className={styles.statChip}>
+                긴급 <b>{urgentCount}</b>
+              </span>
+              <span className={styles.statChip}>
+                오늘 완료 <b>{doneCount}</b>
+              </span>
+              <button
+                className={styles.refreshBtn}
+                onClick={() => void handleRefreshAll()}
+                disabled={isDataRefreshing}
+                aria-label="연결 데이터 새로고침"
+                title="연결 데이터 새로고침"
+              >
+                <svg
+                  className={isDataRefreshing ? styles.spinIcon : ""}
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.4"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M23 4v6h-6" />
+                  <path d="M1 20v-6h6" />
+                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+                </svg>
+              </button>
+            </div>
+          </div>
           <WelcomeCard
             compact
             weather={weatherData}
@@ -2435,12 +2506,27 @@ export default function Home() {
             messages={copilotMessages}
             busy={copilotBusy}
             waitSteps={dynamicCopilotSteps}
+            sparkEnabled={sparkEnabled}
+            sparkLoading={sparkBriefingLoading}
             sparkBriefing={sparkEnabled ? sparkBriefing : null}
             hasItems={merged.length > 0}
             expandedKeys={expandedQaKeys}
             unreadKeys={unreadQaKeys}
             onToggleExpand={toggleQaPair}
           />
+          {calendarDraft && (
+            <CalendarDraftCard
+              draft={calendarDraft}
+              busy={calendarCreateBusy}
+              googleConnected={googleConnected && !calendarReconnectRequired}
+              onConfirm={() => void confirmCalendarDraft()}
+              onCancel={() => {
+                setCalendarDraft(null);
+                setCalendarReconnectRequired(false);
+                showToast("캘린더 등록을 취소했습니다.");
+              }}
+            />
+          )}
           <CopilotComposer
             value={copilotInput}
             onChange={setCopilotInput}
@@ -2728,7 +2814,7 @@ export default function Home() {
             saveLS(LS_SPARK_ENABLED, checked);
             if (!checked) {
               setSparkBriefing(null);
-              setActiveWidget((current) => (current === "spark" ? null : current));
+              setSparkBriefingLoading(false);
             }
             showToast(checked ? "Gemini Spark 24시간 클라우드 수신이 켜졌습니다 ⚡" : "Gemini Spark 수신이 꺼졌습니다.");
           }}

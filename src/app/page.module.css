@@ -147,10 +147,35 @@
   }
 }
 
-.stats {
+.copilotCardTitle {
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.copilotTitleLabel {
+  flex-shrink: 0;
+}
+
+.copilotStatus {
   display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  min-width: 0;
+  margin-left: auto;
+}
+
+.copilotStatus .statChip {
+  padding: 3px 9px;
+  font-size: 0.74rem;
+  white-space: nowrap;
+}
+
+.copilotStatus .refreshBtn {
+  width: 26px;
+  height: 26px;
+  min-width: 26px;
+  max-width: 26px;
 }
 
 .statChip {
@@ -1011,6 +1036,78 @@
   font-weight: 700;
 }
 
+.sparkAutonomousEmpty {
+  margin: 4px 0 0;
+  color: var(--text-dim);
+  font-size: 0.78rem;
+  text-align: center;
+}
+
+.calendarDraftCard {
+  border: 1px solid rgba(66, 133, 244, 0.55);
+  background: linear-gradient(135deg, rgba(66, 133, 244, 0.12), rgba(52, 168, 83, 0.08));
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin-top: 2px;
+}
+
+.calendarDraftBadge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 3px 9px;
+  margin-bottom: 9px;
+  color: #dbeafe;
+  background: rgba(30, 64, 175, 0.78);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.calendarDraftTitle {
+  display: block;
+  font-size: 1rem;
+  margin-bottom: 10px;
+}
+
+.calendarDraftDetails {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+}
+
+.calendarDraftDetails > div {
+  display: grid;
+  grid-template-columns: 58px 1fr;
+  gap: 8px;
+  align-items: start;
+}
+
+.calendarDraftDetails dt {
+  color: var(--text-dim);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.calendarDraftDetails dd {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.calendarDraftNotice {
+  margin: 10px 0 0;
+  color: var(--text-dim);
+  font-size: 0.72rem;
+}
+
+.calendarDraftActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+
 /* Q&A 세션 카드 그룹화 — 접기/펼치기 & 스크롤 없는 전체보기 */
 .chatQaGroup {
   border: 1px solid var(--border);
@@ -1581,6 +1678,45 @@
   gap: 10px;
 }
 
+.googleIdentityWrap {
+  position: relative;
+  min-width: 250px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.googleIdentityButton {
+  min-width: 250px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.googleIdentityBusy {
+  pointer-events: none;
+}
+
+.googleIdentityBusy .googleIdentityButton {
+  opacity: 0.25;
+}
+
+.googleIdentityBusyText {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
 .landingGuestBtn {
   display: inline-block;
   border: 1px solid var(--border);
@@ -1743,6 +1879,24 @@
 
   .headerActionsRight {
     width: 100%;
+  }
+
+  .copilotCardTitle {
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 5px;
+  }
+
+  .copilotStatus {
+    width: auto;
+    justify-content: flex-end;
+    margin-left: auto;
+  }
+
+  .copilotStatus .statChip {
+    flex-shrink: 0;
+    padding: 2px 7px;
+    font-size: 0.7rem;
   }
 
   .itemActions .actionBtn {

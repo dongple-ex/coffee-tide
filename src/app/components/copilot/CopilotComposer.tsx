@@ -149,7 +149,7 @@ export function CopilotComposer({
 
       <input
         className={styles.input}
-        placeholder="오늘 뭐 해야 해?"
+        placeholder="오늘 뭐 해야 해? · 내일 3시 회의 일정 등록해줘"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onFocus={onFocus}

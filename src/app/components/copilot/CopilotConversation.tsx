@@ -12,6 +12,10 @@ interface Props {
   busy: boolean;
   /** 대기 중 표시할 카페 연출 문구 */
   waitSteps: string[];
+  /** 설정에서 Gemini Spark 자율 수신을 활성화했는지 여부 */
+  sparkEnabled: boolean;
+  /** 최신 Spark 브리핑을 서버에서 확인 중인지 여부 */
+  sparkLoading: boolean;
   /** 질문 없이 서버에서 수신한 최근 24시간 Spark 브리핑 */
   sparkBriefing?: string | null;
   /** 표시할 업무가 하나도 없을 때 안내 문구를 보강한다 */
@@ -26,6 +30,8 @@ export function CopilotConversation({
   messages,
   busy,
   waitSteps,
+  sparkEnabled,
+  sparkLoading,
   sparkBriefing,
   hasItems,
   expandedKeys,
@@ -36,10 +42,18 @@ export function CopilotConversation({
 
   return (
     <div className={styles.copilotBody} ref={bodyRef}>
-      {sparkBriefing && (
+      {sparkEnabled && (
         <section className={styles.sparkAutonomousBriefing} aria-label="Gemini Spark 자율 수신 브리핑">
-          <div className={styles.sparkAutonomousBadge}>⚡ Gemini Spark 자율 수신</div>
-          <MarkdownLite text={sparkBriefing} />
+          <div className={styles.sparkAutonomousBadge}>⚡ Gemini Spark 24시간 자율 비서</div>
+          {sparkLoading ? (
+            <p className={styles.sparkAutonomousEmpty}>최신 Gemini Spark 브리핑을 확인하고 있습니다…</p>
+          ) : sparkBriefing ? (
+            <MarkdownLite text={sparkBriefing} />
+          ) : (
+            <p className={styles.sparkAutonomousEmpty}>
+              최근 24시간 동안 수신된 Gemini Spark 브리핑이 없습니다.
+            </p>
+          )}
         </section>
       )}
       {pairs.length === 0 ? (

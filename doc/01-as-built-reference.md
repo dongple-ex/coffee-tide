@@ -18,7 +18,7 @@ coffeeTide는 여러 채널의 업무 데이터를 하나의 대시보드로 통
 | 구분 | 내용 |
 | :--- | :--- |
 | 채널 | **manual·paste(1급)**, Outlook, Gmail, Notion, Obsidian, 로컬 문서, LLM 산출물 |
-| 로그인 | 게스트 세션(`coffeeTide 시작하기`) + 서비스별 개별 연동 |
+| 로그인 | Google Identity Services ID 토큰 로그인 + 게스트 세션 + 서비스별 개별 연동 |
 | AI | Gemini(`gemini-2.5-flash`, REST 직호출: 분류·브리핑·답장·규칙파싱·붙여넣기 추출) + FallbackEngine(전 기능 로컬 대체) |
 | 자동화 | 규칙 엔진(pin/urgent/mute/hide)·자연어 규칙·팔로업 에스컬레이션·빠른 캡처·dismiss |
 | 생산성 도구 | 슬래시 커맨드 5종, 워크노트·하위작업, 퇴근 핸드오프, 퀵 위젯(타이머·계산기·바로가기·날씨·출퇴근), 단어-앱 바로가기 |
@@ -32,9 +32,11 @@ coffeeTide는 여러 채널의 업무 데이터를 하나의 대시보드로 통
   - **B1 반영**: 프로덕션에서 `SESSION_ENCRYPTION_SECRET` 미설정이면 throw(기동 거부). 개발용 fallback만 허용(경고 로그).
   - 만료 7일 + **활동 시 롤링 연장** (B2 반영). `touchSession`(`src/lib/auth/cookies.ts`)을 `/api/mails` 응답에서 호출 — 30초 폴링이 도는 동안 만료가 계속 밀린다.
 - **인증 가드**: `src/proxy.ts`. `PUBLIC_PATHS`(/, signin, OAuth 시작/콜백) 외 요청에 세션 요구. API는 401, 페이지는 `/` 리다이렉트.
-- **로그인 흐름**: `/api/auth/signin`이 **게스트 세션**(`guest@coffeetide.dongple.kr`) 발급 → 대시보드 진입 후 서비스별 개별 연동.
+- **로그인 흐름**:
+  - Google: 랜딩의 Google Identity Services 공식 버튼 → nonce가 포함된 Google ID 토큰 → `supabase.auth.signInWithIdToken()` → `/api/auth/bootstrap`에서 사용자 프로필·CoffeeTide 세션 생성. Supabase OAuth 도메인으로 화면을 리다이렉트하지 않는다.
+  - Guest: `/api/auth/signin`이 **게스트 세션**(`guest@coffeetide.dongple.kr`)을 발급한다.
 - **서비스 연동**:
-  - Google: `/api/auth/google/signin` → `/api/auth/google/callback` (scope: openid email + gmail/calendar/drive readonly, `access_type=offline&prompt=consent`)
+  - Google: `/api/auth/google/signin` → `/api/auth/google/callback` (scope: openid email + Gmail 읽기 + Calendar 일정 쓰기 + Drive 메타데이터/앱 파일, `access_type=offline&prompt=consent`)
   - Outlook: `/api/auth/outlook` → `/api/auth/outlook/callback` (scope: User.Read, Mail.Read, Mail.ReadWrite, offline_access)
   - Notion(토큰+DB ID) / Obsidian·LLM(단일 폴더 경로): POST로 세션에 저장. 단일 경로형은 `makePathConnectionHandler` 공용 핸들러(`src/lib/auth/connectionRoutes.ts`).
   - 로컬 문서: **다중 폴더(최대 5개)** — `localDocPaths: string[]`, 전용 라우트에서 connect=추가/disconnect=개별·전체 해제.
@@ -98,6 +100,7 @@ coffeeTide는 여러 채널의 업무 데이터를 하나의 대시보드로 통
 | 경로 | 메서드 | 설명 |
 | :--- | :--- | :--- |
 | `/api/auth/signin` | GET | 게스트 세션 발급 → `/` |
+| `/api/auth/bootstrap` | POST | Supabase 로그인 사용자의 프로필 upsert + CoffeeTide 암호화 세션 생성 |
 | `/api/auth/signout` | POST | 세션 파기 |
 | `/api/auth/outlook` · `/callback` | GET / DELETE | Outlook OAuth (DELETE=해제) |
 | `/api/auth/google/signin` · `/callback` | GET / DELETE | Google OAuth (DELETE=해제) |
@@ -110,6 +113,7 @@ coffeeTide는 여러 채널의 업무 데이터를 하나의 대시보드로 통
 | `/api/tasks/update` | POST | Notion 페이지 완료 / Obsidian 체크박스 완료 write-back |
 | `/api/tasks/capture` | POST | 항목을 Notion 페이지/Obsidian 수집함으로 저장 |
 | `/api/tasks/llm-digest` | POST | 오늘 LLM 산출물 → Obsidian `coffeeTide_LLM/YYYY-MM-DD.md` 수동 내보내기 |
+| `/api/calendar/events` | POST | AI 바리스타가 구조화한 일정 초안을 사용자 확인 후 Google 기본 Calendar에 등록. 반복 일정은 RFC 5545 `RRULE`로 변환 |
 | `/api/upload` | POST | 텍스트 파일(≤1MB, `.txt/.md/.csv/.json/.log`) → manual 항목. `saveToDrive=true`면 Google Drive 영구 저장(실패해도 업로드 자체는 성공 — 원칙 4) |
 | `/api/weather` | GET | 좌표(`lat`/`lon`) → **기상청 초단기실황+초단기예보**(공공데이터포털, LCC 격자 변환) 1순위 → OpenWeatherMap 폴백. 지역명은 BigDataCloud 역지오코딩으로 한글 동/구. 좌표는 **소수점 2자리로 절삭해 외부 호출**(K9), 서버 메모리 캐시 20분, 좌표 미저장. 키 미설정/조회 실패 시 `success:false` (그리팅은 시간대 폴백) |
 | `/api/commute` | GET | 출퇴근 길찾기 카드 데이터. KST 05~12시 출근 모드, 그 외 퇴근 모드로 출발·도착지 자동 전환. **⚠️ 시각·소요시간·요금·혼잡도는 현재 하드코딩된 예시 값** — 실연동은 K2(공공데이터포털 TAGO·도로공사) 예정. 지도 링크는 이 응답에 없다(§5 지도 앱 연동) |
@@ -149,7 +153,7 @@ coffeeTide는 여러 채널의 업무 데이터를 하나의 대시보드로 통
 | `GEMINI_API_KEY` | Gemini API 키. 미설정 시 로컬 FallbackEngine |
 | `DISABLE_AI_CLASSIFY` | `true`면 AI 분류 킬스위치 (백로그 C1) |
 | `NEXT_PUBLIC_MS_CLIENT_ID` / `MS_CLIENT_SECRET` / `MS_TENANT_ID` / `NEXT_PUBLIC_MS_REDIRECT_URI` | Microsoft Entra ID 4종 |
-| `NEXT_PUBLIC_GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `NEXT_PUBLIC_GOOGLE_REDIRECT_URI` | Google OAuth 3종 |
+| `NEXT_PUBLIC_GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `NEXT_PUBLIC_GOOGLE_REDIRECT_URI` | Google Identity 로그인 Client ID + 입장 후 Gmail·Calendar·Drive OAuth 3종 |
 | `NOTION_INTEGRATION_TOKEN` / `NOTION_DATABASE_ID` | Notion 기본값 (UI 세션별 입력 우선) |
 | `LLM_ARTIFACTS_DEFAULT_PATH` | (선택) LLM 산출물 기본 경로 |
 | `DATA_GO_KR_SERVICE_KEY` | (선택) **공공데이터포털 공용 인증키**. 포털은 계정당 인증키 1개를 활용신청한 모든 오픈API에 공통 적용하므로 기상청·(예정)TAGO·도로공사가 이 하나를 공유한다. 판독은 `src/lib/env.ts` |
@@ -170,7 +174,7 @@ coffeeTide는 여러 채널의 업무 데이터를 하나의 대시보드로 통
 - 외부 OAuth(Outlook/Google)·Notion 실계정 E2E 미검증 — MOCK 스모크만 통과 (**H1**)
 - 지도 앱 딥링크 실기기 미검증 — 데스크톱에서 웹 경로만 확인 (**K12**, H1과 함께)
 - 세션 쿠키에 토큰 전체 저장 → 대형 토큰 시 4KB 한계 리스크 (**H2**)
-- Google Calendar·Drive 수집 미구현 (scope만 확보, Gmail만 수집) (**H3**)
+- Google Calendar 일정 **등록**은 구현됐지만 Calendar·Drive **수집**은 미구현(Gmail만 수집) (**H3**)
 - 채널당 10건 고정 (C3), hide/dismiss 이원화 (D4)
 - AI 분류 캐시가 서버 메모리 (프로세스 재시작 시 소멸)
 - `page.tsx` 2,351줄 — 분할 진행 중, 목표 1,000줄 (**K10** 5단계 남음)

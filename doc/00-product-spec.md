@@ -46,7 +46,7 @@ coffeeTide는 **커피 한 잔 하면서 오늘을 정리하는 AI 업무 비서
 | `obsidian` | Obsidian Vault 문서에서 추출한 업무 | 선택 | 로컬 상태 관리 |
 | `outlook` | Microsoft Graph 메일 | 선택 | 답장 초안 생성 |
 | `notion` | Notion DB 태스크 | 선택 | 페이지 상태 완료 처리 |
-| `gmail` | Google Gmail·Calendar·Drive | 선택 | 읽기 전용 (답장 초안은 백로그) |
+| `gmail` | Google Gmail·Calendar·Drive | 선택 | Gmail 읽기, AI 바리스타 Calendar 일정 등록(사용자 확인 필수), Drive 앱 파일 저장 |
 | `llm` | 로컬 LLM 도구 산출물(`MEMORY.md` 등) 폴더 스캔 | 선택 | Obsidian 일일 다이제스트 미러링 ([`phase6-llm-artifacts.md`](./spec/phase6-llm-artifacts.md)) |
 
 소스와 무관하게, AI 분류 시 각 항목에 **`delegatable`(위임 가능) 표식**이 부여될 수 있습니다 — "로컬 LLM 도구(Claude Code 등)로 넘길 만한 업무"를 가리키는 힌트이며 실행 버튼이 아닙니다. AI 없이 동작할 때는 채워지지 않으며, 이때 `undefined`는 "위임 불가"가 아니라 "판별 안 됨"입니다. ([`spec/phase7-copilot-briefing.md`](./spec/phase7-copilot-briefing.md) §2.4)
@@ -55,8 +55,8 @@ coffeeTide는 **커피 한 잔 하면서 오늘을 정리하는 AI 업무 비서
 
 ### 4.1 첫 진입
 
-1. 사용자가 `coffeeTide 시작하기`를 누릅니다.
-2. Microsoft 인증 없이 게스트 세션을 발급합니다.
+1. 사용자가 Google 공식 로그인 버튼 또는 `게스트로 입장`을 선택합니다.
+2. Google 로그인은 현재 CoffeeTide 화면에서 받은 ID 토큰을 Supabase 세션으로 교환하고, 게스트는 외부 인증 없이 로컬 세션을 발급합니다.
 3. 대시보드에는 다음 입력 경로가 먼저 보여야 합니다.
    - 빠른 업무 추가
    - 메모/회의록 붙여넣기

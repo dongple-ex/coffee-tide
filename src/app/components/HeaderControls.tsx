@@ -14,11 +14,6 @@ export interface HeaderControlsProps {
   theme: Theme;
   onThemeChange: (theme: Theme) => void;
   onLogoutHandoff: () => void;
-  activeCount: number;
-  urgentCount: number;
-  doneCount: number;
-  isDataRefreshing: boolean;
-  onRefreshAll: () => void;
   showConn: boolean;
   onToggleConn: () => void;
   followupHours: number;
@@ -37,11 +32,6 @@ export function HeaderControls({
   theme,
   onThemeChange,
   onLogoutHandoff,
-  activeCount,
-  urgentCount,
-  doneCount,
-  isDataRefreshing,
-  onRefreshAll,
   showConn,
   onToggleConn,
   followupHours,
@@ -55,46 +45,12 @@ export function HeaderControls({
 
   return (
     <header className={styles.header}>
-      {/* Row 1: Logo, Stats & Profile/Theme Actions */}
+      {/* Row 1: Logo & Profile/Theme Actions */}
       <div className={styles.headerRow}>
         <div className={styles.headerGroupLeft}>
           <div className={styles.logo}>
             <IcedAmericano size={26} /> coffee<span>Tide</span>
           </div>
-          <div className={styles.stats}>
-            <span className={styles.statChip}>
-              대기 <b>{activeCount}</b>
-            </span>
-            <span className={styles.statChip}>
-              긴급 <b>{urgentCount}</b>
-            </span>
-            <span className={styles.statChip}>
-              오늘 완료 <b>{doneCount}</b>
-            </span>
-          </div>
-          <button
-            className={styles.refreshBtn}
-            onClick={onRefreshAll}
-            disabled={isDataRefreshing}
-            aria-label="연결 데이터 새로고침"
-            title="연결 데이터 새로고침"
-          >
-            <svg
-              className={isDataRefreshing ? styles.spinIcon : ""}
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.4"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M23 4v6h-6" />
-              <path d="M1 20v-6h6" />
-              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-            </svg>
-          </button>
         </div>
 
         <div className={styles.headerActionsRight}>

@@ -7,6 +7,6 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export async function POST() {
   const supabase = await createServerSupabaseClient();
-  if (supabase) await supabase.auth.signOut();
+  if (supabase) await supabase.auth.signOut({ scope: "local" });
   return clearSession(NextResponse.json({ success: true }));
 }

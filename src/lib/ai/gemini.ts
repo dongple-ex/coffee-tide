@@ -6,6 +6,10 @@ import { createHash } from "node:crypto";
 import { UnifiedCategory, UnifiedData } from "../types/unified";
 import { AutomationRule } from "../automation/rules";
 import {
+  CalendarEventDraft,
+  normalizeCalendarEventDraft,
+} from "../calendar/types";
+import {
   classifyAll,
   classifyOne,
   copilotBriefing,
@@ -192,6 +196,85 @@ export async function askCopilot(
   } catch (err) {
     console.warn("[Warning] Gemini API unavailable. Falling back to local briefing.", err);
     return { answer: copilotBriefing(items, dateLabel, question), aiUsed: false };
+  }
+}
+
+export interface CalendarDraftExtraction {
+  draft: CalendarEventDraft | null;
+  clarification?: string;
+  aiUsed: boolean;
+}
+
+/**
+ * AI 바리스타의 자연어 일정 요청을 실행 가능한 구조로 변환한다.
+ * 이 함수는 Calendar를 변경하지 않으며, 반환된 초안은 UI 확인 후 별도 API에서만 생성된다.
+ */
+export async function extractCalendarEventDraft(
+  requestText: string,
+  timezone: string
+): Promise<CalendarDraftExtraction> {
+  const safeTimezone = timezone || "Asia/Seoul";
+  if (!apiKey()) {
+    return {
+      draft: null,
+      clarification: "일정 해석용 AI가 아직 설정되지 않았어요. 날짜, 시작 시간, 종료 시간과 제목을 모두 적어 다시 요청해 주세요.",
+      aiUsed: false,
+    };
+  }
+
+  const now = new Date();
+  const localNow = now.toLocaleString("sv-SE", {
+    timeZone: safeTimezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+  const system = `역할: 사용자의 자연어를 Google Calendar 일정 생성 초안 JSON으로 변환합니다.
+현재 시각: ${localNow} (${safeTimezone}), UTC ${now.toISOString()}
+
+규칙:
+- 일정 생성 의도가 아니면 {"draft":null,"clarification":""}만 반환하세요.
+- '오늘', '내일', 요일은 현재 시각과 타임존을 기준으로 정확히 계산하세요.
+- 시간이 없거나 날짜를 하나로 결정할 수 없으면 draft를 null로 하고 clarification에 필요한 질문 하나만 적으세요.
+- 종료 시간이 없으면 시작 후 1시간으로 설정하세요.
+- 시간 일정의 startDateTime/endDateTime은 반드시 UTC 오프셋이 포함된 RFC3339 형식으로 작성하세요.
+- 종일 일정은 allDay=true와 YYYY-MM-DD startDate, 다음 날인 exclusive endDate를 사용하세요.
+- 반복이 없으면 recurrence를 생략하세요. 반복이 있으면 frequency는 DAILY/WEEKLY/MONTHLY/YEARLY 중 하나입니다.
+- 매주 특정 요일은 byWeekday에 MO/TU/WE/TH/FR/SA/SU를 사용하세요.
+- 반복 종료가 없으면 until/count를 생략하세요. 날짜 종료는 until에 YYYY-MM-DD를 사용하세요.
+- 제목은 명령어를 제외한 실제 일정명만 120자 이내로 작성하세요.
+- 설명이나 코드펜스 없이 아래 형태의 순수 JSON 객체만 출력하세요.
+
+{
+  "draft": {
+    "title": "주간 업무 점검",
+    "description": "선택 설명",
+    "timezone": "${safeTimezone}",
+    "allDay": false,
+    "startDateTime": "2026-08-10T09:00:00+09:00",
+    "endDateTime": "2026-08-10T09:30:00+09:00",
+    "recurrence": { "frequency": "WEEKLY", "byWeekday": ["MO"] }
+  },
+  "clarification": ""
+}`;
+
+  try {
+    const raw = await callGemini(system, requestText.slice(0, 1000), true);
+    const parsed = parseJsonLoose<{ draft?: unknown; clarification?: unknown }>(raw);
+    const draft = normalizeCalendarEventDraft(parsed?.draft, safeTimezone);
+    const clarification = String(parsed?.clarification ?? "").trim().slice(0, 300) || undefined;
+    return { draft, clarification, aiUsed: true };
+  } catch (error) {
+    console.warn("[coffeeTide] Calendar 일정 구조화 실패", error);
+    return {
+      draft: null,
+      clarification: "일정 내용을 해석하지 못했어요. 예: ‘내일 오후 3시부터 4시까지 주간회의를 캘린더에 등록해줘’처럼 말씀해 주세요.",
+      aiUsed: false,
+    };
   }
 }
 

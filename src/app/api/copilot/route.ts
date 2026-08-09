@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { askCopilot } from "@/lib/ai/gemini";
+import { askCopilot, extractCalendarEventDraft } from "@/lib/ai/gemini";
 import { buildSparkAutonomousBriefing } from "@/lib/ai/fallbackEngine";
 import { CopilotUserConfig } from "@/lib/ai/harness";
 import { readSession, unauthorized } from "@/lib/auth/cookies";
@@ -7,6 +7,7 @@ import { UnifiedData } from "@/lib/types/unified";
 import { getRecentSparkUnifiedItems } from "@/lib/adapters/sparkSync";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { isCalendarCreateRequest } from "@/lib/calendar/types";
 
 function mergeById(items: UnifiedData[]): UnifiedData[] {
   return [...new Map(items.map((item) => [item.id, item])).values()];
@@ -68,6 +69,25 @@ export async function POST(request: NextRequest) {
   }
 
   const question = body.question?.trim() || "오늘 해야 할 일을 브리핑해줘";
+
+  if (isCalendarCreateRequest(question)) {
+    const timezone = body.timezone || "Asia/Seoul";
+    const extraction = await extractCalendarEventDraft(question, timezone);
+    if (!extraction.draft) {
+      return NextResponse.json({
+        answer: `📅 ${extraction.clarification ?? "일정의 날짜와 시간을 조금 더 자세히 알려주세요."}`,
+        calendar_intent: true,
+        ai_fallback: !extraction.aiUsed,
+      });
+    }
+    return NextResponse.json({
+      answer: "📅 Google Calendar 일정 초안을 준비했어요. 아래 내용을 확인하고 **캘린더에 등록**을 눌러주세요.",
+      calendar_intent: true,
+      calendar_draft: extraction.draft,
+      ai_fallback: !extraction.aiUsed,
+    });
+  }
+
   const clientItems = Array.isArray(body.items) ? body.items.slice(0, 80) : [];
   const sparkItems = body.includeSpark
     ? await getRecentSparkUnifiedItems(identity.id, identity.supabase)

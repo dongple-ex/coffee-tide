@@ -1,11 +1,11 @@
-// Google OAuth (Gmail·Calendar·Drive readonly) — doc/01-as-built-reference.md §2.
+// Google OAuth (Gmail 읽기·Calendar 일정 쓰기·Drive 앱 파일) — doc/01-as-built-reference.md §2.
 // access_type=offline + prompt=consent 로 refresh token 확보.
 
 export const GOOGLE_SCOPES = [
   "openid",
   "email",
   "https://www.googleapis.com/auth/gmail.readonly",
-  "https://www.googleapis.com/auth/calendar.readonly",
+  "https://www.googleapis.com/auth/calendar.events",
   "https://www.googleapis.com/auth/drive.metadata.readonly",
   "https://www.googleapis.com/auth/drive.file",
 ];
