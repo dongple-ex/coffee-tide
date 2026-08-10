@@ -1595,7 +1595,7 @@ export default function Home() {
 
     if (cmd === "/help" || cmd === "/?") {
       setCopilotInput("");
-      const text = `💡 **AI 바리스타 슬래시 커맨드 안내**:\n\n- \`/clear\` : 대화 내역 초기화\n- \`/status\` : 업무 처리 현황 요약\n- \`/handoff\` : 남은 업무 퇴근 보존 및 정리\n- \`/reorder\` : 남은 업무 AI 일정 재배치\n- \`/help\` : 커맨드 도움말 출력\n\n**단어-앱 바로가기**: 등록한 키워드만 단독으로(또는 \`@키워드\`) 입력하면 해당 앱이 실행돼요. 문장 속에 키워드가 있으면 실행 대신 평소처럼 답변해 드립니다.`;
+      const text = `💡 **AI 바리스타 슬래시 커맨드 안내**:\n\n- \`/connect\` : 서비스 연동 저장정보와 실제 API 권한 진단\n- \`/clear\` : 대화 내역 초기화\n- \`/status\` : 업무 처리 현황 요약\n- \`/handoff\` : 남은 업무 퇴근 보존 및 정리\n- \`/reorder\` : 남은 업무 AI 일정 재배치\n- \`/help\` : 커맨드 도움말 출력\n\n**단어-앱 바로가기**: 등록한 키워드만 단독으로(또는 \`@키워드\`) 입력하면 해당 앱이 실행돼요. 문장 속에 키워드가 있으면 실행 대신 평소처럼 답변해 드립니다.`;
       setCopilotMessages((prev) => [...prev, { role: "ai", text }]);
       return true;
     }
@@ -1669,7 +1669,20 @@ export default function Home() {
         answer?: string;
         ai_fallback?: boolean;
         calendar_draft?: CalendarEventDraft;
+        connections?: ConnectionState;
+        connection_errors?: MailsResponse["errors"];
       };
+      if (json.connections) {
+        setConnections(json.connections);
+        setErrors((previous) => {
+          const next = { ...previous };
+          delete next.google;
+          delete next.outlook;
+          delete next.notion;
+          Object.assign(next, json.connection_errors);
+          return Object.keys(next).length ? next : undefined;
+        });
+      }
       if (json.calendar_draft) {
         setCalendarDraft(json.calendar_draft);
         setCalendarReconnectRequired(false);
@@ -2604,7 +2617,9 @@ export default function Home() {
             onSubmit={() => void askCopilot()}
             onFocus={() => setWelcomeCardCollapsed(true)}
             busy={copilotBusy}
-            onRunSlashCommand={(cmd) => handleSlashCommand(cmd)}
+            onRunSlashCommand={(cmd) => {
+              if (!handleSlashCommand(cmd)) void askCopilot(cmd);
+            }}
             onQuickBriefing={() => void askCopilot("오늘 해야 할 일을 브리핑해줘")}
             fileInputRef={fileInputRef}
             onFileChange={handleFileUpload}

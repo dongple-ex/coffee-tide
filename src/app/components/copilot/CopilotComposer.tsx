@@ -5,6 +5,7 @@ import styles from "../../page.module.css";
 
 /** 입력창에 `/`를 치면 뜨는 자동완성 목록 */
 const SLASH_COMMANDS = [
+  { name: "/connect", desc: "서비스 연동 상태와 실제 API 권한 진단" },
   { name: "/clear", desc: "AI 대화 이력 초기화" },
   { name: "/status", desc: "현재 업무 상태 현황 요약" },
   { name: "/handoff", desc: "남은 업무 퇴근 보존 및 정리" },

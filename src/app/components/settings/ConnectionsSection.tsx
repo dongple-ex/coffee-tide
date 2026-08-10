@@ -183,8 +183,10 @@ export function ConnectionsSection({
         <div className={styles.connCard}>
           <div className={styles.connHead}>
             <NotionIcon /> Notion
-            <span className={`${styles.connStatus} ${connections?.notion ? styles.connOn : ""}`}>
-              {connections?.notion ? "연동됨" : "미연동"}
+            <span
+              className={`${styles.connStatus} ${errors?.notion ? styles.connErr : connections?.notion ? styles.connOn : ""}`}
+            >
+              {errors?.notion ? "확인 필요" : connections?.notion ? "연동됨" : "미연동"}
             </span>
           </div>
           {connections?.notion ? (

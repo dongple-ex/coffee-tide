@@ -3,6 +3,11 @@ import { askCopilot, extractCalendarEventDraft } from "@/lib/ai/gemini";
 import { buildSparkAutonomousBriefing } from "@/lib/ai/fallbackEngine";
 import { CopilotUserConfig } from "@/lib/ai/harness";
 import { readSession, unauthorized } from "@/lib/auth/cookies";
+import { diagnoseConnections } from "@/lib/auth/connectionDiagnostics";
+import {
+  readSessionWithIntegrations,
+  writeSessionForCurrentUser,
+} from "@/lib/auth/integrationStore";
 import { UnifiedData } from "@/lib/types/unified";
 import { getRecentSparkUnifiedItems } from "@/lib/adapters/sparkSync";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
@@ -69,6 +74,23 @@ export async function POST(request: NextRequest) {
   }
 
   const question = body.question?.trim() || "오늘 해야 할 일을 브리핑해줘";
+
+  if (/^\/connect(?:\s|$)/i.test(question)) {
+    const session = await readSessionWithIntegrations();
+    if (!session) return unauthorized();
+    const diagnostic = await diagnoseConnections(session);
+    const response = NextResponse.json({
+      answer: diagnostic.answer,
+      connections: diagnostic.connections,
+      connection_errors: diagnostic.errors,
+      connection_diagnostic: true,
+    });
+    return writeSessionForCurrentUser(
+      response,
+      diagnostic.session,
+      diagnostic.preserveIntegrations
+    );
+  }
 
   if (isCalendarCreateRequest(question)) {
     const timezone = body.timezone || "Asia/Seoul";
