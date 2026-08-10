@@ -3,7 +3,11 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { AuthExpiredError } from "@/lib/adapters/outlook";
-import { readSession, writeSession } from "@/lib/auth/cookies";
+import {
+  persistRefreshedIntegration,
+  readSessionWithIntegrations,
+  writeSessionForCurrentUser,
+} from "@/lib/auth/integrationStore";
 import { refreshChannel, refreshGoogleIfExpiring } from "@/lib/auth/refresh";
 import { UnifiedData } from "@/lib/types/unified";
 import { extractTextFromDocx } from "@/lib/adapters/docxParser";
@@ -26,7 +30,7 @@ function isSupportedFile(file: File): boolean {
 
 export async function POST(req: NextRequest) {
   try {
-    let session = await readSession();
+    let session = await readSessionWithIntegrations();
     if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
     const formData = await req.formData();
@@ -117,7 +121,9 @@ export async function POST(req: NextRequest) {
       driveSaved: saveToDrive ? driveSaved : undefined,
       driveNotice,
     });
-    return sessionChanged ? writeSession(res, session) : res;
+    if (!sessionChanged) return res;
+    const persisted = await persistRefreshedIntegration("google", session);
+    return writeSessionForCurrentUser(res, session, !persisted);
   } catch (error) {
     console.error("Upload error:", error);
     return NextResponse.json({ error: "서버에서 문제가 생겼어요" }, { status: 500 });

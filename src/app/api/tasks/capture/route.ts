@@ -4,10 +4,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { isMockMode } from "@/lib/adapters/factory";
 import { NotionAdapter } from "@/lib/adapters/notion";
 import { ObsidianAdapter } from "@/lib/adapters/obsidian";
-import { readSession, unauthorized } from "@/lib/auth/cookies";
+import { unauthorized } from "@/lib/auth/cookies";
+import { readSessionWithIntegrations } from "@/lib/auth/integrationStore";
 
 export async function POST(request: NextRequest) {
-  const session = await readSession();
+  const session = await readSessionWithIntegrations();
   if (!session) return unauthorized();
 
   const body = (await request.json().catch(() => ({}))) as {

@@ -74,10 +74,12 @@ import { TimerWidget } from "./components/TimerWidget";
 import { CalculatorWidget } from "./components/CalculatorWidget";
 import { ShortcutsWidget } from "./components/ShortcutsWidget";
 import { WeatherWidget } from "./components/WeatherWidget";
+import { FinanceWidget } from "./components/FinanceWidget";
 import { CustomNewsWidget, CustomWidgetConfig } from "./components/CustomNewsWidget";
 import type { CustomSitePreview } from "@/lib/news/types";
 import { CommuteConfig, CommuteStop } from "@/lib/types/commute";
 import { AppShortcut } from "@/lib/types/appShortcut";
+import type { FinanceApiResponse, FinanceSnapshot } from "@/lib/types/finance";
 import { saveRawContent, getRawContent } from "@/lib/browser/rawStore";
 import styles from "./page.module.css";
 
@@ -424,6 +426,14 @@ export default function Home() {
   );
   const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
   const [weatherBusy, setWeatherBusy] = useState(false);
+  const [financeData, setFinanceData] = useState<FinanceSnapshot | null>(null);
+  const [financeBusy, setFinanceBusy] = useState(false);
+  const [financeLoaded, setFinanceLoaded] = useState(false);
+  const [financeMeta, setFinanceMeta] = useState<{
+    stale?: boolean;
+    missing?: string[];
+    warnings?: string[];
+  }>({});
 
   const [commuteConfig, setCommuteConfig] = useState<CommuteConfig>(() =>
     loadLS<CommuteConfig>(LS_COMMUTE_CONFIG, {
@@ -720,6 +730,35 @@ export default function Home() {
       return null;
     }
   }, []);
+
+  const fetchFinanceData = useCallback(async (force = false): Promise<boolean> => {
+    setFinanceBusy(true);
+    try {
+      const res = await fetch(`/api/finance${force ? "?refresh=1" : ""}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = (await res.json()) as FinanceApiResponse;
+      setFinanceData(data.finance);
+      setFinanceMeta({
+        stale: data.stale,
+        missing: data.missing,
+        warnings: data.warnings,
+      });
+      return data.success;
+    } catch (err) {
+      console.warn("[coffeeTide] Finance fetch failed:", err);
+      setFinanceMeta({ warnings: ["환율·금리 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요."] });
+      return false;
+    } finally {
+      setFinanceLoaded(true);
+      setFinanceBusy(false);
+    }
+  }, []);
+
+  const toggleFinanceWidget = useCallback(() => {
+    const willOpen = activeWidget !== "finance";
+    setActiveWidget(willOpen ? "finance" : null);
+    if (willOpen && !financeLoaded && !financeBusy) void fetchFinanceData();
+  }, [activeWidget, financeBusy, financeLoaded, fetchFinanceData]);
 
   const enableWeatherLocation = useCallback(() => {
     if (typeof window === "undefined" || !("geolocation" in navigator)) {
@@ -2099,6 +2138,9 @@ export default function Home() {
           <p className={styles.landingHint}>
             Google 로그인은 CoffeeTide 화면에서 안전하게 처리돼요. Gmail·Calendar·Drive는 입장 후 별도로 연결할 수 있어요.
           </p>
+          <p className={styles.landingPrivacy}>
+            로그인 전에 계정 정보 처리에 관한 <a href="/privacy">개인정보처리방침</a>을 확인해 주세요.
+          </p>
         </div>
       </main>
     );
@@ -2307,6 +2349,15 @@ export default function Home() {
             <span>🌤️</span>
             <span>실시간 날씨</span>
           </button>
+          <button
+            type="button"
+            className={`${styles.widgetChip} ${activeWidget === "finance" ? styles.widgetChipActive : ""}`}
+            onClick={toggleFinanceWidget}
+            title="공식 환율 및 한국은행 기준금리 열기/닫기"
+          >
+            <span>💱</span>
+            <span>환율·금리</span>
+          </button>
           {commuteConfig.enabled && (
             <button
               type="button"
@@ -2387,6 +2438,26 @@ export default function Home() {
                   } else {
                     showToast("날씨 정보를 갱신하지 못했어요. 잠시 후 다시 시도해 주세요.");
                   }
+                });
+              }}
+            />
+          </div>
+        )}
+        {activeWidget === "finance" && (
+          <div className={styles.widgetPanel}>
+            <FinanceWidget
+              finance={financeData}
+              loading={financeBusy}
+              stale={financeMeta.stale}
+              missing={financeMeta.missing}
+              warnings={financeMeta.warnings}
+              onRefresh={() => {
+                void fetchFinanceData(true).then((success) => {
+                  showToast(
+                    success
+                      ? "환율·금리 정보가 갱신되었습니다 💱"
+                      : "환율·금리 정보를 확인하지 못했어요. API 설정을 확인해 주세요."
+                  );
                 });
               }}
             />
@@ -2762,6 +2833,16 @@ export default function Home() {
             setAuthUserEmail(undefined);
             cloudHydratedRef.current = false;
             setPhase("landing");
+          }}
+          accountEmail={authUserEmail}
+          onDeleteAccount={async () => {
+            const response = await fetch("/api/account", { method: "DELETE" });
+            const result = (await response.json().catch(() => ({}))) as { error?: string };
+            if (!response.ok) throw new Error(result.error || "계정을 삭제하지 못했습니다.");
+            await createBrowserSupabaseClient().auth.signOut({ scope: "local" }).catch(() => undefined);
+            setAuthUserEmail(undefined);
+            cloudHydratedRef.current = false;
+            window.location.replace("/");
           }}
           rules={rules}
           onChangeRules={setRules}

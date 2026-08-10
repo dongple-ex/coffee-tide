@@ -9,6 +9,10 @@ import styles from "../../page.module.css";
 interface Props {
   connections: ConnectionState | null;
   errors: MailsResponse["errors"];
+  driveBackupEnabled: boolean;
+  onChangeDriveBackupEnabled: (enabled: boolean) => void;
+  sparkEnabled: boolean;
+  onChangeSparkEnabled: (enabled: boolean) => void;
   /** File System Access API 지원 여부 (Chrome/Edge) */
   fsaSupported: boolean;
   browserObsidian?: BrowserFolderInfo;
@@ -32,6 +36,10 @@ interface Props {
 export function ConnectionsSection({
   connections,
   errors,
+  driveBackupEnabled,
+  onChangeDriveBackupEnabled,
+  sparkEnabled,
+  onChangeSparkEnabled,
   fsaSupported,
   browserObsidian,
   browserDocs,
@@ -137,6 +145,39 @@ export function ConnectionsSection({
               연동하기
             </a>
           )}
+          <div className={styles.googleConnectionSettings}>
+            <div className={styles.googleConnectionSettingsTitle}>Google 연동 기능</div>
+            <div className={styles.settingToggleList}>
+              <label className={styles.settingToggleRow}>
+                <div className={styles.settingToggleCopy}>
+                  <span className={styles.settingToggleTitle}>
+                    📁 Drive 일자별 마크다운 백업
+                  </span>
+                  <div className={styles.settingToggleDesc}>
+                    `CoffeeTide/YYYY-MM-DD/` 폴더에 회의록과 메모 원문을 자동 동기화합니다.
+                  </div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={driveBackupEnabled}
+                  onChange={(event) => onChangeDriveBackupEnabled(event.target.checked)}
+                />
+              </label>
+              <label className={styles.settingToggleRow}>
+                <div className={styles.settingToggleCopy}>
+                  <span className={styles.settingToggleTitle}>⚡ Gemini Spark 브리핑 자동 수신</span>
+                  <div className={styles.settingToggleDesc}>
+                    Spark가 분석한 메일·일정·승인 결과를 AI 바리스타 브리핑으로 수신합니다.
+                  </div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={sparkEnabled}
+                  onChange={(event) => onChangeSparkEnabled(event.target.checked)}
+                />
+              </label>
+            </div>
+          </div>
         </div>
 
         <div className={styles.connCard}>

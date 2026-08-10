@@ -2,7 +2,12 @@
 
 import { randomBytes } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { readSession, unauthorized, writeSession } from "@/lib/auth/cookies";
+import { unauthorized } from "@/lib/auth/cookies";
+import {
+  deleteIntegrationForCurrentUser,
+  readSessionWithIntegrations,
+  writeSessionForCurrentUser,
+} from "@/lib/auth/integrationStore";
 import { buildOutlookAuthUrl, isOutlookConfigured } from "@/lib/auth/msal";
 import { OAUTH_STATE_COOKIE } from "@/lib/auth/session";
 
@@ -26,12 +31,13 @@ export async function GET(request: NextRequest) {
 }
 
 export async function DELETE() {
-  const session = await readSession();
+  const session = await readSessionWithIntegrations();
   if (!session) return unauthorized();
+  await deleteIntegrationForCurrentUser("outlook");
   const next = { ...session };
   delete next.outlookToken;
   delete next.outlookRefreshToken;
   delete next.outlookTokenExpiry;
   delete next.outlookEmail;
-  return writeSession(NextResponse.json({ success: true }), next);
+  return writeSessionForCurrentUser(NextResponse.json({ success: true }), next);
 }

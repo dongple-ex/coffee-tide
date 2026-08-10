@@ -96,3 +96,17 @@ export function refreshGoogleToken(refreshToken: string): Promise<GoogleTokens> 
     })
   );
 }
+
+export async function revokeGoogleToken(token: string): Promise<boolean> {
+  try {
+    const response = await fetch("https://oauth2.googleapis.com/revoke", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ token }),
+    });
+    return response.ok;
+  } catch (error) {
+    console.warn("[coffeeTide] Google 토큰 폐기 요청 실패", error);
+    return false;
+  }
+}

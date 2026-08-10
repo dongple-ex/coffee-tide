@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { readSession, unauthorized, writeSession } from "@/lib/auth/cookies";
+import { readSession, unauthorized } from "@/lib/auth/cookies";
+import {
+  migrateLegacyIntegrations,
+  writeSessionForCurrentUser,
+} from "@/lib/auth/integrationStore";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export async function POST() {
@@ -20,9 +24,15 @@ export async function POST() {
   }
 
   const current = await readSession();
-  return writeSession(NextResponse.json({ success: true, email: user.email }), {
+  const next = {
     ...current,
     userEmail: user.email,
     createdAt: current?.createdAt ?? new Date().toISOString(),
-  });
+  };
+  const migrationReady = current ? await migrateLegacyIntegrations(next) : true;
+  return writeSessionForCurrentUser(
+    NextResponse.json({ success: true, email: user.email }),
+    next,
+    !migrationReady
+  );
 }

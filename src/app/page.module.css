@@ -1327,6 +1327,59 @@
   gap: 8px;
 }
 
+.settingToggleList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 0.82rem;
+}
+
+.settingToggleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.settingToggleRow + .settingToggleRow {
+  border-top: 1px dashed var(--border);
+  padding-top: 9px;
+}
+
+.settingToggleCopy {
+  min-width: 0;
+}
+
+.settingToggleTitle {
+  font-weight: 600;
+}
+
+.settingToggleDesc {
+  margin-top: 3px;
+  color: var(--text-dim);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.settingToggleRow input[type="checkbox"] {
+  flex-shrink: 0;
+}
+
+.googleConnectionSettings {
+  margin-top: 2px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.googleConnectionSettingsTitle {
+  margin-bottom: 9px;
+  color: var(--text-dim);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
 .connHead {
   display: flex;
   align-items: center;
@@ -1695,6 +1748,28 @@
   justify-content: center;
 }
 
+.googleRedirectLoginButton {
+  border: 0;
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 0.76rem;
+  line-height: 1.4;
+  padding: 3px 6px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.googleRedirectLoginButton:hover:not(:disabled) {
+  color: var(--accent);
+}
+
+.googleRedirectLoginButton:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
 .googleIdentityBusy {
   pointer-events: none;
 }
@@ -1753,6 +1828,42 @@
   margin-top: 18px;
   font-size: 0.76rem;
   color: var(--text-dim);
+}
+
+.landingPrivacy {
+  margin: 8px 0 0;
+  color: var(--text-dim);
+  font-size: 0.72rem;
+  line-height: 1.55;
+}
+
+.landingPrivacy a {
+  color: var(--accent);
+  text-underline-offset: 2px;
+}
+
+.accountManagementCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 20px 0 8px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card);
+}
+
+.accountManagementCard a {
+  color: var(--accent);
+  text-underline-offset: 2px;
+}
+
+@media (max-width: 560px) {
+  .accountManagementCard {
+    align-items: stretch;
+    flex-direction: column;
+  }
 }
 
 /* ── 밝은 테마(라이트·메가커피) 배지 색 보정 (어두운 배경 전제 색들을 진하게) ── */

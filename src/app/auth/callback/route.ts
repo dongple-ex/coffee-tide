@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { writeSession } from "@/lib/auth/cookies";
+import { writeSessionForCurrentUser } from "@/lib/auth/integrationStore";
 
 function safeNextPath(value: string | null): string {
   return value?.startsWith("/") && !value.startsWith("//") ? value : "/";
@@ -46,7 +46,7 @@ export async function GET(request: Request) {
   const response = NextResponse.redirect(`${redirectOrigin}${next}`);
 
   // Existing Gmail/Outlook integrations still use the encrypted coffeeTide session.
-  return writeSession(response, {
+  return writeSessionForCurrentUser(response, {
     userEmail: user.email,
     createdAt: new Date().toISOString(),
   });

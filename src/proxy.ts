@@ -8,6 +8,7 @@ import { getSupabasePublicConfig } from "@/lib/supabase/config";
 
 const PUBLIC_PATHS = [
   "/",
+  "/privacy",
   "/sw.js", // Service Worker (웹 푸시)
   "/icon.svg", // 파비콘 (세션 없는 첫 방문에서도 로드)
   "/manifest.webmanifest", // PWA 매니페스트 (설치 시 세션 없이 로드)

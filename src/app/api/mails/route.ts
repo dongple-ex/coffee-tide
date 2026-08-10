@@ -9,7 +9,12 @@ import { buildFetchers, connectionState, isMockMode } from "@/lib/adapters/facto
 import { AuthExpiredError } from "@/lib/adapters/outlook";
 import { ObsidianAdapter } from "@/lib/adapters/obsidian";
 import { classifyTasks } from "@/lib/ai/gemini";
-import { readSession, touchSession, unauthorized } from "@/lib/auth/cookies";
+import { unauthorized } from "@/lib/auth/cookies";
+import {
+  persistRefreshedIntegration,
+  readSessionWithIntegrations,
+  writeSessionForCurrentUser,
+} from "@/lib/auth/integrationStore";
 import { isWithinCollectWindow } from "@/lib/collectWindow";
 import { REFRESH_WINDOW_MS, refreshChannel } from "@/lib/auth/refresh";
 import { SessionData } from "@/lib/auth/session";
@@ -18,8 +23,9 @@ import { UnifiedData } from "@/lib/types/unified";
 type Channel = "outlook" | "google" | "notion" | "obsidian" | "local_doc" | "llm";
 
 export async function GET(request: NextRequest) {
-  let session = await readSession();
+  let session = await readSessionWithIntegrations();
   if (!session) return unauthorized();
+  const refreshedProviders = new Set<"google" | "outlook">();
 
   const limitParam = request.nextUrl.searchParams.get("limit");
   const fetchLimit = limitParam ? Number(limitParam) : 20;
@@ -35,6 +41,7 @@ export async function GET(request: NextRequest) {
         const refreshed = await refreshChannel(channel, session);
         if (refreshed) {
           session = refreshed;
+          refreshedProviders.add(channel);
         }
       }
     }
@@ -77,6 +84,7 @@ export async function GET(request: NextRequest) {
                     googleRefreshToken: refreshed.googleRefreshToken,
                     googleTokenExpiry: refreshed.googleTokenExpiry,
                   };
+            refreshedProviders.add(channel);
             try {
               return await collect(channel, refreshed);
             } catch {
@@ -126,5 +134,11 @@ export async function GET(request: NextRequest) {
     errors: Object.keys(errors).length > 0 ? errors : undefined,
     ai_error: merged.length > 0 && !aiUsed ? true : undefined,
   });
-  return touchSession(res, session);
+  let preserveIntegrations = false;
+  for (const provider of refreshedProviders) {
+    if (!(await persistRefreshedIntegration(provider, session))) {
+      preserveIntegrations = true;
+    }
+  }
+  return writeSessionForCurrentUser(res, session, preserveIntegrations);
 }

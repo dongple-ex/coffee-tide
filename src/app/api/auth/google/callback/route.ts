@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readSession, writeSession } from "@/lib/auth/cookies";
 import { exchangeGoogleCode } from "@/lib/auth/google";
+import {
+  storeIntegrationForCurrentUser,
+  writeSessionForCurrentUser,
+} from "@/lib/auth/integrationStore";
 import { OAUTH_STATE_COOKIE } from "@/lib/auth/session";
 
 export async function GET(request: NextRequest) {
@@ -23,13 +27,20 @@ export async function GET(request: NextRequest) {
 
   try {
     const tokens = await exchangeGoogleCode(code);
-    return writeSession(home, {
+    const next = {
       ...session,
       googleToken: tokens.accessToken,
       googleRefreshToken: tokens.refreshToken,
       googleTokenExpiry: tokens.expiresAt,
       googleEmail: tokens.email,
+    };
+    const stored = await storeIntegrationForCurrentUser("google", {
+      googleToken: tokens.accessToken,
+      googleRefreshToken: tokens.refreshToken,
+      googleTokenExpiry: tokens.expiresAt,
+      googleEmail: tokens.email,
     });
+    return stored ? writeSessionForCurrentUser(home, next) : writeSession(home, next);
   } catch (err) {
     console.error("[coffeeTide] Google 토큰 교환 실패", err);
     return NextResponse.redirect(new URL("/?error=google_token", request.url));

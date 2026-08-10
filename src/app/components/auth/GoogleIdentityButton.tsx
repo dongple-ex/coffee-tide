@@ -73,6 +73,25 @@ export function GoogleIdentityButton({
   const buttonRef = useRef<HTMLDivElement>(null);
   const generationRef = useRef(0);
 
+  async function startRedirectSignIn() {
+    onBusyChange(true);
+    onError("");
+    try {
+      const supabase = createBrowserSupabaseClient();
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+          queryParams: { prompt: "select_account" },
+        },
+      });
+      if (error) throw error;
+    } catch (error) {
+      onError(error instanceof Error ? error.message : "Google 리디렉션 로그인에 실패했습니다.");
+      onBusyChange(false);
+    }
+  }
+
   async function renderGoogleButton() {
     const googleId = window.google?.accounts.id;
     const parent = buttonRef.current;
@@ -144,6 +163,14 @@ export function GoogleIdentityButton({
         onError={() => onError("Google 로그인 스크립트를 불러오지 못했습니다.")}
       />
       <div ref={buttonRef} className={styles.googleIdentityButton} aria-label="Google 계정으로 계속" />
+      <button
+        type="button"
+        className={styles.googleRedirectLoginButton}
+        onClick={() => void startRedirectSignIn()}
+        disabled={busy}
+      >
+        모바일에서 Google 로그인
+      </button>
       {busy && <span className={styles.googleIdentityBusyText}>로그인 처리 중…</span>}
     </div>
   );

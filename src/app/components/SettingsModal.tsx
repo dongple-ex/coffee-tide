@@ -1,6 +1,6 @@
 "use client";
 
-import React, { RefObject } from "react";
+import React, { RefObject, useState } from "react";
 import { AutomationRule } from "@/lib/automation/rules";
 import { AppShortcut } from "@/lib/types/appShortcut";
 import { CommuteConfig } from "@/lib/types/commute";
@@ -21,6 +21,8 @@ export interface SettingsModalProps {
   connPanelRef: RefObject<HTMLDivElement | null>;
   onClose: () => void;
   onSignout: () => void;
+  accountEmail?: string;
+  onDeleteAccount: () => Promise<void>;
   copilotConfig: CopilotUserConfig;
   onChangeCopilotConfig: (next: CopilotUserConfig) => void;
   rules: AutomationRule[];
@@ -76,6 +78,8 @@ export function SettingsModal({
   connPanelRef,
   onClose,
   onSignout,
+  accountEmail,
+  onDeleteAccount,
   copilotConfig,
   onChangeCopilotConfig,
   rules,
@@ -126,6 +130,24 @@ export function SettingsModal({
   onRegrantBrowserFolders,
   onPickFolder,
 }: SettingsModalProps) {
+  const [accountDeleteBusy, setAccountDeleteBusy] = useState(false);
+
+  async function confirmAccountDeletion() {
+    if (!accountEmail || accountDeleteBusy) return;
+    const confirmation = window.prompt(
+      `계정과 서버 데이터를 영구 삭제합니다. 계속하려면 "계정 삭제"를 입력하세요.\n\n대상: ${accountEmail}`
+    );
+    if (confirmation !== "계정 삭제") return;
+    setAccountDeleteBusy(true);
+    try {
+      await onDeleteAccount();
+    } catch (error) {
+      onNotify(error instanceof Error ? error.message : "계정을 삭제하지 못했습니다.");
+    } finally {
+      setAccountDeleteBusy(false);
+    }
+  }
+
   return (
     <div className={`${styles.overlay} ${styles.overlayTop}`} onClick={onClose}>
       <div
@@ -219,16 +241,16 @@ export function SettingsModal({
           onNotify={onNotify}
         />
 
-        {/* 📄 회의록/메모 원문 보관 및 Google Drive 백업 설정 */}
+        {/* PC 로컬 원문 보관 — Google 연동 기능은 아래 Google 카드에서 관리 */}
         <div className={styles.card} style={{ marginBottom: 16 }}>
           <div className={styles.cardTitle} style={{ fontSize: "0.9rem", marginBottom: 12 }}>
-            📄 회의록/메모 원문 보관 및 Google Drive 백업 설정
+            📄 회의록/메모 원문 보관
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12, fontSize: "0.82rem" }}>
-            <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer" }}>
-              <div>
-                <span style={{ fontWeight: 600 }}>💾 PC 대용량 스토리지(IndexedDB) 원문 보관</span>
-                <div style={{ fontSize: "0.74rem", color: "var(--text-dim)", marginTop: 2 }}>
+          <div className={styles.settingToggleList}>
+            <label className={styles.settingToggleRow}>
+              <div className={styles.settingToggleCopy}>
+                <span className={styles.settingToggleTitle}>💾 PC 대용량 스토리지(IndexedDB) 원문 보관</span>
+                <div className={styles.settingToggleDesc}>
                   붙여넣은 메모/회의록 원문 텍스트 전체를 PC 내 대용량 저장소에 무제한 보관합니다.
                 </div>
               </div>
@@ -238,56 +260,16 @@ export function SettingsModal({
                 onChange={(e) => onChangeRawEnabled(e.target.checked)}
               />
             </label>
-            <label
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                cursor: "pointer",
-                paddingTop: 8,
-                borderTop: "1px dashed var(--border)",
-              }}
-            >
-              <div>
-                <span style={{ fontWeight: 600 }}>📁 Google Drive 일자별 (`CoffeeTide/YYYY-MM-DD/`) 마크다운 백업</span>
-                <div style={{ fontSize: "0.74rem", color: "var(--text-dim)", marginTop: 2 }}>
-                  구글 로그인 상태 시 Google Drive의 일자별 폴더에 원문을 마크다운 파일로 자동 동기화합니다.
-                </div>
-              </div>
-              <input
-                type="checkbox"
-                checked={driveBackupEnabled}
-                onChange={(e) => onChangeDriveBackupEnabled(e.target.checked)}
-              />
-            </label>
-            <label
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                cursor: "pointer",
-                paddingTop: 8,
-                borderTop: "1px dashed var(--border)",
-              }}
-            >
-              <div>
-                <span style={{ fontWeight: 600 }}>⚡ Gemini Spark 24시간 클라우드 브리핑 자동 수신</span>
-                <div style={{ fontSize: "0.74rem", color: "var(--text-dim)", marginTop: 2 }}>
-                  Google 클라우드에서 자율 실행된 Gemini Spark 브리핑(메일/일정/승인건)을 메인 업무 항목 및 AI 바리스타 답변으로 수신합니다.
-                </div>
-              </div>
-              <input
-                type="checkbox"
-                checked={sparkEnabled}
-                onChange={(e) => onChangeSparkEnabled(e.target.checked)}
-              />
-            </label>
           </div>
         </div>
 
         <ConnectionsSection
           connections={connections}
           errors={errors}
+          driveBackupEnabled={driveBackupEnabled}
+          onChangeDriveBackupEnabled={onChangeDriveBackupEnabled}
+          sparkEnabled={sparkEnabled}
+          onChangeSparkEnabled={onChangeSparkEnabled}
           fsaSupported={fsaSupported}
           browserObsidian={browserObsidian}
           browserDocs={browserDocs}
@@ -303,6 +285,27 @@ export function SettingsModal({
           onRegrantBrowserFolders={onRegrantBrowserFolders}
           onPickFolder={onPickFolder}
         />
+
+        <div className={styles.accountManagementCard}>
+          <div>
+            <div className={styles.cardTitle} style={{ marginBottom: 6 }}>
+              🔐 계정 및 개인정보
+            </div>
+            <p className={styles.connNote}>
+              저장 항목과 보유 기간은 <a href="/privacy">개인정보처리방침</a>에서 확인할 수 있어요.
+            </p>
+          </div>
+          {accountEmail && (
+            <button
+              type="button"
+              className={`${styles.btn} ${styles.btnDanger}`}
+              onClick={() => void confirmAccountDeletion()}
+              disabled={accountDeleteBusy}
+            >
+              {accountDeleteBusy ? "계정 삭제 중…" : "계정 및 서버 데이터 삭제"}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

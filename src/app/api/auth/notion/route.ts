@@ -1,10 +1,16 @@
 // Notion 연동 — 토큰+DB ID 수동 입력 (phase3 Step 2). 미입력 시 .env 기본값 허용.
 
 import { NextRequest, NextResponse } from "next/server";
-import { readSession, unauthorized, writeSession } from "@/lib/auth/cookies";
+import { unauthorized, writeSession } from "@/lib/auth/cookies";
+import {
+  deleteIntegrationForCurrentUser,
+  readSessionWithIntegrations,
+  storeIntegrationForCurrentUser,
+  writeSessionForCurrentUser,
+} from "@/lib/auth/integrationStore";
 
 export async function POST(request: NextRequest) {
-  const session = await readSession();
+  const session = await readSessionWithIntegrations();
   if (!session) return unauthorized();
 
   const body = (await request.json().catch(() => ({}))) as {
@@ -15,6 +21,7 @@ export async function POST(request: NextRequest) {
 
   const next = { ...session };
   if (body.action === "disconnect") {
+    await deleteIntegrationForCurrentUser("notion");
     delete next.notionToken;
     delete next.notionDbId;
   } else {
@@ -28,7 +35,12 @@ export async function POST(request: NextRequest) {
     }
     next.notionToken = token;
     next.notionDbId = dbId;
+    const stored = await storeIntegrationForCurrentUser("notion", {
+      notionToken: token,
+      notionDbId: dbId,
+    });
+    if (!stored) return writeSession(NextResponse.json({ success: true }), next);
   }
 
-  return writeSession(NextResponse.json({ success: true }), next);
+  return writeSessionForCurrentUser(NextResponse.json({ success: true }), next);
 }

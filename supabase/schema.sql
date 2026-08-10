@@ -71,6 +71,17 @@ CREATE TABLE IF NOT EXISTS public.spark_briefings (
   UNIQUE (user_id, external_id)
 );
 
+-- 외부 서비스 OAuth/Integration 자격정보. 값은 애플리케이션 서버에서 AES-256-GCM으로
+-- 암호화한 뒤 저장하며 service-role 서버에서만 접근한다.
+CREATE TABLE IF NOT EXISTS public.user_integrations (
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  provider TEXT NOT NULL CHECK (provider IN ('google', 'outlook', 'notion')),
+  credentials_ciphertext TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
+  PRIMARY KEY (user_id, provider)
+);
+
 CREATE INDEX IF NOT EXISTS spark_briefings_user_received_idx
   ON public.spark_briefings (user_id, received_at DESC);
 
@@ -79,6 +90,7 @@ ALTER TABLE public.unified_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_widgets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_rules ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.spark_briefings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_integrations ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Users can view own profile" ON public.user_profiles;
 DROP POLICY IF EXISTS "Users can insert own profile" ON public.user_profiles;
@@ -138,3 +150,6 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.unified_items TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.user_widgets TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.user_rules TO authenticated;
 GRANT SELECT ON public.spark_briefings TO authenticated;
+
+-- user_integrations는 클라이언트 접근 정책을 만들지 않는다. service-role 서버만 사용한다.
+REVOKE ALL ON public.user_integrations FROM anon, authenticated;

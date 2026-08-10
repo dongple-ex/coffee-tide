@@ -1,7 +1,12 @@
 import { randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
-import { readSession, unauthorized, writeSession } from "@/lib/auth/cookies";
-import { buildGoogleAuthUrl, isGoogleConfigured } from "@/lib/auth/google";
+import { unauthorized } from "@/lib/auth/cookies";
+import {
+  deleteIntegrationForCurrentUser,
+  readSessionWithIntegrations,
+  writeSessionForCurrentUser,
+} from "@/lib/auth/integrationStore";
+import { buildGoogleAuthUrl, isGoogleConfigured, revokeGoogleToken } from "@/lib/auth/google";
 import { OAUTH_STATE_COOKIE } from "@/lib/auth/session";
 
 export async function GET() {
@@ -23,12 +28,15 @@ export async function GET() {
 }
 
 export async function DELETE() {
-  const session = await readSession();
+  const session = await readSessionWithIntegrations();
   if (!session) return unauthorized();
+  const revokeToken = session.googleRefreshToken || session.googleToken;
+  if (revokeToken) await revokeGoogleToken(revokeToken);
+  await deleteIntegrationForCurrentUser("google");
   const next = { ...session };
   delete next.googleToken;
   delete next.googleRefreshToken;
   delete next.googleTokenExpiry;
   delete next.googleEmail;
-  return writeSession(NextResponse.json({ success: true }), next);
+  return writeSessionForCurrentUser(NextResponse.json({ success: true }), next);
 }

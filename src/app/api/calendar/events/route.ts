@@ -3,14 +3,20 @@ import {
   GoogleCalendarAdapter,
   GoogleCalendarApiError,
 } from "@/lib/adapters/googleCalendar";
-import { readSession, touchSession, unauthorized } from "@/lib/auth/cookies";
+import { unauthorized } from "@/lib/auth/cookies";
+import {
+  persistRefreshedIntegration,
+  readSessionWithIntegrations,
+  writeSessionForCurrentUser,
+} from "@/lib/auth/integrationStore";
 import { refreshChannel, REFRESH_WINDOW_MS } from "@/lib/auth/refresh";
 import { normalizeCalendarEventDraft } from "@/lib/calendar/types";
 
 export async function POST(request: Request) {
-  const existingSession = await readSession();
+  const existingSession = await readSessionWithIntegrations();
   if (!existingSession) return unauthorized();
   let session = existingSession;
+  let sessionChanged = false;
 
   const body = (await request.json().catch(() => ({}))) as { draft?: unknown };
   const draft = normalizeCalendarEventDraft(body.draft);
@@ -29,7 +35,11 @@ export async function POST(request: Request) {
     session.googleTokenExpiry &&
     session.googleTokenExpiry - Date.now() < REFRESH_WINDOW_MS
   ) {
-    session = (await refreshChannel("google", session)) ?? session;
+    const refreshed = await refreshChannel("google", session);
+    if (refreshed) {
+      session = refreshed;
+      sessionChanged = true;
+    }
   }
 
   const create = () => new GoogleCalendarAdapter(session.googleToken!).createEvent(draft);
@@ -43,18 +53,20 @@ export async function POST(request: Request) {
       const refreshed = await refreshChannel("google", session);
       if (!refreshed?.googleToken) throw error;
       session = refreshed;
+      sessionChanged = true;
       event = await create();
     }
 
-    return touchSession(
-      NextResponse.json({
+    const response = NextResponse.json({
         success: true,
         eventId: event.id,
         eventUrl: event.htmlLink,
         title: event.summary ?? draft.title,
-      }),
-      session
-    );
+      });
+    const persisted = sessionChanged
+      ? await persistRefreshedIntegration("google", session)
+      : true;
+    return writeSessionForCurrentUser(response, session, !persisted);
   } catch (error) {
     console.error("[POST /api/calendar/events] Google Calendar 등록 실패", error);
     if (error instanceof GoogleCalendarApiError) {

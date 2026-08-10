@@ -1,0 +1,358 @@
+.container {
+  width: min(100%, 620px);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.header,
+.cardHeader,
+.rateRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.title {
+  color: var(--text);
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.subtitle,
+.baseDate,
+.source {
+  color: var(--text-dim);
+  font-size: 0.7rem;
+}
+
+.subtitle {
+  margin-top: 2px;
+}
+
+.refreshBtn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  border-radius: 7px;
+  padding: 4px 9px;
+  font-size: 0.74rem;
+  cursor: pointer;
+}
+
+.refreshBtn:hover:not(:disabled) {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.refreshBtn:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(180px, 0.75fr);
+  gap: 10px;
+}
+
+.card {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.1);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cardHeader {
+  color: var(--text);
+  font-size: 0.8rem;
+  font-weight: 750;
+}
+
+.rateList {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.rateRow {
+  gap: 10px;
+  color: var(--text);
+}
+
+.rateRow > div:first-child {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.rateRow strong {
+  min-width: 30px;
+  color: var(--accent);
+  font-size: 0.82rem;
+}
+
+.rateRow span {
+  color: var(--text-dim);
+  font-size: 0.7rem;
+}
+
+.rateValue {
+  white-space: nowrap;
+  font-size: 0.88rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.rateValue small {
+  color: var(--text-dim);
+  font-size: 0.66rem;
+  font-weight: 500;
+}
+
+.interestBody {
+  min-height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  text-align: center;
+}
+
+.interestBody span {
+  color: var(--text-dim);
+  font-size: 0.72rem;
+}
+
+.interestBody strong {
+  color: var(--accent);
+  font-size: 1.8rem;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+
+.interestBody small {
+  color: var(--text-dim);
+  font-size: 0.66rem;
+}
+
+.rateChangeSummary {
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  padding: 8px 9px;
+}
+
+.rateChangeSummary > span {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--text-dim);
+  font-size: 0.64rem;
+}
+
+.rateChangeSummary > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 7px;
+}
+
+.rateChangeSummary strong,
+.rateChangeSummary em {
+  font-size: 0.69rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.rateChangeSummary strong {
+  color: var(--text);
+}
+
+.rateChangeSummary em {
+  font-style: normal;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.rateChangeUp {
+  color: #dc2626;
+}
+
+.rateChangeDown {
+  color: #2563eb;
+}
+
+.trendSection {
+  border-top: 1px dashed var(--border);
+  padding-top: 9px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.trendHeader,
+.chartValue,
+.chartDates {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.trendHeader > span {
+  color: var(--text-dim);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.currencyTabs {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px;
+  border-radius: 7px;
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.currencyTab,
+.currencyTabActive {
+  border: 0;
+  border-radius: 5px;
+  padding: 3px 6px;
+  color: var(--text-dim);
+  background: transparent;
+  font-size: 0.62rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.currencyTab:hover,
+.currencyTabActive {
+  color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.chartWrap {
+  min-width: 0;
+}
+
+.chartValue {
+  gap: 8px;
+  margin-bottom: 2px;
+  color: var(--text-dim);
+  font-size: 0.62rem;
+}
+
+.chartValue strong {
+  color: var(--text);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.chart {
+  display: block;
+  width: 100%;
+  height: 126px;
+  overflow: visible;
+}
+
+.chartGrid {
+  stroke: color-mix(in srgb, var(--border) 75%, transparent);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.chartArea {
+  fill: color-mix(in srgb, var(--accent) 13%, transparent);
+}
+
+.chartLine {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.chartPoint {
+  fill: var(--surface);
+  stroke: var(--accent);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.chartDates {
+  margin-top: -16px;
+  color: var(--text-dim);
+  font-size: 0.58rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.chartMonths {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  margin: -16px 2px 0;
+  color: var(--text-dim);
+  font-size: 0.5rem;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.chartEmpty {
+  min-height: 72px;
+  display: grid;
+  place-items: center;
+  color: var(--text-dim);
+  font-size: 0.68rem;
+}
+
+.source {
+  border-top: 1px dashed var(--border);
+  padding-top: 8px;
+}
+
+.loading,
+.empty,
+.notice,
+.warning {
+  border-radius: 9px;
+  padding: 9px 10px;
+  font-size: 0.74rem;
+  line-height: 1.45;
+}
+
+.loading,
+.empty {
+  color: var(--text-dim);
+  text-align: center;
+}
+
+.notice {
+  color: var(--text);
+  background: var(--accent-dim);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.warning {
+  color: #b45309;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+}
+
+@media (max-width: 520px) {
+  .container {
+    padding: 13px;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -5,11 +5,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { isMockMode } from "@/lib/adapters/factory";
 import { AuthExpiredError, OutlookAdapter } from "@/lib/adapters/outlook";
 import { generateReplyDraft } from "@/lib/ai/gemini";
-import { readSession, unauthorized, writeSession } from "@/lib/auth/cookies";
+import { unauthorized } from "@/lib/auth/cookies";
+import {
+  persistRefreshedIntegration,
+  readSessionWithIntegrations,
+  writeSessionForCurrentUser,
+} from "@/lib/auth/integrationStore";
 import { REFRESH_WINDOW_MS, refreshChannel } from "@/lib/auth/refresh";
 
 export async function POST(request: NextRequest) {
-  let session = await readSession();
+  let session = await readSessionWithIntegrations();
   if (!session) return unauthorized();
 
   const body = (await request.json().catch(() => ({}))) as {
@@ -68,7 +73,9 @@ export async function POST(request: NextRequest) {
       message: "답장 초안을 Outlook 임시보관함에 넣어뒀어요. 검토 후 전송만 눌러주세요!",
       draftText,
     });
-    return sessionChanged ? writeSession(res, session) : res;
+    if (!sessionChanged) return res;
+    const persisted = await persistRefreshedIntegration("outlook", session);
+    return writeSessionForCurrentUser(res, session, !persisted);
   } catch (err) {
     // 원칙 4(부분 실패 허용): Graph 저장이 안 돼도 초안 텍스트는 전달한다
     const reason =
@@ -78,6 +85,8 @@ export async function POST(request: NextRequest) {
           ? err.message
           : "앗, 임시보관함에 넣다 놓쳤어요. 초안은 아래 있어요!";
     const res = NextResponse.json({ success: true, message: reason, draftText });
-    return sessionChanged ? writeSession(res, session) : res;
+    if (!sessionChanged) return res;
+    const persisted = await persistRefreshedIntegration("outlook", session);
+    return writeSessionForCurrentUser(res, session, !persisted);
   }
 }

@@ -4,7 +4,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { classifyTasks, extractTasks } from "@/lib/ai/gemini";
-import { readSession, unauthorized } from "@/lib/auth/cookies";
+import { unauthorized } from "@/lib/auth/cookies";
+import { readSessionWithIntegrations } from "@/lib/auth/integrationStore";
 import { UnifiedData } from "@/lib/types/unified";
 
 async function getDriveFolderId(token: string, folderName: string, parentId?: string): Promise<string | null> {
@@ -75,7 +76,7 @@ async function saveToGoogleDriveDaily(token: string, text: string): Promise<{ dr
 }
 
 export async function POST(request: NextRequest) {
-  const session = await readSession();
+  const session = await readSessionWithIntegrations();
   if (!session) return unauthorized();
 
   const body = (await request.json().catch(() => ({}))) as { text?: string };
