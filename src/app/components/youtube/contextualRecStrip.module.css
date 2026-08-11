@@ -55,17 +55,22 @@
   color: var(--text);
 }
 
+/* 스크롤바 없이 2개 카드를 1:1로 꽉 채우는 반응형 그리드 */
 .scrollRow {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
   gap: 12px;
-  overflow-x: auto;
-  padding-bottom: 6px;
-  scrollbar-width: thin;
+  width: 100%;
+}
+
+@media (max-width: 520px) {
+  .scrollRow {
+    grid-template-columns: 1fr;
+  }
 }
 
 .card {
-  min-width: 220px;
-  max-width: 260px;
+  width: 100%;
   background: var(--card-hover);
   border: 1px solid var(--border);
   border-radius: 12px;
