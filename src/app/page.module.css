@@ -1733,19 +1733,105 @@
 
 .googleIdentityWrap {
   position: relative;
-  min-width: 250px;
+  width: min(100%, 320px);
+  min-width: 280px;
+  min-height: 44px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.googleIdentityButton {
+  min-width: 280px;
   min-height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.googleIdentityButton {
-  min-width: 250px;
+.googleRedirectPrimary {
+  width: 100%;
   min-height: 44px;
-  display: flex;
+  display: grid;
+  grid-template-columns: 18px 1fr 18px;
   align-items: center;
-  justify-content: center;
+  gap: 10px;
+  padding: 0 12px;
+  border: 1px solid #747775;
+  border-radius: 4px;
+  background: #fff;
+  color: #1f1f1f;
+  font-family: Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  cursor: pointer;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+
+.googleRedirectPrimary span {
+  grid-column: 2;
+  text-align: center;
+}
+
+.googleRedirectPrimary:hover:not(:disabled) {
+  background: #f8faff;
+  box-shadow: 0 1px 2px rgba(60, 64, 67, 0.18);
+}
+
+.googleRedirectPrimary:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.googleLoginPlaceholder {
+  width: 100%;
+  height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  opacity: 0.55;
+}
+
+.googleCanonicalHint {
+  color: var(--text-dim);
+  font-size: 0.72rem;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.inAppBrowserNotice {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 12px;
+  border: 1px solid #e9a23b;
+  border-radius: 10px;
+  background: rgba(233, 162, 59, 0.12);
+  color: var(--text);
+  font-size: 0.78rem;
+  line-height: 1.5;
+  text-align: left;
+}
+
+.inAppBrowserNotice strong {
+  color: #d98512;
+  font-size: 0.86rem;
+}
+
+.inAppCopyButton {
+  align-self: stretch;
+  min-height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
 }
 
 .googleRedirectLoginButton {
@@ -1778,6 +1864,10 @@
   opacity: 0.25;
 }
 
+.googleIdentityBusy .googleRedirectPrimary {
+  opacity: 0.25;
+}
+
 .googleIdentityBusyText {
   position: absolute;
   inset: 0;
@@ -1790,6 +1880,22 @@
   color: var(--text);
   font-size: 0.86rem;
   font-weight: 700;
+}
+
+@media (max-width: 480px) {
+  .landingActions,
+  .googleIdentityWrap,
+  .landingGuestBtn {
+    width: 100%;
+  }
+
+  .googleIdentityWrap {
+    min-width: 0;
+  }
+
+  .landingGuestBtn {
+    text-align: center;
+  }
 }
 
 .landingGuestBtn {

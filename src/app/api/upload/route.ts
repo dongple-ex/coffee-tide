@@ -10,23 +10,24 @@ import {
 } from "@/lib/auth/integrationStore";
 import { refreshChannel, refreshGoogleIfExpiring } from "@/lib/auth/refresh";
 import { UnifiedData } from "@/lib/types/unified";
-import { extractTextFromDocx } from "@/lib/adapters/docxParser";
+import {
+  isSupportedDocument,
+  MAX_DOCUMENT_UPLOAD_BYTES,
+  SUPPORTED_DOCUMENT_DISPLAY,
+} from "@/lib/documents/formats";
+import {
+  documentPlainText,
+  EmptyDocumentError,
+  parseDocumentFile,
+} from "@/lib/documents/parser";
 
 // manual 항목은 localStorage(약 5MB 한도)에 통째로 저장되므로 크기를 제한한다.
-const MAX_FILE_BYTES = 2 * 1024 * 1024;
-const TEXT_EXTENSIONS = [".txt", ".md", ".markdown", ".csv", ".json", ".log", ".docx"];
 
 // 원칙 4(부분 실패 허용): Drive는 증강 기능 — 어떤 저장 실패도 업로드(일회성 분석) 자체를 막지 않는다
 const DRIVE_SKIP_NOTICE =
   "Drive 저장은 못 했어요 — 일회성 항목으로 등록했어요. 영구 저장은 설정에서 Google을 다시 연동한 뒤 가능해요.";
 const DRIVE_RETRY_NOTICE =
   "Drive 저장은 못 했어요 — 일회성 항목으로 등록했어요. 잠시 후 다시 올려주시면 영구 저장할게요.";
-
-function isSupportedFile(file: File): boolean {
-  if (file.type.startsWith("text/") || file.type === "application/json") return true;
-  const name = file.name.toLowerCase();
-  return TEXT_EXTENSIONS.some((ext) => name.endsWith(ext));
-}
 
 export async function POST(req: NextRequest) {
   try {
@@ -40,25 +41,38 @@ export async function POST(req: NextRequest) {
     if (!(file instanceof File)) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
-    if (file.size > MAX_FILE_BYTES) {
+    if (file.size > MAX_DOCUMENT_UPLOAD_BYTES) {
       return NextResponse.json(
-        { error: "2MB 이하의 문서/텍스트 파일만 받을 수 있어요" },
+        { error: "모바일 데이터와 저장 공간을 위해 2MB 이하 문서만 받을 수 있어요" },
         { status: 413 }
       );
     }
-    if (!isSupportedFile(file)) {
+    if (!isSupportedDocument(file.name, file.type)) {
       return NextResponse.json(
-        { error: "지원 대상 문서(.txt, .md, .docx, .csv, .json 등)만 받을 수 있어요" },
+        { error: `지원 대상 문서만 받을 수 있어요 (${SUPPORTED_DOCUMENT_DISPLAY})` },
         { status: 415 }
       );
     }
 
-    let textContent = "";
-    if (file.name.toLowerCase().endsWith(".docx")) {
-      const ab = await file.arrayBuffer();
-      textContent = await extractTextFromDocx(ab);
-    } else {
-      textContent = await file.text();
+    let textContent: string;
+    let parsedKind: string;
+    try {
+      const parsed = await parseDocumentFile(file);
+      textContent = documentPlainText(parsed);
+      parsedKind = parsed.kind;
+    } catch (error) {
+      if (error instanceof EmptyDocumentError) {
+        return NextResponse.json({ error: error.message }, { status: 422 });
+      }
+      const detail = error instanceof Error ? error.message : String(error);
+      console.warn(`[POST /api/upload] ${file.name} parsing failed:`, detail);
+      return NextResponse.json(
+        {
+          error: "문서를 읽지 못했습니다. 손상되었거나 암호화된 파일인지 확인해 주세요.",
+          detail: process.env.NODE_ENV === "development" ? detail : undefined,
+        },
+        { status: 422 }
+      );
     }
     let sessionChanged = false;
     let driveSaved = false;
@@ -120,6 +134,7 @@ export async function POST(req: NextRequest) {
       doc,
       driveSaved: saveToDrive ? driveSaved : undefined,
       driveNotice,
+      documentMeta: { kind: parsedKind },
     });
     if (!sessionChanged) return res;
     const persisted = await persistRefreshedIntegration("google", session);

@@ -10,3 +10,7 @@ out/
 *.tsbuildinfo
 next-env.d.ts
 scratch/*.log
+
+# Local Tool Broker registrations and trusted local scripts stay outside Git.
+local-tools.registry.json
+.local-tools/

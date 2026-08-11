@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { unauthorized } from "@/lib/auth/cookies";
 import {
   deleteIntegrationForCurrentUser,
@@ -8,8 +8,17 @@ import {
 } from "@/lib/auth/integrationStore";
 import { buildGoogleAuthUrl, isGoogleConfigured, revokeGoogleToken } from "@/lib/auth/google";
 import { OAUTH_STATE_COOKIE } from "@/lib/auth/session";
+import {
+  getAuthSiteOrigin,
+  getGoogleIntegrationCallbackUrl,
+} from "@/lib/auth/siteOrigin";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const currentOrigin = request.nextUrl.origin;
+  const authOrigin = getAuthSiteOrigin(currentOrigin);
+  if (currentOrigin !== authOrigin) {
+    return NextResponse.redirect(new URL("/api/auth/google/signin", authOrigin));
+  }
   if (!isGoogleConfigured()) {
     return NextResponse.json(
       { error: "Google 연동이 서버에 설정되지 않았습니다 (.env의 GOOGLE_* 변수 확인)" },
@@ -17,10 +26,12 @@ export async function GET() {
     );
   }
   const state = randomBytes(16).toString("hex");
-  const res = NextResponse.redirect(buildGoogleAuthUrl(state));
+  const redirectUri = getGoogleIntegrationCallbackUrl(currentOrigin);
+  const res = NextResponse.redirect(buildGoogleAuthUrl(state, redirectUri));
   res.cookies.set(OAUTH_STATE_COOKIE, state, {
     httpOnly: true,
     sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
     path: "/",
     maxAge: 600,
   });

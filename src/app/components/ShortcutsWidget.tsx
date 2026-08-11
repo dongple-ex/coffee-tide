@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useId, useState } from "react";
 import { AppShortcut } from "@/lib/types/appShortcut";
 import {
   GoogleIcon,
@@ -16,6 +16,39 @@ interface ShortcutsWidgetProps {
   shortcuts: AppShortcut[];
   /** 실행 실패 안내 — 앱 전역 토스트로 연결한다 */
   onError?: (message: string) => void;
+  /** 유튜브 번들 위젯으로 전환 */
+  onOpenYouTubeBundle?: () => void;
+}
+
+function YouTubeIcon({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" role="img" aria-label="YouTube">
+      <rect x="1" y="4" width="22" height="16" rx="5" fill="#FF0033" />
+      <path d="m10 8.5 6 3.5-6 3.5z" fill="#FFFFFF" />
+    </svg>
+  );
+}
+
+function isYouTubeShortcut(shortcut: AppShortcut): boolean {
+  const keyword = shortcut.keyword.toLowerCase();
+  if (keyword.includes("유튜브") || keyword.includes("youtube")) return true;
+
+  try {
+    const candidate = shortcut.target.includes("://")
+      ? shortcut.target
+      : `https://${shortcut.target}`;
+    const hostname = new URL(candidate).hostname.toLowerCase();
+    return (
+      hostname === "youtu.be" ||
+      hostname.endsWith(".youtu.be") ||
+      hostname === "youtube.com" ||
+      hostname.endsWith(".youtube.com") ||
+      hostname === "youtube-nocookie.com" ||
+      hostname.endsWith(".youtube-nocookie.com")
+    );
+  } catch {
+    return false;
+  }
 }
 
 function renderShortcutIcon(keyword: string, target: string) {
@@ -43,8 +76,12 @@ function renderShortcutIcon(keyword: string, target: string) {
   return <span style={{ fontSize: "1.1rem" }}>🔗</span>;
 }
 
-export function ShortcutsWidget({ shortcuts, onError }: ShortcutsWidgetProps) {
+export function ShortcutsWidget({ shortcuts, onError, onOpenYouTubeBundle }: ShortcutsWidgetProps) {
   const enabledShortcuts = shortcuts.filter((s) => s.enabled);
+  const youtubeShortcuts = enabledShortcuts.filter(isYouTubeShortcut);
+  const standaloneShortcuts = enabledShortcuts.filter((shortcut) => !isYouTubeShortcut(shortcut));
+  const [youtubeExpanded, setYoutubeExpanded] = useState(false);
+  const youtubeGroupId = useId();
 
   const handleLaunch = (target: string) => {
     if (!target) return;
@@ -88,7 +125,60 @@ export function ShortcutsWidget({ shortcuts, onError }: ShortcutsWidgetProps) {
         </div>
       ) : (
         <div className={styles.shortcutGrid}>
-          {enabledShortcuts.map((sc) => (
+          {youtubeShortcuts.length > 0 && (
+            <div className={styles.shortcutGroup}>
+              <button
+                type="button"
+                className={styles.shortcutGroupButton}
+                onClick={() => setYoutubeExpanded((expanded) => !expanded)}
+                aria-expanded={youtubeExpanded}
+                aria-controls={youtubeGroupId}
+              >
+                <span className={styles.icon}><YouTubeIcon /></span>
+                <span className={styles.groupName}>YouTube</span>
+                <span className={styles.groupCount}>{youtubeShortcuts.length}개</span>
+                <span
+                  className={`${styles.groupChevron} ${youtubeExpanded ? styles.groupChevronOpen : ""}`}
+                  aria-hidden="true"
+                >
+                  ▾
+                </span>
+              </button>
+
+              {youtubeExpanded && (
+                <div id={youtubeGroupId} className={styles.shortcutGroupChildren}>
+                  {onOpenYouTubeBundle && (
+                    <button
+                      type="button"
+                      className={styles.shortcutChild}
+                      onClick={onOpenYouTubeBundle}
+                      style={{ background: "var(--accent-dim, rgba(99, 102, 241, 0.15))", fontWeight: 600 }}
+                      title="유튜브 스마트 번들 피드 열기"
+                    >
+                      <span className={styles.childBullet} aria-hidden="true">📺</span>
+                      <span className={styles.childName}>유튜브 번들 피드 열기</span>
+                      <span className={styles.childLaunch} aria-hidden="true">▶</span>
+                    </button>
+                  )}
+                  {youtubeShortcuts.map((shortcut) => (
+                    <button
+                      key={shortcut.id}
+                      type="button"
+                      className={styles.shortcutChild}
+                      onClick={() => handleLaunch(shortcut.target)}
+                      title={`${shortcut.keyword} (${shortcut.target}) 바로가기 실행`}
+                    >
+                      <span className={styles.childBullet} aria-hidden="true">↳</span>
+                      <span className={styles.childName}>@{shortcut.keyword}</span>
+                      <span className={styles.childLaunch} aria-hidden="true">↗</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {standaloneShortcuts.map((sc) => (
             <div
               key={sc.id}
               className={styles.shortcutCard}

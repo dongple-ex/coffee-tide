@@ -63,6 +63,106 @@
   gap: 8px;
 }
 
+.shortcutGroup {
+  grid-column: 1 / -1;
+}
+
+.shortcutGroupButton {
+  width: 100%;
+  min-height: 46px;
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: rgba(255, 0, 51, 0.07);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.shortcutGroupButton:hover {
+  border-color: #ff0033;
+  background: rgba(255, 0, 51, 0.12);
+}
+
+.groupName {
+  min-width: 0;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.groupCount {
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(255, 0, 51, 0.12);
+  color: #e0002b;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.groupChevron {
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  transition: transform 0.2s ease;
+}
+
+.groupChevronOpen {
+  transform: rotate(180deg);
+}
+
+.shortcutGroupChildren {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 6px;
+  margin: 8px 4px 2px 18px;
+  padding-left: 10px;
+  border-left: 2px solid rgba(255, 0, 51, 0.28);
+}
+
+.shortcutChild {
+  min-width: 0;
+  min-height: 38px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.shortcutChild:hover {
+  border-color: rgba(255, 0, 51, 0.7);
+  background: rgba(255, 0, 51, 0.07);
+}
+
+.childBullet,
+.childLaunch {
+  color: var(--text-dim);
+  font-size: 0.78rem;
+}
+
+.childName {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .shortcutCard {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--border);
@@ -110,4 +210,10 @@
   color: var(--text-dim);
   padding: 12px 0;
   text-align: center;
+}
+
+@media (max-width: 480px) {
+  .shortcutGroupChildren {
+    grid-template-columns: 1fr;
+  }
 }

@@ -5,7 +5,11 @@
 // 만료됐으면 사용자 제스처에서 requestPermission으로 복구한다.
 
 import { UnifiedData } from "@/lib/types/unified";
-import { extractTextFromDocx } from "@/lib/adapters/docxParser";
+import {
+  MAX_DOCUMENT_UPLOAD_BYTES,
+  SUPPORTED_DOCUMENT_EXTENSIONS,
+} from "@/lib/documents/formats";
+import { documentPlainText, parseDocumentFile } from "@/lib/documents/parser";
 
 export type BrowserFolderKind = "obsidian" | "local_doc" | "llm";
 
@@ -33,7 +37,7 @@ const MAX_LOCAL_DOC_FOLDERS = 5;
 
 // fsScan.ts와 동일한 스캔 상수 (서버 규칙 미러)
 const EXCLUDED_DIRS = new Set([".git", ".obsidian", ".trash", "node_modules", ".next"]);
-const MAX_FILE_BYTES = 512 * 1024;
+const MAX_FILE_BYTES = MAX_DOCUMENT_UPLOAD_BYTES;
 
 // ── FSA 타입 캐스트 (lib.dom에 없는 WICG 확장은 unknown 캐스트로 접근) ──
 type PermMode = "read" | "readwrite";
@@ -201,7 +205,7 @@ interface ScannedFile {
 
 async function walk(
   dir: FileSystemDirectoryHandle,
-  extensions: string[],
+  extensions: readonly string[],
   maxFiles: number
 ): Promise<ScannedFile[]> {
   const results: ScannedFile[] = [];
@@ -302,19 +306,13 @@ async function scanLocalDoc(
   handle: FileSystemDirectoryHandle,
   folderName: string
 ): Promise<UnifiedData[]> {
-  const files = await walk(handle, [".md", ".txt", ".docx"], 100);
+  const files = await walk(handle, SUPPORTED_DOCUMENT_EXTENSIONS, 100);
   const items: UnifiedData[] = [];
   for (const f of files) {
     if (items.length >= 10) break;
-    let text = "";
-    const ext = f.relPath.slice(f.relPath.lastIndexOf(".")).toLowerCase();
+    let text: string;
     try {
-      if (ext === ".docx") {
-        const ab = await f.file.arrayBuffer();
-        text = await extractTextFromDocx(ab);
-      } else {
-        text = await f.file.text();
-      }
+      text = documentPlainText(await parseDocumentFile(f.file));
     } catch {
       continue;
     }

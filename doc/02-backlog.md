@@ -234,11 +234,11 @@
 ### I2. 웰컴 그리팅 UI + 3단계 폴백 — ✅ 구현 (2026-07-22)
 - `src/app/components/WelcomeCard.tsx` — 시간대 테마 + 날씨 문구 **템플릿 기반**(LLM 미사용). 날씨+시간대 → 시간대만 → 미표시 3단계 폴백.
 
-### I3. Copilot 프롬프트 고도화 + 캐시 키 버저닝 — ✅ 구현 (2026-07-22)
-- `src/lib/ai/gemini.ts` — 시간대별·성격별 제안 프롬프트(v2), `PROMPT_VERSION`을 해시 캐시 키에 포함해 프롬프트 변경 시 낡은 응답 재사용 방지 (C1 캐시와 호환).
+### I3. Copilot 프롬프트 고도화 + 캐시 키 버저닝 — ⚠️ 프롬프트 구현 / 캐시 재점검 필요
+- `src/lib/ai/gemini.ts` — 시간대별·성격별 제안 프롬프트(v2)와 `PROMPT_VERSION` 해시는 존재한다. 다만 현재 `classifyTasks()`가 캐시 결과를 저장하지 않아 캐시 버저닝 효과는 발생하지 않는다(L1에서 재설계).
 
-### I4. `delegatable` 판별 및 배지 — ✅ 구현 (2026-07-22)
-- `UnifiedData.delegatable?: boolean` — 로컬 LLM 도구 위임 후보 **표식**(실행 버튼 아님). `FallbackEngine`은 채우지 않음 — `undefined`는 "판별 안 됨". 대시보드 배지 표시.
+### I4. `delegatable` 판별 및 배지 — ⚠️ UI·타입 구현 / 현재 판별 생산자 없음
+- `UnifiedData.delegatable?: boolean`과 대시보드 배지는 구현돼 있다. 그러나 현재 `classifyTasks()`가 로컬 규칙만 사용하고 `FallbackEngine`도 이 필드를 채우지 않아 새 항목에 대한 실제 판별 값은 생성되지 않는다(L1에서 구조화 분류로 복구).
 
 ### I5. 위치 권한 요청 시점 옵트인 전환 — ✅ 구현 (2026-07-23)
 - **처리**: geolocation 호출을 `WelcomeCard` 마운트 시점에서 **설정 모달의 `📍 위치 & 날씨 브리핑` 토글**로 이관. 옵트인 여부는 `ct_weather_enabled`, 좌표는 `ct_weather_coords`에 캐시해 반복 권한 팝업을 막는다. 첫 진입 시 권한 팝업이 뜨지 않는다.
@@ -270,4 +270,42 @@
 
 ---
 
-_최종 갱신: 2026-07-27 (K 항목 정리, B2·H4·I5 완료 반영, L 항목 등록). 이 문서는 살아있는 백로그입니다. 항목을 처리하면 "완료"로 표시하세요._
+## L. 로컬 AI 강화 (2026-08-11)
+
+> 상세 설계와 검증 매트릭스: [`08-local-ai-enhancement-plan.md`](./08-local-ai-enhancement-plan.md). 로컬 스크립트·다형식 문서 계획은 [`10-local-tools-document-agent-plan.md`](./10-local-tools-document-agent-plan.md), CoffeeTide MCP 서버는 로컬 AI 이후 과제로 [`09-mcp-access-deferred-plan.md`](./09-mcp-access-deferred-plan.md)에 보류한다.
+
+### L1. 실제 로컬 모델 공급자 도입 — P1
+
+- **현재**: `FallbackEngine`은 정규식·템플릿이며 실제 LLM이 아니다. LLM 산출물 연동도 파일 스캔 기능이다.
+- **문제**: `classifyTasks()`는 Gemini를 호출하지 않고 캐시도 채우지 않지만 기존 문서에는 Gemini 분류·캐시가 구현된 것으로 기록돼 있었다. 대화 문맥, 공급자 상태, 로컬 RAG도 없다.
+- **제안**: OpenAI 호환 로컬 공급자(Ollama/LM Studio) → Gemini 옵트인 → 결정적 규칙 엔진의 공통 라우터를 구현한다. 1차는 로컬 CoffeeTide 실행 환경만 지원한다.
+- **완료 기준**: Gemini 키 없이 실제 로컬 모델로 분류·추출·일정 초안·AI 바리스타가 동작하고, 공급자 중단 시 규칙 엔진으로 안전하게 폴백한다.
+
+### L2. 로컬 문서 검색과 대화 문맥 — P2
+
+- **현재**: 문서 발췌를 목록에 병합하고 최대 80개 항목의 앞부분만 컨텍스트로 전달한다. 화면의 이전 질문·답변은 다음 API 요청에 전달되지 않는다.
+- **제안**: 변경분 임베딩, 질문별 상위 문서 검색, 파일 출처 인용, 제한된 최근 대화 문맥을 추가한다.
+- **완료 기준**: 후속 질문이 문맥을 유지하고 로컬 문서 답변은 검색된 파일 근거를 표시한다.
+
+### L3. 다형식 문서 파서와 증분 색인 — ⚠️ 주요 파서 구현 / 증분 색인 P2 계속
+
+- **구현 (2026-08-11)**: 업로드·브라우저 폴더·서버 `LocalDocAdapter`가 동일한 공통 파서를 사용하도록 통합. 텍스트 계열·DOCX에 더해 PDF·XLSX·PPTX를 지원하고 모바일 파일 선택기에 노출했다. PDF 페이지, Excel 시트·셀 범위, PowerPoint 슬라이드 출처를 보존하며 Node/브라우저 DOCX 입력과 Next 서버 PDF worker 경로 차이도 보완했다.
+- **남은 문제**: 파일 해시 증분 색인, 질문별 검색/RAG, HWPX·EML·OCR은 없다. 폴더 수집 결과도 아직 TODO 줄 추출에 치우쳐 있다.
+- **제안**: 업로드와 폴더 스캔이 공유하는 문서 파서 계약을 만들고 PDF 페이지, Excel 시트/셀 범위, PowerPoint 슬라이드 단위로 추출한다. 파일 해시로 변경분만 다시 색인한다.
+- **완료 기준**: PDF·DOCX·XLSX·PPTX를 질문별로 검색하고 답변에 파일명과 페이지·시트·슬라이드 근거를 표시한다.
+
+### L4. 등록형 로컬 스크립트 Tool Broker — ⚠️ 읽기 전용 기반 구현 / 쓰기 도구 보류
+
+- **구현 (2026-08-11)**: 기존 `/api/util/exec-app`과 분리한 `/api/local-tools` 및 설정의 `로컬 AI 도구` 영역을 추가했다. 로컬 JSON 등록부, 절대 경로·SHA-256 고정, 형식별 인자 검증, `shell:false`, 비밀 환경변수 차단, 시간·출력 제한, 5분 유효 1회 승인, 감사 로그를 적용했다. 모바일은 같은 PC의 CoffeeTide에 접속할 때 실행 PC·입력을 확인하고 승인할 수 있으며 Vercel에서는 403이다.
+- **남은 문제**: 실제 로컬 모델의 구조화된 도구 제안 연결, 영속 승인 저장소, 운영체제 샌드박스, `prepare_file` 이상 쓰기 등급은 없다. 현재는 신뢰한 `read_only` 도구만 수동 실행한다.
+- **완료 기준**: 로컬 모델이 등록된 읽기 전용 도구만 제안하고, 쓰기 작업은 별도 등급과 대상 미리보기·승인 정책을 거쳐 실행할 수 있다.
+
+### L5. Vercel Cloud Tool Registry — ⚠️ 읽기 전용 단계 A 구현 / Gemini 선택·쓰기 보류
+
+- **구현 (2026-08-11)**: 정적 TypeScript Registry, 공통 입력 스키마 검사, 제한 시간·출력 상한, 사용자·도구별 인메모리 호출 제한, 식별자 해시 로그와 인증된 `/api/cloud-tools`를 추가했다. `workspace.task_summary`와 `finance.market_snapshot`을 모든 PC·모바일에서 실행할 수 있고 AI 바리스타의 `/tools`, `/tool finance`, `/tool tasks`로 확인한다.
+- **남은 문제**: Gemini function calling 기반 자동 도구 제안, Supabase 영속 감사·분산 호출 제한, 초안과 외부 쓰기용 사용자 승인·멱등성 정책은 없다.
+- **완료 기준**: Gemini가 등록 스키마로 읽기 도구를 제안하고, 쓰기 도구는 모바일 확인 카드와 세션 결합 1회 승인 후에만 실행된다. 상세는 [`11-cloud-tool-registry-plan.md`](./11-cloud-tool-registry-plan.md) 참조.
+
+---
+
+_최종 갱신: 2026-08-11 (로컬 AI L1~L4 및 MCP 보류 계획 등록). 이 문서는 살아있는 백로그입니다. 항목을 처리하면 "완료"로 표시하세요._

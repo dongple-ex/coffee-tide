@@ -13,6 +13,7 @@ export const GOOGLE_SCOPES = [
 const CLIENT_ID = () => process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
 const CLIENT_SECRET = () => process.env.GOOGLE_CLIENT_SECRET || "";
 const REDIRECT_URI = () =>
+  process.env.GOOGLE_REDIRECT_URI ||
   process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI ||
   "http://localhost:3000/api/auth/google/callback";
 
@@ -20,11 +21,11 @@ export function isGoogleConfigured(): boolean {
   return Boolean(CLIENT_ID() && CLIENT_SECRET());
 }
 
-export function buildGoogleAuthUrl(state: string): string {
+export function buildGoogleAuthUrl(state: string, redirectUri: string = REDIRECT_URI()): string {
   const params = new URLSearchParams({
     client_id: CLIENT_ID(),
     response_type: "code",
-    redirect_uri: REDIRECT_URI(),
+    redirect_uri: redirectUri,
     scope: GOOGLE_SCOPES.join(" "),
     access_type: "offline",
     prompt: "consent",
@@ -74,14 +75,17 @@ async function tokenRequest(body: URLSearchParams): Promise<GoogleTokens> {
   };
 }
 
-export function exchangeGoogleCode(code: string): Promise<GoogleTokens> {
+export function exchangeGoogleCode(
+  code: string,
+  redirectUri: string = REDIRECT_URI()
+): Promise<GoogleTokens> {
   return tokenRequest(
     new URLSearchParams({
       client_id: CLIENT_ID(),
       client_secret: CLIENT_SECRET(),
       grant_type: "authorization_code",
       code,
-      redirect_uri: REDIRECT_URI(),
+      redirect_uri: redirectUri,
     })
   );
 }

@@ -2,10 +2,12 @@
 
 import React, { RefObject } from "react";
 import styles from "../../page.module.css";
+import { DOCUMENT_INPUT_ACCEPT } from "@/lib/documents/formats";
 
 /** 입력창에 `/`를 치면 뜨는 자동완성 목록 */
 const SLASH_COMMANDS = [
   { name: "/connect", desc: "서비스 연동 상태와 실제 API 권한 진단" },
+  { name: "/tools", desc: "모든 기기에서 사용하는 Cloud Tool 목록" },
   { name: "/clear", desc: "AI 대화 이력 초기화" },
   { name: "/status", desc: "현재 업무 상태 현황 요약" },
   { name: "/handoff", desc: "남은 업무 퇴근 보존 및 정리" },
@@ -82,7 +84,7 @@ export function CopilotComposer({
       <input
         type="file"
         ref={fileInputRef}
-        accept="text/*,.txt,.md,.markdown,.csv,.json,.log,application/json"
+        accept={DOCUMENT_INPUT_ACCEPT}
         style={{ display: "none" }}
         onChange={onFileChange}
       />

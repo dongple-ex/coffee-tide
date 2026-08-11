@@ -7,6 +7,7 @@ const TENANT = () => process.env.MS_TENANT_ID || "common";
 const CLIENT_ID = () => process.env.NEXT_PUBLIC_MS_CLIENT_ID || "";
 const CLIENT_SECRET = () => process.env.MS_CLIENT_SECRET || "";
 const REDIRECT_URI = () =>
+  process.env.MS_REDIRECT_URI ||
   process.env.NEXT_PUBLIC_MS_REDIRECT_URI ||
   "http://localhost:3000/api/auth/outlook/callback";
 
@@ -14,11 +15,11 @@ export function isOutlookConfigured(): boolean {
   return Boolean(CLIENT_ID() && CLIENT_SECRET());
 }
 
-export function buildOutlookAuthUrl(state: string): string {
+export function buildOutlookAuthUrl(state: string, redirectUri: string = REDIRECT_URI()): string {
   const params = new URLSearchParams({
     client_id: CLIENT_ID(),
     response_type: "code",
-    redirect_uri: REDIRECT_URI(),
+    redirect_uri: redirectUri,
     response_mode: "query",
     scope: MS_SCOPES.join(" "),
     state,
@@ -56,14 +57,17 @@ async function tokenRequest(body: URLSearchParams): Promise<MsTokens> {
   };
 }
 
-export function exchangeOutlookCode(code: string): Promise<MsTokens> {
+export function exchangeOutlookCode(
+  code: string,
+  redirectUri: string = REDIRECT_URI()
+): Promise<MsTokens> {
   return tokenRequest(
     new URLSearchParams({
       client_id: CLIENT_ID(),
       client_secret: CLIENT_SECRET(),
       grant_type: "authorization_code",
       code,
-      redirect_uri: REDIRECT_URI(),
+      redirect_uri: redirectUri,
       scope: MS_SCOPES.join(" "),
     })
   );

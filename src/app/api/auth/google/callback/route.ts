@@ -6,18 +6,26 @@ import {
   writeSessionForCurrentUser,
 } from "@/lib/auth/integrationStore";
 import { OAUTH_STATE_COOKIE } from "@/lib/auth/session";
+import {
+  getAuthSiteOrigin,
+  getGoogleIntegrationCallbackUrl,
+} from "@/lib/auth/siteOrigin";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   const code = searchParams.get("code");
   const state = searchParams.get("state");
   const savedState = request.cookies.get(OAUTH_STATE_COOKIE)?.value;
+  const authOrigin = getAuthSiteOrigin(request.nextUrl.origin);
+  const redirectUri = getGoogleIntegrationCallbackUrl(request.nextUrl.origin);
 
-  const home = NextResponse.redirect(new URL("/", request.url));
+  const home = NextResponse.redirect(new URL("/", authOrigin));
   home.cookies.set(OAUTH_STATE_COOKIE, "", { path: "/", maxAge: 0 });
 
   if (!code || !state || state !== savedState) {
-    return NextResponse.redirect(new URL("/?error=google_auth", request.url));
+    const errorResponse = NextResponse.redirect(new URL("/?error=google_auth", authOrigin));
+    errorResponse.cookies.set(OAUTH_STATE_COOKIE, "", { path: "/", maxAge: 0 });
+    return errorResponse;
   }
 
   const session = (await readSession()) ?? {
@@ -26,7 +34,7 @@ export async function GET(request: NextRequest) {
   };
 
   try {
-    const tokens = await exchangeGoogleCode(code);
+    const tokens = await exchangeGoogleCode(code, redirectUri);
     const next = {
       ...session,
       googleToken: tokens.accessToken,
@@ -43,6 +51,8 @@ export async function GET(request: NextRequest) {
     return stored ? writeSessionForCurrentUser(home, next) : writeSession(home, next);
   } catch (err) {
     console.error("[coffeeTide] Google 토큰 교환 실패", err);
-    return NextResponse.redirect(new URL("/?error=google_token", request.url));
+    const errorResponse = NextResponse.redirect(new URL("/?error=google_token", authOrigin));
+    errorResponse.cookies.set(OAUTH_STATE_COOKIE, "", { path: "/", maxAge: 0 });
+    return errorResponse;
   }
 }

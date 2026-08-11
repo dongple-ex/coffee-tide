@@ -1,0 +1,39 @@
+{
+  "tools": [
+    {
+      "id": "weekly-report-status",
+      "name": "주간 보고 자료 조회",
+      "description": "지정한 기간의 로컬 업무 자료를 읽고 JSON으로 출력합니다.",
+      "runtime": "powershell",
+      "scriptPath": "C:\\WorkTools\\weekly-report-status.ps1",
+      "scriptSha256": "스크립트의_소문자_SHA256_64자리로_교체",
+      "workingDirectory": "C:\\WorkTools",
+      "arguments": [
+        {
+          "name": "from",
+          "label": "시작일",
+          "flag": "-From",
+          "type": "date",
+          "required": true
+        },
+        {
+          "name": "to",
+          "label": "종료일",
+          "flag": "-To",
+          "type": "date",
+          "required": true
+        },
+        {
+          "name": "include_completed",
+          "label": "완료 업무 포함",
+          "flag": "-IncludeCompleted",
+          "type": "boolean"
+        }
+      ],
+      "timeoutMs": 30000,
+      "maxOutputBytes": 262144,
+      "effect": "read_only",
+      "confirmation": "always"
+    }
+  ]
+}

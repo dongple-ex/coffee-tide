@@ -114,7 +114,9 @@ coffeeTide는 여러 채널의 업무 데이터를 하나의 대시보드로 통
 | `/api/tasks/capture` | POST | 항목을 Notion 페이지/Obsidian 수집함으로 저장 |
 | `/api/tasks/llm-digest` | POST | 오늘 LLM 산출물 → Obsidian `coffeeTide_LLM/YYYY-MM-DD.md` 수동 내보내기 |
 | `/api/calendar/events` | POST | AI 바리스타가 구조화한 일정 초안을 사용자 확인 후 Google 기본 Calendar에 등록. 반복 일정은 RFC 5545 `RRULE`로 변환 |
-| `/api/upload` | POST | 텍스트 파일(≤1MB, `.txt/.md/.csv/.json/.log`) → manual 항목. `saveToDrive=true`면 Google Drive 영구 저장(실패해도 업로드 자체는 성공 — 원칙 4) |
+| `/api/upload` | POST | 문서(≤2MB, `.txt/.md/.markdown/.csv/.json/.log/.html/.htm/.xml/.docx/.pdf/.xlsx/.pptx`)를 공통 파서로 텍스트화 → manual 항목. PDF 페이지, Excel 시트·셀 범위, PowerPoint 슬라이드 출처를 본문에 표시한다. 모바일 OS 파일 선택기와 PC 업로드가 같은 API를 사용하며, `saveToDrive=true`면 Google Drive 영구 저장(실패해도 업로드 자체는 성공 — 원칙 4) |
+| `/api/local-tools` | GET/POST | 로컬 PC에 명시적으로 등록한 읽기 전용 PowerShell·Python·Node 도구 목록 조회, 실행 미리보기, 5분 유효 1회 승인 토큰 기반 실행. Vercel 등 클라우드 배포에서는 403 |
+| `/api/cloud-tools` | GET/POST | 인증된 사용자의 Vercel 서버 도구 목록·실행. 정적으로 등록된 읽기 전용 TypeScript 도구만 허용하며 입력 스키마, 1분 호출 제한, 제한 시간·출력 크기를 검사한다 |
 | `/api/weather` | GET | 좌표(`lat`/`lon`) → **기상청 초단기실황+초단기예보**(공공데이터포털, LCC 격자 변환) 1순위 → OpenWeatherMap 폴백. 지역명은 BigDataCloud 역지오코딩으로 한글 동/구. 좌표는 **소수점 2자리로 절삭해 외부 호출**(K9), 서버 메모리 캐시 20분, 좌표 미저장. 키 미설정/조회 실패 시 `success:false` (그리팅은 시간대 폴백) |
 | `/api/commute` | GET | 출퇴근 길찾기 카드 데이터. KST 05~12시 출근 모드, 그 외 퇴근 모드로 출발·도착지 자동 전환. **⚠️ 시각·소요시간·요금·혼잡도는 현재 하드코딩된 예시 값** — 실연동은 K2(공공데이터포털 TAGO·도로공사) 예정. 지도 링크는 이 응답에 없다(§5 지도 앱 연동) |
 | `/api/util/exec-app` | POST | 단어-앱 바로가기 실행 (J2, **데스크톱 전용**). 셸을 거치지 않는 `spawn` + 스킴/확장자 화이트리스트. 클라우드 배포(`VERCEL` 등)·`DISABLE_LOCAL_EXEC=true`에서는 403 (§5 로컬 실행기) |
@@ -128,12 +130,14 @@ coffeeTide는 여러 채널의 업무 데이터를 하나의 대시보드로 통
 
 ## 5. AI & 자동화
 
-- **분류 (C1·phase7 반영)**: `src/lib/ai/gemini.ts` — ① 콘텐츠 해시(`PROMPT_VERSION`+`id`+title/content) 서버 메모리 캐시로 신규·변경 항목만 전송(프롬프트 버전이 캐시 키에 포함되어 프롬프트 변경 시 낡은 응답 재사용 방지), ② 429 시 10분 쿨다운 동안 `FallbackEngine` 대체, ③ `DISABLE_AI_CLASSIFY=true` 킬스위치. 키 미설정 시 전 기능 로컬 대체. 분류 시 `delegatable`(로컬 LLM 도구 위임 후보) 판별 포함 — 대시보드에 배지 표시.
+- **분류 (현재 소스 기준)**: `src/lib/ai/gemini.ts`의 `classifyTasks()`는 현재 Gemini를 호출하지 않고 `FallbackEngine.classifyOne()` 규칙으로만 분류하며 항상 `aiUsed:false`를 반환한다. 콘텐츠 해시 캐시는 조회 코드만 있고 결과 저장 코드가 없으며, `classifyDisabled()`도 분류 흐름에서 사용되지 않는다. 따라서 Gemini 분류·`delegatable` 판별·캐시·킬스위치는 구현 상태가 아니라 복구/재설계 대상이다. 상세는 [`08-local-ai-enhancement-plan.md`](./08-local-ai-enhancement-plan.md) 참조.
 - **웰컴 그리팅 (phase7)**: `src/app/components/WelcomeCard.tsx` — 시간대(오전/오후/저녁) 테마 + 날씨 문구를 **템플릿 기반**으로 생성(LLM 미사용, 비용 0). 위치 권한은 **설정 모달에서 옵트인**(I5) — 마운트 시 자동 요청하지 않는다. 3단계 폴백: 날씨+시간대 → (위치 거부/조회 실패 시) 시간대만 → (그리팅 실패 시) 미표시·브리핑 정상. 30초 후 한 줄로 자동 접히되, 사용자가 먼저 조작했으면 개입하지 않는다(K11).
 - **Copilot / AI 바리스타 (G4 반영)**: 기준일·타임존을 시스템 프롬프트에 주입, "날짜 추정 금지 + 출처 표기" 강제. 응답은 `MarkdownLite`로 카드/섹션 렌더링(G6). 질문·답변은 아코디언으로 묶이며(`src/lib/copilotPairs.ts`의 `buildQaPairs`) 접힌 상태에서 답이 도착하면 ✨ 배지가 깜빡인다.
-- **슬래시 커맨드**: `/clear`(대화 초기화) · `/status`(업무 현황) · `/handoff`(퇴근 보존) · `/reorder`(남은 업무 AI 재배치) · `/help`. 입력창에 `/`를 치면 자동완성 목록이 뜬다.
+- **슬래시 커맨드**: `/clear`(대화 초기화) · `/status`(업무 현황) · `/handoff`(퇴근 보존) · `/reorder`(남은 업무 AI 재배치) · `/tools`(Cloud Tool 목록) · `/tool finance|tasks`(읽기 전용 서버 도구 실행) · `/help`. 입력창에 `/`를 치면 자동완성 목록이 뜬다.
 - **단어-앱 바로가기 (J2)**: `ct_app_shortcuts`에 등록한 키워드를 AI 바리스타에 **단독으로**(또는 `@키워드`) 입력하면 `/api/util/exec-app`으로 실행. 문장 속 부분 일치로는 실행되지 않는다(K4 — "노션에 정리한 업무 알려줘"가 앱 실행에 가로채이던 문제).
 - **로컬 실행기 보안 (K1)**: 셸 문자열 조합 없이 `spawn(cmd, [args], {shell:false})`. URL은 스킴 화이트리스트(http/https/kakaomap/nmap/notion/…), 로컬 파일은 절대 경로 + `.exe`/`.lnk`/`.app`만 허용(`.bat`/`.cmd`/`.ps1`은 인터프리터가 인자를 재파싱하므로 제외). 제어문자 차단, 세션 필수, 클라우드 배포에서는 403.
+- **등록형 로컬 Tool Broker**: 기존 `/api/util/exec-app`과 분리했다. JSON 등록부의 절대 경로·런타임·인자 플래그·SHA-256이 일치하는 `read_only` 도구만 `shell:false`로 실행하며, 앱 비밀 환경변수는 자식 프로세스에 전달하지 않는다. 실행 전 도구명·실행 PC·스크립트명·입력·시간 제한을 표시하고 사용자가 승인해야 한다. 결과와 비밀 입력을 제외한 감사 메타데이터는 `data/local-tool-audit.jsonl`에 저장한다. 운영체제 수준 샌드박스는 아니므로 사용자가 직접 신뢰하는 읽기 전용 스크립트만 등록해야 한다.
+- **Cloud Tool Registry**: 소스 코드에 정적으로 등록된 TypeScript 함수만 Vercel에서 실행한다. 1차 도구는 현재 화면 업무 집계(`workspace.task_summary`)와 한국은행 환율·금리(`finance.market_snapshot`)다. 사용자 인증, 추가 인자 거부, 문자열·열거값 검사, 사용자·도구별 분당 20회 제한, 실행 시간·출력 크기 제한과 식별자 해시 로그를 적용한다. 현재는 `read_only + confirmation:none`만 실행하며 Gemini 자동 도구 선택과 외부 쓰기는 미구현이다. 상세 설계는 [`11-cloud-tool-registry-plan.md`](./11-cloud-tool-registry-plan.md) 참조.
 - **워크노트 · 하위작업**: 업무 카드마다 진행 메모(`ct_work_notes`)와 체크리스트(`ct_sub_tasks`). `/reorder` 브리핑의 입력으로도 쓰인다.
 - **퇴근 핸드오프**: `/handoff` 또는 "퇴근하기" 버튼 → 남은 업무 요약을 클립보드에 복사하고 **UI 스냅샷**(`ct_handoff_state`)을 저장. 다음 진입 시 섹션 접힘·대화 이력을 복원하고 안내 배너를 1회만 띄운다(K6).
 - **지도 앱 연동 (K12)**: `src/lib/mapLinks.ts`. 카카오맵 `kakaomap://route?sp={lat},{lng}&ep=…&by=car|publictransit`, 네이버지도 `nmap://route/{car|public}?slat=…&appname=…` — **두 앱 모두 좌표 필수**라 좌표가 없으면 앱 스킴을 만들지 않고 웹으로만 연결한다(카카오 웹은 이름 기반 길찾기, 네이버는 목적지 검색). 좌표는 설정의 "현재 위치를 집/회사로"로 확보하며 **클라이언트에만 저장**한다. 앱 전환 감지는 `visibilitychange`/`pagehide`.
@@ -148,7 +152,7 @@ coffeeTide는 여러 채널의 업무 데이터를 하나의 대시보드로 통
 
 | 변수 | 용도 |
 | :--- | :--- |
-| `MOCK_MODE` | `true`면 실제 연동/AI 통신 없이 Mock 데이터로 동작 |
+| `MOCK_MODE` | `true`면 데이터 어댑터를 Mock으로 전환. AI 호출 자체는 이 값이 아니라 `GEMINI_API_KEY`와 각 함수의 폴백 조건으로 결정됨 |
 | `SESSION_ENCRYPTION_SECRET` | 세션 쿠키 AES-256-GCM 키 (32바이트 base64) — **프로덕션 필수** |
 | `GEMINI_API_KEY` | Gemini API 키. 미설정 시 로컬 FallbackEngine |
 | `DISABLE_AI_CLASSIFY` | `true`면 AI 분류 킬스위치 (백로그 C1) |
@@ -159,7 +163,9 @@ coffeeTide는 여러 채널의 업무 데이터를 하나의 대시보드로 통
 | `DATA_GO_KR_SERVICE_KEY` | (선택) **공공데이터포털 공용 인증키**. 포털은 계정당 인증키 1개를 활용신청한 모든 오픈API에 공통 적용하므로 기상청·(예정)TAGO·도로공사가 이 하나를 공유한다. 판독은 `src/lib/env.ts` |
 | `WEATHER_API_KEY` | (선택) 위 키의 **하위호환 별칭** — 기존 `.env.local`을 고치지 않아도 동작한다. 단, 이 이름만 설정된 환경에서는 OpenWeatherMap 폴백에도 같은 값이 쓰인다(구 동작 유지) |
 | `OPENWEATHER_API_KEY` | (선택) OpenWeatherMap 전용 키. 설정하면 기상청 실패 시에만 폴백 호출. 미설정 + `DATA_GO_KR_SERVICE_KEY`만 있으면 OWM은 호출하지 않는다(포털 키로 부르면 항상 401이라 무의미) |
-| `DISABLE_LOCAL_EXEC` | `true`면 `/api/util/exec-app` 비활성(403). `VERCEL`·`AWS_LAMBDA_FUNCTION_NAME`·`NETLIFY` 감지 시 자동 비활성 |
+| `DISABLE_LOCAL_EXEC` | `true`면 `/api/util/exec-app`과 `/api/local-tools` 비활성(403). `VERCEL`·`AWS_LAMBDA_FUNCTION_NAME`·`NETLIFY` 감지 시 자동 비활성 |
+| `LOCAL_TOOL_REGISTRY_PATH` | 로컬 읽기 전용 Tool Broker 등록 JSON의 절대 경로. 미설정 시 도구 목록은 비어 있으며 클라우드 배포에서는 실행 불가 |
+| `CLOUD_TOOL_AUDIT_SALT` | (선택) Cloud Tool 구조화 로그의 사용자 식별자 해시 솔트. 미설정 시 `SESSION_ENCRYPTION_SECRET` 사용 |
 | `NEXT_PUBLIC_VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | 웹 푸시 3종 (`npx web-push generate-vapid-keys`). 미설정 시 알림 기능만 비활성 |
 | `CRON_SECRET` | (선택) `/api/briefing/daily` 외부 크론 인증 토큰 — Vercel Cron은 자동으로 Bearer 헤더에 첨부 |
 | `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | (선택) 푸시 프로필 저장소. 미설정 시 파일(`data/push-profiles.json`) — 서버리스 배포는 필수 |
@@ -176,7 +182,8 @@ coffeeTide는 여러 채널의 업무 데이터를 하나의 대시보드로 통
 - 세션 쿠키에 토큰 전체 저장 → 대형 토큰 시 4KB 한계 리스크 (**H2**)
 - Google Calendar 일정 **등록**은 구현됐지만 Calendar·Drive **수집**은 미구현(Gmail만 수집) (**H3**)
 - 채널당 10건 고정 (C3), hide/dismiss 이원화 (D4)
-- AI 분류 캐시가 서버 메모리 (프로세스 재시작 시 소멸)
+- AI 분류 캐시는 서버 메모리 `Map`으로 선언돼 있으나 현재 결과 저장 코드가 없어 실질적으로 동작하지 않음
+- 실제 로컬 모델 추론은 미구현. 현재 로컬 AI 표시는 규칙 기반 `FallbackEngine` 또는 LLM 산출물 파일 스캔을 뜻함 ([`08-local-ai-enhancement-plan.md`](./08-local-ai-enhancement-plan.md))
 - `page.tsx` 2,351줄 — 분할 진행 중, 목표 1,000줄 (**K10** 5단계 남음)
 
 ## 8. 코드 구조 (K10 분할 반영, 2026-07-27)

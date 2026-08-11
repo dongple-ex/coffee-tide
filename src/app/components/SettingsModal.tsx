@@ -13,7 +13,9 @@ import { ConnectionsSection } from "./settings/ConnectionsSection";
 import { CommuteSection } from "./settings/CommuteSection";
 import { NotificationSection } from "./settings/NotificationSection";
 import { ShortcutsSection } from "./settings/ShortcutsSection";
+import { YouTubeBundleSection } from "./settings/YouTubeBundleSection";
 import { WeatherSection } from "./settings/WeatherSection";
+import { LocalToolsSection } from "./settings/LocalToolsSection";
 import { WeatherData } from "./WelcomeCard";
 import styles from "../page.module.css";
 
@@ -240,6 +242,10 @@ export function SettingsModal({
           onChange={onChangeAppShortcuts}
           onNotify={onNotify}
         />
+
+        <YouTubeBundleSection onNotify={onNotify} />
+
+        <LocalToolsSection onNotify={onNotify} />
 
         {/* PC 로컬 원문 보관 — Google 연동 기능은 아래 Google 카드에서 관리 */}
         <div className={styles.card} style={{ marginBottom: 16 }}>

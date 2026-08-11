@@ -76,6 +76,8 @@ import { ShortcutsWidget } from "./components/ShortcutsWidget";
 import { WeatherWidget } from "./components/WeatherWidget";
 import { FinanceWidget } from "./components/FinanceWidget";
 import { CustomNewsWidget, CustomWidgetConfig } from "./components/CustomNewsWidget";
+import { YouTubeBundleWidget } from "./components/youtube/YouTubeBundleWidget";
+import { ContextualRecStrip } from "./components/youtube/ContextualRecStrip";
 import type { CustomSitePreview } from "@/lib/news/types";
 import { CommuteConfig, CommuteStop } from "@/lib/types/commute";
 import { AppShortcut } from "@/lib/types/appShortcut";
@@ -1595,7 +1597,7 @@ export default function Home() {
 
     if (cmd === "/help" || cmd === "/?") {
       setCopilotInput("");
-      const text = `💡 **AI 바리스타 슬래시 커맨드 안내**:\n\n- \`/connect\` : 서비스 연동 저장정보와 실제 API 권한 진단\n- \`/clear\` : 대화 내역 초기화\n- \`/status\` : 업무 처리 현황 요약\n- \`/handoff\` : 남은 업무 퇴근 보존 및 정리\n- \`/reorder\` : 남은 업무 AI 일정 재배치\n- \`/help\` : 커맨드 도움말 출력\n\n**단어-앱 바로가기**: 등록한 키워드만 단독으로(또는 \`@키워드\`) 입력하면 해당 앱이 실행돼요. 문장 속에 키워드가 있으면 실행 대신 평소처럼 답변해 드립니다.`;
+      const text = `💡 **AI 바리스타 슬래시 커맨드 안내**:\n\n- \`/connect\` : 서비스 연동 저장정보와 실제 API 권한 진단\n- \`/tools\` : 모든 기기에서 사용하는 Cloud Tool 목록\n- \`/tool finance\` : 한국은행 환율·금리 조회\n- \`/tool tasks\` : 현재 업무 현황 집계\n- \`/clear\` : 대화 내역 초기화\n- \`/status\` : 업무 처리 현황 요약\n- \`/handoff\` : 남은 업무 퇴근 보존 및 정리\n- \`/reorder\` : 남은 업무 AI 일정 재배치\n- \`/help\` : 커맨드 도움말 출력\n\n**단어-앱 바로가기**: 등록한 키워드만 단독으로(또는 \`@키워드\`) 입력하면 해당 앱이 실행돼요. 문장 속에 키워드가 있으면 실행 대신 평소처럼 답변해 드립니다.`;
       setCopilotMessages((prev) => [...prev, { role: "ai", text }]);
       return true;
     }
@@ -1750,7 +1752,7 @@ export default function Home() {
     if (!file) return;
 
     if (file.size > 2 * 1024 * 1024) {
-      showToast("2MB 이하의 문서(.docx, .txt, .md)만 업로드할 수 있어요.");
+      showToast("모바일 데이터와 저장 공간을 위해 2MB 이하 문서만 업로드할 수 있어요.");
       e.target.value = "";
       return;
     }
@@ -2324,6 +2326,11 @@ export default function Home() {
           </button>
         </div>
       )}
+      {/* 💡 KST 시간대별 맞춤 추천 스트립 */}
+      <div style={{ marginBottom: 12 }}>
+        <ContextualRecStrip onNotify={showToast} />
+      </div>
+
       {/* 🧩 확장형 빠른 위젯 바 (Widget Toolbar) */}
       <div className={styles.widgetBarSection}>
         <div className={styles.widgetBarHeader}>
@@ -2408,6 +2415,15 @@ export default function Home() {
           >
             <span>⭐</span>
             <span>바로가기 즐겨찾기</span>
+          </button>
+          <button
+            type="button"
+            className={`${styles.widgetChip} ${activeWidget === "youtube" ? styles.widgetChipActive : ""}`}
+            onClick={() => setActiveWidget((prev) => (prev === "youtube" ? null : "youtube"))}
+            title="테마별 유튜브 스마트 번들 피드 열기/닫기"
+          >
+            <span>📺</span>
+            <span>유튜브 번들</span>
           </button>
           {/* 사용자가 동적으로 등록한 커스텀 위젯 칩들 */}
           {customWidgets.map((w) => (
@@ -2502,7 +2518,16 @@ export default function Home() {
         )}
         {activeWidget === "shortcuts" && (
           <div className={styles.widgetPanel}>
-            <ShortcutsWidget shortcuts={appShortcuts} onError={showToast} />
+            <ShortcutsWidget
+              shortcuts={appShortcuts}
+              onError={showToast}
+              onOpenYouTubeBundle={() => setActiveWidget("youtube")}
+            />
+          </div>
+        )}
+        {activeWidget === "youtube" && (
+          <div className={styles.widgetPanel}>
+            <YouTubeBundleWidget onNotify={showToast} />
           </div>
         )}
         {/* 커스텀 위젯 패널 */}

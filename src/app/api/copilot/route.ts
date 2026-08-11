@@ -13,6 +13,7 @@ import { getRecentSparkUnifiedItems } from "@/lib/adapters/sparkSync";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isCalendarCreateRequest } from "@/lib/calendar/types";
+import { executeCloudTool, listCloudTools } from "@/lib/cloudTools/registry";
 
 function mergeById(items: UnifiedData[]): UnifiedData[] {
   return [...new Map(items.map((item) => [item.id, item])).values()];
@@ -74,6 +75,74 @@ export async function POST(request: NextRequest) {
   }
 
   const question = body.question?.trim() || "오늘 해야 할 일을 브리핑해줘";
+  const clientItems = Array.isArray(body.items) ? body.items.slice(0, 80) : [];
+
+  if (/^\/tools(?:\s|$)/i.test(question)) {
+    const tools = listCloudTools();
+    const answer = [
+      "## ☁️ Cloud Tool Registry",
+      "로그인한 모든 PC·모바일에서 사용할 수 있는 서버 도구입니다.",
+      "",
+      ...tools.map(
+        (tool) =>
+          `- **${tool.name}** (\`${tool.id}\`) · ${tool.description} · ${tool.effect === "read_only" ? "읽기 전용" : "승인 필요"}`
+      ),
+      "",
+      "사용 예: `/tool finance`, `/tool finance USD`, `/tool tasks`, `/tool tasks source`",
+    ].join("\n");
+    return NextResponse.json({ answer, cloud_tool_registry: true, tool_count: tools.length });
+  }
+
+  const toolCommand = question.match(/^\/tool\s+(\S+)(?:\s+(.+))?$/i);
+  if (toolCommand) {
+    const alias = toolCommand[1].toLowerCase();
+    const option = toolCommand[2]?.trim() ?? "";
+    const isFinance = ["finance", "market", "환율", "금리", "환율금리"].includes(alias);
+    const isTasks = ["tasks", "task", "status", "업무", "현황"].includes(alias);
+    if (!isFinance && !isTasks) {
+      return NextResponse.json({
+        answer: "등록된 명령을 찾지 못했습니다. `/tools`로 Cloud Tool 목록을 확인해 주세요.",
+        cloud_tool_registry: true,
+      });
+    }
+
+    const toolId = isFinance ? "finance.market_snapshot" : "workspace.task_summary";
+    const upperOption = option.toUpperCase();
+    const input = isFinance
+      ? { currency: ["USD", "JPY", "EUR"].includes(upperOption) ? upperOption : "ALL" }
+      : {
+          scope: /(?:^|\s)all(?:\s|$)|전체/i.test(option) ? "all" : "active",
+          groupBy: /source|출처/i.test(option) ? "source" : "category",
+        };
+    try {
+      const execution = await executeCloudTool({
+        toolId,
+        input,
+        context: {
+          userId: identity.id,
+          timezone: body.timezone || "Asia/Seoul",
+          items: clientItems,
+        },
+      });
+      return NextResponse.json({
+        answer: execution.result.summary,
+        cloud_tool_execution: {
+          requestId: execution.requestId,
+          toolId: execution.toolId,
+          toolVersion: execution.toolVersion,
+          durationMs: execution.durationMs,
+          sources: execution.result.sources,
+          warnings: execution.result.warnings,
+        },
+      });
+    } catch (error) {
+      console.warn("[coffeeTide] Copilot Cloud Tool failed:", error);
+      return NextResponse.json({
+        answer: `Cloud Tool을 실행하지 못했습니다. ${error instanceof Error ? error.message : "잠시 후 다시 시도해 주세요."}`,
+        cloud_tool_error: true,
+      });
+    }
+  }
 
   if (/^\/connect(?:\s|$)/i.test(question)) {
     const session = await readSessionWithIntegrations();
@@ -110,7 +179,6 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  const clientItems = Array.isArray(body.items) ? body.items.slice(0, 80) : [];
   const sparkItems = body.includeSpark
     ? await getRecentSparkUnifiedItems(identity.id, identity.supabase)
     : [];
