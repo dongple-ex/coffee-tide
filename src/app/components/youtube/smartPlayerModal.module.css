@@ -327,10 +327,11 @@
   position: fixed;
   inset: 0;
   z-index: 1000;
-  background: var(--bg, #f7f3eb);
+  background: rgba(15, 23, 42, 0.2);
   background:
-    radial-gradient(circle at 88% 82%, color-mix(in srgb, var(--accent) 8%, transparent), transparent 34%),
-    var(--bg, #f7f3eb);
+    radial-gradient(circle at 88% 82%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 34%),
+    color-mix(in srgb, var(--bg, #f7f3eb) 28%, transparent);
+  backdrop-filter: blur(7px);
 }
 
 .miniLayer {
@@ -424,7 +425,8 @@
   position: relative;
   width: 100%;
   min-height: 200px;
-  aspect-ratio: 16 / 9;
+  /* Extra player height gives YouTube captions a lower letterbox safe area. */
+  aspect-ratio: 32 / 21;
   overflow: hidden;
   background: #000;
 }
