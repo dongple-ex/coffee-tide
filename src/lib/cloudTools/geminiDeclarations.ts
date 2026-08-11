@@ -23,6 +23,7 @@ interface GeminiPropertySchema {
   enum?: string[];
   minimum?: number;
   maximum?: number;
+  maxLength?: number;
 }
 
 const FUNCTION_PREFIX = "coffee_tide_";
@@ -38,6 +39,7 @@ function geminiPropertySchema(property: CloudToolPropertySchema): GeminiProperty
     ...(property.enum ? { enum: [...property.enum] } : {}),
     ...(property.minimum !== undefined ? { minimum: property.minimum } : {}),
     ...(property.maximum !== undefined ? { maximum: property.maximum } : {}),
+    ...(property.maxLength !== undefined ? { maxLength: property.maxLength } : {}),
   };
 }
 
@@ -56,14 +58,18 @@ function geminiParameters(schema: CloudToolObjectSchema): GeminiFunctionDeclarat
 
 function automaticDefinitions(): PublicCloudToolDefinition[] {
   return listCloudTools().filter(
-    (tool) => tool.effect === "read_only" && tool.confirmation === "none"
+    (tool) =>
+      (tool.effect === "read_only" && tool.confirmation === "none") ||
+      (tool.effect === "draft" && tool.confirmation === "result_review")
   );
 }
 
 export function geminiCloudToolDeclarations(): GeminiFunctionDeclaration[] {
   return automaticDefinitions().map((tool) => ({
     name: functionName(tool.id),
-    description: `${tool.description} CoffeeTide가 서버에서 실행하는 읽기 전용 함수입니다.`,
+    description: `${tool.description} CoffeeTide가 서버에서 실행하는 ${
+      tool.effect === "draft" ? "외부 변경 없는 검토용 초안" : "읽기 전용"
+    } 함수입니다.`,
     parameters: geminiParameters(tool.inputSchema),
   }));
 }

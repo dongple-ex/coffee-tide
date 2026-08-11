@@ -66,6 +66,7 @@ import { TaskItemCard } from "./components/TaskItemCard";
 import { CopilotComposer } from "./components/copilot/CopilotComposer";
 import { CopilotConversation } from "./components/copilot/CopilotConversation";
 import { CalendarDraftCard } from "./components/copilot/CalendarDraftCard";
+import { CloudDraftReviewCard } from "./components/copilot/CloudDraftReviewCard";
 import { buildQaPairs, CopilotMessage } from "@/lib/copilotPairs";
 import IcedAmericano from "./components/icedAmericano";
 import { WelcomeCard, WeatherData } from "./components/WelcomeCard";
@@ -90,6 +91,7 @@ import { CopilotUserConfig, DEFAULT_COPILOT_CONFIG } from "@/lib/ai/harness";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { useCloudSync } from "./hooks/useCloudSync";
 import type { CalendarEventDraft } from "@/lib/calendar/types";
+import type { CloudDraftPayload } from "@/lib/cloudTools/drafts";
 import { GoogleIdentityButton } from "./components/auth/GoogleIdentityButton";
 
 const LS_RAW_ENABLED = "ct_raw_enabled";
@@ -306,6 +308,7 @@ export default function Home() {
   const [copilotInput, setCopilotInput] = useState("");
   const [copilotBusy, setCopilotBusy] = useState(false);
   const [calendarDraft, setCalendarDraft] = useState<CalendarEventDraft | null>(null);
+  const [cloudToolDraft, setCloudToolDraft] = useState<CloudDraftPayload | null>(null);
   const [calendarCreateBusy, setCalendarCreateBusy] = useState(false);
   const [calendarReconnectRequired, setCalendarReconnectRequired] = useState(false);
   const [sparkEnabled, setSparkEnabled] = useState<boolean>(() => loadLS<boolean>(LS_SPARK_ENABLED, false));
@@ -1671,6 +1674,7 @@ export default function Home() {
         answer?: string;
         ai_fallback?: boolean;
         calendar_draft?: CalendarEventDraft;
+        cloud_tool_draft?: CloudDraftPayload;
         connections?: ConnectionState;
         connection_errors?: MailsResponse["errors"];
       };
@@ -1688,6 +1692,9 @@ export default function Home() {
       if (json.calendar_draft) {
         setCalendarDraft(json.calendar_draft);
         setCalendarReconnectRequired(false);
+      }
+      if (json.cloud_tool_draft) {
+        setCloudToolDraft(json.cloud_tool_draft);
       }
       setCopilotMessages((prev) => [
         ...prev,
@@ -2634,6 +2641,17 @@ export default function Home() {
                 setCalendarReconnectRequired(false);
                 showToast("캘린더 등록을 취소했습니다.");
               }}
+            />
+          )}
+          {cloudToolDraft && (
+            <CloudDraftReviewCard
+              draft={cloudToolDraft}
+              onChange={setCloudToolDraft}
+              onCancel={() => {
+                setCloudToolDraft(null);
+                showToast("초안을 취소했습니다.");
+              }}
+              onNotify={showToast}
             />
           )}
           <CopilotComposer

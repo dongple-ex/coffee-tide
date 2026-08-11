@@ -84,8 +84,15 @@ export async function POST(request: NextRequest) {
       "로그인한 모든 PC·모바일에서 사용할 수 있는 서버 도구입니다.",
       "",
       ...tools.map(
-        (tool) =>
-          `- **${tool.name}** (\`${tool.id}\`) · ${tool.description} · ${tool.effect === "read_only" ? "읽기 전용" : "승인 필요"}`
+        (tool) => {
+          const policyLabel =
+            tool.effect === "read_only"
+              ? "읽기 전용"
+              : tool.effect === "draft"
+                ? "초안 검토"
+                : "승인 필요";
+          return `- **${tool.name}** (\`${tool.id}\`) · ${tool.description} · ${policyLabel}`;
+        }
       ),
       "",
       "사용 예: `/tool finance`, `/tool finance USD`, `/tool tasks`, `/tool tasks source`",
@@ -184,7 +191,7 @@ export async function POST(request: NextRequest) {
     : [];
   const items = mergeById([...sparkItems, ...clientItems]);
 
-  const { answer, aiUsed, cloudToolExecution } = await askCopilot(
+  const { answer, aiUsed, cloudToolExecution, cloudToolDraft } = await askCopilot(
     question,
     items,
     body.timezone || "Asia/Seoul",
@@ -195,5 +202,6 @@ export async function POST(request: NextRequest) {
     answer,
     ai_fallback: !aiUsed,
     ...(cloudToolExecution ? { cloud_tool_execution: cloudToolExecution } : {}),
+    ...(cloudToolDraft ? { cloud_tool_draft: cloudToolDraft } : {}),
   });
 }

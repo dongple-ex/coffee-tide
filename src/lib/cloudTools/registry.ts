@@ -3,6 +3,9 @@ import "server-only";
 import { createHash, randomUUID } from "node:crypto";
 import { financeSnapshotTool } from "./tools/financeSnapshot";
 import { taskSummaryTool } from "./tools/taskSummary";
+import { calendarDraftTool } from "./tools/calendarDraft";
+import { emailReplyDraftTool } from "./tools/emailReplyDraft";
+import { reportDraftTool } from "./tools/reportDraft";
 import type {
   CloudToolContext,
   CloudToolDefinition,
@@ -11,7 +14,13 @@ import type {
 } from "./types";
 import { CloudToolInputError, validateCloudToolInput } from "./validation";
 
-const definitions: CloudToolDefinition[] = [taskSummaryTool, financeSnapshotTool];
+const definitions: CloudToolDefinition[] = [
+  taskSummaryTool,
+  financeSnapshotTool,
+  calendarDraftTool,
+  emailReplyDraftTool,
+  reportDraftTool,
+];
 const registry = new Map(definitions.map((definition) => [definition.id, definition]));
 const MAX_CALLS_PER_MINUTE = 20;
 const callWindows = new Map<string, number[]>();
@@ -81,8 +90,13 @@ export async function executeCloudTool(options: {
 }): Promise<CloudToolExecution> {
   const definition = registry.get(options.toolId);
   if (!definition) throw new CloudToolNotFoundError(options.toolId);
-  if (definition.effect !== "read_only" || definition.confirmation !== "none") {
-    throw new CloudToolPolicyError("현재 단계에서는 자동 승인 없는 읽기 전용 도구만 실행합니다.");
+  const executable =
+    (definition.effect === "read_only" && definition.confirmation === "none") ||
+    (definition.effect === "draft" && definition.confirmation === "result_review");
+  if (!executable) {
+    throw new CloudToolPolicyError(
+      "현재 단계에서는 읽기 전용 또는 외부 변경이 없는 검토용 초안 도구만 실행합니다."
+    );
   }
   enforceRateLimit(options.context.userId, definition.id);
   const input = validateCloudToolInput(definition.inputSchema, options.input);
@@ -114,6 +128,7 @@ export async function executeCloudTool(options: {
         actor: actorHash(options.context.userId),
         toolId: definition.id,
         version: definition.version,
+        effect: definition.effect,
         durationMs,
         success: result.success,
       })
@@ -134,6 +149,7 @@ export async function executeCloudTool(options: {
         actor: actorHash(options.context.userId),
         toolId: definition.id,
         version: definition.version,
+        effect: definition.effect,
         durationMs: Date.now() - startedAt,
         errorCode: error instanceof CloudToolInputError ? "INPUT" : "EXECUTION",
       })

@@ -18,6 +18,29 @@ function cleanText(text: string): string {
     .trim();
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function nestedValue(value: unknown, path: string[]): unknown {
+  let current = value;
+  for (const key of path) {
+    if (Array.isArray(current)) {
+      const index = Number(key);
+      if (!Number.isInteger(index) || index < 0 || index >= current.length) return undefined;
+      current = current[index];
+      continue;
+    }
+    if (!isRecord(current)) return undefined;
+    current = current[key];
+  }
+  return current;
+}
+
+function stringValue(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
 function parseYoutubeVideosFromHtml(html: string, fallbackChannel: string): YouTubeVideo[] {
   const videos: YouTubeVideo[] = [];
   const startIdx = html.indexOf("ytInitialData = ");
@@ -38,12 +61,13 @@ function parseYoutubeVideosFromHtml(html: string, fallbackChannel: string): YouT
     if (!node || typeof node !== "object" || videos.length >= 8) return;
 
     // 1. 최신 YouTube Lockup UI
-    const lvm = (node as Record<string, any>).lockupViewModel;
-    if (lvm) {
+    const record = node as Record<string, unknown>;
+    const lvm = record.lockupViewModel;
+    if (isRecord(lvm)) {
       const videoId = lvm.contentId;
       const title =
-        lvm.metadata?.lockupMetadataViewModel?.title?.content ||
-        lvm.rendererContext?.accessibilityContext?.label ||
+        stringValue(nestedValue(lvm, ["metadata", "lockupMetadataViewModel", "title", "content"])) ||
+        stringValue(nestedValue(lvm, ["rendererContext", "accessibilityContext", "label"])) ||
         "";
       if (videoId && typeof videoId === "string" && title && !videos.some((v) => v.id === videoId)) {
         videos.push({
@@ -59,12 +83,15 @@ function parseYoutubeVideosFromHtml(html: string, fallbackChannel: string): YouT
     }
 
     // 2. 클래식 videoRenderer
-    const vr = (node as Record<string, any>).videoRenderer;
-    if (vr) {
+    const vr = record.videoRenderer;
+    if (isRecord(vr)) {
       const videoId = vr.videoId;
-      const title = vr.title?.runs?.[0]?.text || vr.title?.simpleText || "";
-      const published = vr.publishedTimeText?.simpleText || "최신";
-      const channel = vr.ownerText?.runs?.[0]?.text || fallbackChannel;
+      const title =
+        stringValue(nestedValue(vr, ["title", "runs", "0", "text"])) ||
+        stringValue(nestedValue(vr, ["title", "simpleText"])) ||
+        "";
+      const published = stringValue(nestedValue(vr, ["publishedTimeText", "simpleText"])) || "최신";
+      const channel = stringValue(nestedValue(vr, ["ownerText", "runs", "0", "text"])) || fallbackChannel;
       if (videoId && typeof videoId === "string" && title && !videos.some((v) => v.id === videoId)) {
         videos.push({
           id: videoId,
@@ -101,7 +128,6 @@ function parseRssVideos(xml: string, channelName: string): YouTubeVideo[] {
     const titleMatch = entry.match(/<title>([\s\S]*?)<\/title>/i);
     const linkMatch = entry.match(/<link[^>]*href=["']([^"']+)["']/i);
     const descMatch = entry.match(/<media:description>([\s\S]*?)<\/media:description>/i);
-    const dateMatch = entry.match(/<published>([\s\S]*?)<\/published>/i);
     const authorMatch = entry.match(/<author>\s*<name>([\s\S]*?)<\/name>/i);
 
     const videoId = idMatch ? cleanText(idMatch[1]) : "";

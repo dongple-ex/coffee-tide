@@ -38,7 +38,8 @@ export function validateCloudToolInput(
         throw new CloudToolInputError(`${name} 값은 문자열이어야 합니다.`);
       }
       const text = supplied.trim();
-      if (/\p{Cc}/u.test(text)) {
+      const textWithoutLayoutControls = text.replace(/[\t\n\r]/g, "");
+      if (/\p{Cc}/u.test(textWithoutLayoutControls)) {
         throw new CloudToolInputError(`${name} 값에 제어문자를 사용할 수 없습니다.`);
       }
       if (text.length > (property.maxLength ?? 200)) {

@@ -1,6 +1,6 @@
 # 11. Cloud Tool Registry 설계 및 구현 계획
 
-> 상태: **단계 A·B 완료 · 읽기 전용 자연어 도구 선택 구현**
+> 상태: **단계 A·B·C 완료 · 읽기 전용 조회와 검토용 초안 구현**
 > 기준일: 2026-08-11  
 > 관련 문서: [`08-local-ai-enhancement-plan.md`](./08-local-ai-enhancement-plan.md), [`10-local-tools-document-agent-plan.md`](./10-local-tools-document-agent-plan.md)
 
@@ -135,8 +135,10 @@ interface CloudToolResult<TData> {
 
 ### 단계 C — 초안 도구
 
-- [ ] 일정·보고서·메일을 직접 저장하지 않고 초안으로 생성
-- [ ] 모바일 결과 검토 카드와 수정·취소
+- [x] 일정·보고서·메일을 직접 저장하지 않고 초안으로 생성
+- [x] 모바일 결과 검토 카드와 수정·취소
+
+`calendar.event_draft`, `email.reply_draft`, `document.report_draft`는 `effect:draft + confirmation:result_review`로 등록한다. 도구는 외부 Calendar·메일 임시보관함·Drive·파일시스템을 호출하지 않고 구조화된 초안만 반환한다. AI 바리스타 영역의 검토 카드는 제목·본문·일시를 수정하고 클립보드에 복사하거나 취소할 수 있으며, 44px 이상 터치 영역과 1열 모바일 레이아웃을 사용한다. 기존 Calendar 등록과 Outlook 임시보관함 저장 API는 독립 기능으로 유지하며 Phase C Cloud Tool에서 호출하지 않는다.
 
 ### 단계 D — 외부 쓰기
 

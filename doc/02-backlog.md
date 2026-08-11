@@ -300,10 +300,10 @@
 - **남은 문제**: 실제 로컬 모델의 구조화된 도구 제안 연결, 영속 승인 저장소, 운영체제 샌드박스, `prepare_file` 이상 쓰기 등급은 없다. 현재는 신뢰한 `read_only` 도구만 수동 실행한다.
 - **완료 기준**: 로컬 모델이 등록된 읽기 전용 도구만 제안하고, 쓰기 작업은 별도 등급과 대상 미리보기·승인 정책을 거쳐 실행할 수 있다.
 
-### L5. Vercel Cloud Tool Registry — ✅ 읽기 전용 단계 A·B 구현 / 쓰기 보류
+### L5. Vercel Cloud Tool Registry — ✅ 단계 A·B·C 구현 / 외부 쓰기 보류
 
-- **구현 (2026-08-11)**: 정적 TypeScript Registry, 공통 입력 스키마 검사, 제한 시간·출력 상한, 사용자·도구별 인메모리 호출 제한, 식별자 해시 로그와 인증된 `/api/cloud-tools`를 추가했다. `workspace.task_summary`와 `finance.market_snapshot`을 모든 PC·모바일에서 실행할 수 있고 AI 바리스타의 `/tools`, `/tool finance`, `/tool tasks`로 확인한다. Phase B에서는 Registry 스키마를 Gemini function calling 선언으로 변환해 자연어 질문에서 읽기 전용 도구 하나를 자동 선택·실행·재요약한다. 미등록 함수·인자와 병렬·반복 호출은 거부하며 재요약 실패 시 검증된 결과를 그대로 표시한다.
-- **남은 문제**: Supabase 영속 감사·분산 호출 제한, 초안과 외부 쓰기용 사용자 승인·멱등성 정책은 없다.
+- **구현 (2026-08-11)**: 정적 TypeScript Registry, 공통 입력 스키마 검사, 제한 시간·출력 상한, 사용자·도구별 인메모리 호출 제한, 식별자 해시 로그와 인증된 `/api/cloud-tools`를 추가했다. `workspace.task_summary`와 `finance.market_snapshot`을 모든 PC·모바일에서 실행할 수 있고 AI 바리스타의 `/tools`, `/tool finance`, `/tool tasks`로 확인한다. Phase B에서는 Registry 스키마를 Gemini function calling 선언으로 변환해 자연어 질문에서 도구 하나를 자동 선택·실행·재요약한다. Phase C의 일정·메일·보고서 도구는 외부 저장 없이 구조화된 초안만 반환하며, 모바일 검토 카드에서 수정·복사·취소할 수 있다. 미등록 함수·인자와 병렬·반복 호출은 거부한다.
+- **남은 문제**: Supabase 영속 감사·분산 호출 제한, 외부 쓰기용 세션 결합 1회 승인·멱등성 정책은 없다.
 - **완료 기준**: Gemini가 등록 스키마로 읽기 도구를 제안하고, 쓰기 도구는 모바일 확인 카드와 세션 결합 1회 승인 후에만 실행된다. 상세는 [`11-cloud-tool-registry-plan.md`](./11-cloud-tool-registry-plan.md) 참조.
 
 ---
