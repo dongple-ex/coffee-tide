@@ -101,7 +101,8 @@ interface GeminiGenerateResponse {
 
 async function generateGemini(
   body: Record<string, unknown>,
-  ignoreCooldown = false
+  ignoreCooldown = false,
+  signal?: AbortSignal
 ): Promise<GeminiGenerateResponse> {
   const key = apiKey();
   if (!key) throw new Error("GEMINI_API_KEY not set");
@@ -113,6 +114,7 @@ async function generateGemini(
       method: "POST",
       headers: { "Content-Type": "application/json", "x-goog-api-key": key },
       body: JSON.stringify(body),
+      signal,
     }
   );
   if (res.status === 429) {
@@ -137,14 +139,16 @@ function responseText(response: GeminiGenerateResponse): string {
 async function callGemini(
   systemInstruction: string,
   userText: string,
-  ignoreCooldown = false
+  ignoreCooldown = false,
+  signal?: AbortSignal
 ): Promise<string> {
   const response = await generateGemini(
     {
       systemInstruction: { parts: [{ text: systemInstruction }] },
       contents: [{ role: "user", parts: [{ text: userText }] }],
     },
-    ignoreCooldown
+    ignoreCooldown,
+    signal
   );
   return responseText(response);
 }
@@ -634,7 +638,8 @@ const NEWS_SUMMARY_SYSTEM = `역할: 바쁜 직장인이 원문을 열지 않아
 export async function summarizeSiteContent(
   siteName: string,
   items: NewsSummaryInput[],
-  kind: "article" | "video" = "article"
+  kind: "article" | "video" = "article",
+  signal?: AbortSignal
 ): Promise<SiteSummaryOutput> {
   const empty: SiteSummaryOutput = { byId: {}, briefing: null, aiUsed: false };
   if (items.length === 0) return empty;
@@ -651,7 +656,7 @@ export async function summarizeSiteContent(
   };
 
   try {
-    const raw = await callGemini(NEWS_SUMMARY_SYSTEM, JSON.stringify(payload));
+    const raw = await callGemini(NEWS_SUMMARY_SYSTEM, JSON.stringify(payload), false, signal);
     const parsed = parseJsonLoose<{
       articles?: { id?: string; summary?: string; points?: unknown }[];
       briefing?: { headline?: string; keyPoints?: unknown };
@@ -723,7 +728,7 @@ function errorMessage(error: unknown): string {
 }
 
 /** 이미 사용자에게 보여줄 만큼 다듬어진 에러인지 (그대로 다시 throw) */
-const USER_FACING_ERROR = /AI 호출 한도|AI 모델을 찾을 수 없|API 키 권한|API 호출 오류/;
+const USER_FACING_ERROR = /AI 호출 한도|AI 모델을 찾을 수 없|API 키 권한|API 호출 오류|응답 시간이 초과/;
 
 /** YouTube URL을 전달받아 영상 내용을 AI로 분석/요약 */
 export async function analyzeYoutube(url: string): Promise<string> {
@@ -751,12 +756,13 @@ export async function analyzeYoutube(url: string): Promise<string> {
           contents: [{
             role: "user",
             parts: [
-              { fileData: { fileUri: url, mimeType: "video/mp4" } },
+              { fileData: { fileUri: url } },
               { text: query }
             ]
           }],
           generationConfig: { responseMimeType: "application/json" }
         }),
+        signal: AbortSignal.timeout(20_000),
       }
     );
 
@@ -779,7 +785,9 @@ export async function analyzeYoutube(url: string): Promise<string> {
     const parsed = JSON.parse(text);
     return parsed.text || "요약을 생성하지 못했습니다.";
   } catch (error) {
-    const message = errorMessage(error);
+    const message = error instanceof DOMException && error.name === "TimeoutError"
+      ? "영상 분석 응답 시간이 초과되었습니다. 잠시 후 다시 시도해 주세요."
+      : errorMessage(error);
     if (USER_FACING_ERROR.test(message)) throw error;
     console.error("[coffeeTide] YouTube AI 분석 실패:", error);
     throw new Error(message || "비공개이거나 접근할 수 없는 영상입니다. (또는 AI 호출 한도 초과)");
@@ -818,7 +826,7 @@ export async function chatYoutube(url: string, messages: { role: "user" | "model
       return {
         role: msg.role,
         parts: [
-          { fileData: { fileUri: url, mimeType: "video/mp4" } },
+          { fileData: { fileUri: url } },
           { text: msg.content }
         ]
       };
@@ -840,6 +848,7 @@ export async function chatYoutube(url: string, messages: { role: "user" | "model
           contents,
           generationConfig: { responseMimeType: "application/json" }
         }),
+        signal: AbortSignal.timeout(20_000),
       }
     );
 
@@ -861,7 +870,9 @@ export async function chatYoutube(url: string, messages: { role: "user" | "model
 
     return JSON.parse(text) as YoutubeChatResponse;
   } catch (error) {
-    const message = errorMessage(error);
+    const message = error instanceof DOMException && error.name === "TimeoutError"
+      ? "영상 질문 응답 시간이 초과되었습니다. 잠시 후 다시 시도해 주세요."
+      : errorMessage(error);
     if (USER_FACING_ERROR.test(message)) throw error;
     console.error("[coffeeTide] YouTube AI 채팅 실패:", error);
     throw new Error(message || "비공개이거나 접근할 수 없는 영상입니다. (또는 AI 호출 한도 초과)");

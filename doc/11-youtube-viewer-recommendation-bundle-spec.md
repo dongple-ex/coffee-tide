@@ -2,7 +2,7 @@
 
 > **문서 번호**: `doc/11-youtube-viewer-recommendation-bundle-spec.md`  
 > **작성 일자**: 2026-08-11  
-> **상태**: 검토 및 승인 대기 (Draft for Review)  
+> **상태**: 핵심 기능 구현 및 보안·모바일 안정화 완료, Cloud Sync·자연어 재생 명령 후속 예정
 > **관련 문서**: [`00-product-spec.md`](./00-product-spec.md), [`01-as-built-reference.md`](./01-as-built-reference.md), [`02-backlog.md`](./02-backlog.md), [`08-local-ai-enhancement-plan.md`](./08-local-ai-enhancement-plan.md)
 
 ---
@@ -51,9 +51,9 @@ flowchart TB
     end
 
     subgraph Backend ["백엔드 API & AI"]
-        API_Bundle["GET /api/youtube/bundle (RSS 병렬 수집)"]
+        API_Bundle["POST /api/youtube/bundle (RSS·채널 페이지 병렬 수집)"]
         API_Rec["GET /api/youtube/recommend (시간대/키워드)"]
-        API_Transcript["POST /api/youtube/transcript (자막 추출)"]
+        API_Transcript["POST /api/youtube/transcript-summary (자막 추출·요약)"]
         API_Chat["POST /api/ai/youtube-chat (Gemini Q&A)"]
     end
 
@@ -113,7 +113,8 @@ flowchart TB
 ### 3.3 스마트 묶음 관리 (Smart Bundle & Channel Grouping)
 
 1. **번들(Bundle) 개념 정의**:
-   - 여러 YouTube 채널 ID, 커스텀 핸들(`@channel`), 재생목록(Playlist)을 하나의 테마로 묶은 단위.
+   - 여러 YouTube 채널 ID와 커스텀 핸들(`@channel`)을 하나의 테마로 묶은 단위.
+   - 재생목록(Playlist) 직접 등록은 현재 지원하지 않으며 후속 범위로 둔다.
    - 예시 기본 제공 프리셋:
      - 📈 **경제/재테크 번들**: 삼프로TV, 슈카월드, 신사임당
      - 💻 **개발/테크 번들**: 생활코딩, 코딩애플, 노마드코더, 테크 유튜버
@@ -202,9 +203,10 @@ export interface ContextualRecommendation {
 
 ## 5. API 명세 및 파이프라인 (API Specifications)
 
-### 5.1 `GET /api/youtube/bundle`
+### 5.1 `POST /api/youtube/bundle`
 - **목적**: 번들에 포함된 여러 채널의 최신 영상 목록을 병렬 수집하여 통합 피드 반환.
-- **Query Params**: `bundleId` 또는 `channelIds` (콤마 구분)
+- **Request Body**: `{ "bundleId": "string", "bundleName": "string", "channels": YouTubeChannelSource[], "refresh": boolean }`
+- **보호 장치**: YouTube HTTPS 호스트·채널 경로 허용 목록, 리디렉션 차단, 8초 업스트림 제한, 2MB 응답 제한, 세션/IP 단위 요청 제한, 채널 구성 해시 기반 캐시 격리.
 - **응답 (JSON)**:
   ```json
   {
@@ -239,12 +241,14 @@ export interface ContextualRecommendation {
       { "time": "00:00", "seconds": 0, "label": "도입부 및 배경" },
       { "time": "03:15", "seconds": 195, "label": "핵심 기술 변화점" }
     ],
-    "source": "transcript" // 또는 "metadata" | "gemini_multimodal"
+    "summarySource": "transcript", // 또는 "description" | "none"
+    "transcriptAvailable": true
   }
   ```
 
 ### 5.3 `POST /api/ai/youtube-chat` (기존 기능 고도화)
-- **개선점**: 기존 `fileData` 멀티모달 요청 전, 자막/메타데이터를 시스템 컨텍스트로 우선 주입하여 지연 시간 단축 및 429 오류 방지.
+- **현재 구현**: 검증된 공개 YouTube URL만 Gemini 영상 컨텍스트로 전달하며, 메시지 수·길이와 요청 횟수를 제한한다. 서버 20초/UI 25초 제한 후 사용자용 오류를 표시한다.
+- **후속 개선**: 대화에서도 자막/메타데이터를 우선 컨텍스트로 주입해 멀티모달 호출 빈도와 쿼터 사용을 더 줄인다.
 
 ---
 
@@ -254,12 +258,11 @@ export interface ContextualRecommendation {
 ```text
 src/app/components/youtube/
 ├── YouTubeBundleWidget.tsx          # 퀵 위젯 바 및 대시보드 내 번들 탭 위젯
-├── YouTubeBundleWidget.module.css   # Bento Grid 스타일 시트
-├── SmartPlayerModal.tsx             # 16:9 반응형 뷰어 + 챕터 타임라인 + AI Q&A
-├── MiniPlayerOverlay.tsx            # 우측 하단 PIP 플로팅 미니 플레이어
+├── youTubeBundleWidget.module.css   # Bento Grid 스타일 시트
+├── SmartPlayerModal.tsx             # 16:9 반응형 뷰어 + 챕터 + AI Q&A + 미니 플레이어
+├── smartPlayerModal.module.css
 ├── ContextualRecStrip.tsx           # 시간대/상황별 맞춤 추천 가로 스크롤 카드
-└── settings/
-    └── YouTubeBundleSection.tsx     # 설정 모달 내 번들 추가/편집/채널 관리
+└── contextualRecStrip.module.css
 ```
 
 ### 6.2 대시보드 UI/UX 배치
@@ -278,26 +281,31 @@ src/app/components/youtube/
 ## 7. 구현 로드맵 및 실행 단계 (Roadmap & Phases)
 
 ### 1단계: 코어 데이터 모델 및 번들 수집 API 구축
-- [ ] `src/lib/types/youtube.ts` 타입 정의 (`YouTubeVideo`, `YouTubeBundle`, `YouTubeChapter` 등)
-- [ ] `src/lib/youtube/presets.ts` 기본 번들 프리셋 구성 (경제, 테크, BGM, 자기계발)
-- [ ] `src/lib/localStore.ts` 번들 관련 키(`LS_YOUTUBE_BUNDLES` 등) 추가
-- [ ] `src/app/api/youtube/bundle/route.ts` 다중 채널 RSS 병렬 수집 & 캐시 API 구현
+- [x] `src/lib/types/youtube.ts` 타입 정의 (`YouTubeVideo`, `YouTubeBundle`, `YouTubeChapter` 등)
+- [x] `src/lib/youtube/presets.ts` 기본 번들 프리셋 구성 (경제, 테크, BGM, 자기계발)
+- [x] `src/lib/localStore.ts` 번들 관련 키(`LS_YOUTUBE_BUNDLES` 등) 추가
+- [x] `src/app/api/youtube/bundle/route.ts` 다중 채널 RSS/채널 페이지 병렬 수집 & 구성 해시 캐시 구현
+- [x] YouTube 호스트·채널 경로 허용 목록, 요청 속도·채널 수·응답 크기·시간 제한 적용
 
 ### 2단계: 스마트 유튜브 뷰어 & 자막 기반 AI 요약 고도화
-- [ ] `src/app/components/youtube/SmartPlayerModal.tsx` IFrame API 양방향 제어 뷰어 구현
-- [ ] `src/app/api/youtube/transcript-summary/route.ts` 자막 파싱 및 저비용 Gemini 텍스트 요약기 연동
-- [ ] 챕터 타임스탬프 클릭 시 영상 자동 점프(`seekTo`) 및 자동 재생 연동
-- [ ] AI 채팅 인터페이스 최적화 (`/api/ai/youtube-chat`)
+- [x] `src/app/components/youtube/SmartPlayerModal.tsx` IFrame API 제어·미니 플레이어 구현
+- [x] `src/app/api/youtube/transcript-summary/route.ts` 공개 자막(JSON3·VTT·XML) 우선 추출 및 설명란 폴백 요약 연동
+- [x] 챕터 타임스탬프 클릭 시 영상 자동 점프(`seekTo`) 및 자동 재생 연동
+- [x] AI 채팅 입력 검증·속도 제한·20초 서버 타임아웃·25초 UI 타임아웃 적용
 
 ### 3단계: 묶음(Bundle) 위젯 & 대시보드 통합
-- [ ] `src/app/components/youtube/YouTubeBundleWidget.tsx` 번들 탭/채널 전환 Bento 위젯 구현
-- [ ] `src/app/page.tsx` 퀵 위젯 바에 유튜브 번들 위젯 연동 및 레이아웃 배치
-- [ ] `ShortcutsWidget.tsx`의 YouTube 바로가기 클릭 시 내부 번들 위젯/스마트 뷰어로 연결
+- [x] `src/app/components/youtube/YouTubeBundleWidget.tsx` 번들 탭/채널 전환 위젯 구현
+- [x] `src/app/page.tsx` 퀵 위젯 바에 유튜브 번들 위젯 연동 및 레이아웃 배치
+- [x] `ShortcutsWidget.tsx`의 YouTube 그룹에서 내부 번들 위젯으로 연결
+- [x] 번들 전환 요청 취소·응답 순번 검증 및 설정 변경 즉시 동기화
+- [x] 새로고침·추천·자막·채팅 요청의 UI 취소/시간 제한 및 서버 업스트림 시간 제한
+- [x] 키보드 조작 가능한 영상 카드·모달 초점 이동/복귀·초점 순환 적용
 
 ### 4단계: 상황 맞춤형 추천 엔진 & AI 바리스타 연동
-- [ ] KST 시간대별 추천 스트립(`ContextualRecStrip.tsx`) 구현 (모닝 경제, 집중 BGM 등)
+- [x] KST 시간대별 추천 스트립(`ContextualRecStrip.tsx`) 구현 (실제 등록 채널의 최신 영상 사용)
 - [ ] AI 바리스타 자연어 명령 연동 ("재즈 틀어줘", "삼프로TV 요약해줘" ➔ 번들/영상 자동 호출)
-- [ ] 설정 모달 내 `YouTubeBundleSection.tsx` 번들 커스텀 편집 기능 추가
+- [x] 설정 모달 내 `YouTubeBundleSection.tsx` 번들 커스텀 편집 및 입력 검증 추가
+- [ ] Supabase 사용자별 번들·시청 기록 Cloud Sync (현재 브라우저 localStorage 보관)
 
 ---
 
@@ -307,8 +315,9 @@ src/app/components/youtube/
    - 임의의 YouTube URL 및 번들 채널 영상이 오류 없이 100% 임베드 재생되어야 함.
    - 타임스탬프 클릭 시 영상의 정확한 초 단위로 딜레이 없이 이동 및 재생되어야 함.
 2. **AI 요약 속도 및 쿼터 효율**:
-   - 자막 기반 요약 도입으로 영상 분석 응답 속도 < 3초 달성.
-   - 429 쿼터 초과 시 메타데이터 기반 로컬 요약으로 자동 폴백되어 화면이 멈추지 않아야 함.
+   - 공개 자막을 우선 사용하고 자막이 없으면 설명란으로 폴백한다.
+   - YouTube가 서버 요청에 자막 본문을 제공하지 않는 경우도 실패로 중단하지 않고 `transcriptAvailable=false`와 `summarySource=description`을 명시한다.
+   - AI 요약은 7초 이내 중단하고 확보된 자막/설명 기반 로컬 요약을 표시해 화면이 계속 대기하지 않아야 한다.
 3. **번들 관리 및 UX**:
-   - 번들 간 전환이 300ms 이내에 즉각 반응하며 캐시된 영상이 매끄럽게 렌더링되어야 함.
+   - 번들 선택 UI는 즉시 전환하고, 이전 요청이 늦게 도착해 현재 번들을 덮어쓰지 않아야 한다.
    - 모바일/데스크톱 뷰포트 반응형 레이아웃 깨짐 없음.

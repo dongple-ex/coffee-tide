@@ -1,285 +1,154 @@
+import { createHash } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { YouTubeVideo, YouTubeBundleApiResponse } from "@/lib/types/youtube";
 import { DEFAULT_YOUTUBE_BUNDLES } from "@/lib/youtube/presets";
+import { fetchYouTubeChannelVideos } from "@/lib/youtube/server";
+import { normalizeYouTubeChannelUrl } from "@/lib/youtube/url";
 import { summarizeSiteContent } from "@/lib/ai/gemini";
+import type { YouTubeBundleApiResponse, YouTubeChannelSource, YouTubeVideo } from "@/lib/types/youtube";
+import { isYouTubeRequestRateLimited } from "@/lib/youtube/rateLimit";
 
-// 서버 메모리 캐시 (10분)
-const bundleCache = new Map<string, { data: YouTubeBundleApiResponse; timestamp: number }>();
 const CACHE_TTL_MS = 10 * 60 * 1000;
+const MAX_CHANNELS = 8;
+const MAX_TOTAL_VIDEOS = 40;
+const RATE_LIMIT_REQUESTS = 10;
+const AI_BRIEFING_TIMEOUT_MS = 4_500;
 
-function cleanText(text: string): string {
-  return text
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
-    .trim();
-}
+const bundleCache = new Map<string, { data: YouTubeBundleApiResponse; timestamp: number }>();
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
+class RequestValidationError extends Error {}
 
-function nestedValue(value: unknown, path: string[]): unknown {
-  let current = value;
-  for (const key of path) {
-    if (Array.isArray(current)) {
-      const index = Number(key);
-      if (!Number.isInteger(index) || index < 0 || index >= current.length) return undefined;
-      current = current[index];
-      continue;
-    }
-    if (!isRecord(current)) return undefined;
-    current = current[key];
+function requestObject(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new RequestValidationError("요청 본문은 JSON 객체여야 합니다.");
   }
-  return current;
+  return value as Record<string, unknown>;
 }
 
-function stringValue(value: unknown): string {
-  return typeof value === "string" ? value : "";
+function cleanExpiredState(): void {
+  const now = Date.now();
+  for (const [key, value] of bundleCache) {
+    if (now - value.timestamp >= CACHE_TTL_MS) bundleCache.delete(key);
+  }
 }
 
-function parseYoutubeVideosFromHtml(html: string, fallbackChannel: string): YouTubeVideo[] {
-  const videos: YouTubeVideo[] = [];
-  const startIdx = html.indexOf("ytInitialData = ");
-  if (startIdx === -1) return videos;
-
-  const scriptEnd = html.indexOf(";</script>", startIdx);
-  const jsonText = html.substring(startIdx + "ytInitialData = ".length, scriptEnd !== -1 ? scriptEnd : undefined);
-
-  let root: unknown;
-  try {
-    root = JSON.parse(jsonText);
-  } catch {
-    return videos;
+function parseChannels(value: unknown): YouTubeChannelSource[] | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (!Array.isArray(value)) throw new RequestValidationError("채널 목록 형식이 올바르지 않습니다.");
+  if (value.length > MAX_CHANNELS) {
+    throw new RequestValidationError(`번들당 채널은 최대 ${MAX_CHANNELS}개까지 등록할 수 있습니다.`);
   }
 
-  // 재귀적으로 lockupViewModel 또는 videoRenderer 탐색
-  function walk(node: unknown) {
-    if (!node || typeof node !== "object" || videos.length >= 8) return;
-
-    // 1. 최신 YouTube Lockup UI
-    const record = node as Record<string, unknown>;
-    const lvm = record.lockupViewModel;
-    if (isRecord(lvm)) {
-      const videoId = lvm.contentId;
-      const title =
-        stringValue(nestedValue(lvm, ["metadata", "lockupMetadataViewModel", "title", "content"])) ||
-        stringValue(nestedValue(lvm, ["rendererContext", "accessibilityContext", "label"])) ||
-        "";
-      if (videoId && typeof videoId === "string" && title && !videos.some((v) => v.id === videoId)) {
-        videos.push({
-          id: videoId,
-          title: cleanText(title),
-          url: `https://www.youtube.com/watch?v=${videoId}`,
-          thumbnailUrl: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
-          publishedAt: "최신",
-          channelTitle: fallbackChannel,
-          channelId: "",
-        });
-      }
+  return value.map((raw, index) => {
+    if (!raw || typeof raw !== "object") {
+      throw new RequestValidationError(`${index + 1}번째 채널 형식이 올바르지 않습니다.`);
     }
-
-    // 2. 클래식 videoRenderer
-    const vr = record.videoRenderer;
-    if (isRecord(vr)) {
-      const videoId = vr.videoId;
-      const title =
-        stringValue(nestedValue(vr, ["title", "runs", "0", "text"])) ||
-        stringValue(nestedValue(vr, ["title", "simpleText"])) ||
-        "";
-      const published = stringValue(nestedValue(vr, ["publishedTimeText", "simpleText"])) || "최신";
-      const channel = stringValue(nestedValue(vr, ["ownerText", "runs", "0", "text"])) || fallbackChannel;
-      if (videoId && typeof videoId === "string" && title && !videos.some((v) => v.id === videoId)) {
-        videos.push({
-          id: videoId,
-          title: cleanText(title),
-          url: `https://www.youtube.com/watch?v=${videoId}`,
-          thumbnailUrl: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
-          publishedAt: published,
-          channelTitle: cleanText(channel),
-          channelId: "",
-        });
-      }
+    const record = raw as Record<string, unknown>;
+    const id = String(record.id ?? "").trim().slice(0, 120);
+    const name = String(record.name ?? "").trim().slice(0, 80);
+    const source = String(record.customUrl ?? record.rssUrl ?? "").trim();
+    const normalizedUrl = normalizeYouTubeChannelUrl(source);
+    if (!id || !name || !normalizedUrl) {
+      throw new RequestValidationError(`${index + 1}번째 채널은 유효한 YouTube 채널 ID·핸들·URL이어야 합니다.`);
     }
-
-    if (Array.isArray(node)) {
-      for (const item of node) walk(item);
-    } else {
-      for (const key of Object.keys(node as Record<string, unknown>)) {
-        walk((node as Record<string, unknown>)[key]);
-      }
-    }
-  }
-
-  walk(root);
-  return videos;
+    return { id, name, rssUrl: normalizedUrl, customUrl: normalizedUrl };
+  });
 }
 
-function parseRssVideos(xml: string, channelName: string): YouTubeVideo[] {
-  const entryMatches = Array.from(xml.matchAll(/<entry>([\s\S]*?)<\/entry>/gi));
-  const videos: YouTubeVideo[] = [];
-
-  for (let i = 0; i < Math.min(entryMatches.length, 6); i++) {
-    const entry = entryMatches[i][1];
-    const idMatch = entry.match(/<yt:videoId>([\s\S]*?)<\/yt:videoId>/i);
-    const titleMatch = entry.match(/<title>([\s\S]*?)<\/title>/i);
-    const linkMatch = entry.match(/<link[^>]*href=["']([^"']+)["']/i);
-    const descMatch = entry.match(/<media:description>([\s\S]*?)<\/media:description>/i);
-    const authorMatch = entry.match(/<author>\s*<name>([\s\S]*?)<\/name>/i);
-
-    const videoId = idMatch ? cleanText(idMatch[1]) : "";
-    const rawTitle = titleMatch ? cleanText(titleMatch[1]) : "";
-    const url = linkMatch ? linkMatch[1] : videoId ? `https://www.youtube.com/watch?v=${videoId}` : "";
-    const desc = descMatch ? cleanText(descMatch[1]) : "";
-    const author = authorMatch ? cleanText(authorMatch[1]) : channelName;
-
-    if (videoId && rawTitle) {
-      videos.push({
-        id: videoId,
-        title: rawTitle,
-        url,
-        thumbnailUrl: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
-        publishedAt: "최신",
-        channelTitle: author,
-        channelId: "",
-        description: desc,
-      });
-    }
-  }
-
-  return videos;
+function cacheKey(bundleId: string, bundleName: string, channels: YouTubeChannelSource[]): string {
+  const payload = channels.map((channel) => ({
+    id: channel.id,
+    name: channel.name,
+    url: channel.customUrl || channel.rssUrl,
+  }));
+  return createHash("sha256")
+    .update(JSON.stringify({ bundleId, bundleName, channels: payload }))
+    .digest("hex");
 }
 
-async function fetchChannelVideos(sourceUrl: string, channelName: string): Promise<YouTubeVideo[]> {
-  try {
-    let targetUrl = sourceUrl;
-    if (!targetUrl.startsWith("http")) {
-      const handle = targetUrl.startsWith("@") ? targetUrl : "@" + targetUrl;
-      targetUrl = `https://www.youtube.com/${handle}/videos`;
-    } else if (targetUrl.includes("channel_id=") || targetUrl.includes("/feeds/videos.xml")) {
-      // RSS URL
-    } else if (!targetUrl.includes("/videos")) {
-      targetUrl = targetUrl.replace(/\/$/, "") + "/videos";
-    }
+function sortByPublishedAt(videos: YouTubeVideo[]): YouTubeVideo[] {
+  return videos
+    .map((video, index) => ({ video, index, timestamp: Date.parse(video.publishedAt) }))
+    .sort((a, b) => {
+      if (Number.isFinite(a.timestamp) && Number.isFinite(b.timestamp)) return b.timestamp - a.timestamp;
+      if (Number.isFinite(a.timestamp)) return -1;
+      if (Number.isFinite(b.timestamp)) return 1;
+      return a.index - b.index;
+    })
+    .map(({ video }) => video)
+    .slice(0, MAX_TOTAL_VIDEOS);
+}
 
-    const res = await fetch(targetUrl, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-        "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
-      },
-      next: { revalidate: 300 },
-    });
-
-    if (!res.ok) {
-      // RSS URL 실패 시 핸들 URL로 2차 시도
-      if (targetUrl.includes("feeds/videos.xml")) {
-        const handleGuess = channelName.toLowerCase().replace(/\s+/g, "");
-        return await fetchChannelVideos(`@${handleGuess}`, channelName);
-      }
-      return [];
-    }
-
-    const bodyText = await res.text();
-
-    // 1. HTML인 경우 ytInitialData 파싱
-    if (bodyText.includes("ytInitialData")) {
-      const parsed = parseYoutubeVideosFromHtml(bodyText, channelName);
-      if (parsed.length > 0) return parsed;
-    }
-
-    // 2. RSS XML인 경우
-    if (bodyText.includes("<feed") || bodyText.includes("<entry>")) {
-      const rssParsed = parseRssVideos(bodyText, channelName);
-      if (rssParsed.length > 0) return rssParsed;
-    }
-
-    return [];
-  } catch (error) {
-    console.error(`[fetchChannelVideos Error: ${channelName}]`, error);
-    return [];
-  }
+function localBriefing(bundleName: string, videos: YouTubeVideo[]) {
+  const points = videos.slice(0, 3).map((video) => `[${video.sourceChannelName || video.channelTitle}] ${video.title}`);
+  return {
+    headline: `${bundleName} 채널에서 최신 영상 ${videos.length}개를 확인했습니다.`,
+    keyPoints: points,
+  };
 }
 
 export async function POST(req: NextRequest) {
+  cleanExpiredState();
+  if (isYouTubeRequestRateLimited(req, "bundle", RATE_LIMIT_REQUESTS)) {
+    return NextResponse.json(
+      { success: false, reason: "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.", videos: [] },
+      { status: 429, headers: { "Retry-After": "60" } }
+    );
+  }
+
   try {
-    const body = (await req.json()) as {
-      bundleId?: string;
-      channels?: { id: string; name: string; rssUrl: string; customUrl?: string }[];
-      bundleName?: string;
-      refresh?: boolean;
-    };
+    const body = requestObject(await req.json());
+    const bundleId = String(body.bundleId ?? "bundle-custom").trim().slice(0, 120) || "bundle-custom";
+    const refresh = body.refresh === true;
+    const matchedPreset = DEFAULT_YOUTUBE_BUNDLES.find((bundle) => bundle.id === bundleId);
+    const requestedChannels = parseChannels(body.channels);
+    const channels = requestedChannels?.length
+      ? requestedChannels
+      : matchedPreset?.channels ?? DEFAULT_YOUTUBE_BUNDLES[0].channels;
+    const bundleName = String(body.bundleName ?? matchedPreset?.name ?? "유튜브 묶음").trim().slice(0, 80) || "유튜브 묶음";
+    const key = cacheKey(bundleId, bundleName, channels);
 
-    const bundleId = body.bundleId || "bundle-custom";
-    const refresh = Boolean(body.refresh);
-
-    // 캐시 확인
     if (!refresh) {
-      const cached = bundleCache.get(bundleId);
+      const cached = bundleCache.get(key);
       if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS && cached.data.videos.length > 0) {
         return NextResponse.json({ ...cached.data, cached: true });
       }
     }
 
-    // 채널 목록 파악 (전달된 채널 또는 기본 프리셋에서 탐색)
-    let channels = body.channels;
-    let bundleName = body.bundleName || "유튜브 묶음";
-
-    const matchedPreset = DEFAULT_YOUTUBE_BUNDLES.find((b) => b.id === bundleId);
-    if (!channels || channels.length === 0) {
-      if (matchedPreset) {
-        channels = matchedPreset.channels;
-        bundleName = matchedPreset.name;
-      } else {
-        channels = DEFAULT_YOUTUBE_BUNDLES[0].channels;
-        bundleName = DEFAULT_YOUTUBE_BUNDLES[0].name;
-      }
-    }
-
-    // 병렬로 채널 피드 수집
-    const results = await Promise.all(
-      channels.map((ch) => {
-        // customUrl 우선 사용
-        const urlToFetch = ch.customUrl || ch.rssUrl;
-        return fetchChannelVideos(urlToFetch, ch.name);
+    const settled = await Promise.allSettled(
+      channels.map(async (channel) => {
+        const videos = await fetchYouTubeChannelVideos(channel.customUrl || channel.rssUrl, channel.name);
+        return videos.map((video) => ({
+          ...video,
+          sourceChannelId: channel.id,
+          sourceChannelName: channel.name,
+        }));
       })
     );
+    const partial = settled.some((result) => result.status === "rejected");
+    const allVideos = sortByPublishedAt(
+      settled.flatMap((result) => (result.status === "fulfilled" ? result.value : []))
+    );
 
-    let allVideos = results.flat();
-
-    // 혹시라도 채널들의 수집 결과가 모두 0개일 경우, 프리셋의 customUrl로 한 번 더 재시도
-    if (allVideos.length === 0 && matchedPreset) {
-      const retryResults = await Promise.all(
-        matchedPreset.channels.map((ch) => fetchChannelVideos(ch.customUrl || ch.rssUrl, ch.name))
-      );
-      allVideos = retryResults.flat();
-    }
-
-    // AI 다이제스트 브리핑 생성
-    let briefing = null;
+    let briefing = allVideos.length > 0 ? localBriefing(bundleName, allVideos) : null;
     if (allVideos.length > 0) {
-      const summaryItems = allVideos.slice(0, 6).map((v) => ({
-        id: v.id,
-        title: `[${v.channelTitle}] ${v.title}`,
-        text: v.description || v.title,
+      const summaryItems = allVideos.slice(0, 6).map((video) => ({
+        id: video.id,
+        title: `[${video.sourceChannelName || video.channelTitle}] ${video.title}`,
+        text: video.description || video.title,
       }));
-
-      try {
-        const summaryOutput = await summarizeSiteContent(bundleName, summaryItems, "video");
-        briefing = summaryOutput.briefing;
-
-        // 개별 비디오 요약 매핑
-        for (const v of allVideos) {
-          if (summaryOutput.byId[v.id]) {
-            v.summary = summaryOutput.byId[v.id].summary;
-            v.points = summaryOutput.byId[v.id].points;
-          }
+      const summaryOutput = await summarizeSiteContent(
+        bundleName,
+        summaryItems,
+        "video",
+        AbortSignal.timeout(AI_BRIEFING_TIMEOUT_MS)
+      );
+      if (summaryOutput.briefing) briefing = summaryOutput.briefing;
+      for (const video of allVideos) {
+        const item = summaryOutput.byId[video.id];
+        if (item) {
+          video.summary = item.summary;
+          video.points = item.points;
         }
-      } catch (aiErr) {
-        console.warn("[YouTube Bundle AI Briefing Error]", aiErr);
       }
     }
 
@@ -290,19 +159,20 @@ export async function POST(req: NextRequest) {
       videos: allVideos,
       briefing,
       cached: false,
+      partial,
+      reason: allVideos.length === 0 ? "등록된 채널에서 공개 영상을 가져오지 못했습니다." : undefined,
     };
-
-    if (allVideos.length > 0) {
-      bundleCache.set(bundleId, { data: responseData, timestamp: Date.now() });
-    }
-
+    if (allVideos.length > 0) bundleCache.set(key, { data: responseData, timestamp: Date.now() });
     return NextResponse.json(responseData);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error ?? "");
+    if (error instanceof RequestValidationError || error instanceof SyntaxError) {
+      return NextResponse.json({ success: false, reason: message || "요청 형식이 올바르지 않습니다.", videos: [] }, { status: 400 });
+    }
     console.error("[POST /api/youtube/bundle] Error:", message);
     return NextResponse.json(
       { success: false, reason: "유튜브 번들 피드를 가져오지 못했습니다.", videos: [] },
-      { status: 500 }
+      { status: 502 }
     );
   }
 }

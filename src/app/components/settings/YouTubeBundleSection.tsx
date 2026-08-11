@@ -3,7 +3,13 @@
 import React, { useState } from "react";
 import { YouTubeBundle } from "@/lib/types/youtube";
 import { DEFAULT_YOUTUBE_BUNDLES } from "@/lib/youtube/presets";
-import { loadLS, saveLS, LS_YOUTUBE_BUNDLES } from "@/lib/localStore";
+import {
+  loadLS,
+  saveLS,
+  LS_YOUTUBE_BUNDLES,
+  YOUTUBE_BUNDLES_CHANGED_EVENT,
+} from "@/lib/localStore";
+import { normalizeYouTubeChannelUrl } from "@/lib/youtube/url";
 import styles from "../../page.module.css";
 
 interface Props {
@@ -28,7 +34,11 @@ export function YouTubeBundleSection({ onNotify }: Props) {
 
   const persistBundles = (next: YouTubeBundle[]) => {
     setBundles(next);
-    saveLS(LS_YOUTUBE_BUNDLES, next);
+    if (!saveLS(LS_YOUTUBE_BUNDLES, next)) {
+      onNotify("유튜브 번들 설정을 브라우저에 저장하지 못했습니다.");
+      return;
+    }
+    window.dispatchEvent(new Event(YOUTUBE_BUNDLES_CHANGED_EVENT));
   };
 
   // 번들 ON/OFF 토글
@@ -84,12 +94,17 @@ export function YouTubeBundleSection({ onNotify }: Props) {
   // 채널 추가
   const handleAddChannel = () => {
     const chName = newChannelName.trim();
-    let rss = newChannelRss.trim();
-    if (!chName || !rss || !targetBundleId) return;
-
-    // 만약 채널 ID나 핸들이 들어온 경우 RSS 포맷 자동 변환
-    if (!rss.includes("http")) {
-      rss = `https://www.youtube.com/feeds/videos.xml?channel_id=${rss}`;
+    const source = newChannelRss.trim();
+    if (!chName || !source || !targetBundleId) return;
+    const normalizedUrl = normalizeYouTubeChannelUrl(source);
+    if (!normalizedUrl) {
+      onNotify("YouTube 채널 ID(UC…), @핸들 또는 youtube.com 채널 주소를 입력해 주세요.");
+      return;
+    }
+    const targetBundle = bundles.find((bundle) => bundle.id === targetBundleId);
+    if (targetBundle && targetBundle.channels.length >= 8) {
+      onNotify("번들당 채널은 최대 8개까지 등록할 수 있습니다.");
+      return;
     }
 
     const next = bundles.map((b) => {
@@ -101,7 +116,7 @@ export function YouTubeBundleSection({ onNotify }: Props) {
             {
               id: `ch-${Date.now()}`,
               name: chName,
-              rssUrl: rss,
+              rssUrl: normalizedUrl,
             },
           ],
         };
@@ -308,7 +323,7 @@ export function YouTubeBundleSection({ onNotify }: Props) {
             onChange={(e) => setNewChannelRss(e.target.value)}
             style={{ flex: 2 }}
           />
-          <button className={styles.btn} onClick={handleAddChannel} disabled={!newChannelName.trim() || !newChannelRss.trim()}>
+          <button type="button" className={styles.btn} onClick={handleAddChannel} disabled={!newChannelName.trim() || !newChannelRss.trim()}>
             채널 추가
           </button>
         </div>

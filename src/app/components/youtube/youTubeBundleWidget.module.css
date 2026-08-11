@@ -103,6 +103,13 @@
   border-color: var(--accent);
 }
 
+.tabPanel {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 14px;
+}
+
 .channelFilters {
   display: flex;
   gap: 6px;
@@ -190,6 +197,10 @@
   flex-direction: column;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  width: 100%;
+  padding: 0;
+  text-align: left;
+  font: inherit;
 }
 
 .videoCard:hover {
@@ -284,4 +295,13 @@
   padding: 24px;
   font-size: 0.85rem;
   color: var(--text-dim);
+}
+
+.errorHint {
+  border: 1px solid rgba(220, 38, 38, 0.35);
+  background: rgba(220, 38, 38, 0.08);
+  color: var(--danger, #dc2626);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 0.8rem;
 }

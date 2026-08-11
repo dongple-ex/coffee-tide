@@ -1,11 +1,21 @@
 "use client";
 
+import Image from "next/image";
 import React, { useEffect, useState } from "react";
 import { ContextualRecommendation, YouTubeVideo } from "@/lib/types/youtube";
 import { SmartPlayerModal } from "./SmartPlayerModal";
 import styles from "./contextualRecStrip.module.css";
 
 const LS_REC_DISMISSED_DATE = "ct_rec_dismissed_date";
+
+function todayInSeoul(): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
 
 interface ContextualRecStripProps {
   onNotify?: (msg: string) => void;
@@ -18,23 +28,31 @@ export function ContextualRecStrip({ onNotify }: ContextualRecStripProps) {
 
   useEffect(() => {
     // 오늘 닫은 적이 있는지 확인
-    const today = new Date().toISOString().split("T")[0];
+    const today = todayInSeoul();
     const savedDismissed = localStorage.getItem(LS_REC_DISMISSED_DATE);
     if (savedDismissed === today) return;
 
-    fetch("/api/youtube/recommend")
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 10_000);
+    void fetch("/api/youtube/recommend?tz=Asia%2FSeoul", { signal: controller.signal })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (data && data.success && data.recommendation) {
+        if (!controller.signal.aborted && data?.success && data.recommendation) {
           setRec(data.recommendation);
           setIsDismissed(false);
         }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => window.clearTimeout(timeout));
+
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
   }, []);
 
   const handleDismiss = () => {
-    const today = new Date().toISOString().split("T")[0];
+    const today = todayInSeoul();
     localStorage.setItem(LS_REC_DISMISSED_DATE, today);
     setIsDismissed(true);
     onNotify?.("💡 추천 영상 카드를 숨겼습니다. (내일 새로운 추천으로 다시 나타납니다)");
@@ -63,21 +81,29 @@ export function ContextualRecStrip({ onNotify }: ContextualRecStripProps) {
       </button>
 
       <div className={styles.scrollRow}>
-        {rec.videos.map((video) => (
-          <div
+        {rec.videos.map((video, index) => (
+          <button
             key={video.id}
+            type="button"
             className={styles.card}
             onClick={() => setSelectedVideo(video)}
             title={`${video.title} - 시청하기`}
           >
             <div className={styles.thumbWrapper}>
-              <img src={video.thumbnailUrl} alt={video.title} className={styles.thumbImg} />
+              <Image
+                src={video.thumbnailUrl}
+                alt={video.title}
+                className={styles.thumbImg}
+                fill
+                sizes="160px"
+                loading={index === 0 ? "eager" : "lazy"}
+              />
             </div>
             <div className={styles.info}>
               <div className={styles.title}>{video.title}</div>
               <div className={styles.channel}>{video.channelTitle}</div>
             </div>
-          </div>
+          </button>
         ))}
       </div>
 

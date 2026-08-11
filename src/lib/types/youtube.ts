@@ -6,6 +6,8 @@ export interface YouTubeVideo {
   publishedAt: string;     // 업로드 일시 (포맷팅된 문자열 또는 ISO)
   channelTitle: string;    // 채널명
   channelId: string;       // 채널 고유 ID (UC...)
+  sourceChannelId?: string; // 번들에 등록된 채널 소스 ID
+  sourceChannelName?: string; // 번들에 등록된 채널 표시 이름
   description?: string;    // 영상 설명란
   duration?: string;       // 영상 길이 (예: "15:20")
   summary?: string;        // AI 생성 요약
@@ -57,4 +59,5 @@ export interface YouTubeBundleApiResponse {
   } | null;
   cached?: boolean;
   reason?: string;
+  partial?: boolean;
 }

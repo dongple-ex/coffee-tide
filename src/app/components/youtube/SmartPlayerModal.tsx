@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useId, useRef, useState } from "react";
 import { YouTubeVideo, YouTubeChapter } from "@/lib/types/youtube";
+import { loadLS, saveLS, LS_YOUTUBE_HISTORY } from "@/lib/localStore";
 import styles from "./smartPlayerModal.module.css";
 
 interface ChatMessage {
@@ -28,6 +29,14 @@ function extractYoutubeVideoId(video: YouTubeVideo | null): string {
 
 export function SmartPlayerModal({ video, onClose, onNotify }: SmartPlayerModalProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const modalContainerRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+  const chatRequestRef = useRef<AbortController | null>(null);
+  const onCloseRef = useRef(onClose);
+  const mountedRef = useRef(true);
+  const isMiniRef = useRef(false);
+  const titleId = useId();
   const ytVideoId = extractYoutubeVideoId(video);
   const needsDetails = Boolean(
     video && (!video.summary || !video.chapters || video.chapters.length === 0)
@@ -36,6 +45,7 @@ export function SmartPlayerModal({ video, onClose, onNotify }: SmartPlayerModalP
   const [summary, setSummary] = useState<string>(video?.summary || "");
   const [points, setPoints] = useState<string[]>(video?.points || []);
   const [loadingDetails, setLoadingDetails] = useState(needsDetails);
+  const [detailsError, setDetailsError] = useState("");
 
   // 미니 플레이어 (PIP) 모드 여부
   const [isMini, setIsMini] = useState(false);
@@ -46,15 +56,73 @@ export function SmartPlayerModal({ video, onClose, onNotify }: SmartPlayerModalP
   const [chatInput, setChatInput] = useState("");
   const [chatBusy, setChatBusy] = useState(false);
 
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    isMiniRef.current = isMini;
+  }, [isMini]);
+
+  useEffect(() => {
+    previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    window.requestAnimationFrame(() => closeButtonRef.current?.focus());
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onCloseRef.current();
+        return;
+      }
+      if (event.key !== "Tab" || isMiniRef.current || !modalContainerRef.current) return;
+      const focusable = Array.from(
+        modalContainerRef.current.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), input:not([disabled]), iframe, [href], [tabindex]:not([tabindex="-1"])'
+        )
+      ).filter((element) => element.offsetParent !== null);
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      mountedRef.current = false;
+      window.removeEventListener("keydown", handleKeyDown);
+      chatRequestRef.current?.abort();
+      previousFocusRef.current?.focus();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!video) return;
+    const history = loadLS<Array<{ videoId: string; title: string; url: string; watchedAt: string; lastPos: number }>>(
+      LS_YOUTUBE_HISTORY,
+      []
+    );
+    const next = [
+      { videoId: ytVideoId || video.id, title: video.title, url: video.url, watchedAt: new Date().toISOString(), lastPos: 0 },
+      ...history.filter((item) => item.videoId !== (ytVideoId || video.id)),
+    ].slice(0, 50);
+    saveLS(LS_YOUTUBE_HISTORY, next);
+  }, [video, ytVideoId]);
+
   // 영상 로딩 및 자막/메타데이터 분석
   useEffect(() => {
     if (!video) return;
-
-    // 모달 열릴 때 ESC 키로 닫기
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", handleKeyDown);
+    const controller = new AbortController();
+    let active = true;
+    let timedOut = false;
+    const timeout = window.setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, 12_000);
 
     // 상세 요약 및 챕터가 없는 경우 백엔드 API 요청
     if (needsDetails) {
@@ -62,23 +130,38 @@ export function SmartPlayerModal({ video, onClose, onNotify }: SmartPlayerModalP
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ videoId: ytVideoId || video.id, url: video.url }),
+        signal: controller.signal,
       })
         .then((res) => (res.ok ? res.json() : null))
         .then((data) => {
+          if (!active) return;
           if (data && data.success) {
             if (data.summary) setSummary(data.summary);
             if (Array.isArray(data.points)) setPoints(data.points);
             if (Array.isArray(data.chapters) && data.chapters.length > 0) {
               setChapters(data.chapters);
             }
+          } else {
+            setDetailsError("영상 자막을 가져오지 못해 등록된 정보만 표시합니다.");
           }
         })
-        .catch(() => {})
-        .finally(() => setLoadingDetails(false));
+        .catch(() => {
+          if (active && timedOut) setDetailsError("영상 분석 시간이 초과되어 등록된 정보만 표시합니다.");
+          else if (active && !controller.signal.aborted) setDetailsError("영상 정보를 가져오지 못해 등록된 정보만 표시합니다.");
+        })
+        .finally(() => {
+          if (active) setLoadingDetails(false);
+        });
+    } else {
+      window.clearTimeout(timeout);
     }
 
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [video, ytVideoId, needsDetails, onClose]);
+    return () => {
+      active = false;
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [video, ytVideoId, needsDetails]);
 
   if (!video) return null;
 
@@ -125,11 +208,16 @@ export function SmartPlayerModal({ video, onClose, onNotify }: SmartPlayerModalP
     setChatInput("");
     setChatBusy(true);
 
+    const controller = new AbortController();
+    chatRequestRef.current?.abort();
+    chatRequestRef.current = controller;
+    const timeout = window.setTimeout(() => controller.abort(), 25_000);
     try {
       const res = await fetch("/api/ai/youtube-chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: video.url, messages: newMsgs }),
+        signal: controller.signal,
       });
       const data = await res.json();
       if (data.reply) {
@@ -140,20 +228,28 @@ export function SmartPlayerModal({ video, onClose, onNotify }: SmartPlayerModalP
       } else {
         throw new Error(data.error || "답변을 가져오지 못했습니다.");
       }
-    } catch {
+    } catch (error) {
+      if (!mountedRef.current) return;
+      const message = error instanceof DOMException && error.name === "AbortError"
+        ? "영상 질문 응답 시간이 초과되었습니다. 잠시 후 다시 시도해 주세요."
+        : error instanceof Error && error.message
+          ? error.message
+          : "앗, 영상 질문을 처리하는 중 오류가 발생했습니다.";
       setChatMessages([
         ...newMsgs,
-        { role: "model", content: "앗, 영상 질문을 처리하는 중 오류가 발생했습니다." },
+        { role: "model", content: message },
       ]);
     } finally {
-      setChatBusy(false);
+      window.clearTimeout(timeout);
+      if (chatRequestRef.current === controller) chatRequestRef.current = null;
+      if (mountedRef.current) setChatBusy(false);
     }
   };
 
   // 1. 플로팅 미니 플레이어 (PIP) 모드 렌더링
   if (isMini) {
     return (
-      <div className={styles.miniContainer} role="region" aria-label="미니 유튜브 플레이어">
+      <div ref={modalContainerRef} className={styles.miniContainer} role="region" aria-label="미니 유튜브 플레이어">
         <div className={styles.miniHeader}>
           <div className={styles.miniTitle} title={video.title}>
             <span>📺</span> {video.title}
@@ -178,6 +274,7 @@ export function SmartPlayerModal({ video, onClose, onNotify }: SmartPlayerModalP
               ⧉
             </button>
             <button
+              ref={closeButtonRef}
               type="button"
               className={styles.closeBtn}
               onClick={onClose}
@@ -204,12 +301,12 @@ export function SmartPlayerModal({ video, onClose, onNotify }: SmartPlayerModalP
 
   // 2. 기본 포커스 모달 모드 렌더링
   return (
-    <div className={styles.modalBackdrop} onClick={onClose} role="dialog" aria-modal="true">
-      <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+    <div className={styles.modalBackdrop} onClick={onClose} role="dialog" aria-modal="true" aria-labelledby={titleId}>
+      <div ref={modalContainerRef} className={styles.modalContent} onClick={(e) => e.stopPropagation()} tabIndex={-1}>
         <div className={styles.modalHeader}>
           <div className={styles.modalTitle}>
             <span>📺</span>
-            <span>{video.title}</span>
+            <span id={titleId}>{video.title}</span>
           </div>
 
           <div className={styles.headerActions}>
@@ -232,6 +329,7 @@ export function SmartPlayerModal({ video, onClose, onNotify }: SmartPlayerModalP
               ⧉
             </button>
             <button
+              ref={closeButtonRef}
               type="button"
               className={styles.closeBtn}
               onClick={onClose}
@@ -302,6 +400,7 @@ export function SmartPlayerModal({ video, onClose, onNotify }: SmartPlayerModalP
                   )}
                 </>
               )}
+              {detailsError && <div className={styles.detailError}>{detailsError}</div>}
             </div>
 
             <div className={styles.chatContainer}>
@@ -345,6 +444,7 @@ export function SmartPlayerModal({ video, onClose, onNotify }: SmartPlayerModalP
                   value={chatInput}
                   onChange={(e) => setChatInput(e.target.value)}
                   disabled={chatBusy}
+                  aria-label="영상 질문"
                 />
                 <button
                   type="submit"
