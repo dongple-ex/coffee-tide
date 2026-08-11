@@ -164,16 +164,18 @@ export function SmartPlayerModal({ video, onClose, onNotify }: SmartPlayerModalP
               className={styles.headerActionBtn}
               onClick={() => setIsMini(false)}
               title="원래 모달 크기로 확대"
+              aria-label="모달 확대"
             >
-              ⤢ 확대
+              ⤢
             </button>
             <button
               type="button"
               className={styles.headerActionBtn}
               onClick={handleOpenExternalPopup}
-              title="브라우저 별도 팝업 창으로 분리"
+              title="브라우저 별도 창 팝업으로 분리"
+              aria-label="별도 창 팝업"
             >
-              ⧉ 팝업
+              ⧉
             </button>
             <button
               type="button"
@@ -215,17 +217,19 @@ export function SmartPlayerModal({ video, onClose, onNotify }: SmartPlayerModalP
               type="button"
               className={styles.headerActionBtn}
               onClick={() => setIsMini(true)}
-              title="대시보드 우측 하단 플로팅 미니 플레이어로 전환"
+              title="대시보드 우측 하단 플로팅 미니 플레이어 (PIP)"
+              aria-label="미니 플레이어"
             >
-              🗗 미니 모드
+              🗗
             </button>
             <button
               type="button"
               className={styles.headerActionBtn}
               onClick={handleOpenExternalPopup}
-              title="브라우저 별도 팝업 창으로 분리 띄우기"
+              title="브라우저 별도 창 팝업으로 분리"
+              aria-label="별도 창 팝업"
             >
-              ⧉ 별도 창 팝업
+              ⧉
             </button>
             <button
               type="button"
