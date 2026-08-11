@@ -1,0 +1,115 @@
+.card {
+  margin: 10px 18px;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, #d73737 45%, var(--border));
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--card) 94%, #d73737 6%);
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.header > div {
+  display: grid;
+  gap: 5px;
+}
+
+.header > span,
+.badge {
+  color: #d73737;
+  font-weight: 800;
+}
+
+.header > span {
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+}
+
+.details {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.details > div {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 8px;
+}
+
+.details dt {
+  color: var(--text-dim);
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.details dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.details ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.warning {
+  margin: 12px 0 4px;
+  padding: 9px 10px;
+  border-radius: 9px;
+  background: color-mix(in srgb, #d73737 12%, transparent);
+  color: var(--text);
+  font-weight: 700;
+}
+
+.expiry {
+  margin: 4px 0 0;
+  color: var(--text-dim);
+  font-size: 0.76rem;
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.actions button {
+  min-height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--text);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.actions .confirm {
+  border-color: #d73737;
+  background: #d73737;
+  color: white;
+}
+
+.actions button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+@media (max-width: 640px) {
+  .card {
+    margin: 8px 10px;
+    padding: 12px;
+  }
+
+  .details > div {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+}

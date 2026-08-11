@@ -97,6 +97,17 @@
   cursor: pointer;
 }
 
+.actions a {
+  min-height: 44px;
+  padding: 9px 14px;
+  border-radius: 10px;
+  font-weight: 750;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
 .secondary {
   border: 1px solid var(--border);
   background: var(--card);
@@ -121,10 +132,11 @@
 
   .actions {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
   }
 
-  .actions button {
+  .actions button,
+  .actions a {
     width: 100%;
   }
 }

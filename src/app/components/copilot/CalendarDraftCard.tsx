@@ -82,14 +82,14 @@ export function CalendarDraftCard({
           </div>
         )}
       </dl>
-      <p className={styles.calendarDraftNotice}>확인 버튼을 누르기 전에는 캘린더가 변경되지 않습니다.</p>
+      <p className={styles.calendarDraftNotice}>검토 요청 후 별도 최종 승인 전에는 캘린더가 변경되지 않습니다.</p>
       <div className={styles.calendarDraftActions}>
         <button type="button" className={styles.btn} onClick={onCancel} disabled={busy}>
           취소
         </button>
         {googleConnected ? (
           <button type="button" className={`${styles.btn} ${styles.btnPrimary}`} onClick={onConfirm} disabled={busy}>
-            {busy ? "등록 중…" : "캘린더에 등록"}
+            {busy ? "승인 준비 중…" : "캘린더 등록 검토"}
           </button>
         ) : (
           <a className={`${styles.btn} ${styles.btnPrimary}`} href="/api/auth/google/signin">

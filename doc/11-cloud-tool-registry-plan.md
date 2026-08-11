@@ -1,6 +1,6 @@
 # 11. Cloud Tool Registry 설계 및 구현 계획
 
-> 상태: **단계 A·B·C 완료 · 읽기 전용 조회와 검토용 초안 구현**
+> 상태: **단계 A·B·C·D 완료 · 조회·초안·승인형 외부 쓰기 구현**
 > 기준일: 2026-08-11  
 > 관련 문서: [`08-local-ai-enhancement-plan.md`](./08-local-ai-enhancement-plan.md), [`10-local-tools-document-agent-plan.md`](./10-local-tools-document-agent-plan.md)
 
@@ -68,7 +68,7 @@ interface CloudToolResult<TData> {
 | `external_write` | Calendar 등록, Drive 저장, 메일 발송 | 대상 미리보기 + 세션 결합 1회 승인 + 멱등성 키 |
 | 파괴적 작업 | 삭제, 권한 변경, 임의 코드 실행 | Registry 등록 금지 |
 
-1차 구현은 `read_only`만 허용한다. 타입 선언에 다른 등급이 있어도 실행기는 해당 단계가 구현되기 전까지 거부한다.
+실행기는 효과와 승인 정책의 고정 조합만 허용한다. `external_write`는 Gemini 자동 함수 목록에서 제외하며, 서버 미리보기와 세션 결합 1회 승인 토큰을 거친 요청만 실행한다.
 
 ## 5. 실행 흐름
 
@@ -142,10 +142,14 @@ interface CloudToolResult<TData> {
 
 ### 단계 D — 외부 쓰기
 
-- [ ] 세션 결합 1회 승인 토큰과 멱등성 키
-- [ ] Calendar·Drive부터 기존 확인 UI 재사용
-- [ ] Supabase 영속 감사·분산 호출 제한
-- [ ] 삭제·권한 변경은 계속 금지
+- [x] 세션 결합 1회 승인 토큰과 멱등성 키
+- [x] Calendar·Drive부터 기존 확인 UI 재사용
+- [x] Supabase 영속 감사·분산 호출 제한
+- [x] 삭제·권한 변경은 계속 금지
+
+`calendar.event_create`, `drive.report_save`는 `effect:external_write + confirmation:always`로 등록한다. 사용자가 초안 카드에서 “등록/저장 검토”를 누르면 `/api/cloud-tools/approvals`가 대상·계정·변경 내용을 서버에서 다시 계산하고 5분짜리 무작위 승인 토큰을 발급한다. 최종 승인 요청은 같은 사용자·세션·도구·정규화 입력 해시·멱등성 키와 모두 일치해야 하며 토큰은 원자적으로 1회 소비된다. 동일 응답을 잃고 재시도한 경우에는 같은 토큰과 멱등성 키로 저장된 성공 결과만 재사용하고 외부 API를 다시 호출하지 않는다.
+
+운영 환경은 [`supabase/migrations/20260811_cloud_tool_governance.sql`](../supabase/migrations/20260811_cloud_tool_governance.sql)을 먼저 적용해야 한다. 승인·멱등성·감사·분산 호출 제한 테이블을 service-role 전용으로 유지하며 원문 입력과 OAuth 토큰은 저장하지 않는다. 개발 환경만 마이그레이션이 없을 때 인메모리 저장소로 폴백하고, 프로덕션 외부 쓰기는 저장소가 없으면 실패하도록 닫혀 있다.
 
 ## 9. 테스트 매트릭스
 

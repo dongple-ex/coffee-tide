@@ -35,10 +35,21 @@ export interface CloudToolResult<TData = unknown> {
 
 export interface CloudToolContext {
   userId: string;
+  sessionBinding?: string;
   timezone: string;
   items: UnifiedData[];
   requestId: string;
   signal: AbortSignal;
+  googleAccessToken?: string;
+  googleEmail?: string;
+}
+
+export interface CloudToolPreview {
+  title: string;
+  target: string;
+  account?: string;
+  changes: string[];
+  warning: string;
 }
 
 export interface CloudToolDefinition {
@@ -51,13 +62,17 @@ export interface CloudToolDefinition {
   confirmation: CloudToolConfirmation;
   timeoutMs: number;
   maxOutputBytes: number;
+  preview?(
+    input: Record<string, string | number | boolean>,
+    context: CloudToolContext
+  ): CloudToolPreview;
   execute(
     input: Record<string, string | number | boolean>,
     context: CloudToolContext
   ): Promise<CloudToolResult>;
 }
 
-export type PublicCloudToolDefinition = Omit<CloudToolDefinition, "execute">;
+export type PublicCloudToolDefinition = Omit<CloudToolDefinition, "execute" | "preview">;
 
 export interface CloudToolExecution {
   requestId: string;
@@ -65,5 +80,6 @@ export interface CloudToolExecution {
   toolVersion: number;
   effect: CloudToolEffect;
   durationMs: number;
+  replayed?: boolean;
   result: CloudToolResult;
 }

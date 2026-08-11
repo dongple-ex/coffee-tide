@@ -67,6 +67,7 @@ import { CopilotComposer } from "./components/copilot/CopilotComposer";
 import { CopilotConversation } from "./components/copilot/CopilotConversation";
 import { CalendarDraftCard } from "./components/copilot/CalendarDraftCard";
 import { CloudDraftReviewCard } from "./components/copilot/CloudDraftReviewCard";
+import { CloudWriteApprovalCard } from "./components/copilot/CloudWriteApprovalCard";
 import { buildQaPairs, CopilotMessage } from "@/lib/copilotPairs";
 import IcedAmericano from "./components/icedAmericano";
 import { WelcomeCard, WeatherData } from "./components/WelcomeCard";
@@ -92,6 +93,12 @@ import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { useCloudSync } from "./hooks/useCloudSync";
 import type { CalendarEventDraft } from "@/lib/calendar/types";
 import type { CloudDraftPayload } from "@/lib/cloudTools/drafts";
+import {
+  calendarWriteRequest,
+  draftWriteRequest,
+  type CloudWriteApproval,
+  type CloudWriteRequest,
+} from "@/lib/cloudTools/externalWrites";
 import { GoogleIdentityButton } from "./components/auth/GoogleIdentityButton";
 
 const LS_RAW_ENABLED = "ct_raw_enabled";
@@ -309,7 +316,8 @@ export default function Home() {
   const [copilotBusy, setCopilotBusy] = useState(false);
   const [calendarDraft, setCalendarDraft] = useState<CalendarEventDraft | null>(null);
   const [cloudToolDraft, setCloudToolDraft] = useState<CloudDraftPayload | null>(null);
-  const [calendarCreateBusy, setCalendarCreateBusy] = useState(false);
+  const [cloudWriteApproval, setCloudWriteApproval] = useState<CloudWriteApproval | null>(null);
+  const [cloudWriteBusy, setCloudWriteBusy] = useState(false);
   const [calendarReconnectRequired, setCalendarReconnectRequired] = useState(false);
   const [sparkEnabled, setSparkEnabled] = useState<boolean>(() => loadLS<boolean>(LS_SPARK_ENABLED, false));
   const [sparkBriefing, setSparkBriefing] = useState<string | null>(null);
@@ -1691,10 +1699,12 @@ export default function Home() {
       }
       if (json.calendar_draft) {
         setCalendarDraft(json.calendar_draft);
+        setCloudWriteApproval(null);
         setCalendarReconnectRequired(false);
       }
       if (json.cloud_tool_draft) {
         setCloudToolDraft(json.cloud_tool_draft);
+        setCloudWriteApproval(null);
       }
       setCopilotMessages((prev) => [
         ...prev,
@@ -1710,47 +1720,88 @@ export default function Home() {
     }
   }
 
-  async function confirmCalendarDraft() {
-    if (!calendarDraft || calendarCreateBusy) return;
-    setCalendarCreateBusy(true);
+  async function prepareCloudWrite(request: CloudWriteRequest) {
+    if (cloudWriteBusy) return;
+    setCloudWriteBusy(true);
     try {
-      const response = await fetch("/api/calendar/events", {
+      const idempotencyKey = globalThis.crypto.randomUUID();
+      const response = await fetch("/api/cloud-tools/approvals", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ draft: calendarDraft }),
+        body: JSON.stringify({
+          ...request,
+          idempotencyKey,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Seoul",
+        }),
       });
       const result = (await response.json().catch(() => ({}))) as {
         error?: string;
-        eventUrl?: string;
-        title?: string;
+        approval?: Omit<CloudWriteApproval, "input">;
+      };
+      if (!response.ok || !result.approval) throw new Error(result.error ?? `HTTP ${response.status}`);
+      setCloudWriteApproval({ ...request, ...result.approval });
+      showToast("외부 변경 내용을 확인한 뒤 최종 승인해 주세요.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "외부 쓰기 승인을 준비하지 못했습니다.";
+      showToast(message);
+    } finally {
+      setCloudWriteBusy(false);
+    }
+  }
+
+  async function executeCloudWrite() {
+    if (!cloudWriteApproval || cloudWriteBusy) return;
+    setCloudWriteBusy(true);
+    try {
+      const response = await fetch("/api/cloud-tools", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          toolId: cloudWriteApproval.toolId,
+          input: cloudWriteApproval.input,
+          approvalToken: cloudWriteApproval.token,
+          idempotencyKey: cloudWriteApproval.idempotencyKey,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Seoul",
+        }),
+      });
+      const result = (await response.json().catch(() => ({}))) as {
+        error?: string;
         reconnectRequired?: boolean;
+        execution?: {
+          result?: {
+            summary?: string;
+            sources?: Array<{ label: string; url?: string }>;
+          };
+        };
       };
       if (!response.ok) {
         if (result.reconnectRequired) setCalendarReconnectRequired(true);
-        const reconnectHint = result.reconnectRequired
-          ? " 아래의 Google 연결 버튼으로 다시 권한을 승인해 주세요."
-          : "";
-        throw new Error(`${result.error ?? `HTTP ${response.status}`}${reconnectHint}`);
+        throw new Error(result.error ?? `HTTP ${response.status}`);
       }
-
-      const title = result.title ?? calendarDraft.title;
-      const link = result.eventUrl ? ` [Google Calendar에서 열기](${result.eventUrl})` : "";
+      const summary = result.execution?.result?.summary ?? "외부 서비스 변경을 완료했습니다.";
+      const links = (result.execution?.result?.sources ?? [])
+        .filter((source) => source.url)
+        .map((source) => `[${source.label}](${source.url})`)
+        .join(" · ");
       setCopilotMessages((previous) => [
         ...previous,
-        { role: "ai", text: `✅ **${title}** 일정을 Google Calendar에 등록했어요.${link}` },
+        { role: "ai", text: `${summary}${links ? `\n\n${links}` : ""}` },
       ]);
-      setCalendarDraft(null);
+      if (cloudWriteApproval.toolId === "calendar.event_create") {
+        setCalendarDraft(null);
+        if (cloudToolDraft?.kind === "calendar_event") setCloudToolDraft(null);
+      } else if (cloudWriteApproval.toolId === "drive.report_save") {
+        if (cloudToolDraft?.kind === "report") setCloudToolDraft(null);
+      }
+      setCloudWriteApproval(null);
       setCalendarReconnectRequired(false);
-      showToast("Google Calendar에 일정을 등록했습니다. 📅");
+      showToast("승인한 외부 변경을 완료했습니다.");
     } catch (error) {
-      const message = error instanceof Error ? error.message : "일정 등록에 실패했습니다.";
-      setCopilotMessages((previous) => [
-        ...previous,
-        { role: "ai", text: `⚠️ ${message}` },
-      ]);
+      const message = error instanceof Error ? error.message : "외부 서비스 변경에 실패했습니다.";
+      setCopilotMessages((previous) => [...previous, { role: "ai", text: `⚠️ ${message}` }]);
       showToast(message);
     } finally {
-      setCalendarCreateBusy(false);
+      setCloudWriteBusy(false);
     }
   }
 
@@ -2633,11 +2684,12 @@ export default function Home() {
           {calendarDraft && (
             <CalendarDraftCard
               draft={calendarDraft}
-              busy={calendarCreateBusy}
+              busy={cloudWriteBusy}
               googleConnected={googleConnected && !calendarReconnectRequired}
-              onConfirm={() => void confirmCalendarDraft()}
+              onConfirm={() => void prepareCloudWrite(calendarWriteRequest(calendarDraft))}
               onCancel={() => {
                 setCalendarDraft(null);
+                setCloudWriteApproval(null);
                 setCalendarReconnectRequired(false);
                 showToast("캘린더 등록을 취소했습니다.");
               }}
@@ -2646,12 +2698,33 @@ export default function Home() {
           {cloudToolDraft && (
             <CloudDraftReviewCard
               draft={cloudToolDraft}
-              onChange={setCloudToolDraft}
+              busy={cloudWriteBusy}
+              googleConnected={googleConnected && !calendarReconnectRequired}
+              onChange={(nextDraft) => {
+                setCloudToolDraft(nextDraft);
+                setCloudWriteApproval(null);
+              }}
               onCancel={() => {
                 setCloudToolDraft(null);
+                setCloudWriteApproval(null);
                 showToast("초안을 취소했습니다.");
               }}
               onNotify={showToast}
+              onExternalWrite={() => {
+                const request = draftWriteRequest(cloudToolDraft);
+                if (request) void prepareCloudWrite(request);
+              }}
+            />
+          )}
+          {cloudWriteApproval && (
+            <CloudWriteApprovalCard
+              approval={cloudWriteApproval}
+              busy={cloudWriteBusy}
+              onConfirm={() => void executeCloudWrite()}
+              onCancel={() => {
+                setCloudWriteApproval(null);
+                showToast("외부 변경 승인을 취소했습니다.");
+              }}
             />
           )}
           <CopilotComposer

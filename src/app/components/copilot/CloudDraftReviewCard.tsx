@@ -10,9 +10,12 @@ import styles from "./cloudDraftReviewCard.module.css";
 
 interface Props {
   draft: CloudDraftPayload;
+  busy: boolean;
+  googleConnected: boolean;
   onChange: (draft: CloudDraftPayload) => void;
   onCancel: () => void;
   onNotify: (message: string) => void;
+  onExternalWrite: () => void;
 }
 
 function draftLabel(draft: CloudDraftPayload): string {
@@ -21,7 +24,15 @@ function draftLabel(draft: CloudDraftPayload): string {
   return "📄 보고서 초안";
 }
 
-export function CloudDraftReviewCard({ draft, onChange, onCancel, onNotify }: Props) {
+export function CloudDraftReviewCard({
+  draft,
+  busy,
+  googleConnected,
+  onChange,
+  onCancel,
+  onNotify,
+  onExternalWrite,
+}: Props) {
   const copyDraft = async () => {
     try {
       await navigator.clipboard.writeText(cloudDraftClipboardText(draft));
@@ -46,7 +57,7 @@ export function CloudDraftReviewCard({ draft, onChange, onCancel, onNotify }: Pr
           <div className={styles.badge}>{draftLabel(draft)} · 검토 필요</div>
           <p className={styles.notice}>수정·복사는 가능하지만 외부 서비스에는 아직 반영되지 않았습니다.</p>
         </div>
-        <span className={styles.phase}>Phase C</span>
+        <span className={styles.phase}>Phase C·D</span>
       </div>
 
       {draft.kind === "calendar_event" && (
@@ -151,12 +162,24 @@ export function CloudDraftReviewCard({ draft, onChange, onCancel, onNotify }: Pr
       )}
 
       <div className={styles.actions}>
-        <button type="button" className={styles.secondary} onClick={onCancel}>
+        <button type="button" className={styles.secondary} onClick={onCancel} disabled={busy}>
           취소
         </button>
-        <button type="button" className={styles.primary} onClick={() => void copyDraft()}>
+        <button type="button" className={styles.secondary} onClick={() => void copyDraft()} disabled={busy}>
           초안 복사
         </button>
+        {draft.kind !== "email_reply" && googleConnected && (
+          <button type="button" className={styles.primary} onClick={onExternalWrite} disabled={busy}>
+            {busy
+              ? "승인 준비 중…"
+              : draft.kind === "calendar_event"
+                ? "Calendar 등록 검토"
+                : "Drive 저장 검토"}
+          </button>
+        )}
+        {draft.kind !== "email_reply" && !googleConnected && (
+          <a className={styles.primary} href="/api/auth/google/signin">Google 연결하기</a>
+        )}
       </div>
     </section>
   );
