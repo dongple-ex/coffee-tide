@@ -323,48 +323,135 @@
   cursor: not-allowed;
 }
 
-/* 🗗 플로팅 미니 플레이어 (PIP) 스타일 */
-.miniContainer {
+.focusBackdrop {
   position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: var(--bg, #f7f3eb);
+  background:
+    radial-gradient(circle at 88% 82%, color-mix(in srgb, var(--accent) 8%, transparent), transparent 34%),
+    var(--bg, #f7f3eb);
+}
+
+.miniLayer {
+  position: fixed;
+  inset: 0;
+  z-index: 1001;
+  pointer-events: none;
+}
+
+.miniContainer {
+  position: absolute;
   bottom: 24px;
   right: 24px;
   width: 380px;
+  max-width: calc(100vw - 48px);
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius, 12px);
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
-  z-index: 1001;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  pointer-events: auto;
   animation: slideUp 0.2s ease-out;
 }
 
 @media (max-width: 500px) {
   .miniContainer {
-    width: calc(100vw - 32px);
-    right: 16px;
-    bottom: 16px;
+    width: calc(100vw - 24px);
+    max-width: none;
+    right: 12px;
+    bottom: 12px;
   }
 }
 
 .miniHeader {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
-  padding: 8px 12px;
+  gap: 8px;
+  min-height: 46px;
+  padding: 7px 8px;
   background: var(--card-hover);
   border-bottom: 1px solid var(--border);
 }
 
-.miniTitle {
-  font-size: 0.8rem;
-  font-weight: 700;
+.miniBrandButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 2px 5px 2px 2px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
   color: var(--text);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.miniBrandButton:hover,
+.miniBrandButton:focus-visible {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  outline: none;
+}
+
+.miniBrandButton img {
+  flex: 0 0 auto;
+  border-radius: 7px;
+}
+
+.miniTitle {
+  min-width: 0;
+  font-size: 0.74rem;
+  color: var(--text-dim);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 200px;
+}
+
+.miniBody,
+.miniVideoSection {
+  display: block;
+  min-width: 0;
+}
+
+.miniIframeWrapper {
+  position: relative;
+  width: 100%;
+  min-height: 200px;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: #000;
+}
+
+.miniIframeWrapper iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+@media (max-width: 360px) {
+  .miniBrandButton span {
+    display: none;
+  }
+
+  .miniHeader {
+    gap: 5px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modalBackdrop,
+  .miniContainer {
+    animation: none;
+  }
 }
 
 @keyframes fadeIn {
