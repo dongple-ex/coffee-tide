@@ -184,11 +184,16 @@ export async function POST(request: NextRequest) {
     : [];
   const items = mergeById([...sparkItems, ...clientItems]);
 
-  const { answer, aiUsed } = await askCopilot(
+  const { answer, aiUsed, cloudToolExecution } = await askCopilot(
     question,
     items,
     body.timezone || "Asia/Seoul",
-    body.copilotConfig
+    body.copilotConfig,
+    { userId: identity.id }
   );
-  return NextResponse.json({ answer, ai_fallback: !aiUsed });
+  return NextResponse.json({
+    answer,
+    ai_fallback: !aiUsed,
+    ...(cloudToolExecution ? { cloud_tool_execution: cloudToolExecution } : {}),
+  });
 }

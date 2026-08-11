@@ -1,6 +1,6 @@
 # 11. Cloud Tool Registry 설계 및 구현 계획
 
-> 상태: **설계 확정 · 단계 A 읽기 전용 기반 구현 완료**  
+> 상태: **단계 A·B 완료 · 읽기 전용 자연어 도구 선택 구현**
 > 기준일: 2026-08-11  
 > 관련 문서: [`08-local-ai-enhancement-plan.md`](./08-local-ai-enhancement-plan.md), [`10-local-tools-document-agent-plan.md`](./10-local-tools-document-agent-plan.md)
 
@@ -126,10 +126,12 @@ interface CloudToolResult<TData> {
 
 ### 단계 B — Gemini 도구 제안
 
-- [ ] 공개 도구 선언을 Gemini function calling 형식으로 변환
-- [ ] 읽기 전용 도구 1회 선택·실행·결과 재요약
-- [ ] 등록되지 않은 도구·인자와 반복 호출 거부
-- [ ] Gemini 실패 시 명시적 `/tool` 명령과 기존 브리핑으로 폴백
+- [x] 공개 도구 선언을 Gemini function calling 형식으로 변환
+- [x] 읽기 전용 도구 1회 선택·실행·결과 재요약
+- [x] 등록되지 않은 도구·인자와 병렬·반복 호출 거부
+- [x] Gemini 실패 시 명시적 `/tool` 명령과 기존 브리핑으로 폴백
+
+구현은 JavaScript SDK의 자동 함수 실행에 의존하지 않는다. Gemini에는 공개 함수명과 JSON 입력 스키마만 전달하고, CoffeeTide가 함수명을 내부 도구 ID로 정적 역매핑한 뒤 기존 Registry 실행기를 호출한다. 첫 응답에서 정확히 하나의 함수 요청만 허용하며 두 번째 응답이 다시 함수를 요청하면 실행하지 않는다. 결과 재요약 호출이 실패하면 검증된 `CloudToolResult.summary`와 출처·주의사항을 그대로 표시한다. `DISABLE_CLOUD_TOOL_AGENT=true`로 자연어 자동 선택만 즉시 끌 수 있고 `/tool` 명령은 계속 사용할 수 있다.
 
 ### 단계 C — 초안 도구
 

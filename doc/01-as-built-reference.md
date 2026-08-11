@@ -137,7 +137,7 @@ coffeeTide는 여러 채널의 업무 데이터를 하나의 대시보드로 통
 - **단어-앱 바로가기 (J2)**: `ct_app_shortcuts`에 등록한 키워드를 AI 바리스타에 **단독으로**(또는 `@키워드`) 입력하면 `/api/util/exec-app`으로 실행. 문장 속 부분 일치로는 실행되지 않는다(K4 — "노션에 정리한 업무 알려줘"가 앱 실행에 가로채이던 문제).
 - **로컬 실행기 보안 (K1)**: 셸 문자열 조합 없이 `spawn(cmd, [args], {shell:false})`. URL은 스킴 화이트리스트(http/https/kakaomap/nmap/notion/…), 로컬 파일은 절대 경로 + `.exe`/`.lnk`/`.app`만 허용(`.bat`/`.cmd`/`.ps1`은 인터프리터가 인자를 재파싱하므로 제외). 제어문자 차단, 세션 필수, 클라우드 배포에서는 403.
 - **등록형 로컬 Tool Broker**: 기존 `/api/util/exec-app`과 분리했다. JSON 등록부의 절대 경로·런타임·인자 플래그·SHA-256이 일치하는 `read_only` 도구만 `shell:false`로 실행하며, 앱 비밀 환경변수는 자식 프로세스에 전달하지 않는다. 실행 전 도구명·실행 PC·스크립트명·입력·시간 제한을 표시하고 사용자가 승인해야 한다. 결과와 비밀 입력을 제외한 감사 메타데이터는 `data/local-tool-audit.jsonl`에 저장한다. 운영체제 수준 샌드박스는 아니므로 사용자가 직접 신뢰하는 읽기 전용 스크립트만 등록해야 한다.
-- **Cloud Tool Registry**: 소스 코드에 정적으로 등록된 TypeScript 함수만 Vercel에서 실행한다. 1차 도구는 현재 화면 업무 집계(`workspace.task_summary`)와 한국은행 환율·금리(`finance.market_snapshot`)다. 사용자 인증, 추가 인자 거부, 문자열·열거값 검사, 사용자·도구별 분당 20회 제한, 실행 시간·출력 크기 제한과 식별자 해시 로그를 적용한다. 현재는 `read_only + confirmation:none`만 실행하며 Gemini 자동 도구 선택과 외부 쓰기는 미구현이다. 상세 설계는 [`11-cloud-tool-registry-plan.md`](./11-cloud-tool-registry-plan.md) 참조.
+- **Cloud Tool Registry**: 소스 코드에 정적으로 등록된 TypeScript 함수만 Vercel에서 실행한다. 1차 도구는 현재 화면 업무 집계(`workspace.task_summary`)와 한국은행 환율·금리(`finance.market_snapshot`)다. 사용자 인증, 추가 인자 거부, 문자열·열거값 검사, 사용자·도구별 분당 20회 제한, 실행 시간·출력 크기 제한과 식별자 해시 로그를 적용한다. Phase B부터 AI 바리스타가 자연어 질문에 필요한 읽기 전용 도구 하나를 Gemini function calling으로 제안받아 Registry에서 실행하고 결과를 재요약한다. 미등록 함수·인자와 병렬·반복 호출은 거부하며, 재요약 실패 시 검증된 도구 요약으로 폴백한다. 외부 쓰기는 아직 허용하지 않는다. 상세 설계는 [`11-cloud-tool-registry-plan.md`](./11-cloud-tool-registry-plan.md) 참조.
 - **워크노트 · 하위작업**: 업무 카드마다 진행 메모(`ct_work_notes`)와 체크리스트(`ct_sub_tasks`). `/reorder` 브리핑의 입력으로도 쓰인다.
 - **퇴근 핸드오프**: `/handoff` 또는 "퇴근하기" 버튼 → 남은 업무 요약을 클립보드에 복사하고 **UI 스냅샷**(`ct_handoff_state`)을 저장. 다음 진입 시 섹션 접힘·대화 이력을 복원하고 안내 배너를 1회만 띄운다(K6).
 - **지도 앱 연동 (K12)**: `src/lib/mapLinks.ts`. 카카오맵 `kakaomap://route?sp={lat},{lng}&ep=…&by=car|publictransit`, 네이버지도 `nmap://route/{car|public}?slat=…&appname=…` — **두 앱 모두 좌표 필수**라 좌표가 없으면 앱 스킴을 만들지 않고 웹으로만 연결한다(카카오 웹은 이름 기반 길찾기, 네이버는 목적지 검색). 좌표는 설정의 "현재 위치를 집/회사로"로 확보하며 **클라이언트에만 저장**한다. 앱 전환 감지는 `visibilitychange`/`pagehide`.
@@ -156,6 +156,7 @@ coffeeTide는 여러 채널의 업무 데이터를 하나의 대시보드로 통
 | `SESSION_ENCRYPTION_SECRET` | 세션 쿠키 AES-256-GCM 키 (32바이트 base64) — **프로덕션 필수** |
 | `GEMINI_API_KEY` | Gemini API 키. 미설정 시 로컬 FallbackEngine |
 | `DISABLE_AI_CLASSIFY` | `true`면 AI 분류 킬스위치 (백로그 C1) |
+| `DISABLE_CLOUD_TOOL_AGENT` | `true`면 자연어 Cloud Tool 자동 선택만 비활성. 명시적 `/tool` 명령은 유지 |
 | `NEXT_PUBLIC_MS_CLIENT_ID` / `MS_CLIENT_SECRET` / `MS_TENANT_ID` / `NEXT_PUBLIC_MS_REDIRECT_URI` | Microsoft Entra ID 4종 |
 | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `NEXT_PUBLIC_GOOGLE_REDIRECT_URI` | Google Identity 로그인 Client ID + 입장 후 Gmail·Calendar·Drive OAuth 3종 |
 | `NOTION_INTEGRATION_TOKEN` / `NOTION_DATABASE_ID` | Notion 기본값 (UI 세션별 입력 우선) |
