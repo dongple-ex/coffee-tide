@@ -1,7 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import React, { useCallback, useEffect, useId, useRef, useState } from "react";
+import React, { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
 import { YouTubeVideo, YouTubeChapter, YouTubeContinuityOwner } from "@/lib/types/youtube";
 import { loadLS, saveLS, LS_YOUTUBE_HISTORY } from "@/lib/localStore";
 import { saveYouTubeContinuitySession, clearYouTubeContinuitySession } from "@/lib/youtube/continuity";
@@ -62,6 +63,11 @@ export function SmartPlayerModal({
   activeWidgetId = null,
   userScope,
 }: SmartPlayerModalProps) {
+  const isClientMounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  );
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const modalContainerRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -514,7 +520,11 @@ export function SmartPlayerModal({
 
   const isMobileFloating = isMini && isMobileViewport;
 
-  return (
+  if (!isClientMounted || typeof document === "undefined") {
+    return null;
+  }
+
+  return createPortal(
     <>
       {isMini && !isMobileFloating && <div className={styles.focusBackdrop} aria-hidden="true" />}
       <div
@@ -754,6 +764,7 @@ export function SmartPlayerModal({
           </div>
         </div>
       </div>
-    </>
+    </>,
+    document.body
   );
 }

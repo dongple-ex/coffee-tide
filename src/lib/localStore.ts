@@ -24,6 +24,7 @@ export const LS_YOUTUBE_ACTIVE_BUNDLE = "ct_youtube_active_bundle";
 export const LS_YOUTUBE_REC_KEYWORDS = "ct_youtube_rec_keywords";
 export const LS_YOUTUBE_HISTORY = "ct_youtube_history";
 export const LS_YOUTUBE_CONTINUITY = "ct_youtube_continuity_v1";
+export const LS_COMPACT_MODE = "ct_compact_mode";
 export const YOUTUBE_BUNDLES_CHANGED_EVENT = "ct:youtube-bundles-changed";
 
 // 구 프로젝트명(TimePilot) 시절 tp_ 키 → ct_ 키 1회성 마이그레이션 맵 (판독 시 이관)

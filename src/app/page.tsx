@@ -48,6 +48,7 @@ import {
   LS_FETCH_LIMIT,
   LS_FOLLOWUP,
   LS_HANDOFF_STATE,
+  LS_COMPACT_MODE,
   LS_VIEW_WINDOW,
   LS_MANUAL,
   LS_RULES,
@@ -58,6 +59,7 @@ import {
   LS_WORK_NOTES,
 } from "@/lib/localStore";
 import { useModalA11y } from "./hooks/useModalA11y";
+import { useIsMobile } from "./hooks/useIsMobile";
 import { HeaderControls, Theme } from "./components/HeaderControls";
 import { QuickAddBar } from "./components/QuickAddBar";
 import { SettingsModal } from "./components/SettingsModal";
@@ -124,6 +126,7 @@ export interface HandoffState {
   llmSectionCollapsed: boolean;
   restSectionCollapsed: boolean;
   welcomeCardCollapsed: boolean;
+  compactMode?: boolean;
   copilotMessages: CopilotMessage[];
   /** 복원 안내 배너를 사용자가 확인했는지 — 스냅샷은 유지하되 배너만 1회로 제한 */
   acknowledged?: boolean;
@@ -327,6 +330,50 @@ export default function Home() {
   const [welcomeCardCollapsed, setWelcomeCardCollapsed] = useState(
     () => handoffSnapshot?.welcomeCardCollapsed ?? false
   );
+  const [compactMode, setCompactMode] = useState<boolean>(() => {
+    const stored = loadLS<boolean | null>(LS_COMPACT_MODE, null);
+    if (stored !== null) return stored;
+    return handoffSnapshot?.compactMode ?? false;
+  });
+  const isMobile = useIsMobile();
+  const isMobileTabMode = compactMode && isMobile;
+  const [activeCompactTab, setActiveCompactTab] = useState<"todo" | "copilot" | "widgets">("todo");
+
+  const toggleCompactMode = useCallback(() => {
+    setCompactMode((prev) => {
+      const next = !prev;
+      saveLS(LS_COMPACT_MODE, next);
+      return next;
+    });
+  }, []);
+
+  const handleTabKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLElement>) => {
+      const tabs: Array<"todo" | "copilot" | "widgets"> = ["todo", "copilot", "widgets"];
+      const currentIndex = tabs.indexOf(activeCompactTab);
+      if (e.key === "ArrowRight") {
+        e.preventDefault();
+        const nextIndex = (currentIndex + 1) % tabs.length;
+        setActiveCompactTab(tabs[nextIndex]);
+        document.getElementById(`tab-${tabs[nextIndex]}`)?.focus();
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        const prevIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+        setActiveCompactTab(tabs[prevIndex]);
+        document.getElementById(`tab-${tabs[prevIndex]}`)?.focus();
+      } else if (e.key === "Home") {
+        e.preventDefault();
+        setActiveCompactTab("todo");
+        document.getElementById("tab-todo")?.focus();
+      } else if (e.key === "End") {
+        e.preventDefault();
+        setActiveCompactTab("widgets");
+        document.getElementById("tab-widgets")?.focus();
+      }
+    },
+    [activeCompactTab]
+  );
+
   const [expandedQaKeys, setExpandedQaKeys] = useState<Set<string>>(new Set());
   const [unreadQaKeys, setUnreadQaKeys] = useState<Set<string>>(new Set());
 
@@ -1352,6 +1399,7 @@ export default function Home() {
       llmSectionCollapsed,
       restSectionCollapsed,
       welcomeCardCollapsed,
+      compactMode,
       copilotMessages,
       acknowledged: false,
     };
@@ -1370,6 +1418,7 @@ export default function Home() {
     llmSectionCollapsed,
     restSectionCollapsed,
     welcomeCardCollapsed,
+    compactMode,
     copilotMessages,
     showToast,
   ]);
@@ -2281,7 +2330,10 @@ export default function Home() {
   }
 
   return (
-    <main className={styles.page}>
+    <main
+      className={`${styles.page} ${compactMode ? styles.pageCompact : ""}`}
+      data-compact-tab={activeCompactTab}
+    >
       <HeaderControls
         userEmail={authUserEmail || connections?.googleEmail || connections?.outlookEmail || undefined}
         connections={connections ?? undefined}
@@ -2293,6 +2345,8 @@ export default function Home() {
         onLogoutHandoff={() => void handleLogoutHandoff()}
         showConn={showConn}
         onToggleConn={() => setShowConn((v) => !v)}
+        compactMode={compactMode}
+        onToggleCompactMode={toggleCompactMode}
         followupHours={followupHours}
         onFollowupHoursChange={(hours) => {
           setFollowupHours(hours);
@@ -2406,477 +2460,336 @@ export default function Home() {
           </button>
         </div>
       )}
-      {/* 💡 KST 시간대별 맞춤 추천 스트립 */}
-      <div style={{ marginBottom: 12 }}>
-        <ContextualRecStrip onNotify={showToast} userScope={userScope} />
-      </div>
 
-      {/* 🧩 확장형 빠른 위젯 바 (Widget Toolbar) */}
-      <div className={styles.widgetBarSection}>
-        <div className={styles.widgetBarHeader}>
-          <button
-            type="button"
-            className={styles.widgetBarTitleBtn}
-            onClick={() => setIsWidgetDrawerExpanded((prev) => !prev)}
-            title={isWidgetDrawerExpanded ? "한줄로 접기" : "모든 위젯 칩 한눈에 넓게 보기"}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="3" width="7" height="7"></rect>
-              <rect x="14" y="3" width="7" height="7"></rect>
-              <rect x="14" y="14" width="7" height="7"></rect>
-              <rect x="3" y="14" width="7" height="7"></rect>
-            </svg>
-            빠른 위젯 도구함
-            <span className={styles.drawerToggleBadge}>
-              {isWidgetDrawerExpanded ? "⌃ 접기" : "⫶⫶ 한눈에 보기 ⌄"}
-            </span>
-          </button>
-        </div>
-        <div
-          className={`${styles.widgetList} ${isWidgetDrawerExpanded ? styles.widgetListExpanded : ""}`}
-          ref={widgetListRef}
-          onMouseDown={handleWidgetMouseDown}
-          onMouseLeave={handleWidgetMouseLeaveOrUp}
-          onMouseUp={handleWidgetMouseLeaveOrUp}
-          onMouseMove={handleWidgetMouseMove}
+      {/* 📱 모바일 축소 모드 전용 스마트 3단 세그먼트 탭 바 */}
+      {compactMode && (
+        <nav
+          className={styles.compactTabBar}
+          role={isMobileTabMode ? "tablist" : undefined}
+          aria-label={isMobileTabMode ? "축소 모드 섹션 전환" : undefined}
+          onKeyDown={handleTabKeyDown}
         >
           <button
+            id="tab-todo"
             type="button"
-            className={`${styles.widgetChip} ${activeWidget === "weather" ? styles.widgetChipActive : ""}`}
-            onClick={() => setActiveWidget((prev) => (prev === "weather" ? null : "weather"))}
-            title="실시간 날씨 정보 및 브리핑 열기/닫기"
+            role={isMobileTabMode ? "tab" : undefined}
+            aria-selected={isMobileTabMode ? activeCompactTab === "todo" : undefined}
+            aria-controls={isMobileTabMode ? "panel-todo" : undefined}
+            tabIndex={activeCompactTab === "todo" ? 0 : -1}
+            className={`${styles.compactTabBtn} ${activeCompactTab === "todo" ? styles.compactTabBtnActive : ""}`}
+            onClick={() => setActiveCompactTab("todo")}
           >
-            <span>🌤️</span>
-            <span>실시간 날씨</span>
+            <span>📋 오늘 할 일</span>
+            {activeCount > 0 && <span className={styles.compactTabBadge}>{activeCount}</span>}
           </button>
           <button
+            id="tab-copilot"
             type="button"
-            className={`${styles.widgetChip} ${activeWidget === "finance" ? styles.widgetChipActive : ""}`}
-            onClick={toggleFinanceWidget}
-            title="공식 환율 및 한국은행 기준금리 열기/닫기"
+            role={isMobileTabMode ? "tab" : undefined}
+            aria-selected={isMobileTabMode ? activeCompactTab === "copilot" : undefined}
+            aria-controls={isMobileTabMode ? "panel-copilot" : undefined}
+            tabIndex={activeCompactTab === "copilot" ? 0 : -1}
+            className={`${styles.compactTabBtn} ${activeCompactTab === "copilot" ? styles.compactTabBtnActive : ""}`}
+            onClick={() => setActiveCompactTab("copilot")}
           >
-            <span>💱</span>
-            <span>환율·금리</span>
-          </button>
-          {commuteConfig.enabled && (
-            <button
-              type="button"
-              className={`${styles.widgetChip} ${activeWidget === "commute" ? styles.widgetChipActive : ""}`}
-              onClick={() => setActiveWidget((prev) => (prev === "commute" ? null : "commute"))}
-              title="출퇴근 길찾기 위젯 열기/닫기"
-            >
-              <span>🚇</span>
-              <span>스마트 길찾기</span>
-            </button>
-          )}
-          <button
-            type="button"
-            className={`${styles.widgetChip} ${activeWidget === "timer" ? styles.widgetChipActive : ""}`}
-            onClick={() => setActiveWidget((prev) => (prev === "timer" ? null : "timer"))}
-            title="집중 몰입 타이머 열기/닫기"
-          >
-            <span>⏱️</span>
-            <span>몰입 타이머</span>
+            <span>☕ AI 바리스타</span>
+            {urgentCount > 0 && (
+              <span className={`${styles.compactTabBadge} ${styles.compactTabBadgeUrgent}`}>{urgentCount}</span>
+            )}
           </button>
           <button
+            id="tab-widgets"
             type="button"
-            className={`${styles.widgetChip} ${activeWidget === "calc" ? styles.widgetChipActive : ""}`}
-            onClick={() => setActiveWidget((prev) => (prev === "calc" ? null : "calc"))}
-            title="빠른 수치 계산기 열기/닫기"
+            role={isMobileTabMode ? "tab" : undefined}
+            aria-selected={isMobileTabMode ? activeCompactTab === "widgets" : undefined}
+            aria-controls={isMobileTabMode ? "panel-widgets" : undefined}
+            tabIndex={activeCompactTab === "widgets" ? 0 : -1}
+            className={`${styles.compactTabBtn} ${activeCompactTab === "widgets" ? styles.compactTabBtnActive : ""}`}
+            onClick={() => setActiveCompactTab("widgets")}
           >
-            <span>🧮</span>
-            <span>빠른 계산기</span>
+            <span>🧩 빠른 위젯</span>
+            {activeWidget && <span className={styles.compactTabDot} title="위젯 활성화됨" />}
           </button>
-          <button
-            type="button"
-            className={`${styles.widgetChip} ${activeWidget === "shortcuts" ? styles.widgetChipActive : ""}`}
-            onClick={() => setActiveWidget((prev) => (prev === "shortcuts" ? null : "shortcuts"))}
-            title="앱/레시피 바로가기 즐겨찾기 열기/닫기"
-          >
-            <span>⭐</span>
-            <span>바로가기 즐겨찾기</span>
-          </button>
-          <button
-            type="button"
-            className={`${styles.widgetChip} ${activeWidget === "youtube" ? styles.widgetChipActive : ""}`}
-            onClick={() => setActiveWidget((prev) => (prev === "youtube" ? null : "youtube"))}
-            title="테마별 유튜브 스마트 번들 피드 열기/닫기"
-          >
-            <span>📺</span>
-            <span>유튜브 번들</span>
-          </button>
-          {/* 사용자가 동적으로 등록한 커스텀 위젯 칩들 */}
-          {customWidgets.map((w) => (
-            <button
-              key={w.id}
-              type="button"
-              className={`${styles.widgetChip} ${activeWidget === w.id ? styles.widgetChipActive : ""}`}
-              onClick={() => setActiveWidget((prev) => (prev === w.id ? null : w.id))}
-              title={`${w.name} 최신 글 핵심 브리핑 보기`}
-            >
-              <span>{w.icon || "🌐"}</span>
-              <span>{w.name}</span>
-            </button>
-          ))}
-          {/* 사이트 추가 칩 */}
-          <button
-            type="button"
-            className={styles.widgetChip}
-            onClick={() => setShowAddCustomModal(true)}
-            title="새로운 뉴스/블로그 사이트 URL을 등록하여 나만의 위젯 칩 추가"
-            style={{ borderStyle: "dashed" }}
-          >
-            <span>➕</span>
-            <span>사이트 추가</span>
-          </button>
-        </div>
+        </nav>
+      )}
 
-        {/* 선택된 위젯 패널 */}
-        {activeWidget === "weather" && (
-          <div className={styles.widgetPanel}>
-            <WeatherWidget
-              weather={weatherData}
-              enabled={weatherEnabled}
-              onEnableLocation={enableWeatherLocation}
-              onRefreshWeather={() => {
-                if (!weatherCoords) return;
-                void fetchWeatherData(weatherCoords.lat, weatherCoords.lon).then((weather) => {
-                  if (weather) {
-                    setWeatherData(weather);
-                    showToast("실시간 날씨 정보가 갱신되었습니다 🌤️");
-                  } else {
-                    showToast("날씨 정보를 갱신하지 못했어요. 잠시 후 다시 시도해 주세요.");
-                  }
-                });
-              }}
-            />
+      <div className={`${styles.grid} ${styles.dashboardGrid}`}>
+        {/* 🧩 widgets 패널 (KST 맞춤 추천 스트립 + 확장형 빠른 위젯 도구함) */}
+        <div
+          id={isMobileTabMode ? "panel-widgets" : undefined}
+          role={isMobileTabMode ? "tabpanel" : undefined}
+          aria-labelledby={isMobileTabMode ? "tab-widgets" : undefined}
+          hidden={isMobileTabMode && activeCompactTab !== "widgets"}
+          className={`${styles.widgetsPanelWrapper} ${styles.areaWidgets} ${
+            isMobileTabMode && activeCompactTab !== "widgets" ? styles.compactPanelHidden : ""
+          }`}
+        >
+          {/* 💡 KST 시간대별 맞춤 추천 스트립 */}
+          <div style={{ marginBottom: compactMode ? 4 : 12 }}>
+            <ContextualRecStrip onNotify={showToast} userScope={userScope} />
           </div>
-        )}
-        {activeWidget === "finance" && (
-          <div className={styles.widgetPanel}>
-            <FinanceWidget
-              finance={financeData}
-              loading={financeBusy}
-              stale={financeMeta.stale}
-              missing={financeMeta.missing}
-              warnings={financeMeta.warnings}
-              onRefresh={() => {
-                void fetchFinanceData(true).then((success) => {
-                  showToast(
-                    success
-                      ? "환율·금리 정보가 갱신되었습니다 💱"
-                      : "환율·금리 정보를 확인하지 못했어요. API 설정을 확인해 주세요."
-                  );
-                });
-              }}
-            />
-          </div>
-        )}
-        {activeWidget === "commute" && commuteConfig.enabled && (
-          <div className={styles.widgetPanel}>
-            <CommuteCard
-              homeStation={commuteConfig.homeStation || "서울역"}
-              workStation={commuteConfig.workStation || "수원역"}
-              transportType={commuteConfig.transportType || "public"}
-              homeCoords={commuteConfig.homeCoords}
-              workCoords={commuteConfig.workCoords}
-              homeStop={commuteConfig.homeStop}
-              workStop={commuteConfig.workStop}
-              onOpenSettings={() => setShowConn(true)}
-            />
-          </div>
-        )}
-        {activeWidget === "timer" && (
-          <div className={styles.widgetPanel}>
-            <TimerWidget onCompleteToast={showToast} />
-          </div>
-        )}
-        {activeWidget === "calc" && (
-          <div className={styles.widgetPanel}>
-            <CalculatorWidget />
-          </div>
-        )}
-        {activeWidget === "shortcuts" && (
-          <div className={styles.widgetPanel}>
-            <ShortcutsWidget
-              shortcuts={appShortcuts}
-              onError={showToast}
-              onOpenYouTubeBundle={() => setActiveWidget("youtube")}
-            />
-          </div>
-        )}
-        {activeWidget === "youtube" && (
-          <div className={styles.widgetPanel}>
-            <YouTubeBundleWidget onNotify={showToast} userScope={userScope} />
-          </div>
-        )}
-        {/* 커스텀 위젯 패널 */}
-        {customWidgets.map((w) => {
-          if (activeWidget !== w.id) return null;
-          return (
-            <div key={w.id} className={styles.widgetPanel}>
-              <CustomNewsWidget
-                widget={w}
-                onNotify={showToast}
-                onDelete={(id) => handleDeleteCustomWidget(id)}
-                onUpdateName={(id, newName) => handleUpdateCustomWidgetName(id, newName)}
-              />
-            </div>
-          );
-        })}
-      </div>
 
-      <div className={styles.grid}>
-        {/* G1: 빠른 업무 추가 + 붙여넣기 — 입력 경로가 최우선 (00-product-spec §4.1) */}
-        <section className={`${styles.card} ${styles.colInput}`}>
-          <QuickAddBar
-            quickTitle={quickTitle}
-            onQuickTitleChange={setQuickTitle}
-            onAddManual={addManual}
-            showPaste={showPaste}
-            onToggleShowPaste={() => setShowPaste((v) => !v)}
-            pasteText={pasteText}
-            onPasteTextChange={setPasteText}
-            pasteBusy={pasteBusy}
-            onImportPaste={importPaste}
-            dynamicPasteSteps={dynamicPasteSteps}
-          />
-        </section>
-
-        {/* G3/G6: Copilot — 무연동에서도 활성, MarkdownLite 렌더링 */}
-        <section className={`${styles.card} ${styles.colCopilot}`}>
-          <div className={`${styles.cardTitle} ${styles.copilotCardTitle}`}>
-            <span className={styles.copilotTitleLabel}>☕ AI 바리스타</span>
-            <div className={styles.copilotStatus} aria-label="현재 업무 상태">
-              <span className={styles.statChip}>
-                대기 <b>{activeCount}</b>
-              </span>
-              <span className={styles.statChip}>
-                긴급 <b>{urgentCount}</b>
-              </span>
-              <span className={styles.statChip}>
-                오늘 완료 <b>{doneCount}</b>
-              </span>
+          {/* 🧩 확장형 빠른 위젯 바 (Widget Toolbar) */}
+          <div className={styles.widgetBarSection}>
+            <div className={styles.widgetBarHeader}>
               <button
-                className={styles.refreshBtn}
-                onClick={() => void handleRefreshAll()}
-                disabled={isDataRefreshing}
-                aria-label="연결 데이터 새로고침"
-                title="연결 데이터 새로고침"
+                type="button"
+                className={styles.widgetBarTitleBtn}
+                onClick={() => setIsWidgetDrawerExpanded((prev) => !prev)}
+                title={isWidgetDrawerExpanded ? "한줄로 접기" : "모든 위젯 칩 한눈에 넓게 보기"}
               >
-                <svg
-                  className={isDataRefreshing ? styles.spinIcon : ""}
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.4"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M23 4v6h-6" />
-                  <path d="M1 20v-6h6" />
-                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="7" height="7"></rect>
+                  <rect x="14" y="3" width="7" height="7"></rect>
+                  <rect x="14" y="14" width="7" height="7"></rect>
+                  <rect x="3" y="14" width="7" height="7"></rect>
                 </svg>
+                빠른 위젯 도구함
+                <span className={styles.drawerToggleBadge}>
+                  {isWidgetDrawerExpanded ? "⌃ 접기" : "⫶⫶ 한눈에 보기 ⌄"}
+                </span>
               </button>
             </div>
-          </div>
-          <WelcomeCard
-            compact
-            weather={weatherData}
-            collapsed={welcomeCardCollapsed}
-            onToggleCollapsed={setWelcomeCardCollapsed}
-            taskCount={merged.filter((i) => i.status !== "completed" && i.status !== "dismissed").length}
-            urgentCount={merged.filter((i) => i.category === "urgent" && i.status !== "completed" && i.status !== "dismissed").length}
-          />
-          <CopilotConversation
-            bodyRef={copilotBodyRef}
-            messages={copilotMessages}
-            busy={copilotBusy}
-            waitSteps={dynamicCopilotSteps}
-            sparkEnabled={sparkEnabled}
-            sparkLoading={sparkBriefingLoading}
-            sparkBriefing={sparkEnabled ? sparkBriefing : null}
-            hasItems={merged.length > 0}
-            expandedKeys={expandedQaKeys}
-            unreadKeys={unreadQaKeys}
-            onToggleExpand={toggleQaPair}
-          />
-          {calendarDraft && (
-            <CalendarDraftCard
-              draft={calendarDraft}
-              busy={cloudWriteBusy}
-              googleConnected={googleConnected && !calendarReconnectRequired}
-              onConfirm={() => void prepareCloudWrite(calendarWriteRequest(calendarDraft))}
-              onCancel={() => {
-                setCalendarDraft(null);
-                setCloudWriteApproval(null);
-                setCalendarReconnectRequired(false);
-                showToast("캘린더 등록을 취소했습니다.");
-              }}
-            />
-          )}
-          {cloudToolDraft && (
-            <CloudDraftReviewCard
-              draft={cloudToolDraft}
-              busy={cloudWriteBusy}
-              googleConnected={googleConnected && !calendarReconnectRequired}
-              onChange={(nextDraft) => {
-                setCloudToolDraft(nextDraft);
-                setCloudWriteApproval(null);
-              }}
-              onCancel={() => {
-                setCloudToolDraft(null);
-                setCloudWriteApproval(null);
-                showToast("초안을 취소했습니다.");
-              }}
-              onNotify={showToast}
-              onExternalWrite={() => {
-                const request = draftWriteRequest(cloudToolDraft);
-                if (request) void prepareCloudWrite(request);
-              }}
-            />
-          )}
-          {cloudWriteApproval && (
-            <CloudWriteApprovalCard
-              approval={cloudWriteApproval}
-              busy={cloudWriteBusy}
-              onConfirm={() => void executeCloudWrite()}
-              onCancel={() => {
-                setCloudWriteApproval(null);
-                showToast("외부 변경 승인을 취소했습니다.");
-              }}
-            />
-          )}
-          <CopilotComposer
-            value={copilotInput}
-            onChange={setCopilotInput}
-            onSubmit={() => void askCopilot()}
-            onFocus={() => setWelcomeCardCollapsed(true)}
-            busy={copilotBusy}
-            onRunSlashCommand={(cmd) => {
-              if (!handleSlashCommand(cmd)) void askCopilot(cmd);
-            }}
-            onQuickBriefing={() => void askCopilot("오늘 해야 할 일을 브리핑해줘")}
-            fileInputRef={fileInputRef}
-            onFileChange={handleFileUpload}
-            uploadBusy={uploadBusy}
-            plusOpen={plusOpen}
-            onTogglePlus={setPlusOpen}
-            plusBtnRef={plusBtnRef}
-            plusFirstItemRef={plusFirstItemRef}
-            saveToDrive={saveToDrive}
-            onToggleSaveToDrive={() => {
-              userSetDriveRef.current = true;
-              setSaveToDrive(!saveToDrive);
-            }}
-            googleConnected={googleConnected}
-          />
-        </section>
-
-
-
-        {/* 오늘의 행동 지침 */}
-        <section className={`${styles.card} ${styles.colFull}`}>
-          <div
-            className={`${styles.cardTitle} ${styles.cardTitleToggleable}`}
-            onClick={() => setTodoSectionCollapsed((prev) => !prev)}
-          >
-            <span>🎯 오늘의 행동 지침</span>
-            <small>{todoItems.length}건</small>
-            <button
-              type="button"
-              className={styles.btnReorder}
-              onClick={(e) => {
-                e.stopPropagation();
-                void handleReorderRemainingWithAI();
-              }}
-              title="미완료 및 진행 중 업무들을 AI 바리스타가 일정 재배치 브리핑으로 정리합니다"
-            >
-              🔄 남은 업무 AI 재배치
-            </button>
-            <span className={styles.folderToggleIcon} title={todoSectionCollapsed ? "섹션 펼치기" : "섹션 접기"}>
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                style={{
-                  transform: todoSectionCollapsed ? "rotate(180deg)" : "rotate(0deg)",
-                  transition: "transform 0.2s ease",
-                }}
-              >
-                <polyline points="18 15 12 9 6 15" />
-              </svg>
-            </span>
-          </div>
-          {!todoSectionCollapsed && (
-            todoItems.length === 0 ? (
-              <div className={styles.emptyState}>
-                {/* G2: 연동 전제가 아닌 입력 우선 안내 */}
-                오늘은 아직 조용하네요. <b>위에서 업무를 추가하거나 메모를 붙여넣어
-                보세요.</b>
-                {!isAnyConnected && " Outlook/Notion 연동은 나중에 해도 충분해요."}
-              </div>
-            ) : (
-              <>
-                <div className={styles.list}>
-                  {todoItems.slice(0, visibleTodoCount).map(renderItem)}
-                </div>
-                {todoItems.length > 10 && (
-                  <div style={{ display: "flex", justifyContent: "center", marginTop: 12 }}>
-                    {visibleTodoCount < todoItems.length ? (
-                      <button
-                        type="button"
-                        className={styles.connMenuBtn}
-                        onClick={() =>
-                          setVisibleTodoCount((prev) => Math.min(prev + 10, todoItems.length))
-                        }
-                      >
-                        ▼ 더 보기 ({todoItems.length - visibleTodoCount}건 남음)
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        className={styles.connMenuBtn}
-                        onClick={() => setVisibleTodoCount(10)}
-                      >
-                        ▲ 접기 (처음 10건만 보기)
-                      </button>
-                    )}
-                  </div>
-                )}
-              </>
-            )
-          )}
-        </section>
-
-        {/* 🧠 오늘의 LLM 작업 (phase6 §7) */}
-        {(llmItems.length > 0 || connections?.llm || browserLlm) && (
-          <section className={`${styles.card} ${styles.colFull}`}>
             <div
-              className={`${styles.cardTitle} ${styles.cardTitleToggleable}`}
-              onClick={() => setLlmSectionCollapsed((prev) => !prev)}
+              className={`${styles.widgetList} ${isWidgetDrawerExpanded ? styles.widgetListExpanded : ""}`}
+              ref={widgetListRef}
+              onMouseDown={handleWidgetMouseDown}
+              onMouseLeave={handleWidgetMouseLeaveOrUp}
+              onMouseUp={handleWidgetMouseLeaveOrUp}
+              onMouseMove={handleWidgetMouseMove}
             >
-              <span>🧠 오늘의 LLM 작업</span>
-              <small>{llmItems.length}건</small>
-              {connections?.obsidian && (
+              <button
+                type="button"
+                className={`${styles.widgetChip} ${activeWidget === "weather" ? styles.widgetChipActive : ""}`}
+                onClick={() => setActiveWidget((prev) => (prev === "weather" ? null : "weather"))}
+                title="실시간 날씨 정보 및 브리핑 열기/닫기"
+              >
+                <span>🌤️</span>
+                <span>실시간 날씨</span>
+              </button>
+              <button
+                type="button"
+                className={`${styles.widgetChip} ${activeWidget === "finance" ? styles.widgetChipActive : ""}`}
+                onClick={toggleFinanceWidget}
+                title="공식 환율 및 한국은행 기준금리 열기/닫기"
+              >
+                <span>💱</span>
+                <span>환율·금리</span>
+              </button>
+              {commuteConfig.enabled && (
                 <button
-                  className={`${styles.btn} ${styles.cardTitleBtn}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    exportLlmDigest();
-                  }}
+                  type="button"
+                  className={`${styles.widgetChip} ${activeWidget === "commute" ? styles.widgetChipActive : ""}`}
+                  onClick={() => setActiveWidget((prev) => (prev === "commute" ? null : "commute"))}
+                  title="출퇴근 길찾기 위젯 열기/닫기"
                 >
-                  📥 Obsidian에 오늘 요약 내보내기
+                  <span>🚇</span>
+                  <span>스마트 길찾기</span>
                 </button>
               )}
-              <span className={styles.folderToggleIcon} title={llmSectionCollapsed ? "섹션 펼치기" : "섹션 접기"}>
+              <button
+                type="button"
+                className={`${styles.widgetChip} ${activeWidget === "timer" ? styles.widgetChipActive : ""}`}
+                onClick={() => setActiveWidget((prev) => (prev === "timer" ? null : "timer"))}
+                title="집중 몰입 타이머 열기/닫기"
+              >
+                <span>⏱️</span>
+                <span>몰입 타이머</span>
+              </button>
+              <button
+                type="button"
+                className={`${styles.widgetChip} ${activeWidget === "calc" ? styles.widgetChipActive : ""}`}
+                onClick={() => setActiveWidget((prev) => (prev === "calc" ? null : "calc"))}
+                title="빠른 수치 계산기 열기/닫기"
+              >
+                <span>🧮</span>
+                <span>빠른 계산기</span>
+              </button>
+              <button
+                type="button"
+                className={`${styles.widgetChip} ${activeWidget === "shortcuts" ? styles.widgetChipActive : ""}`}
+                onClick={() => setActiveWidget((prev) => (prev === "shortcuts" ? null : "shortcuts"))}
+                title="앱/레시피 바로가기 즐겨찾기 열기/닫기"
+              >
+                <span>⭐</span>
+                <span>바로가기 즐겨찾기</span>
+              </button>
+              <button
+                type="button"
+                className={`${styles.widgetChip} ${activeWidget === "youtube" ? styles.widgetChipActive : ""}`}
+                onClick={() => setActiveWidget((prev) => (prev === "youtube" ? null : "youtube"))}
+                title="테마별 유튜브 스마트 번들 피드 열기/닫기"
+              >
+                <span>📺</span>
+                <span>유튜브 번들</span>
+              </button>
+              {/* 사용자가 동적으로 등록한 커스텀 위젯 칩들 */}
+              {customWidgets.map((w) => (
+                <button
+                  key={w.id}
+                  type="button"
+                  className={`${styles.widgetChip} ${activeWidget === w.id ? styles.widgetChipActive : ""}`}
+                  onClick={() => setActiveWidget((prev) => (prev === w.id ? null : w.id))}
+                  title={`${w.name} 최신 글 핵심 브리핑 보기`}
+                >
+                  <span>{w.icon || "🌐"}</span>
+                  <span>{w.name}</span>
+                </button>
+              ))}
+              {/* 사이트 추가 칩 */}
+              <button
+                type="button"
+                className={styles.widgetChip}
+                onClick={() => setShowAddCustomModal(true)}
+                title="새로운 뉴스/블로그 사이트 URL을 등록하여 나만의 위젯 칩 추가"
+                style={{ borderStyle: "dashed" }}
+              >
+                <span>➕</span>
+                <span>사이트 추가</span>
+              </button>
+            </div>
+
+            {activeWidget === "weather" && (
+              <div className={styles.widgetPanel}>
+                <WeatherWidget
+                  weather={weatherData}
+                  enabled={weatherEnabled}
+                  onEnableLocation={enableWeatherLocation}
+                  onRefreshWeather={() => {
+                    if (!weatherCoords) return;
+                    void fetchWeatherData(weatherCoords.lat, weatherCoords.lon).then((weather) => {
+                      if (weather) {
+                        setWeatherData(weather);
+                        showToast("실시간 날씨 정보가 갱신되었습니다 🌤️");
+                      } else {
+                        showToast("날씨 정보를 갱신하지 못했어요. 잠시 후 다시 시도해 주세요.");
+                      }
+                    });
+                  }}
+                />
+              </div>
+            )}
+            {activeWidget === "finance" && (
+              <div className={styles.widgetPanel}>
+                <FinanceWidget
+                  finance={financeData}
+                  loading={financeBusy}
+                  stale={financeMeta.stale}
+                  missing={financeMeta.missing}
+                  warnings={financeMeta.warnings}
+                  onRefresh={() => {
+                    void fetchFinanceData(true).then((success) => {
+                      showToast(
+                        success
+                          ? "환율·금리 정보가 갱신되었습니다 💱"
+                          : "환율·금리 정보를 확인하지 못했어요. API 설정을 확인해 주세요."
+                      );
+                    });
+                  }}
+                />
+              </div>
+            )}
+            {activeWidget === "commute" && commuteConfig.enabled && (
+              <div className={styles.widgetPanel}>
+                <CommuteCard
+                  homeStation={commuteConfig.homeStation || "서울역"}
+                  workStation={commuteConfig.workStation || "수원역"}
+                  transportType={commuteConfig.transportType || "public"}
+                  homeCoords={commuteConfig.homeCoords}
+                  workCoords={commuteConfig.workCoords}
+                  homeStop={commuteConfig.homeStop}
+                  workStop={commuteConfig.workStop}
+                  onOpenSettings={() => setShowConn(true)}
+                />
+              </div>
+            )}
+            {activeWidget === "timer" && (
+              <div className={styles.widgetPanel}>
+                <TimerWidget onCompleteToast={showToast} />
+              </div>
+            )}
+            {activeWidget === "calc" && (
+              <div className={styles.widgetPanel}>
+                <CalculatorWidget />
+              </div>
+            )}
+            {activeWidget === "shortcuts" && (
+              <div className={styles.widgetPanel}>
+                <ShortcutsWidget
+                  shortcuts={appShortcuts}
+                  onError={showToast}
+                  onOpenYouTubeBundle={() => setActiveWidget("youtube")}
+                />
+              </div>
+            )}
+            {activeWidget === "youtube" && (
+              <div className={styles.widgetPanel}>
+                <YouTubeBundleWidget onNotify={showToast} userScope={userScope} />
+              </div>
+            )}
+            {/* 커스텀 위젯 패널 */}
+            {customWidgets.map((w) => {
+              if (activeWidget !== w.id) return null;
+              return (
+                <div key={w.id} className={styles.widgetPanel}>
+                  <CustomNewsWidget
+                    widget={w}
+                    onNotify={showToast}
+                    onDelete={(id) => handleDeleteCustomWidget(id)}
+                    onUpdateName={(id, newName) => handleUpdateCustomWidgetName(id, newName)}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* 📋 todo 패널 래퍼 (QuickAdd + 오늘의 행동 지침 + 오늘의 LLM 작업 + 받은 항목 전체) */}
+        <div
+          id={isMobileTabMode ? "panel-todo" : undefined}
+          role={isMobileTabMode ? "tabpanel" : undefined}
+          aria-labelledby={isMobileTabMode ? "tab-todo" : undefined}
+          hidden={isMobileTabMode && activeCompactTab !== "todo"}
+          className={`${styles.todoPanelWrapper} ${
+            isMobileTabMode && activeCompactTab !== "todo" ? styles.compactPanelHidden : ""
+          }`}
+        >
+          {/* G1: 빠른 업무 추가 + 붙여넣기 — 입력 경로가 최우선 (00-product-spec §4.1) */}
+          <section className={`${styles.card} ${styles.colInput} ${styles.areaInput}`}>
+            <QuickAddBar
+              quickTitle={quickTitle}
+              onQuickTitleChange={setQuickTitle}
+              onAddManual={addManual}
+              showPaste={showPaste}
+              onToggleShowPaste={() => setShowPaste((v) => !v)}
+              pasteText={pasteText}
+              onPasteTextChange={setPasteText}
+              pasteBusy={pasteBusy}
+              onImportPaste={importPaste}
+              dynamicPasteSteps={dynamicPasteSteps}
+            />
+          </section>
+
+          {/* 오늘의 행동 지침 */}
+          <section className={`${styles.card} ${styles.colFull} ${styles.colUrgent} ${styles.areaTodo}`}>
+            <div
+              className={`${styles.cardTitle} ${styles.cardTitleToggleable}`}
+              onClick={() => setTodoSectionCollapsed((prev) => !prev)}
+            >
+              <span>🎯 오늘의 행동 지침</span>
+              <small>{todoItems.length}건</small>
+              <button
+                type="button"
+                className={styles.btnReorder}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  void handleReorderRemainingWithAI();
+                }}
+                title="미완료 및 진행 중 업무들을 AI 바리스타가 일정 재배치 브리핑으로 정리합니다"
+              >
+                🔄 남은 업무 AI 재배치
+              </button>
+              <span className={styles.folderToggleIcon} title={todoSectionCollapsed ? "섹션 펼치기" : "섹션 접기"}>
                 <svg
                   width="16"
                   height="16"
@@ -2887,7 +2800,7 @@ export default function Home() {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   style={{
-                    transform: llmSectionCollapsed ? "rotate(180deg)" : "rotate(0deg)",
+                    transform: todoSectionCollapsed ? "rotate(180deg)" : "rotate(0deg)",
                     transition: "transform 0.2s ease",
                   }}
                 >
@@ -2895,83 +2808,307 @@ export default function Home() {
                 </svg>
               </span>
             </div>
-            {!llmSectionCollapsed && (
-              llmItems.length === 0 ? (
+            {!todoSectionCollapsed && (
+              todoItems.length === 0 ? (
                 <div className={styles.emptyState}>
-                  오늘은 AI 동료들이 조용하네요. 산출물이 생기면 여기 모아드릴게요.
+                  {/* G2: 연동 전제가 아닌 입력 우선 안내 */}
+                  오늘은 아직 조용하네요. <b>위에서 업무를 추가하거나 메모를 붙여넣어
+                  보세요.</b>
+                  {!isAnyConnected && " Outlook/Notion 연동은 나중에 해도 충분해요."}
                 </div>
               ) : (
-                <div className={styles.list}>{llmItems.map(renderItem)}</div>
+                <>
+                  <div className={styles.list}>
+                    {todoItems.slice(0, visibleTodoCount).map(renderItem)}
+                  </div>
+                  {todoItems.length > 10 && (
+                    <div style={{ display: "flex", justifyContent: "center", marginTop: 12 }}>
+                      {visibleTodoCount < todoItems.length ? (
+                        <button
+                          type="button"
+                          className={styles.connMenuBtn}
+                          onClick={() =>
+                            setVisibleTodoCount((prev) => Math.min(prev + 10, todoItems.length))
+                          }
+                        >
+                          ▼ 더 보기 ({todoItems.length - visibleTodoCount}건 남음)
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className={styles.connMenuBtn}
+                          onClick={() => setVisibleTodoCount(10)}
+                        >
+                          ▲ 접기 (처음 10건만 보기)
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </>
               )
             )}
           </section>
-        )}
 
-        {/* 전체 목록 */}
-        <section className={`${styles.card} ${styles.colFull}`}>
-          <div
-            className={`${styles.cardTitle} ${styles.cardTitleToggleable}`}
-            onClick={() => setRestSectionCollapsed((prev) => !prev)}
-          >
-            <span>📚 받은 항목 전체</span>
-            <small>{restItems.length}건</small>
-            <span className={styles.folderToggleIcon} title={restSectionCollapsed ? "섹션 펼치기" : "섹션 접기"}>
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                style={{
-                  transform: restSectionCollapsed ? "rotate(180deg)" : "rotate(0deg)",
-                  transition: "transform 0.2s ease",
-                }}
+          {/* 🧠 오늘의 LLM 작업 (phase6 §7) */}
+          {(llmItems.length > 0 || connections?.llm || browserLlm) && (
+            <section className={`${styles.card} ${styles.colFull} ${styles.colSubTask} ${styles.areaLlm}`}>
+              <div
+                className={`${styles.cardTitle} ${styles.cardTitleToggleable}`}
+                onClick={() => setLlmSectionCollapsed((prev) => !prev)}
               >
-                <polyline points="18 15 12 9 6 15" />
-              </svg>
-            </span>
-          </div>
-          {!restSectionCollapsed && (
-            restItems.length === 0 ? (
-              <div className={styles.emptyState}>
-                참고용 소식이 모이는 자리예요. 아직은 텅 — 업무를 추가하거나 문서를
-                가져오면 채워드릴게요.
-              </div>
-            ) : (
-              <>
-                <div className={styles.list}>
-                  {restItems.slice(0, visibleRestCount).map(renderItem)}
-                </div>
-                {restItems.length > 10 && (
-                  <div style={{ display: "flex", justifyContent: "center", marginTop: 12 }}>
-                    {visibleRestCount < restItems.length ? (
-                      <button
-                        type="button"
-                        className={styles.connMenuBtn}
-                        onClick={() =>
-                          setVisibleRestCount((prev) => Math.min(prev + 10, restItems.length))
-                        }
-                      >
-                        ▼ 더 보기 ({restItems.length - visibleRestCount}건 남음)
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        className={styles.connMenuBtn}
-                        onClick={() => setVisibleRestCount(10)}
-                      >
-                        ▲ 접기 (처음 10건만 보기)
-                      </button>
-                    )}
-                  </div>
+                <span>🧠 오늘의 LLM 작업</span>
+                <small>{llmItems.length}건</small>
+                {connections?.obsidian && (
+                  <button
+                    className={`${styles.btn} ${styles.cardTitleBtn}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      exportLlmDigest();
+                    }}
+                  >
+                    📥 Obsidian에 오늘 요약 내보내기
+                  </button>
                 )}
-              </>
-            )
+                <span className={styles.folderToggleIcon} title={llmSectionCollapsed ? "섹션 펼치기" : "섹션 접기"}>
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    style={{
+                      transform: llmSectionCollapsed ? "rotate(180deg)" : "rotate(0deg)",
+                      transition: "transform 0.2s ease",
+                    }}
+                  >
+                    <polyline points="18 15 12 9 6 15" />
+                  </svg>
+                </span>
+              </div>
+              {!llmSectionCollapsed && (
+                llmItems.length === 0 ? (
+                  <div className={styles.emptyState}>
+                    오늘은 AI 동료들이 조용하네요. 산출물이 생기면 여기 모아드릴게요.
+                  </div>
+                ) : (
+                  <div className={styles.list}>{llmItems.map(renderItem)}</div>
+                )
+              )}
+            </section>
           )}
-        </section>
+
+          {/* 전체 목록 */}
+          <section className={`${styles.card} ${styles.colFull} ${styles.colTasks} ${styles.areaRest}`}>
+            <div
+              className={`${styles.cardTitle} ${styles.cardTitleToggleable}`}
+              onClick={() => setRestSectionCollapsed((prev) => !prev)}
+            >
+              <span>📚 받은 항목 전체</span>
+              <small>{restItems.length}건</small>
+              <span className={styles.folderToggleIcon} title={restSectionCollapsed ? "섹션 펼치기" : "섹션 접기"}>
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  style={{
+                    transform: restSectionCollapsed ? "rotate(180deg)" : "rotate(0deg)",
+                    transition: "transform 0.2s ease",
+                  }}
+                >
+                  <polyline points="18 15 12 9 6 15" />
+                </svg>
+              </span>
+            </div>
+            {!restSectionCollapsed && (
+              restItems.length === 0 ? (
+                <div className={styles.emptyState}>
+                  참고용 소식이 모이는 자리예요. 아직은 텅 — 업무를 추가하거나 문서를
+                  가져오면 채워드릴게요.
+                </div>
+              ) : (
+                <>
+                  <div className={styles.list}>
+                    {restItems.slice(0, visibleRestCount).map(renderItem)}
+                  </div>
+                  {restItems.length > 10 && (
+                    <div style={{ display: "flex", justifyContent: "center", marginTop: 12 }}>
+                      {visibleRestCount < restItems.length ? (
+                        <button
+                          type="button"
+                          className={styles.connMenuBtn}
+                          onClick={() =>
+                            setVisibleRestCount((prev) => Math.min(prev + 10, restItems.length))
+                          }
+                        >
+                          ▼ 더 보기 ({restItems.length - visibleRestCount}건 남음)
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className={styles.connMenuBtn}
+                          onClick={() => setVisibleRestCount(10)}
+                        >
+                          ▲ 접기 (처음 10건만 보기)
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </>
+              )
+            )}
+          </section>
+        </div>
+
+        {/* ☕ copilot 패널 래퍼 (AI 바리스타) */}
+        <div
+          id={isMobileTabMode ? "panel-copilot" : undefined}
+          role={isMobileTabMode ? "tabpanel" : undefined}
+          aria-labelledby={isMobileTabMode ? "tab-copilot" : undefined}
+          hidden={isMobileTabMode && activeCompactTab !== "copilot"}
+          className={`${styles.copilotPanelWrapper} ${
+            isMobileTabMode && activeCompactTab !== "copilot" ? styles.compactPanelHidden : ""
+          }`}
+        >
+          {/* G3/G6: Copilot — 무연동에서도 활성, MarkdownLite 렌더링 */}
+          <section className={`${styles.card} ${styles.colCopilot} ${styles.areaCopilot}`}>
+            <div className={`${styles.cardTitle} ${styles.copilotCardTitle}`}>
+              <span className={styles.copilotTitleLabel}>☕ AI 바리스타</span>
+              <div className={styles.copilotStatus} aria-label="현재 업무 상태">
+                <span className={styles.statChip}>
+                  대기 <b>{activeCount}</b>
+                </span>
+                <span className={styles.statChip}>
+                  긴급 <b>{urgentCount}</b>
+                </span>
+                <span className={styles.statChip}>
+                  오늘 완료 <b>{doneCount}</b>
+                </span>
+                <button
+                  className={styles.refreshBtn}
+                  onClick={() => void handleRefreshAll()}
+                  disabled={isDataRefreshing}
+                  aria-label="연결 데이터 새로고침"
+                  title="연결 데이터 새로고침"
+                >
+                  <svg
+                    className={isDataRefreshing ? styles.spinIcon : ""}
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.4"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M23 4v6h-6" />
+                    <path d="M1 20v-6h6" />
+                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <WelcomeCard
+              compact
+              weather={weatherData}
+              collapsed={welcomeCardCollapsed}
+              onToggleCollapsed={setWelcomeCardCollapsed}
+              taskCount={merged.filter((i) => i.status !== "completed" && i.status !== "dismissed").length}
+              urgentCount={merged.filter((i) => i.category === "urgent" && i.status !== "completed" && i.status !== "dismissed").length}
+            />
+            <CopilotConversation
+              bodyRef={copilotBodyRef}
+              messages={copilotMessages}
+              busy={copilotBusy}
+              waitSteps={dynamicCopilotSteps}
+              sparkEnabled={sparkEnabled}
+              sparkLoading={sparkBriefingLoading}
+              sparkBriefing={sparkEnabled ? sparkBriefing : null}
+              hasItems={merged.length > 0}
+              expandedKeys={expandedQaKeys}
+              unreadKeys={unreadQaKeys}
+              onToggleExpand={toggleQaPair}
+            />
+            {calendarDraft && (
+              <CalendarDraftCard
+                draft={calendarDraft}
+                busy={cloudWriteBusy}
+                googleConnected={googleConnected && !calendarReconnectRequired}
+                onConfirm={() => void prepareCloudWrite(calendarWriteRequest(calendarDraft))}
+                onCancel={() => {
+                  setCalendarDraft(null);
+                  setCloudWriteApproval(null);
+                  setCalendarReconnectRequired(false);
+                  showToast("캘린더 등록을 취소했습니다.");
+                }}
+              />
+            )}
+            {cloudToolDraft && (
+              <CloudDraftReviewCard
+                draft={cloudToolDraft}
+                busy={cloudWriteBusy}
+                googleConnected={googleConnected && !calendarReconnectRequired}
+                onChange={(nextDraft) => {
+                  setCloudToolDraft(nextDraft);
+                  setCloudWriteApproval(null);
+                }}
+                onCancel={() => {
+                  setCloudToolDraft(null);
+                  setCloudWriteApproval(null);
+                  showToast("초안을 취소했습니다.");
+                }}
+                onNotify={showToast}
+                onExternalWrite={() => {
+                  const request = draftWriteRequest(cloudToolDraft);
+                  if (request) void prepareCloudWrite(request);
+                }}
+              />
+            )}
+            {cloudWriteApproval && (
+              <CloudWriteApprovalCard
+                approval={cloudWriteApproval}
+                busy={cloudWriteBusy}
+                onConfirm={() => void executeCloudWrite()}
+                onCancel={() => {
+                  setCloudWriteApproval(null);
+                  showToast("외부 변경 승인을 취소했습니다.");
+                }}
+              />
+            )}
+            <CopilotComposer
+              value={copilotInput}
+              onChange={setCopilotInput}
+              onSubmit={() => void askCopilot()}
+              onFocus={() => setWelcomeCardCollapsed(true)}
+              busy={copilotBusy}
+              onRunSlashCommand={(cmd) => {
+                if (!handleSlashCommand(cmd)) void askCopilot(cmd);
+              }}
+              onQuickBriefing={() => void askCopilot("오늘 해야 할 일을 브리핑해줘")}
+              fileInputRef={fileInputRef}
+              onFileChange={handleFileUpload}
+              uploadBusy={uploadBusy}
+              plusOpen={plusOpen}
+              onTogglePlus={setPlusOpen}
+              plusBtnRef={plusBtnRef}
+              plusFirstItemRef={plusFirstItemRef}
+              saveToDrive={saveToDrive}
+              onToggleSaveToDrive={() => {
+                userSetDriveRef.current = true;
+                setSaveToDrive(!saveToDrive);
+              }}
+              googleConnected={googleConnected}
+            />
+          </section>
+        </div>
       </div>
 
       {/* 설정 — 상단 메뉴로 여닫는 오버레이 패널 */}

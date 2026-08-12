@@ -16,6 +16,8 @@ export interface HeaderControlsProps {
   onLogoutHandoff: () => void;
   showConn: boolean;
   onToggleConn: () => void;
+  compactMode: boolean;
+  onToggleCompactMode: () => void;
   followupHours: number;
   onFollowupHoursChange: (hours: number) => void;
   viewWindow: ViewWindowSetting;
@@ -34,6 +36,8 @@ export function HeaderControls({
   onLogoutHandoff,
   showConn,
   onToggleConn,
+  compactMode,
+  onToggleCompactMode,
   followupHours,
   onFollowupHoursChange,
   viewWindow,
@@ -79,29 +83,43 @@ export function HeaderControls({
 
       {/* Row 2: Compact 1-Line Control Toolbar */}
       <div className={styles.headerToolbar}>
-        <button
-          className={styles.connMenuBtn}
-          style={{ padding: "3px 8px", fontSize: "0.76rem", borderRadius: "6px" }}
-          onClick={onToggleConn}
-          aria-expanded={showConn}
-          aria-haspopup="dialog"
-          aria-label="설정 열기/닫기"
-        >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <button
+            className={styles.connMenuBtn}
+            style={{ padding: "3px 8px", fontSize: "0.76rem", borderRadius: "6px" }}
+            onClick={onToggleConn}
+            aria-expanded={showConn}
+            aria-haspopup="dialog"
+            aria-label="설정 열기/닫기"
           >
-            <path d="m12 14 4-4" />
-            <path d="M3.34 19a10 10 0 1 1 17.32 0" />
-          </svg>
-          설정
-        </button>
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="m12 14 4-4" />
+              <path d="M3.34 19a10 10 0 1 1 17.32 0" />
+            </svg>
+            설정
+          </button>
+
+          <button
+            className={`${styles.connMenuBtn} ${compactMode ? styles.compactModeActiveBtn : ""}`}
+            style={{ padding: "3px 8px", fontSize: "0.76rem", borderRadius: "6px" }}
+            onClick={onToggleCompactMode}
+            aria-pressed={compactMode}
+            title={compactMode ? "일반 뷰로 전환" : "한눈에 보기 / 모바일 미니 대시보드 축소 모드"}
+            aria-label={compactMode ? "일반 뷰로 전환" : "축소 모드로 전환"}
+          >
+            <span style={{ fontSize: "0.85rem", lineHeight: 1 }}>{compactMode ? "⤢" : "🗗"}</span>
+            <span>{compactMode ? "일반 뷰" : "축소 모드"}</span>
+          </button>
+        </div>
 
         <div className={styles.headerToolbarGroup}>
           <label className={styles.headerSelectLabel}>

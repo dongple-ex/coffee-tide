@@ -704,6 +704,9 @@
 .colInput { grid-column: span 5; }
 .colCopilot { grid-column: span 7; display: flex; flex-direction: column; }
 .colTodo { grid-column: span 12; }
+.colUrgent { grid-column: span 12; }
+.colSubTask { grid-column: span 12; }
+.colTasks { grid-column: span 12; }
 .colFull { grid-column: span 12; }
 
 .cardTitle {
@@ -1834,70 +1837,6 @@
   cursor: pointer;
 }
 
-.googleRedirectLoginButton {
-  border: 0;
-  background: transparent;
-  color: var(--text-dim);
-  font: inherit;
-  font-size: 0.76rem;
-  line-height: 1.4;
-  padding: 3px 6px;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  cursor: pointer;
-}
-
-.googleRedirectLoginButton:hover:not(:disabled) {
-  color: var(--accent);
-}
-
-.googleRedirectLoginButton:disabled {
-  cursor: wait;
-  opacity: 0.55;
-}
-
-.googleIdentityBusy {
-  pointer-events: none;
-}
-
-.googleIdentityBusy .googleIdentityButton {
-  opacity: 0.25;
-}
-
-.googleIdentityBusy .googleRedirectPrimary {
-  opacity: 0.25;
-}
-
-.googleIdentityBusyText {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  background: var(--surface);
-  color: var(--text);
-  font-size: 0.86rem;
-  font-weight: 700;
-}
-
-@media (max-width: 480px) {
-  .landingActions,
-  .googleIdentityWrap,
-  .landingGuestBtn {
-    width: 100%;
-  }
-
-  .googleIdentityWrap {
-    min-width: 0;
-  }
-
-  .landingGuestBtn {
-    text-align: center;
-  }
-}
-
 .landingGuestBtn {
   display: inline-block;
   border: 1px solid var(--border);
@@ -2172,7 +2111,7 @@
   padding-bottom: 8px !important;
 }
 
-/* 📝 필기 공책 테마 (Notebook Paper Aesthetic — 슬림하고 컴팩트한 글씨 크기 핏) */
+/* 📝 필기 공책 테마 (Notebook Paper Aesthetic) */
 :global([data-theme="notebook"]) .card {
   background-color: #ffffff;
   border: 1px solid #e5dccb;
@@ -2184,7 +2123,7 @@
   font-family: "Pretendard", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif;
   font-size: 0.88rem;
   font-weight: 700;
-  color: #c83b3b; /* 프라치노 공책 헤더 레드 포인트 */
+  color: #c83b3b;
   border-bottom: 1px solid #e8e0d0;
   padding-bottom: 5px;
   letter-spacing: -0.02em;
@@ -2211,7 +2150,6 @@
   line-height: 1.45;
 }
 
-/* ☕ FC Script 손글씨 폰트 영역 (AI 브리핑, 행동 지침 아이템, 빈 상태 안내 박스 - 슬림 핏) */
 :global([data-theme="notebook"]) .emptyState,
 :global([data-theme="notebook"]) .item,
 :global([data-theme="notebook"]) .copilotBody,
@@ -2302,4 +2240,279 @@
   background: rgba(79, 70, 229, 0.1);
   color: #4338ca;
   border: 1px solid rgba(79, 70, 229, 0.25);
+}
+
+/* ── 🗗 하이브리드 컴팩트 모드 (Hybrid Compact Mode) ── */
+
+/* 대시보드 공용 레이아웃 컨테이너 및 래퍼 */
+.dashboardGrid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 16px;
+}
+
+.widgetsPanelWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  grid-column: 1 / -1;
+  order: 0;
+}
+
+.todoPanelWrapper {
+  display: contents;
+}
+
+.copilotPanelWrapper {
+  display: contents;
+}
+
+/* 일반 모드는 기존 12열 Bento 배치 순서를 유지한다. */
+.areaInput {
+  order: 1;
+}
+
+.areaCopilot {
+  order: 2;
+}
+
+.areaTodo {
+  order: 3;
+}
+
+.areaLlm {
+  order: 4;
+}
+
+.areaRest {
+  order: 5;
+}
+
+.areaWidgets {
+  order: 0;
+}
+
+.compactPanelHidden {
+  display: none !important;
+}
+
+/* 헤더 컴팩트 모드 활성 버튼 */
+.compactModeActiveBtn {
+  background: var(--accent-dim) !important;
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+  font-weight: 700;
+}
+
+/* 모바일 3단 세그먼트 탭 바 */
+.compactTabBar {
+  display: none;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 4px;
+  margin-bottom: 14px;
+  gap: 4px;
+  position: sticky;
+  top: 8px;
+  z-index: 50;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.compactTabBtn {
+  flex: 1;
+  min-height: 44px; /* 모바일 터치 타겟 44px 보장 */
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: var(--text-dim);
+  font-size: 0.84rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  user-select: none;
+}
+
+.compactTabBtn:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.compactTabBtn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.compactTabBtnActive {
+  background: var(--surface) !important;
+  color: var(--accent) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+  font-weight: 700;
+}
+
+.compactTabBadge {
+  background: var(--accent-dim);
+  color: var(--accent);
+  border-radius: 999px;
+  padding: 1px 6px;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.compactTabBadgeUrgent {
+  background: rgba(239, 68, 68, 0.18);
+  color: #ef4444;
+}
+
+.compactTabDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent);
+}
+
+/* 🖥️ 데스크톱 고밀도 2열 Grid Area 배치 (901px 이상: 업무+AI 상단, 위젯 하단 전폭) */
+@media (min-width: 901px) {
+  .pageCompact .dashboardGrid {
+    display: grid;
+    grid-template-columns: 1.15fr 0.85fr;
+    grid-template-areas:
+      "input   copilot"
+      "todo    copilot"
+      "llm     copilot"
+      "rest    rest"
+      "widgets widgets";
+    gap: 12px;
+  }
+
+  .pageCompact .areaInput {
+    grid-area: input;
+  }
+
+  .pageCompact .areaCopilot {
+    grid-area: copilot;
+  }
+
+  .pageCompact .areaTodo {
+    grid-area: todo;
+  }
+
+  .pageCompact .areaLlm {
+    grid-area: llm;
+  }
+
+  .pageCompact .areaRest {
+    grid-area: rest;
+  }
+
+  .pageCompact .areaWidgets {
+    grid-area: widgets;
+  }
+
+  .pageCompact .widgetsPanelWrapper {
+    display: block;
+    grid-area: widgets;
+    margin-top: 8px;
+  }
+
+  .pageCompact .todoPanelWrapper,
+  .pageCompact .copilotPanelWrapper {
+    display: contents;
+  }
+
+  .pageCompact .card {
+    padding: 12px 14px;
+  }
+
+  .pageCompact .cardTitle {
+    font-size: 0.88rem;
+    margin-bottom: 8px;
+  }
+
+  .pageCompact .list {
+    max-height: 480px;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+}
+
+/* 📱 태블릿 컴팩트 모드 (769px ~ 900px: 단일 열, 업무+AI 상단, 위젯 하단) */
+@media (min-width: 769px) and (max-width: 900px) {
+  .pageCompact .dashboardGrid {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .pageCompact .todoPanelWrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    order: 0;
+  }
+
+  .pageCompact .copilotPanelWrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    order: 1;
+  }
+
+  .pageCompact .widgetsPanelWrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    order: 2;
+  }
+
+  .pageCompact .card {
+    padding: 12px;
+  }
+}
+
+/* 📱 모바일 컴팩트 탭 모드 (768px 이하) */
+@media (max-width: 768px) {
+  .pageCompact .compactTabBar {
+    display: flex;
+  }
+
+  .pageCompact .dashboardGrid {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .pageCompact .todoPanelWrapper,
+  .pageCompact .copilotPanelWrapper,
+  .pageCompact .widgetsPanelWrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+  }
+
+  .pageCompact .compactPanelHidden {
+    display: none !important;
+  }
+
+  .pageCompact .card {
+    padding: 12px;
+  }
+}
+
+/* ⚡ prefers-reduced-motion 대응 */
+@media (prefers-reduced-motion: reduce) {
+  .compactTabBtn,
+  .compactTabBar,
+  .pageCompact .card {
+    transition: none !important;
+    animation: none !important;
+  }
 }
