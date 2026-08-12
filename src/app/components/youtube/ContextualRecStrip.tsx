@@ -3,6 +3,7 @@
 import Image from "next/image";
 import React, { useEffect, useState } from "react";
 import { ContextualRecommendation, YouTubeVideo } from "@/lib/types/youtube";
+import { loadYouTubeContinuitySession } from "@/lib/youtube/continuity";
 import { SmartPlayerModal } from "./SmartPlayerModal";
 import styles from "./contextualRecStrip.module.css";
 
@@ -22,8 +23,20 @@ interface ContextualRecStripProps {
 }
 
 export function ContextualRecStrip({ onNotify }: ContextualRecStripProps) {
+  const [continuitySession] = useState(() => {
+    const session = loadYouTubeContinuitySession();
+    return session && session.owner === "contextual" ? session : null;
+  });
   const [rec, setRec] = useState<ContextualRecommendation | null>(null);
-  const [selectedVideo, setSelectedVideo] = useState<YouTubeVideo | null>(null);
+  const [selectedVideo, setSelectedVideo] = useState<YouTubeVideo | null>(
+    () => continuitySession?.video ?? null
+  );
+  const [initialSeekTime, setInitialSeekTime] = useState<number>(
+    () => continuitySession?.currentTime ?? 0
+  );
+  const [initialDraft, setInitialDraft] = useState<string>(
+    () => continuitySession?.chatDraft ?? ""
+  );
   const [isDismissed, setIsDismissed] = useState<boolean>(true); // 기본 true로 두고 마운트 시 체크
 
   useEffect(() => {
@@ -58,63 +71,83 @@ export function ContextualRecStrip({ onNotify }: ContextualRecStripProps) {
     onNotify?.("💡 추천 영상 카드를 숨겼습니다. (내일 새로운 추천으로 다시 나타납니다)");
   };
 
-  if (isDismissed || !rec || !rec.videos || rec.videos.length === 0) return null;
+  const handleSelectVideo = (video: YouTubeVideo) => {
+    setInitialSeekTime(0);
+    setInitialDraft("");
+    setSelectedVideo(video);
+  };
+
+  const isStripVisible = !isDismissed && rec && rec.videos && rec.videos.length > 0;
+
+  if (!isStripVisible && !selectedVideo) return null;
 
   return (
-    <div className={styles.container}>
-      <div className={styles.header}>
-        <div className={styles.badge}>
-          <span>💡</span>
-          <span>{rec.badge}</span>
-        </div>
-        <div className={styles.headline}>{rec.headline}</div>
-      </div>
+    <>
+      {isStripVisible && (
+        <div className={styles.container}>
+          <div className={styles.header}>
+            <div className={styles.badge}>
+              <span>💡</span>
+              <span>{rec.badge}</span>
+            </div>
+            <div className={styles.headline}>{rec.headline}</div>
+          </div>
 
-      <button
-        type="button"
-        className={styles.closeBtn}
-        onClick={handleDismiss}
-        title="오늘 하루 이 추천 카드 숨기기"
-        aria-label="오늘 하루 추천 카드 숨기기"
-      >
-        ✕
-      </button>
-
-      <div className={styles.scrollRow}>
-        {rec.videos.map((video, index) => (
           <button
-            key={video.id}
             type="button"
-            className={styles.card}
-            onClick={() => setSelectedVideo(video)}
-            title={`${video.title} - 시청하기`}
+            className={styles.closeBtn}
+            onClick={handleDismiss}
+            title="오늘 하루 이 추천 카드 숨기기"
+            aria-label="오늘 하루 추천 카드 숨기기"
           >
-            <div className={styles.thumbWrapper}>
-              <Image
-                src={video.thumbnailUrl}
-                alt={video.title}
-                className={styles.thumbImg}
-                fill
-                sizes="160px"
-                loading={index === 0 ? "eager" : "lazy"}
-              />
-            </div>
-            <div className={styles.info}>
-              <div className={styles.title}>{video.title}</div>
-              <div className={styles.channel}>{video.channelTitle}</div>
-            </div>
+            ✕
           </button>
-        ))}
-      </div>
+
+          <div className={styles.scrollRow}>
+            {rec.videos.map((video, index) => (
+              <button
+                key={video.id}
+                type="button"
+                className={styles.card}
+                onClick={() => handleSelectVideo(video)}
+                title={`${video.title} - 시청하기`}
+              >
+                <div className={styles.thumbWrapper}>
+                  <Image
+                    src={video.thumbnailUrl}
+                    alt={video.title}
+                    className={styles.thumbImg}
+                    fill
+                    sizes="160px"
+                    loading={index === 0 ? "eager" : "lazy"}
+                  />
+                </div>
+                <div className={styles.info}>
+                  <div className={styles.title}>{video.title}</div>
+                  <div className={styles.channel}>{video.channelTitle}</div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {selectedVideo && (
         <SmartPlayerModal
           key={selectedVideo.id}
           video={selectedVideo}
-          onClose={() => setSelectedVideo(null)}
+          owner="contextual"
+          initialSeekTime={initialSeekTime}
+          initialChatDraft={initialDraft}
+          onClose={() => {
+            setSelectedVideo(null);
+            setInitialSeekTime(0);
+            setInitialDraft("");
+          }}
           onNotify={onNotify}
         />
       )}
-    </div>
+    </>
   );
 }
+

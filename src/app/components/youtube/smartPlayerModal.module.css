@@ -514,3 +514,56 @@
   from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+.resumeNotice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 12px;
+  background: var(--accent, #6366f1);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border-radius: 6px;
+  margin: 8px 12px 0 12px;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.resumeNoticeText {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.resumeBtn {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #fff;
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+
+.resumeBtn:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.resumeDismissBtn {
+  background: transparent;
+  border: 0;
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 0 4px;
+  display: flex;
+  align-items: center;
+}
+

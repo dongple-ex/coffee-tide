@@ -11,6 +11,7 @@ import {
   LS_YOUTUBE_ACTIVE_BUNDLE,
   YOUTUBE_BUNDLES_CHANGED_EVENT,
 } from "@/lib/localStore";
+import { loadYouTubeContinuitySession } from "@/lib/youtube/continuity";
 import { SmartPlayerModal } from "./SmartPlayerModal";
 import styles from "./youTubeBundleWidget.module.css";
 
@@ -31,10 +32,24 @@ export function YouTubeBundleWidget({ onNotify }: YouTubeBundleWidgetProps) {
   const [briefing, setBriefing] = useState<{ headline: string; keyPoints: string[] } | null>(null);
   const [loading, setLoading] = useState(() => bundles.some((bundle) => bundle.enabled));
   const [errorMessage, setErrorMessage] = useState("");
-  const [selectedVideo, setSelectedVideo] = useState<YouTubeVideo | null>(null);
+
+  const [continuitySession] = useState(() => {
+    const session = loadYouTubeContinuitySession();
+    return session && session.owner === "bundle" ? session : null;
+  });
+  const [selectedVideo, setSelectedVideo] = useState<YouTubeVideo | null>(
+    () => continuitySession?.video ?? null
+  );
+  const [initialSeekTime, setInitialSeekTime] = useState<number>(
+    () => continuitySession?.currentTime ?? 0
+  );
+  const [initialDraft, setInitialDraft] = useState<string>(
+    () => continuitySession?.chatDraft ?? ""
+  );
   const requestSequence = useRef(0);
   const activeRequest = useRef<AbortController | null>(null);
   const tabRefs = useRef(new Map<string, HTMLButtonElement>());
+
 
   const enabledBundles = bundles.filter((bundle) => bundle.enabled);
   const currentBundle = enabledBundles.find((bundle) => bundle.id === activeBundleId) || enabledBundles[0];
@@ -288,7 +303,11 @@ export function YouTubeBundleWidget({ onNotify }: YouTubeBundleWidgetProps) {
               key={`${video.sourceChannelId || video.channelId}:${video.id}`}
               type="button"
               className={styles.videoCard}
-              onClick={() => setSelectedVideo(video)}
+              onClick={() => {
+                setInitialSeekTime(0);
+                setInitialDraft("");
+                setSelectedVideo(video);
+              }}
               title={`${video.title} - 스마트 플레이어로 시청`}
             >
               <div className={styles.thumbnailWrapper}>
@@ -319,7 +338,15 @@ export function YouTubeBundleWidget({ onNotify }: YouTubeBundleWidgetProps) {
         <SmartPlayerModal
           key={selectedVideo.id}
           video={selectedVideo}
-          onClose={() => setSelectedVideo(null)}
+          owner="bundle"
+          initialSeekTime={initialSeekTime}
+          initialChatDraft={initialDraft}
+          activeWidgetId="youtube"
+          onClose={() => {
+            setSelectedVideo(null);
+            setInitialSeekTime(0);
+            setInitialDraft("");
+          }}
           onNotify={onNotify}
         />
       )}
@@ -327,3 +354,4 @@ export function YouTubeBundleWidget({ onNotify }: YouTubeBundleWidgetProps) {
     </div>
   );
 }
+

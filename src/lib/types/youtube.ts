@@ -61,3 +61,23 @@ export interface YouTubeBundleApiResponse {
   reason?: string;
   partial?: boolean;
 }
+
+export type YouTubeContinuityOwner = "contextual" | "bundle";
+
+export interface YouTubeContinuitySessionV1 {
+  version: 1;
+  owner: YouTubeContinuityOwner;
+  video: YouTubeVideo;
+  videoId: string;
+  currentTime: number;
+  playerState: "playing" | "paused" | "buffering" | "ended" | "unknown";
+  wasPlayingOnHide: boolean;
+  isMini: boolean;
+  scrollY: number;
+  activeWidget: string | null;
+  chatDraft: string;
+  savedAt: string;
+  expiresAt: string;
+  userScope?: string;
+}
+

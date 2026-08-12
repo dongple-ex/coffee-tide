@@ -1,9 +1,10 @@
 "use client";
 
 import Image from "next/image";
-import React, { useEffect, useId, useRef, useState } from "react";
-import { YouTubeVideo, YouTubeChapter } from "@/lib/types/youtube";
+import React, { useCallback, useEffect, useId, useRef, useState } from "react";
+import { YouTubeVideo, YouTubeChapter, YouTubeContinuityOwner } from "@/lib/types/youtube";
 import { loadLS, saveLS, LS_YOUTUBE_HISTORY } from "@/lib/localStore";
+import { saveYouTubeContinuitySession, clearYouTubeContinuitySession } from "@/lib/youtube/continuity";
 import styles from "./smartPlayerModal.module.css";
 
 interface ChatMessage {
@@ -16,6 +17,11 @@ interface SmartPlayerModalProps {
   video: YouTubeVideo | null;
   onClose: () => void;
   onNotify?: (msg: string) => void;
+  owner?: YouTubeContinuityOwner;
+  initialSeekTime?: number;
+  initialChatDraft?: string;
+  activeWidgetId?: string | null;
+  userScope?: string;
 }
 
 function extractYoutubeVideoId(video: YouTubeVideo | null): string {
@@ -28,7 +34,22 @@ function extractYoutubeVideoId(video: YouTubeVideo | null): string {
   return video.id;
 }
 
-export function SmartPlayerModal({ video, onClose, onNotify }: SmartPlayerModalProps) {
+function formatSecondsToMinute(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}분 ${s < 10 ? `0${s}` : s}초`;
+}
+
+export function SmartPlayerModal({
+  video,
+  onClose,
+  onNotify,
+  owner = "bundle",
+  initialSeekTime = 0,
+  initialChatDraft = "",
+  activeWidgetId = null,
+  userScope,
+}: SmartPlayerModalProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const modalContainerRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -40,6 +61,16 @@ export function SmartPlayerModal({ video, onClose, onNotify }: SmartPlayerModalP
   const mountedRef = useRef(true);
   const isMiniRef = useRef(false);
   const modeMountedRef = useRef(false);
+
+  // 재생 위치 및 상태 추적용 Ref
+  const currentTimeRef = useRef<number>(initialSeekTime || 0);
+  const playerStateRef = useRef<"playing" | "paused" | "buffering" | "ended" | "unknown">("unknown");
+  const wasPlayingRef = useRef<boolean>(false);
+  const ownerRef = useRef<YouTubeContinuityOwner>(owner);
+  const activeWidgetIdRef = useRef<string | null>(activeWidgetId);
+  const userScopeRef = useRef<string | undefined>(userScope);
+  const chatInputRef = useRef<string>(initialChatDraft || "");
+
   const titleId = useId();
   const miniTitleId = useId();
   const ytVideoId = extractYoutubeVideoId(video);
@@ -52,6 +83,9 @@ export function SmartPlayerModal({ video, onClose, onNotify }: SmartPlayerModalP
   const [loadingDetails, setLoadingDetails] = useState(needsDetails);
   const [detailsError, setDetailsError] = useState("");
 
+  // 이어서 재생 안내 배너 (초기 위치가 5초 이상인 경우 노출)
+  const [showResumeNotice, setShowResumeNotice] = useState(() => initialSeekTime >= 3);
+
   // 미니 플레이어 (PIP) 모드 여부
   const [isMini, setIsMini] = useState(() =>
     typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches
@@ -62,12 +96,162 @@ export function SmartPlayerModal({ video, onClose, onNotify }: SmartPlayerModalP
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     { role: "model", content: "이 영상에 대해 궁금한 점을 질문해 보세요! ☕" },
   ]);
-  const [chatInput, setChatInput] = useState("");
+  const [chatInput, setChatInput] = useState(initialChatDraft || "");
   const [chatBusy, setChatBusy] = useState(false);
 
   useEffect(() => {
     onCloseRef.current = onClose;
-  }, [onClose]);
+    ownerRef.current = owner;
+    activeWidgetIdRef.current = activeWidgetId;
+    userScopeRef.current = userScope;
+  }, [onClose, owner, activeWidgetId, userScope]);
+
+  useEffect(() => {
+    chatInputRef.current = chatInput;
+  }, [chatInput]);
+
+  // 현재 세션 즉시 저장 유틸
+  const saveCurrentSession = useCallback(() => {
+    if (!video) return;
+    saveYouTubeContinuitySession({
+      owner: ownerRef.current,
+      video,
+      videoId: ytVideoId || video.id,
+      currentTime: currentTimeRef.current,
+      playerState: playerStateRef.current,
+      wasPlayingOnHide: wasPlayingRef.current || playerStateRef.current === "playing",
+      isMini: isMiniRef.current,
+      scrollY: typeof window !== "undefined" ? window.scrollY : 0,
+      activeWidget: activeWidgetIdRef.current,
+      chatDraft: chatInputRef.current,
+      userScope: userScopeRef.current,
+    });
+
+    try {
+      const history = loadLS<Array<{ videoId: string; title: string; url: string; watchedAt: string; lastPos: number }>>(
+        LS_YOUTUBE_HISTORY,
+        []
+      );
+      const targetId = ytVideoId || video.id;
+      const idx = history.findIndex((item) => item.videoId === targetId);
+      if (idx >= 0) {
+        history[idx].lastPos = Math.floor(currentTimeRef.current);
+        saveLS(LS_YOUTUBE_HISTORY, history);
+      }
+    } catch {
+      // 무시
+    }
+  }, [video, ytVideoId]);
+
+  // 사용자가 명시적으로 플레이어를 닫는 경우 세션 삭제
+  const handleExplicitClose = useCallback(() => {
+    clearYouTubeContinuitySession();
+    onCloseRef.current();
+  }, []);
+
+  // visibilitychange 및 pagehide 생명주기 연동
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        saveCurrentSession();
+      } else if (document.visibilityState === "visible") {
+        if (wasPlayingRef.current && iframeRef.current?.contentWindow) {
+          iframeRef.current.contentWindow.postMessage(
+            JSON.stringify({ event: "command", func: "playVideo", args: [] }),
+            "*"
+          );
+        }
+      }
+    };
+
+    const handlePageHide = () => {
+      saveCurrentSession();
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("pagehide", handlePageHide);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("pagehide", handlePageHide);
+    };
+  }, [saveCurrentSession]);
+
+  // YouTube IFrame postMessage 리스너 & listening 등록
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      const origin = event.origin || "";
+      if (!origin.includes("youtube.com") && !origin.includes("youtube-nocookie.com")) {
+        return;
+      }
+      try {
+        let data = event.data;
+        if (typeof data === "string") {
+          data = JSON.parse(data);
+        }
+        if (!data || typeof data !== "object") return;
+
+        if (data.event === "onReady") {
+          iframeRef.current?.contentWindow?.postMessage(
+            JSON.stringify({ event: "listening", id: 1 }),
+            "*"
+          );
+          if (initialSeekTime && initialSeekTime > 0) {
+            iframeRef.current?.contentWindow?.postMessage(
+              JSON.stringify({ event: "command", func: "seekTo", args: [initialSeekTime, true] }),
+              "*"
+            );
+          }
+        }
+
+        if (data.event === "infoDelivery" && data.info) {
+          if (typeof data.info.currentTime === "number") {
+            currentTimeRef.current = data.info.currentTime;
+          }
+          if (typeof data.info.playerState !== "undefined") {
+            const stateCode = data.info.playerState;
+            let nextState: "playing" | "paused" | "buffering" | "ended" | "unknown" = "unknown";
+            if (stateCode === 1) nextState = "playing";
+            else if (stateCode === 2) nextState = "paused";
+            else if (stateCode === 3) nextState = "buffering";
+            else if (stateCode === 0) nextState = "ended";
+
+            playerStateRef.current = nextState;
+            if (nextState === "playing") {
+              wasPlayingRef.current = true;
+              setShowResumeNotice(false);
+            } else if (nextState === "paused" || nextState === "ended") {
+              wasPlayingRef.current = false;
+            }
+          }
+        }
+      } catch {
+        // JSON 파싱 에러 무시
+      }
+    };
+
+    window.addEventListener("message", handleMessage);
+
+    const t1 = window.setTimeout(() => {
+      iframeRef.current?.contentWindow?.postMessage(
+        JSON.stringify({ event: "listening", id: 1 }),
+        "*"
+      );
+    }, 600);
+
+    const t2 = window.setTimeout(() => {
+      iframeRef.current?.contentWindow?.postMessage(
+        JSON.stringify({ event: "listening", id: 1 }),
+        "*"
+      );
+    }, 1800);
+
+    return () => {
+      window.removeEventListener("message", handleMessage);
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+    };
+  }, [initialSeekTime]);
 
   useEffect(() => {
     isMiniRef.current = isMini;
@@ -103,7 +287,7 @@ export function SmartPlayerModal({ video, onClose, onNotify }: SmartPlayerModalP
       if (event.key === "Escape") {
         event.preventDefault();
         if (isMiniRef.current) setIsMini(false);
-        else onCloseRef.current();
+        else handleExplicitClose();
         return;
       }
       if (
@@ -134,7 +318,7 @@ export function SmartPlayerModal({ video, onClose, onNotify }: SmartPlayerModalP
       chatRequestRef.current?.abort();
       previousFocusRef.current?.focus();
     };
-  }, []);
+  }, [handleExplicitClose]);
 
   useEffect(() => {
     if (isMini && isMobileViewport) return;
@@ -144,6 +328,7 @@ export function SmartPlayerModal({ video, onClose, onNotify }: SmartPlayerModalP
       document.body.style.overflow = previousBodyOverflow;
     };
   }, [isMini, isMobileViewport]);
+
 
   useEffect(() => {
     if (!video) return;
@@ -298,7 +483,7 @@ export function SmartPlayerModal({ video, onClose, onNotify }: SmartPlayerModalP
       {isMini && !isMobileFloating && <div className={styles.focusBackdrop} aria-hidden="true" />}
       <div
         className={isMini ? styles.miniLayer : styles.modalBackdrop}
-        onClick={isMini ? undefined : onClose}
+        onClick={isMini ? undefined : handleExplicitClose}
       >
         <div
           ref={modalContainerRef}
@@ -370,7 +555,7 @@ export function SmartPlayerModal({ video, onClose, onNotify }: SmartPlayerModalP
                 ref={closeButtonRef}
                 type="button"
                 className={styles.closeBtn}
-                onClick={onClose}
+                onClick={handleExplicitClose}
                 aria-label="플레이어 닫기"
                 data-tooltip="플레이어 닫기"
               >
@@ -379,12 +564,43 @@ export function SmartPlayerModal({ video, onClose, onNotify }: SmartPlayerModalP
             </div>
           </div>
 
+          {showResumeNotice && initialSeekTime >= 3 && (
+            <div className={styles.resumeNotice}>
+              <div className={styles.resumeNoticeText}>
+                <span>⏱️</span>
+                <span>{formatSecondsToMinute(initialSeekTime)}부터 이어서 재생 중</span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <button
+                  type="button"
+                  className={styles.resumeBtn}
+                  onClick={() => {
+                    seekTo(initialSeekTime);
+                    setShowResumeNotice(false);
+                  }}
+                >
+                  다시 이동
+                </button>
+                <button
+                  type="button"
+                  className={styles.resumeDismissBtn}
+                  onClick={() => setShowResumeNotice(false)}
+                  aria-label="안내 닫기"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className={isMini ? styles.miniBody : styles.modalBody}>
             <div className={isMini ? styles.miniVideoSection : styles.videoSection}>
               <div className={isMini ? styles.miniIframeWrapper : styles.iframeWrapper}>
                 <iframe
                   ref={iframeRef}
-                  src={`https://www.youtube-nocookie.com/embed/${ytVideoId}?enablejsapi=1&autoplay=1&rel=0`}
+                  src={`https://www.youtube-nocookie.com/embed/${ytVideoId}?enablejsapi=1&autoplay=1&rel=0${
+                    initialSeekTime && initialSeekTime > 0 ? `&start=${Math.floor(initialSeekTime)}` : ""
+                  }`}
                   title={video.title}
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                   allowFullScreen

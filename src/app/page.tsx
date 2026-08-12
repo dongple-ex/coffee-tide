@@ -80,6 +80,7 @@ import { FinanceWidget } from "./components/FinanceWidget";
 import { CustomNewsWidget, CustomWidgetConfig } from "./components/CustomNewsWidget";
 import { YouTubeBundleWidget } from "./components/youtube/YouTubeBundleWidget";
 import { ContextualRecStrip } from "./components/youtube/ContextualRecStrip";
+import { loadYouTubeContinuitySession, clearYouTubeContinuitySession } from "@/lib/youtube/continuity";
 import type { CustomSitePreview } from "@/lib/news/types";
 import { CommuteConfig, CommuteStop } from "@/lib/types/commute";
 import { AppShortcut } from "@/lib/types/appShortcut";
@@ -456,7 +457,24 @@ export default function Home() {
       transportType: "public",
     })
   );
-  const [activeWidget, setActiveWidget] = useState<string | null>(null);
+  const [activeWidget, setActiveWidget] = useState<string | null>(() => {
+    const session = loadYouTubeContinuitySession();
+    if (session && session.owner === "bundle") {
+      return "youtube";
+    }
+    return null;
+  });
+
+  // 모바일 앱 전환 연속성: 저장된 스크롤 위치 복원
+  useEffect(() => {
+    const session = loadYouTubeContinuitySession();
+    if (session && session.scrollY > 0) {
+      window.requestAnimationFrame(() => {
+        window.scrollTo({ top: session.scrollY, behavior: "auto" });
+      });
+    }
+  }, []);
+
   const [customWidgets, setCustomWidgets] = useState<CustomWidgetConfig[]>(() =>
     loadLS<CustomWidgetConfig[]>(LS_CUSTOM_WIDGETS, [])
   );
@@ -2958,6 +2976,7 @@ export default function Home() {
           connPanelRef={connPanelRef}
           onClose={() => setShowConn(false)}
           onSignout={async () => {
+            clearYouTubeContinuitySession();
             try {
               await fetch("/api/auth/signout", { method: "POST" });
             } catch {}
@@ -2967,6 +2986,7 @@ export default function Home() {
           }}
           accountEmail={authUserEmail}
           onDeleteAccount={async () => {
+            clearYouTubeContinuitySession();
             const response = await fetch("/api/account", { method: "DELETE" });
             const result = (await response.json().catch(() => ({}))) as { error?: string };
             if (!response.ok) throw new Error(result.error || "계정을 삭제하지 못했습니다.");
