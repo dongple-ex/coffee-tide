@@ -54,6 +54,8 @@ export interface SettingsModalProps {
   onNotify: (msg: string) => void;
   rawEnabled: boolean;
   onChangeRawEnabled: (enabled: boolean) => void;
+  compactMode: boolean;
+  onChangeCompactMode: (enabled: boolean) => void;
   driveBackupEnabled: boolean;
   onChangeDriveBackupEnabled: (enabled: boolean) => void;
   sparkEnabled: boolean;
@@ -111,6 +113,8 @@ export function SettingsModal({
   onNotify,
   rawEnabled,
   onChangeRawEnabled,
+  compactMode,
+  onChangeCompactMode,
   driveBackupEnabled,
   onChangeDriveBackupEnabled,
   sparkEnabled,
@@ -195,6 +199,60 @@ export function SettingsModal({
             >
               ✕
             </button>
+          </div>
+        </div>
+
+        {/* 🖥️ 화면 뷰 모드 설정 */}
+        <div className={styles.card} style={{ marginBottom: 16 }}>
+          <div className={styles.cardTitle} style={{ fontSize: "0.9rem", marginBottom: 10 }}>
+            🖥️ 화면 뷰 모드 (대시보드 레이아웃)
+          </div>
+          <div className={styles.settingToggleList}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 4 }}>
+              <button
+                type="button"
+                className={`${styles.btn} ${!compactMode ? styles.btnPrimary : styles.btnSecondary}`}
+                style={{
+                  padding: "9px 12px",
+                  fontSize: "0.82rem",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 4,
+                  fontWeight: !compactMode ? 700 : 500,
+                }}
+                onClick={() => onChangeCompactMode(false)}
+                aria-pressed={!compactMode}
+              >
+                <span>⤢ 일반 뷰</span>
+                <small style={{ opacity: 0.8, fontSize: "0.72rem" }}>PC 넓은 화면 기본</small>
+              </button>
+              <button
+                type="button"
+                className={`${styles.btn} ${compactMode ? styles.btnPrimary : styles.btnSecondary}`}
+                style={{
+                  padding: "9px 12px",
+                  fontSize: "0.82rem",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 4,
+                  fontWeight: compactMode ? 700 : 500,
+                }}
+                onClick={() => onChangeCompactMode(true)}
+                aria-pressed={compactMode}
+              >
+                <span>🗗 축소(컴팩트) 뷰</span>
+                <small style={{ opacity: 0.8, fontSize: "0.72rem" }}>모바일 3단 탭 / PC 2열 고밀도</small>
+              </button>
+            </div>
+            <div className={styles.settingToggleDesc} style={{ marginTop: 10, lineHeight: 1.5, fontSize: "0.78rem" }}>
+              • <b>일반 뷰</b>: 모든 카드와 위젯을 넓게 펼쳐보는 12컬럼 대시보드입니다.<br />
+              • <b>축소(컴팩트) 뷰</b>: 모바일에서는 3단 탭(할 일·바리스타·위젯)으로 한 손 집중 뷰를 제공하며, PC에서는 핵심 업무를 상단 2열에 즉시 배치합니다.<br />
+              • <i>(미설정 시 모바일 기기는 축소 뷰, PC 환경은 일반 뷰로 자동 시작됩니다.)</i>
+            </div>
           </div>
         </div>
 

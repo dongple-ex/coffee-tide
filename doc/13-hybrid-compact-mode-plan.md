@@ -78,29 +78,35 @@ CSS Grid Area를 명시적으로 구성하여 고밀도 배치합니다:
 
 ---
 
-## 6. 상태 지속성 (State Persistence)
+## 6. 상태 지속성 및 기본값 정책 (State Persistence & Defaults)
 
 1. **로컬 스토리지 키**:
    - `LS_COMPACT_MODE = "ct_compact_mode"` (`boolean`)
-2. **초기값 판정 우선순위**:
-   1. `loadLS<boolean>(LS_COMPACT_MODE, ...)`에 저장된 값
+2. **뷰 모드 전환 컨트롤 위치**:
+   - 헤더 툴바의 복잡성을 낮추기 위해 **설정 모달(`SettingsModal`) 최상단 카드(`🖥️ 화면 뷰 모드`)**로 단일화 배치
+   - `[⤢ 일반 뷰 (PC 기본)]` 및 `[🗗 축소(컴팩트) 뷰 (모바일 기본)]` 세그먼트 버튼 제공
+3. **초기값 판정 우선순위**:
+   1. `loadLS<boolean | null>(LS_COMPACT_MODE, null)`에 저장된 사용자 명시적 선택값
    2. 퇴근 핸드오프 스냅샷(`handoffSnapshot?.compactMode`)
-   3. 기본값: `false` (일반 뷰)
-3. **퇴근 핸드오프 (`HandoffState`) 연계**:
+   3. **기기 환경별 기본값**:
+      - **모바일 환경 (`window.innerWidth <= 768px`)**: 기본값 **`true` (축소 뷰, 3단 세그먼트 탭 자동 활성화)**
+      - **PC / 데스크톱 환경 (`window.innerWidth > 768px`)**: 기본값 **`false` (일반 뷰, 12컬럼 대시보드)**
+4. **퇴근 핸드오프 (`HandoffState`) 연계**:
    - 퇴근 시 `compactMode` 상태가 스냅샷에 기록되어 다음 날 출근 시에도 사용자가 설정한 뷰가 그대로 복원됨
-   - `handleLogoutHandoff`의 의존성 배열 및 `saveLS` 저장 데이터에 반영
-4. **활성 탭 (`activeCompactTab`) 메모리 정책**:
+5. **활성 탭 (`activeCompactTab`) 메모리 정책**:
    - 초기값은 `"todo"`로 시작
-   - 세션 중 컴팩트 모드를 껐다가 다시 켜더라도 직전에 보던 탭(`todo`, `copilot`, `widgets`) 상태를 React 메모리 상태로 유지
+   - 세션 중 모드를 전환하더라도 직전에 보던 탭(`todo`, `copilot`, `widgets`) 상태를 React 메모리 상태로 유지
 
 ---
 
-## 7. 접근성 (Accessibility & A11y)
+## 7. 접근성 및 레이아웃 최적화 (Accessibility & Layout Optimization)
 
-1. **컴팩트 모드 토글 버튼**:
-   - `aria-pressed={compactMode}` 적용
-   - 명확한 `title` 및 `aria-label` 제공
-2. **모바일 탭 컨트롤 (조건부 ARIA 적용)**:
+1. **설정 모달 내 뷰 모드 전환 컨트롤**:
+   - 각 모드 버튼에 `aria-pressed={compactMode === mode}` 적용
+   - 명확한 모드별 안내 텍스트와 시각적 포커스 링 제공
+2. **헤더 툴바 가로 스크롤 방지 (모바일 최적화)**:
+   - 셀렉트 요소(`팔로업`, `표시`, `수집`) 및 툴바 간격을 슬림화하여 360px~390px 좁은 모바일 화면에서도 가로 스크롤 없이 한 줄 표시
+3. **모바일 탭 컨트롤 (조건부 ARIA 적용)**:
    - `compactMode && isMobile`일 때만 `role="tablist"`, `role="tab"`, `role="tabpanel"`, `aria-labelledby`를 적용하여 데스크톱 및 일반 모드에서 불필요한 고아(Orphan) `tabpanel` 발생을 원천 차단 (데스크톱 및 일반 뷰에서 tabpanel 개수: 0개)
    - 각 탭 버튼: `role="tab"`, `id="tab-todo"`, `aria-selected={activeCompactTab === "todo"}`, `aria-controls="panel-todo"`
    - 키보드 내비게이션: ArrowLeft, ArrowRight, Home, End 키로 탭 간 포커스 및 선택 이동 지원

@@ -42,26 +42,32 @@
   align-items: center;
   justify-content: space-between;
   flex-wrap: nowrap;
-  gap: 8px;
+  gap: 6px;
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 10px;
-  padding: 4px 10px;
+  padding: 4px 8px;
   overflow-x: auto;
+}
+
+.headerToolbar .connMenuBtn {
+  padding: 3px 8px;
+  font-size: 0.76rem;
+  border-radius: 6px;
 }
 
 .headerToolbarGroup {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: nowrap;
 }
 
 .headerSelectLabel {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-size: 0.74rem;
+  gap: 3px;
+  font-size: 0.72rem;
   color: var(--text-dim);
   white-space: nowrap;
 }
@@ -71,8 +77,8 @@
   border: 1px solid var(--border);
   border-radius: 6px;
   color: var(--text);
-  padding: 2px 6px;
-  font-size: 0.74rem;
+  padding: 2px 4px;
+  font-size: 0.72rem;
   cursor: pointer;
   transition: border-color 0.15s ease;
 }
@@ -2035,6 +2041,34 @@
 
   .headerActionsRight {
     width: 100%;
+  }
+
+  .headerToolbar {
+    padding: 2px 4px;
+    gap: 2px;
+  }
+
+  .headerToolbar .connMenuBtn {
+    padding: 2px 5px;
+    font-size: 0.7rem;
+    border-radius: 5px;
+    gap: 3px;
+  }
+
+  .headerToolbarGroup {
+    gap: 2px;
+  }
+
+  .headerSelectLabel {
+    gap: 1px;
+    font-size: 0.68rem;
+    letter-spacing: -0.02em;
+  }
+
+  .headerSelect {
+    padding: 1px 2px;
+    font-size: 0.68rem;
+    letter-spacing: -0.02em;
   }
 
   .copilotCardTitle {

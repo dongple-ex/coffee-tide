@@ -333,19 +333,15 @@ export default function Home() {
   const [compactMode, setCompactMode] = useState<boolean>(() => {
     const stored = loadLS<boolean | null>(LS_COMPACT_MODE, null);
     if (stored !== null) return stored;
-    return handoffSnapshot?.compactMode ?? false;
+    if (handoffSnapshot?.compactMode !== undefined) return handoffSnapshot.compactMode;
+    if (typeof window !== "undefined") {
+      return window.innerWidth <= 768;
+    }
+    return false;
   });
   const isMobile = useIsMobile();
   const isMobileTabMode = compactMode && isMobile;
   const [activeCompactTab, setActiveCompactTab] = useState<"todo" | "copilot" | "widgets">("todo");
-
-  const toggleCompactMode = useCallback(() => {
-    setCompactMode((prev) => {
-      const next = !prev;
-      saveLS(LS_COMPACT_MODE, next);
-      return next;
-    });
-  }, []);
 
   const handleTabKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLElement>) => {
@@ -2345,8 +2341,6 @@ export default function Home() {
         onLogoutHandoff={() => void handleLogoutHandoff()}
         showConn={showConn}
         onToggleConn={() => setShowConn((v) => !v)}
-        compactMode={compactMode}
-        onToggleCompactMode={toggleCompactMode}
         followupHours={followupHours}
         onFollowupHoursChange={(hours) => {
           setFollowupHours(hours);
@@ -3174,6 +3168,12 @@ export default function Home() {
             setRawEnabled(checked);
             saveLS(LS_RAW_ENABLED, checked);
             showToast(checked ? "PC 원문 보관 기능이 켜졌습니다." : "PC 원문 보관 기능이 꺼졌습니다.");
+          }}
+          compactMode={compactMode}
+          onChangeCompactMode={(next) => {
+            setCompactMode(next);
+            saveLS(LS_COMPACT_MODE, next);
+            showToast(next ? "축소(컴팩트) 뷰가 적용되었습니다." : "일반 뷰가 적용되었습니다.");
           }}
           driveBackupEnabled={driveBackupEnabled}
           onChangeDriveBackupEnabled={(checked) => {
