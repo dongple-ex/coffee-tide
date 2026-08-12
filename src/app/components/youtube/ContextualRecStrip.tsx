@@ -20,11 +20,12 @@ function todayInSeoul(): string {
 
 interface ContextualRecStripProps {
   onNotify?: (msg: string) => void;
+  userScope?: string;
 }
 
-export function ContextualRecStrip({ onNotify }: ContextualRecStripProps) {
+export function ContextualRecStrip({ onNotify, userScope }: ContextualRecStripProps) {
   const [continuitySession] = useState(() => {
-    const session = loadYouTubeContinuitySession();
+    const session = loadYouTubeContinuitySession(userScope);
     return session && session.owner === "contextual" ? session : null;
   });
   const [rec, setRec] = useState<ContextualRecommendation | null>(null);
@@ -139,6 +140,10 @@ export function ContextualRecStrip({ onNotify }: ContextualRecStripProps) {
           owner="contextual"
           initialSeekTime={initialSeekTime}
           initialChatDraft={initialDraft}
+          initialIsMini={continuitySession?.isMini}
+          initialPlayerState={continuitySession?.playerState}
+          initialWasPlaying={continuitySession?.wasPlayingOnHide}
+          userScope={userScope}
           onClose={() => {
             setSelectedVideo(null);
             setInitialSeekTime(0);

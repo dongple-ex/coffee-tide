@@ -17,9 +17,10 @@ import styles from "./youTubeBundleWidget.module.css";
 
 interface YouTubeBundleWidgetProps {
   onNotify?: (msg: string) => void;
+  userScope?: string;
 }
 
-export function YouTubeBundleWidget({ onNotify }: YouTubeBundleWidgetProps) {
+export function YouTubeBundleWidget({ onNotify, userScope }: YouTubeBundleWidgetProps) {
   const tabPanelId = useId();
   const [bundles, setBundles] = useState<YouTubeBundle[]>(() =>
     loadLS<YouTubeBundle[]>(LS_YOUTUBE_BUNDLES, DEFAULT_YOUTUBE_BUNDLES)
@@ -34,7 +35,7 @@ export function YouTubeBundleWidget({ onNotify }: YouTubeBundleWidgetProps) {
   const [errorMessage, setErrorMessage] = useState("");
 
   const [continuitySession] = useState(() => {
-    const session = loadYouTubeContinuitySession();
+    const session = loadYouTubeContinuitySession(userScope);
     return session && session.owner === "bundle" ? session : null;
   });
   const [selectedVideo, setSelectedVideo] = useState<YouTubeVideo | null>(
@@ -341,7 +342,11 @@ export function YouTubeBundleWidget({ onNotify }: YouTubeBundleWidgetProps) {
           owner="bundle"
           initialSeekTime={initialSeekTime}
           initialChatDraft={initialDraft}
+          initialIsMini={continuitySession?.isMini}
+          initialPlayerState={continuitySession?.playerState}
+          initialWasPlaying={continuitySession?.wasPlayingOnHide}
           activeWidgetId="youtube"
+          userScope={userScope}
           onClose={() => {
             setSelectedVideo(null);
             setInitialSeekTime(0);

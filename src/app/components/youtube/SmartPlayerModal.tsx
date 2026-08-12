@@ -20,9 +20,18 @@ interface SmartPlayerModalProps {
   owner?: YouTubeContinuityOwner;
   initialSeekTime?: number;
   initialChatDraft?: string;
+  initialIsMini?: boolean;
+  initialPlayerState?: "playing" | "paused" | "buffering" | "ended" | "unknown";
+  initialWasPlaying?: boolean;
   activeWidgetId?: string | null;
   userScope?: string;
 }
+
+const ALLOWED_ORIGINS = new Set([
+  "https://www.youtube.com",
+  "https://www.youtube-nocookie.com",
+]);
+const YOUTUBE_EMBED_ORIGIN = "https://www.youtube-nocookie.com";
 
 function extractYoutubeVideoId(video: YouTubeVideo | null): string {
   if (!video) return "";
@@ -47,6 +56,9 @@ export function SmartPlayerModal({
   owner = "bundle",
   initialSeekTime = 0,
   initialChatDraft = "",
+  initialIsMini,
+  initialPlayerState,
+  initialWasPlaying,
   activeWidgetId = null,
   userScope,
 }: SmartPlayerModalProps) {
@@ -62,10 +74,22 @@ export function SmartPlayerModal({
   const isMiniRef = useRef(false);
   const modeMountedRef = useRef(false);
 
+  // 복원 세션인 경우 직전 재생 여부(wasPlaying / playerState)에 따라 자동재생 결정, 신규는 항상 자동재생
+  const isRestoredSession = Boolean(
+    (initialSeekTime && initialSeekTime > 0) ||
+    initialPlayerState !== undefined ||
+    initialWasPlaying !== undefined
+  );
+  const shouldAutoplay = isRestoredSession
+    ? Boolean(initialWasPlaying === true || initialPlayerState === "playing")
+    : true;
+
   // 재생 위치 및 상태 추적용 Ref
   const currentTimeRef = useRef<number>(initialSeekTime || 0);
-  const playerStateRef = useRef<"playing" | "paused" | "buffering" | "ended" | "unknown">("unknown");
-  const wasPlayingRef = useRef<boolean>(false);
+  const playerStateRef = useRef<"playing" | "paused" | "buffering" | "ended" | "unknown">(
+    initialPlayerState || (shouldAutoplay ? "playing" : "paused")
+  );
+  const wasPlayingRef = useRef<boolean>(shouldAutoplay);
   const ownerRef = useRef<YouTubeContinuityOwner>(owner);
   const activeWidgetIdRef = useRef<string | null>(activeWidgetId);
   const userScopeRef = useRef<string | undefined>(userScope);
@@ -83,13 +107,16 @@ export function SmartPlayerModal({
   const [loadingDetails, setLoadingDetails] = useState(needsDetails);
   const [detailsError, setDetailsError] = useState("");
 
-  // 이어서 재생 안내 배너 (초기 위치가 5초 이상인 경우 노출)
+  // 이어서 재생 안내 배너 (초기 위치가 3초 이상이고 복원 세션인 경우 노출)
   const [showResumeNotice, setShowResumeNotice] = useState(() => initialSeekTime >= 3);
 
-  // 미니 플레이어 (PIP) 모드 여부
-  const [isMini, setIsMini] = useState(() =>
-    typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches
-  );
+  // 미니 플레이어 (PIP) 모드 여부: 복원 세션의 initialIsMini 우선, 없으면 뷰포트 반응형 기본값
+  const [isMini, setIsMini] = useState(() => {
+    if (typeof initialIsMini === "boolean") {
+      return initialIsMini;
+    }
+    return typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches;
+  });
   const [isMobileViewport, setIsMobileViewport] = useState(isMini);
   const isMobileViewportRef = useRef(isMini);
 
@@ -158,7 +185,7 @@ export function SmartPlayerModal({
         if (wasPlayingRef.current && iframeRef.current?.contentWindow) {
           iframeRef.current.contentWindow.postMessage(
             JSON.stringify({ event: "command", func: "playVideo", args: [] }),
-            "*"
+            YOUTUBE_EMBED_ORIGIN
           );
         }
       }
@@ -181,7 +208,10 @@ export function SmartPlayerModal({
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       const origin = event.origin || "";
-      if (!origin.includes("youtube.com") && !origin.includes("youtube-nocookie.com")) {
+      if (!ALLOWED_ORIGINS.has(origin)) {
+        return;
+      }
+      if (iframeRef.current && event.source !== iframeRef.current.contentWindow) {
         return;
       }
       try {
@@ -194,12 +224,18 @@ export function SmartPlayerModal({
         if (data.event === "onReady") {
           iframeRef.current?.contentWindow?.postMessage(
             JSON.stringify({ event: "listening", id: 1 }),
-            "*"
+            YOUTUBE_EMBED_ORIGIN
           );
           if (initialSeekTime && initialSeekTime > 0) {
             iframeRef.current?.contentWindow?.postMessage(
               JSON.stringify({ event: "command", func: "seekTo", args: [initialSeekTime, true] }),
-              "*"
+              YOUTUBE_EMBED_ORIGIN
+            );
+          }
+          if (shouldAutoplay) {
+            iframeRef.current?.contentWindow?.postMessage(
+              JSON.stringify({ event: "command", func: "playVideo", args: [] }),
+              YOUTUBE_EMBED_ORIGIN
             );
           }
         }
@@ -235,14 +271,14 @@ export function SmartPlayerModal({
     const t1 = window.setTimeout(() => {
       iframeRef.current?.contentWindow?.postMessage(
         JSON.stringify({ event: "listening", id: 1 }),
-        "*"
+        YOUTUBE_EMBED_ORIGIN
       );
     }, 600);
 
     const t2 = window.setTimeout(() => {
       iframeRef.current?.contentWindow?.postMessage(
         JSON.stringify({ event: "listening", id: 1 }),
-        "*"
+        YOUTUBE_EMBED_ORIGIN
       );
     }, 1800);
 
@@ -251,7 +287,7 @@ export function SmartPlayerModal({
       window.clearTimeout(t1);
       window.clearTimeout(t2);
     };
-  }, [initialSeekTime]);
+  }, [initialSeekTime, shouldAutoplay]);
 
   useEffect(() => {
     isMiniRef.current = isMini;
@@ -568,7 +604,7 @@ export function SmartPlayerModal({
             <div className={styles.resumeNotice}>
               <div className={styles.resumeNoticeText}>
                 <span>⏱️</span>
-                <span>{formatSecondsToMinute(initialSeekTime)}부터 이어서 재생 중</span>
+                <span>{formatSecondsToMinute(initialSeekTime)} 시점에서 복원됨</span>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <button
@@ -576,10 +612,14 @@ export function SmartPlayerModal({
                   className={styles.resumeBtn}
                   onClick={() => {
                     seekTo(initialSeekTime);
+                    iframeRef.current?.contentWindow?.postMessage(
+                      JSON.stringify({ event: "command", func: "playVideo", args: [] }),
+                      YOUTUBE_EMBED_ORIGIN
+                    );
                     setShowResumeNotice(false);
                   }}
                 >
-                  다시 이동
+                  이어서 재생
                 </button>
                 <button
                   type="button"
@@ -598,7 +638,7 @@ export function SmartPlayerModal({
               <div className={isMini ? styles.miniIframeWrapper : styles.iframeWrapper}>
                 <iframe
                   ref={iframeRef}
-                  src={`https://www.youtube-nocookie.com/embed/${ytVideoId}?enablejsapi=1&autoplay=1&rel=0${
+                  src={`https://www.youtube-nocookie.com/embed/${ytVideoId}?enablejsapi=1&autoplay=${shouldAutoplay ? 1 : 0}&rel=0${
                     initialSeekTime && initialSeekTime > 0 ? `&start=${Math.floor(initialSeekTime)}` : ""
                   }`}
                   title={video.title}

@@ -80,7 +80,7 @@ import { FinanceWidget } from "./components/FinanceWidget";
 import { CustomNewsWidget, CustomWidgetConfig } from "./components/CustomNewsWidget";
 import { YouTubeBundleWidget } from "./components/youtube/YouTubeBundleWidget";
 import { ContextualRecStrip } from "./components/youtube/ContextualRecStrip";
-import { loadYouTubeContinuitySession, clearYouTubeContinuitySession } from "@/lib/youtube/continuity";
+import { loadYouTubeContinuitySession, clearYouTubeContinuitySession, computeUserScope } from "@/lib/youtube/continuity";
 import type { CustomSitePreview } from "@/lib/news/types";
 import { CommuteConfig, CommuteStop } from "@/lib/types/commute";
 import { AppShortcut } from "@/lib/types/appShortcut";
@@ -266,6 +266,7 @@ export default function Home() {
   );
   const [phase, setPhase] = useState<Phase>("loading");
   const [authUserEmail, setAuthUserEmail] = useState<string>();
+  const userScope = useMemo(() => computeUserScope(authUserEmail), [authUserEmail]);
   const [authBusy, setAuthBusy] = useState(false);
   const [authError, setAuthError] = useState<string>();
   const [serverMails, setServerMails] = useState<UnifiedData[]>([]);
@@ -459,21 +460,24 @@ export default function Home() {
   );
   const [activeWidget, setActiveWidget] = useState<string | null>(() => {
     const session = loadYouTubeContinuitySession();
-    if (session && session.owner === "bundle") {
-      return "youtube";
+    if (session) {
+      if (session.activeWidget) return session.activeWidget;
+      if (session.owner === "bundle") return "youtube";
     }
     return null;
   });
 
-  // 모바일 앱 전환 연속성: 저장된 스크롤 위치 복원
+  // 모바일 앱 전환 연속성: 저장된 스크롤 복원 (userScope 연계 및 렌더 완료 후 안전하게 위치 복원)
   useEffect(() => {
-    const session = loadYouTubeContinuitySession();
-    if (session && session.scrollY > 0) {
-      window.requestAnimationFrame(() => {
+    const session = loadYouTubeContinuitySession(userScope);
+    if (!session) return;
+    if (session.scrollY > 0) {
+      const timer = window.setTimeout(() => {
         window.scrollTo({ top: session.scrollY, behavior: "auto" });
-      });
+      }, 50);
+      return () => window.clearTimeout(timer);
     }
-  }, []);
+  }, [userScope]);
 
   const [customWidgets, setCustomWidgets] = useState<CustomWidgetConfig[]>(() =>
     loadLS<CustomWidgetConfig[]>(LS_CUSTOM_WIDGETS, [])
@@ -2404,7 +2408,7 @@ export default function Home() {
       )}
       {/* 💡 KST 시간대별 맞춤 추천 스트립 */}
       <div style={{ marginBottom: 12 }}>
-        <ContextualRecStrip onNotify={showToast} />
+        <ContextualRecStrip onNotify={showToast} userScope={userScope} />
       </div>
 
       {/* 🧩 확장형 빠른 위젯 바 (Widget Toolbar) */}
@@ -2603,7 +2607,7 @@ export default function Home() {
         )}
         {activeWidget === "youtube" && (
           <div className={styles.widgetPanel}>
-            <YouTubeBundleWidget onNotify={showToast} />
+            <YouTubeBundleWidget onNotify={showToast} userScope={userScope} />
           </div>
         )}
         {/* 커스텀 위젯 패널 */}

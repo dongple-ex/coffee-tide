@@ -1,25 +1,51 @@
 import { loadLS, saveLS, LS_YOUTUBE_CONTINUITY } from "@/lib/localStore";
+import { parseYouTubeVideoId } from "@/lib/youtube/url";
 import type { YouTubeContinuitySessionV1, YouTubeVideo, YouTubeContinuityOwner } from "@/lib/types/youtube";
 
 /** 기본 유효 기간: 12시간 (ms) */
 export const CONTINUITY_TTL_MS = 12 * 60 * 60 * 1000;
 
-function isValidVideo(video: unknown): video is YouTubeVideo {
+const VIDEO_ID_RE = /^[a-zA-Z0-9_-]{11}$/;
+
+/**
+ * 로그인 사용자의 식별자(이메일 또는 ID)를 비식별화된 단방향 해시 스코프로 변환합니다.
+ * 게스트(미로그인)인 경우 undefined를 반환합니다.
+ */
+export function computeUserScope(userEmailOrId?: string | null): string | undefined {
+  if (!userEmailOrId || typeof userEmailOrId !== "string" || userEmailOrId.trim().length === 0) {
+    return undefined;
+  }
+  const trimmed = userEmailOrId.trim().toLowerCase();
+  let hash = 0;
+  for (let i = 0; i < trimmed.length; i++) {
+    hash = (hash << 5) - hash + trimmed.charCodeAt(i);
+    hash |= 0;
+  }
+  return `usr_${Math.abs(hash).toString(36)}`;
+}
+
+export function isValidVideo(video: unknown, expectedVideoId?: string): video is YouTubeVideo {
   if (!video || typeof video !== "object") return false;
   const v = video as Partial<YouTubeVideo>;
-  return (
-    typeof v.id === "string" &&
-    v.id.trim().length > 0 &&
-    typeof v.title === "string" &&
-    v.title.trim().length > 0 &&
-    typeof v.url === "string" &&
-    v.url.trim().length > 0
-  );
+  if (typeof v.id !== "string" || !VIDEO_ID_RE.test(v.id)) return false;
+  if (typeof v.title !== "string" || v.title.trim().length === 0) return false;
+  if (typeof v.url !== "string" || v.url.trim().length === 0) return false;
+
+  // URL에서 추출한 ID가 유효하고 video.id와 일치하는지 확인
+  const parsedId = parseYouTubeVideoId(v.url);
+  if (!parsedId || parsedId !== v.id) return false;
+
+  // 세션의 videoId가 주어진 경우 video.id와 일치하는지 확인
+  if (expectedVideoId && (expectedVideoId !== v.id || !VIDEO_ID_RE.test(expectedVideoId))) {
+    return false;
+  }
+
+  return true;
 }
 
 /**
  * 연속성 세션 객체의 유효성을 검사합니다.
- * 버전 1, 유효한 video/videoId, 유한한 0 이상의 currentTime, 12시간 만료 여부 확인
+ * 버전 1, 유효한 11자리 video/videoId 및 URL 일치성, 유한한 0 이상의 currentTime, 12시간 만료, userScope 격리 여부 확인
  */
 export function isContinuitySessionValid(
   session: unknown,
@@ -30,8 +56,8 @@ export function isContinuitySessionValid(
 
   if (s.version !== 1) return false;
   if (s.owner !== "contextual" && s.owner !== "bundle") return false;
-  if (!s.videoId || typeof s.videoId !== "string" || s.videoId.trim().length === 0) return false;
-  if (!isValidVideo(s.video)) return false;
+  if (!s.videoId || typeof s.videoId !== "string" || !VIDEO_ID_RE.test(s.videoId)) return false;
+  if (!isValidVideo(s.video, s.videoId)) return false;
 
   if (typeof s.currentTime !== "number" || !Number.isFinite(s.currentTime) || s.currentTime < 0) {
     return false;
@@ -60,9 +86,16 @@ export function isContinuitySessionValid(
   const expiresTime = new Date(s.expiresAt).getTime();
   if (Date.now() >= expiresTime) return false;
 
-  // 사용자 스코프 검사 (스코프가 지정된 경우 일치 여부 확인)
-  if (expectedUserScope && s.userScope && s.userScope !== expectedUserScope) {
-    return false;
+  // 사용자 스코프 엄격 검사 (로그인 상태와 게스트 세션 상호 격리)
+  if (expectedUserScope) {
+    if (!s.userScope || s.userScope !== expectedUserScope) {
+      return false;
+    }
+  } else {
+    // 게스트 상태인 경우 로그인 사용자 세션이 섞이지 않도록 차단
+    if (s.userScope) {
+      return false;
+    }
   }
 
   return true;
