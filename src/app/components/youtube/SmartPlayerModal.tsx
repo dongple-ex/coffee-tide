@@ -53,7 +53,11 @@ export function SmartPlayerModal({ video, onClose, onNotify }: SmartPlayerModalP
   const [detailsError, setDetailsError] = useState("");
 
   // 미니 플레이어 (PIP) 모드 여부
-  const [isMini, setIsMini] = useState(false);
+  const [isMini, setIsMini] = useState(() =>
+    typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches
+  );
+  const [isMobileViewport, setIsMobileViewport] = useState(isMini);
+  const isMobileViewportRef = useRef(isMini);
 
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     { role: "model", content: "이 영상에 대해 궁금한 점을 질문해 보세요! ☕" },
@@ -78,10 +82,22 @@ export function SmartPlayerModal({ video, onClose, onNotify }: SmartPlayerModalP
   }, [isMini]);
 
   useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 768px)");
+    const syncViewport = () => {
+      isMobileViewportRef.current = mediaQuery.matches;
+      setIsMobileViewport(mediaQuery.matches);
+    };
+    syncViewport();
+    mediaQuery.addEventListener("change", syncViewport);
+    return () => mediaQuery.removeEventListener("change", syncViewport);
+  }, []);
+
+  useEffect(() => {
     previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const previousBodyOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    window.requestAnimationFrame(() => closeButtonRef.current?.focus());
+    window.requestAnimationFrame(() => {
+      if (isMiniRef.current) miniRestoreButtonRef.current?.focus();
+      else closeButtonRef.current?.focus();
+    });
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -90,7 +106,11 @@ export function SmartPlayerModal({ video, onClose, onNotify }: SmartPlayerModalP
         else onCloseRef.current();
         return;
       }
-      if (event.key !== "Tab" || !modalContainerRef.current) return;
+      if (
+        (isMiniRef.current && isMobileViewportRef.current) ||
+        event.key !== "Tab" ||
+        !modalContainerRef.current
+      ) return;
       const focusable = Array.from(
         modalContainerRef.current.querySelectorAll<HTMLElement>(
           'button:not([disabled]), input:not([disabled]), iframe, [href], [tabindex]:not([tabindex="-1"])'
@@ -110,12 +130,20 @@ export function SmartPlayerModal({ video, onClose, onNotify }: SmartPlayerModalP
     window.addEventListener("keydown", handleKeyDown);
     return () => {
       mountedRef.current = false;
-      document.body.style.overflow = previousBodyOverflow;
       window.removeEventListener("keydown", handleKeyDown);
       chatRequestRef.current?.abort();
       previousFocusRef.current?.focus();
     };
   }, []);
+
+  useEffect(() => {
+    if (isMini && isMobileViewport) return;
+    const previousBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+    };
+  }, [isMini, isMobileViewport]);
 
   useEffect(() => {
     if (!video) return;
@@ -263,9 +291,11 @@ export function SmartPlayerModal({ video, onClose, onNotify }: SmartPlayerModalP
     }
   };
 
+  const isMobileFloating = isMini && isMobileViewport;
+
   return (
     <>
-      {isMini && <div className={styles.focusBackdrop} aria-hidden="true" />}
+      {isMini && !isMobileFloating && <div className={styles.focusBackdrop} aria-hidden="true" />}
       <div
         className={isMini ? styles.miniLayer : styles.modalBackdrop}
         onClick={isMini ? undefined : onClose}
@@ -274,8 +304,8 @@ export function SmartPlayerModal({ video, onClose, onNotify }: SmartPlayerModalP
           ref={modalContainerRef}
           className={isMini ? styles.miniContainer : styles.modalContent}
           onClick={(event) => event.stopPropagation()}
-          role="dialog"
-          aria-modal="true"
+          role={isMobileFloating ? "region" : "dialog"}
+          aria-modal={isMobileFloating ? undefined : true}
           aria-labelledby={isMini ? miniTitleId : titleId}
           tabIndex={-1}
         >
@@ -310,10 +340,10 @@ export function SmartPlayerModal({ video, onClose, onNotify }: SmartPlayerModalP
                   type="button"
                   className={styles.headerActionBtn}
                   onClick={() => setIsMini(false)}
-                  title="CoffeeTide 화면 복원"
+                  data-tooltip="CoffeeTide 화면 복원"
                   aria-label="CoffeeTide 화면 복원"
                 >
-                  ⤢
+                  <span className={styles.actionIcon} aria-hidden="true">⤢</span>
                 </button>
               ) : (
                 <button
@@ -321,20 +351,20 @@ export function SmartPlayerModal({ video, onClose, onNotify }: SmartPlayerModalP
                   type="button"
                   className={styles.headerActionBtn}
                   onClick={() => setIsMini(true)}
-                  title="CoffeeTide 집중 축소 모드"
+                  data-tooltip="축소 모드"
                   aria-label="CoffeeTide 집중 축소 모드"
                 >
-                  🗗
+                  <span className={styles.actionIcon} aria-hidden="true">🗗</span>
                 </button>
               )}
               <button
                 type="button"
                 className={styles.headerActionBtn}
                 onClick={handleOpenExternalPopup}
-                title="브라우저 별도 창 팝업으로 분리"
+                data-tooltip="별도 창 팝업"
                 aria-label="별도 창 팝업"
               >
-                ⧉
+                <span className={styles.actionIcon} aria-hidden="true">⧉</span>
               </button>
               <button
                 ref={closeButtonRef}
@@ -342,9 +372,9 @@ export function SmartPlayerModal({ video, onClose, onNotify }: SmartPlayerModalP
                 className={styles.closeBtn}
                 onClick={onClose}
                 aria-label="플레이어 닫기"
-                title="플레이어 닫기"
+                data-tooltip="플레이어 닫기"
               >
-                ✕
+                <span className={styles.actionIcon} aria-hidden="true">✕</span>
               </button>
             </div>
           </div>
