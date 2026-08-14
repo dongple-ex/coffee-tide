@@ -2,6 +2,7 @@
 
 import React, { useCallback, useState } from "react";
 import styles from "./calculatorWidget.module.css";
+import { UiIcon } from "./UiIcon";
 
 // 물리 키보드 리스너(useEffect)가 이 핸들러들을 의존하므로 useCallback으로 identity를 고정한다.
 // 고정하지 않으면 렌더마다 keydown 리스너가 해제·재등록된다.
@@ -156,7 +157,7 @@ export function CalculatorWidget() {
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        <span>🧮</span>
+        <UiIcon name="calculator" size={18} />
         <span>빠른 계산기</span>
       </div>
 

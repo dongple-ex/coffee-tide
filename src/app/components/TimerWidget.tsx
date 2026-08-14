@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import styles from "./timerWidget.module.css";
+import { UiIcon } from "./UiIcon";
 
 interface TimerWidgetProps {
   onCompleteToast?: (msg: string) => void;
@@ -21,7 +22,7 @@ export function TimerWidget({ onCompleteToast }: TimerWidgetProps) {
           if (prev <= 1) {
             clearInterval(timerRef.current!);
             setIsRunning(false);
-            onCompleteToast?.("🔔 집중 타이머가 완료되었습니다! 수고하셨어요 ☕");
+            onCompleteToast?.("집중 타이머가 완료되었습니다. 수고하셨어요.");
             return 0;
           }
           return prev - 1;
@@ -67,7 +68,7 @@ export function TimerWidget({ onCompleteToast }: TimerWidgetProps) {
     <div className={styles.container}>
       <div className={styles.header}>
         <div className={styles.title}>
-          <span>⏱️</span>
+          <UiIcon name="timer" size={18} />
           <span>집중 몰입 타이머</span>
         </div>
         <div className={styles.presetList}>

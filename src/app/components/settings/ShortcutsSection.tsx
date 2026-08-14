@@ -23,13 +23,13 @@ export function ShortcutsSection({ shortcuts, onChange, onNotify }: Props) {
     onChange([...shortcuts, { id: `sc-${Date.now()}`, keyword, target, enabled: true }]);
     setKeywordInput("");
     setTargetInput("");
-    onNotify(`🔗 '${keyword}' 바로가기 레시피가 등록되었습니다.`);
+    onNotify(`'${keyword}' 바로가기 레시피가 등록되었습니다.`);
   };
 
   return (
     <section className={styles.card} style={{ border: "none", padding: "10px 0" }}>
       <div className={styles.cardTitle}>
-        🔗 단어-앱 바로가기 레시피 <small>{shortcuts.length}개 등록됨</small>
+        단어-앱 바로가기 레시피 <small>{shortcuts.length}개 등록됨</small>
       </div>
       <div className={styles.formRow}>
         <input

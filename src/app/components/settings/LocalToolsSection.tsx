@@ -134,7 +134,7 @@ export function LocalToolsSection({ onNotify }: Props) {
   return (
     <section className={styles.card} style={{ marginBottom: 16 }} aria-labelledby="local-tools-title">
       <div id="local-tools-title" className={styles.cardTitle} style={{ fontSize: "0.9rem", marginBottom: 8 }}>
-        🧰 로컬 AI 도구
+        로컬 AI 도구
       </div>
       <p className={styles.connNote}>
         사용자 PC에 등록한 읽기 전용 PowerShell·Python·Node 도구입니다. 모바일로 같은 PC의
@@ -233,7 +233,7 @@ export function LocalToolsSection({ onNotify }: Props) {
             </pre>
           )}
           {lastResult.warnings.map((warning) => (
-            <p key={warning} className={styles.connNote}>⚠️ {warning}</p>
+            <p key={warning} className={styles.connNote}>{warning}</p>
           ))}
         </details>
       )}

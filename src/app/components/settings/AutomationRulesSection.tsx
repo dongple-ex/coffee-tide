@@ -24,7 +24,7 @@ export function AutomationRulesSection({
 }: Props) {
   return (
     <section className={styles.card} style={{ border: "none", padding: "10px 0" }}>
-      <div className={styles.cardTitle}>⚙️ 자동화 규칙</div>
+      <div className={styles.cardTitle}>자동화 규칙</div>
       <div className={styles.formRow}>
         <input
           className={styles.input}

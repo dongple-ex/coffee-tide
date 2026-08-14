@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import { YouTubeVideo, YouTubeChapter, YouTubeContinuityOwner } from "@/lib/types/youtube";
 import { loadLS, saveLS, LS_YOUTUBE_HISTORY } from "@/lib/localStore";
 import { saveYouTubeContinuitySession, clearYouTubeContinuitySession } from "@/lib/youtube/continuity";
+import { UiIcon } from "../UiIcon";
 import styles from "./smartPlayerModal.module.css";
 
 interface ChatMessage {
@@ -127,7 +128,7 @@ export function SmartPlayerModal({
   const isMobileViewportRef = useRef(isMini);
 
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
-    { role: "model", content: "이 영상에 대해 궁금한 점을 질문해 보세요! ☕" },
+    { role: "model", content: "이 영상에 대해 궁금한 점을 질문해 보세요." },
   ]);
   const [chatInput, setChatInput] = useState(initialChatDraft || "");
   const [chatBusy, setChatBusy] = useState(false);
@@ -465,7 +466,7 @@ export function SmartPlayerModal({
       `yt_popup_${ytVideoId}`,
       `width=${width},height=${height},top=${top},left=${left},menubar=no,toolbar=no,location=no,status=no,resizable=yes`
     );
-    onNotify?.("⧉ 별도 팝업 창으로 영상을 분리하여 띄웠습니다 📺");
+    onNotify?.("별도 팝업 창으로 영상을 분리했습니다.");
     onClose();
   };
 
@@ -560,7 +561,7 @@ export function SmartPlayerModal({
               </>
             ) : (
               <div className={styles.modalTitle}>
-                <span>📺</span>
+                <UiIcon name="video" size={18} />
                 <span id={titleId}>{video.title}</span>
               </div>
             )}
@@ -574,7 +575,7 @@ export function SmartPlayerModal({
                   data-tooltip="CoffeeTide 화면 복원"
                   aria-label="CoffeeTide 화면 복원"
                 >
-                  <span className={styles.actionIcon} aria-hidden="true">⤢</span>
+                  <UiIcon name="expand" size={17} />
                 </button>
               ) : (
                 <button
@@ -585,7 +586,7 @@ export function SmartPlayerModal({
                   data-tooltip="축소 모드"
                   aria-label="CoffeeTide 집중 축소 모드"
                 >
-                  <span className={styles.actionIcon} aria-hidden="true">🗗</span>
+                  <UiIcon name="expand" size={17} />
                 </button>
               )}
               <button
@@ -595,7 +596,7 @@ export function SmartPlayerModal({
                 data-tooltip="별도 창 팝업"
                 aria-label="별도 창 팝업"
               >
-                <span className={styles.actionIcon} aria-hidden="true">⧉</span>
+                <UiIcon name="popup" size={17} />
               </button>
               <button
                 ref={closeButtonRef}
@@ -605,7 +606,7 @@ export function SmartPlayerModal({
                 aria-label="플레이어 닫기"
                 data-tooltip="플레이어 닫기"
               >
-                <span className={styles.actionIcon} aria-hidden="true">✕</span>
+                <UiIcon name="close" size={17} />
               </button>
             </div>
           </div>
@@ -613,7 +614,7 @@ export function SmartPlayerModal({
           {showResumeNotice && initialSeekTime >= 3 && (
             <div className={styles.resumeNotice}>
               <div className={styles.resumeNoticeText}>
-                <span>⏱️</span>
+                <UiIcon name="timer" size={16} />
                 <span>{formatSecondsToMinute(initialSeekTime)} 시점에서 복원됨</span>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -660,7 +661,7 @@ export function SmartPlayerModal({
               {!isMini && chapters.length > 0 && (
                 <div className={styles.chapterSection}>
                   <div className={styles.sectionHeading}>
-                    <span>🔖</span>
+                    <UiIcon name="chapters" size={16} />
                     <span>주요 챕터 바로가기</span>
                   </div>
                   <div className={styles.chapterGrid}>
@@ -684,12 +685,12 @@ export function SmartPlayerModal({
               <div className={styles.aiSection}>
                 <div className={styles.summaryBox}>
                   <div className={styles.sectionHeading}>
-                    <span>✨</span>
+                    <UiIcon name="assistant" size={16} />
                     <span>AI 핵심 3줄 브리핑</span>
                   </div>
                   {loadingDetails ? (
                     <div style={{ color: "var(--text-dim)", fontSize: "0.82rem" }}>
-                      영상 자막과 목차를 읽고 요약 중입니다... ☕
+                      영상 자막과 목차를 읽고 요약 중입니다...
                     </div>
                   ) : (
                     <>

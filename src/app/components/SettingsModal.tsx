@@ -205,7 +205,7 @@ export function SettingsModal({
         {/* 🖥️ 화면 뷰 모드 설정 */}
         <div className={styles.card} style={{ marginBottom: 16 }}>
           <div className={styles.cardTitle} style={{ fontSize: "0.9rem", marginBottom: 10 }}>
-            🖥️ 화면 뷰 모드 (대시보드 레이아웃)
+            화면 보기
           </div>
           <div className={styles.settingToggleList}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 4 }}>
@@ -225,7 +225,7 @@ export function SettingsModal({
                 onClick={() => onChangeCompactMode(false)}
                 aria-pressed={!compactMode}
               >
-                <span>⤢ 일반 뷰</span>
+                <span>일반 뷰</span>
                 <small style={{ opacity: 0.8, fontSize: "0.72rem" }}>PC 넓은 화면 기본</small>
               </button>
               <button
@@ -244,13 +244,13 @@ export function SettingsModal({
                 onClick={() => onChangeCompactMode(true)}
                 aria-pressed={compactMode}
               >
-                <span>🗗 축소(컴팩트) 뷰</span>
-                <small style={{ opacity: 0.8, fontSize: "0.72rem" }}>모바일 3단 탭 / PC 2열 고밀도</small>
+                <span>축소(컴팩트) 뷰</span>
+                <small style={{ opacity: 0.8, fontSize: "0.72rem" }}>여백과 카드 밀도 축소</small>
               </button>
             </div>
             <div className={styles.settingToggleDesc} style={{ marginTop: 10, lineHeight: 1.5, fontSize: "0.78rem" }}>
-              • <b>일반 뷰</b>: 모든 카드와 위젯을 넓게 펼쳐보는 12컬럼 대시보드입니다.<br />
-              • <b>축소(컴팩트) 뷰</b>: 모바일에서는 3단 탭(할 일·바리스타·위젯)으로 한 손 집중 뷰를 제공하며, PC에서는 핵심 업무를 상단 2열에 즉시 배치합니다.<br />
+              • <b>일반 뷰</b>: 카드 여백을 넉넉하게 표시합니다.<br />
+              • <b>축소(컴팩트) 뷰</b>: 같은 내용을 더 높은 밀도로 표시합니다. 업무·AI·휴식 도구 탭은 두 모드에서 동일하게 유지됩니다.<br />
               • <i>(미설정 시 모바일 기기는 축소 뷰, PC 환경은 일반 뷰로 자동 시작됩니다.)</i>
             </div>
           </div>
@@ -308,12 +308,12 @@ export function SettingsModal({
         {/* PC 로컬 원문 보관 — Google 연동 기능은 아래 Google 카드에서 관리 */}
         <div className={styles.card} style={{ marginBottom: 16 }}>
           <div className={styles.cardTitle} style={{ fontSize: "0.9rem", marginBottom: 12 }}>
-            📄 회의록/메모 원문 보관
+            회의록·메모 원문 보관
           </div>
           <div className={styles.settingToggleList}>
             <label className={styles.settingToggleRow}>
               <div className={styles.settingToggleCopy}>
-                <span className={styles.settingToggleTitle}>💾 PC 대용량 스토리지(IndexedDB) 원문 보관</span>
+                <span className={styles.settingToggleTitle}>PC 대용량 스토리지 원문 보관</span>
                 <div className={styles.settingToggleDesc}>
                   붙여넣은 메모/회의록 원문 텍스트 전체를 PC 내 대용량 저장소에 무제한 보관합니다.
                 </div>
@@ -353,7 +353,7 @@ export function SettingsModal({
         <div className={styles.accountManagementCard}>
           <div>
             <div className={styles.cardTitle} style={{ marginBottom: 6 }}>
-              🔐 계정 및 개인정보
+              계정 및 개인정보
             </div>
             <p className={styles.connNote}>
               저장 항목과 보유 기간은 <a href="/privacy">개인정보처리방침</a>에서 확인할 수 있어요.

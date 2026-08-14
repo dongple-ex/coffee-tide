@@ -6,6 +6,7 @@ import type {
   FinanceSnapshot,
 } from "@/lib/types/finance";
 import styles from "./financeWidget.module.css";
+import { UiIcon } from "./UiIcon";
 
 interface FinanceWidgetProps {
   finance: FinanceSnapshot | null;
@@ -190,7 +191,7 @@ export function FinanceWidget({
     <section className={styles.container} aria-label="환율 및 금리 정보">
       <div className={styles.header}>
         <div>
-          <div className={styles.title}>💱 환율·금리</div>
+          <div className={styles.title}><UiIcon name="finance" size={18} />환율·금리</div>
           <div className={styles.subtitle}>공식 공공데이터 기준 정보</div>
         </div>
         <button

@@ -11,6 +11,7 @@ import {
   OutlookIcon,
 } from "./brandIcons";
 import styles from "./shortcutsWidget.module.css";
+import { UiIcon } from "./UiIcon";
 
 interface ShortcutsWidgetProps {
   shortcuts: AppShortcut[];
@@ -73,7 +74,7 @@ function renderShortcutIcon(keyword: string, target: string) {
     return <NaverMapIcon size={20} />;
   }
 
-  return <span style={{ fontSize: "1.1rem" }}>🔗</span>;
+  return <UiIcon name="link" size={20} />;
 }
 
 export function ShortcutsWidget({ shortcuts, onError, onOpenYouTubeBundle }: ShortcutsWidgetProps) {
@@ -155,7 +156,7 @@ export function ShortcutsWidget({ shortcuts, onError, onOpenYouTubeBundle }: Sho
                       style={{ background: "var(--accent-dim, rgba(99, 102, 241, 0.15))", fontWeight: 600 }}
                       title="유튜브 스마트 번들 피드 열기"
                     >
-                      <span className={styles.childBullet} aria-hidden="true">📺</span>
+                      <span className={styles.childBullet} aria-hidden="true"><UiIcon name="video" size={15} /></span>
                       <span className={styles.childName}>유튜브 번들 피드 열기</span>
                       <span className={styles.childLaunch} aria-hidden="true">▶</span>
                     </button>

@@ -84,21 +84,18 @@ export function WelcomeCard({
     switch (timeState) {
       case "morning":
         return {
-          icon: "☕",
           period: "오전 집중 타임",
           bgClass: styles.morningTheme,
           subQuote: "커피 한 잔과 함께 오늘 오전을 차분하고 밀도 있게 시작해보세요.",
         };
       case "afternoon":
         return {
-          icon: "☀️",
           period: "오후 소통 & 협업 타임",
           bgClass: styles.afternoonTheme,
           subQuote: "원활한 소통과 리듬감 있는 실행으로 오늘 목표를 향해 달려보세요.",
         };
       case "evening":
         return {
-          icon: "🌙",
           period: "저녁 데일리 매듭",
           bgClass: styles.eveningTheme,
           subQuote: "오늘의 결실을 확인하고, 내일의 여유를 위해 편안히 매듭지어보세요.",
@@ -112,24 +109,24 @@ export function WelcomeCard({
     const hours = new Date().getHours();
     if (hours >= 17) {
       return {
-        title: "🌆 오늘 하루도 정말 수고 많으셨습니다!",
-        subText: "퇴근 전 Handoff(핸드오프) 상태를 남겨두시면 내일 아침 출근이 훨씬 편안해집니다 ☕",
+        title: "오늘 하루도 정말 수고 많으셨습니다",
+        subText: "퇴근 전 핸드오프 상태를 남겨두면 내일 아침 업무를 바로 이어갈 수 있습니다.",
       };
     }
     if (urgentCount >= 2) {
       return {
-        title: `🚨 긴급 조치가 필요한 업무 ${urgentCount}건이 있습니다`,
+        title: `긴급 조치가 필요한 업무 ${urgentCount}건이 있습니다`,
         subText: "마감이나 생애주기가 임박한 주요 업무부터 먼저 확인해 보세요.",
       };
     }
     if (taskCount >= 5) {
       return {
-        title: `📋 오늘 처리할 할 일이 총 ${taskCount}개 준비되어 있습니다`,
+        title: `오늘 처리할 업무가 ${taskCount}개 있습니다`,
         subText: "에스프레소 한 잔과 함께 차근차근 정리하며 리듬감 있게 시작해 보세요.",
       };
     }
     return {
-      title: "☕ 안녕하세요! AI 바리스타가 준비한 브리핑입니다.",
+      title: "AI 바리스타가 오늘의 흐름을 정리했습니다",
       subText: weather
         ? `${weather.city}는 현재 ${weather.temp}°C, ${weather.description} 날씨입니다. ${theme.subQuote}`
         : `${dateLabel}, ${theme.subQuote}`,
@@ -150,14 +147,15 @@ export function WelcomeCard({
       <div className={styles.cardHeader}>
         <div className={styles.badgeGroup}>
           <span className={styles.timeBadge}>
-            {theme.icon} {theme.period}
+            <span className={styles.statusDot} aria-hidden="true" />
+            {theme.period}
           </span>
           <span className={styles.dateText}>{dateLabel}</span>
         </div>
         <div className={styles.headerRightGroup}>
           {weather && (
             <div className={styles.weatherBadge}>
-              <span>📍 {weather.city}</span>
+              <span>{weather.city}</span>
               <span className={styles.weatherDot}>•</span>
               <span>{weather.temp}°C {weather.description}</span>
             </div>

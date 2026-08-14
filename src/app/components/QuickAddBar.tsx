@@ -2,6 +2,7 @@
 
 import React from "react";
 import CafeWait from "./cafeWait";
+import { UiIcon } from "./UiIcon";
 import styles from "../page.module.css";
 
 export interface QuickAddBarProps {
@@ -35,7 +36,7 @@ export function QuickAddBar({
         className={styles.cardTitle}
         style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}
       >
-        <span>⚡ 빠른 업무 추가</span>
+        <span className={styles.sectionTitleLabel}><UiIcon name="plus" size={17} />빠른 업무 추가</span>
         <button
           type="button"
           className={`${styles.btn} ${styles.cardTitleBtn}`}
@@ -43,7 +44,7 @@ export function QuickAddBar({
           aria-expanded={showPaste}
           style={{ fontSize: "0.78rem", padding: "4px 10px" }}
         >
-          {showPaste ? "접기" : "📋 메모/회의록 붙여넣기"}
+          {showPaste ? "접기" : "메모·회의록 붙여넣기"}
         </button>
       </div>
 

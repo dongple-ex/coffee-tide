@@ -30,7 +30,7 @@ export function NotificationSection({
   return (
     <section className={styles.card} style={{ border: "none", padding: "10px 0" }}>
       <div className={styles.cardTitle} style={{ display: "flex", alignItems: "center" }}>
-        <span>🔔 브리핑 &amp; 데스크톱 알림</span>
+        <span>브리핑 &amp; 데스크톱 알림</span>
         <label className={`${styles.switchLabel} ${pushBusy ? styles.switchDisabled : ""}`}>
           <span>{enabled ? "ON" : "OFF"}</span>
           <input
@@ -71,7 +71,7 @@ export function NotificationSection({
                 onClick={onTestPush}
                 style={{ padding: "4px 10px", fontSize: "0.78rem" }}
               >
-                📨 테스트 발송
+                테스트 발송
               </button>
             )}
           </div>

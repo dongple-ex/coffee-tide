@@ -45,7 +45,7 @@ export function YouTubeBundleSection({ onNotify }: Props) {
   const toggleBundle = (id: string) => {
     const next = bundles.map((b) => (b.id === id ? { ...b, enabled: !b.enabled } : b));
     persistBundles(next);
-    onNotify("📺 유튜브 번들 활성 상태가 변경되었습니다.");
+    onNotify("유튜브 번들 활성 상태가 변경되었습니다.");
   };
 
   // 새 번들 추가 (스포츠, 게임, 뉴스 등 무제한 추가 가능)
@@ -69,7 +69,7 @@ export function YouTubeBundleSection({ onNotify }: Props) {
     persistBundles(next);
     setTargetBundleId(newBundle.id);
     setNewBundleName("");
-    onNotify(`✨ 새로운 [${newBundle.icon} ${name}] 번들이 생성되었습니다! 아래에서 채널을 추가해 보세요.`);
+    onNotify(`새로운 [${name}] 번들이 생성되었습니다. 아래에서 채널을 추가해 보세요.`);
   };
 
   // 번들 삭제
@@ -80,7 +80,7 @@ export function YouTubeBundleSection({ onNotify }: Props) {
     if (targetBundleId === bundleId && next.length > 0) {
       setTargetBundleId(next[0].id);
     }
-    onNotify(`🗑️ [${bundleName}] 번들이 삭제되었습니다.`);
+    onNotify(`[${bundleName}] 번들이 삭제되었습니다.`);
   };
 
   // 기본 프리셋으로 초기화 (스포츠 포함 5종)
@@ -88,7 +88,7 @@ export function YouTubeBundleSection({ onNotify }: Props) {
     if (!confirm("기본 번들(경제, 테크, 스포츠, BGM, 자기계발)로 초기화하시겠습니까?")) return;
     persistBundles(DEFAULT_YOUTUBE_BUNDLES);
     setTargetBundleId(DEFAULT_YOUTUBE_BUNDLES[0].id);
-    onNotify("🔄 유튜브 기본 5대 번들로 초기화되었습니다.");
+    onNotify("유튜브 기본 5대 번들로 초기화되었습니다.");
   };
 
   // 채널 추가
@@ -127,7 +127,7 @@ export function YouTubeBundleSection({ onNotify }: Props) {
     persistBundles(next);
     setNewChannelName("");
     setNewChannelRss("");
-    onNotify(`📺 [${chName}] 채널이 번들에 추가되었습니다.`);
+    onNotify(`[${chName}] 채널이 번들에 추가되었습니다.`);
   };
 
   // 채널 삭제
@@ -148,7 +148,7 @@ export function YouTubeBundleSection({ onNotify }: Props) {
     <section className={styles.card} style={{ border: "none", padding: "10px 0" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
         <div className={styles.cardTitle} style={{ margin: 0 }}>
-          📺 유튜브 스마트 번들 & 채널 관리 <small>{bundles.filter((b) => b.enabled).length}개 활성</small>
+          유튜브 스마트 번들 & 채널 관리 <small>{bundles.filter((b) => b.enabled).length}개 활성</small>
         </div>
         <button
           type="button"
@@ -168,7 +168,7 @@ export function YouTubeBundleSection({ onNotify }: Props) {
       </div>
 
       <p className={styles.connNote}>
-        원하는 주제별 채널 묶음(번들)을 개수 제한 없이 만들고 관리할 수 있습니다. 상단 <b>📺 유튜브 번들</b> 위젯에서 모아보고 AI 브리핑을 받으세요.
+        원하는 주제별 채널 묶음(번들)을 개수 제한 없이 만들고 관리할 수 있습니다. 휴식·도구의 <b>유튜브 번들</b>에서 모아보고 AI 브리핑을 받으세요.
       </p>
 
       {/* 번들 목록 및 ON/OFF 토글 */}
@@ -261,7 +261,7 @@ export function YouTubeBundleSection({ onNotify }: Props) {
 
       {/* ➕ 새 번들(테마) 만들기 폼 */}
       <form onSubmit={handleCreateBundle} style={{ marginTop: 14, paddingTop: 12, borderTop: "1px dashed var(--border)" }}>
-        <div style={{ fontSize: "0.82rem", fontWeight: 600, marginBottom: 6 }}>✨ 새 테마 번들 만들기 (스포츠, 게임, 뉴스 등)</div>
+        <div style={{ fontSize: "0.82rem", fontWeight: 600, marginBottom: 6 }}>새 테마 번들 만들기 (스포츠, 게임, 뉴스 등)</div>
         <div className={styles.formRow}>
           <select
             className={styles.input}
@@ -295,7 +295,7 @@ export function YouTubeBundleSection({ onNotify }: Props) {
 
       {/* ➕ 채널 추가하기 폼 */}
       <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px dashed var(--border)" }}>
-        <div style={{ fontSize: "0.82rem", fontWeight: 600, marginBottom: 6 }}>➕ 번들에 채널 추가하기</div>
+        <div style={{ fontSize: "0.82rem", fontWeight: 600, marginBottom: 6 }}>번들에 채널 추가하기</div>
         <div className={styles.formRow}>
           <select
             className={styles.input}

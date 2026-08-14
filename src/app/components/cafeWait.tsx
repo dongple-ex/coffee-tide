@@ -3,6 +3,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import styles from "./cafeWait.module.css";
 
 export default function CafeWait({
   steps,
@@ -20,5 +21,10 @@ export default function CafeWait({
     return () => clearInterval(timer);
   }, [steps, interval]);
 
-  return <span>{steps[Math.min(idx, steps.length - 1)]}</span>;
+  return (
+    <span className={styles.wait} role="status" aria-live="polite">
+      <span className={styles.dots} aria-hidden="true"><i /><i /><i /></span>
+      <span>{steps[Math.min(idx, steps.length - 1)]}</span>
+    </span>
+  );
 }

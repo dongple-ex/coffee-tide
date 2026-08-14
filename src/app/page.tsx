@@ -59,8 +59,8 @@ import {
   LS_WORK_NOTES,
 } from "@/lib/localStore";
 import { useModalA11y } from "./hooks/useModalA11y";
-import { useIsMobile } from "./hooks/useIsMobile";
 import { HeaderControls, Theme } from "./components/HeaderControls";
+import { UiIcon } from "./components/UiIcon";
 import { QuickAddBar } from "./components/QuickAddBar";
 import { SettingsModal } from "./components/SettingsModal";
 import CafeWait from "./components/cafeWait";
@@ -167,28 +167,28 @@ export function getDynamicCafeSteps(ctx: DynamicCafeContext): string[] {
   if (taskCount >= 8 || urgentCount >= 2) {
     if (type === "copilot") {
       return [
-        "🚨 우와, 오늘 할 일이 빽빽하네요!",
-        "정신 바짝 차리게 에스프레소 투샷 내리는 중 ☕⚡",
-        "고카페인 200% 특제 롱블랙 쉐이킹 중 💥",
-        "바리스타 전원 동원해서 리듬감 있게 얼음 띄우는 중 🧊",
-        "🔔 카페인 충전 완료! 오늘 업무 싹 깨부숴봅시다!",
+        "업무량과 긴급도를 확인하고 있습니다",
+        "마감과 우선순위를 비교하고 있습니다",
+        "오늘 가능한 실행 순서를 계산하고 있습니다",
+        "관련 메모와 일정을 함께 확인하고 있습니다",
+        "실행 가능한 브리핑을 정리했습니다",
       ];
     }
     if (type === "paste") {
       return [
-        "📋 붙여넣은 할 일이 한 보따리네요!",
-        "진한 Espresso 샷 추가해서 골라내는 중 ☕",
-        "우선순위 쏙쏙 잘라 컵에 담는 중 ✂️",
-        "🧊 시원하게 저어 정리 마무리 중…",
-        "🔔 대용량 할 일 콤보 준비 완료!",
+        "붙여넣은 내용을 읽고 있습니다",
+        "업무와 참고 내용을 구분하고 있습니다",
+        "담당자와 기한을 확인하고 있습니다",
+        "중복 항목을 정리하고 있습니다",
+        "추출한 업무를 준비했습니다",
       ];
     }
     return [
-      "☕ 주문 접수! 오늘 작업량이 엄청 묵직하네요!",
-      "에스프레소 투샷 찐하게 내리는 중 ☕⚡",
-      "각얼음 콰직콰직 가득 담는 중 🧊",
-      "특제 고카페인 아메리카노 완성 직전 🔥",
-      "🔔 오늘 업무 싹 클리어할 준비 완료!",
+      "오늘 업무를 불러오고 있습니다",
+      "긴급 업무를 먼저 확인하고 있습니다",
+      "연결된 소스를 병합하고 있습니다",
+      "업무 상태를 최신으로 맞추고 있습니다",
+      "오늘 업무를 준비했습니다",
     ];
   }
 
@@ -196,55 +196,55 @@ export function getDynamicCafeSteps(ctx: DynamicCafeContext): string[] {
   if (hours >= 5 && hours < 12) {
     if (type === "copilot") {
       return [
-        "☕ 상쾌한 아침 주문 접수! 바리스타 출근 완료!",
-        "갓 볶은 모닝 싱글오리진 원두 곱게 가는 중 🌾",
-        "황금빛 크레마 에스프레소 진하게 추출 중 ☕✨",
-        "갓 구운 크루아상 냄새 풍기며 각얼음 띄우는 중 🥐🧊",
-        "🔔 모닝 에너제틱 브리핑 대령이오!",
+        "아침 업무 흐름을 확인하고 있습니다",
+        "오늘의 첫 우선순위를 찾고 있습니다",
+        "일정과 남은 업무를 비교하고 있습니다",
+        "집중할 순서를 정리하고 있습니다",
+        "아침 브리핑을 준비했습니다",
       ];
     }
     return [
-      "☕ 상쾌한 아침 시작! 원두 볶는 중…",
-      "에스프레소 샷 내리는 중 ☕",
-      "각얼음 콰직콰직 띄우는 중 🧊",
-      "🔔 아침의 커피가 거의 다 됐어요!",
+      "아침 업무를 불러오고 있습니다",
+      "연결된 내용을 확인하고 있습니다",
+      "업무 상태를 정리하고 있습니다",
+      "오늘 화면을 준비했습니다",
     ];
   }
 
   if (hours >= 12 && hours < 18) {
     if (type === "copilot") {
       return [
-        "🥱 나른한 오후시간! 식곤증 퇴치 특공대 출동!",
-        "정신 번쩍 들게 콜드브루 원액 방울방울 내리는 중 💧",
-        "달콤 쌉싸름한 바닐라 크림 폼 듬뿍 얹는 중 🍦",
-        "시원한 시나몬 파우더 톡톡 뿌리는 중 ✨",
-        "🔔 오후 피로 싹 날려버릴 브리핑 나왔습니다!",
+        "오후 진행 상황을 확인하고 있습니다",
+        "남은 시간과 업무량을 비교하고 있습니다",
+        "미완료 업무의 위험도를 계산하고 있습니다",
+        "실행 순서를 다시 정리하고 있습니다",
+        "오후 브리핑을 준비했습니다",
       ];
     }
     return [
-      "☀️ 오후의 주문 접수! 시원함 장전 중!",
-      "에스프레소 투샷 템핑하는 중 ☕",
-      "각얼음 듬뿍 넣어 흔드는 중 🧊🌀",
-      "🔔 정신 번쩍 들 커피 준비 완료!",
+      "오후 업무를 불러오고 있습니다",
+      "변경된 일정을 확인하고 있습니다",
+      "남은 업무를 정리하고 있습니다",
+      "업무 화면을 준비했습니다",
     ];
   }
 
   // 저녁/밤
   if (type === "copilot") {
     return [
-      "🌙 오늘 하루도 정말 수고 많으셨어요!",
-      "부담 없는 디카페인 원두로 부드럽게 추출 중 ☕",
-      "오늘의 결실을 편안하게 컵에 담는 중 🍵",
-      "따스하고 부드럽게 마무리 저어주는 중 🥄",
-      "🔔 오늘도 무사히 마무리! 편안하게 확인해보세요!",
+      "오늘 완료한 업무를 확인하고 있습니다",
+      "미완료 업무와 진행 메모를 모으고 있습니다",
+      "내일 이어갈 항목을 구분하고 있습니다",
+      "핸드오프 내용을 정리하고 있습니다",
+      "마무리 브리핑을 준비했습니다",
     ];
   }
 
   return [
-    "🌙 하루를 정돈하는 밤의 카페 주문 접수!",
-    "부드러운 디카페인 아메리카노 내리는 중 ☕",
-    "마음 편안해지는 수증기 피어오르는 중 ♨️",
-    "🔔 하루를 아름답게 매듭지어 드릴게요!",
+    "오늘 기록을 불러오고 있습니다",
+    "완료 상태를 확인하고 있습니다",
+    "내일 이어갈 내용을 정리하고 있습니다",
+    "마무리 화면을 준비했습니다",
   ];
 }
 
@@ -339,8 +339,8 @@ export default function Home() {
     }
     return false;
   });
-  const isMobile = useIsMobile();
-  const isMobileTabMode = compactMode && isMobile;
+  // 업무, AI, 휴식 도구를 항상 분리해 사용자가 현재 모드를 명확히 인지하게 한다.
+  const isWorkspaceTabMode = true;
   const [activeCompactTab, setActiveCompactTab] = useState<"todo" | "copilot" | "widgets">("todo");
 
   const handleTabKeyDown = useCallback(
@@ -852,7 +852,7 @@ export default function Home() {
         setWeatherEnabled(true);
         saveLS(LS_WEATHER_ENABLED, true);
         saveLS(LS_WEATHER_COORDS, coords);
-        showToast("📍 위치 허용 완료! 날씨 브리핑이 활성화되었습니다.");
+        showToast("위치 허용이 완료되어 날씨 브리핑이 활성화되었습니다.");
         void fetchWeatherData(coords.lat, coords.lon).then((weather) => {
           if (weather) setWeatherData(weather);
         });
@@ -886,7 +886,7 @@ export default function Home() {
             saveLS(LS_COMMUTE_CONFIG, next);
             return next;
           });
-          showToast(`📍 현재 위치를 '${label}'로 저장했어요. 가까운 정류소를 찾는 중…`);
+          showToast(`현재 위치를 '${label}'로 저장했어요. 가까운 정류소를 찾는 중…`);
 
           // 좌표는 여기서 한 번만 서버로 보내 정류소 코드로 바꾼다.
           // 이후 출퇴근 카드 폴링에는 코드만 오간다(K2·K12).
@@ -912,7 +912,7 @@ export default function Home() {
                 return next;
               });
               showToast(
-                `🚏 '${label}' 근처 정류소 '${nearest.name}'${nearest.distanceM !== undefined ? ` (약 ${nearest.distanceM}m)` : ""}를 등록했어요.`
+                `'${label}' 근처 정류소 '${nearest.name}'${nearest.distanceM !== undefined ? ` (약 ${nearest.distanceM}m)` : ""}를 등록했어요.`
               );
             } catch {
               showToast(`'${label}' 위치는 저장했어요. 정류소 조회는 잠시 후 다시 시도해 주세요.`);
@@ -1165,14 +1165,14 @@ export default function Home() {
       if (fetchedCount > 0) {
         showToast(
           aiError
-            ? `최신 수집 데이터 ${fetchedCount}건 동기화 완료 (AI는 로컬 규칙 대체) ☕`
-            : `최신 수집 데이터 ${fetchedCount}건 동기화 완료 ☕`
+            ? `최신 수집 데이터 ${fetchedCount}건 동기화 완료 (AI는 로컬 규칙 대체)`
+            : `최신 수집 데이터 ${fetchedCount}건 동기화 완료`
         );
       } else {
         showToast(
           aiError
-            ? "외부 동기화 항목 없음 — 현재 수동/로컬 데이터만 유지 중입니다 (AI 쿼터 대기) ☕"
-            : "새로 들어온 외부 동기화 항목이 없습니다 (현재 데이터 최신 상태) ☕"
+            ? "외부 동기화 항목 없음 — 현재 수동/로컬 데이터만 유지 중입니다 (AI 쿼터 대기)"
+            : "새로 들어온 외부 동기화 항목이 없습니다 (현재 데이터 최신 상태)"
         );
       }
     } catch {
@@ -1404,9 +1404,9 @@ export default function Home() {
 
     try {
       await navigator.clipboard.writeText(text);
-      showToast(`☕ 퇴근 완료! 보존된 업무(${pendingItems.length}건) 상태가 기록 관리되었습니다.`);
+      showToast(`퇴근 처리가 완료되어 업무 ${pendingItems.length}건의 상태를 기록했습니다.`);
     } catch {
-      showToast(`☕ 퇴근 완료! 보존된 업무(${pendingItems.length}건) 상태가 안전하게 저장되었습니다.`);
+      showToast(`퇴근 처리가 완료되어 업무 ${pendingItems.length}건의 상태를 저장했습니다.`);
     }
   }, [
     merged,
@@ -1424,7 +1424,7 @@ export default function Home() {
   async function handleReorderRemainingWithAI() {
     const pendingItems = merged.filter((i) => i.status !== "completed");
     if (pendingItems.length === 0) {
-      showToast("현재 처리할 미완료 업무가 없습니다. ☕");
+      showToast("현재 처리할 미완료 업무가 없습니다.");
       return;
     }
 
@@ -1442,7 +1442,7 @@ export default function Home() {
 
     setWelcomeCardCollapsed(true);
     void askCopilot(prompt);
-    showToast("남은 업무들과 진행 메모를 바탕으로 AI 바리스타가 일정 재배치 브리핑을 작성합니다! ☕");
+    showToast("남은 업무와 진행 메모를 바탕으로 일정 재배치 브리핑을 작성합니다.");
   }
 
   // H4: 데스크톱 브라우저 알림 (긴급/팔로업 초과 업무 발생 시)
@@ -1647,7 +1647,7 @@ export default function Home() {
       setCalendarDraft(null);
       setCalendarReconnectRequired(false);
       setCopilotInput("");
-      showToast("AI 바리스타 대화 내역을 깨끗하게 정리했어요! ☕");
+      showToast("AI 바리스타 대화 내역을 정리했습니다.");
       return true;
     }
 
@@ -1656,7 +1656,7 @@ export default function Home() {
       const activeCount = merged.filter((i) => i.status !== "completed").length;
       const urgentCount = merged.filter((i) => i.category === "urgent" && i.status !== "completed").length;
       const doneCount = manualItems.filter((i) => i.status === "completed").length;
-      const text = `📊 **현재 업무 처리 상태 현황**:\n\n- ⏳ 대기 및 진행 중: **${activeCount}건**\n- 🚨 긴급 처리 필요: **${urgentCount}건**\n- ✅ 오늘 처리 완료: **${doneCount}건**\n\n언제든 질문이나 추가 지시를 말씀해주세요 ☕`;
+      const text = `**현재 업무 처리 상태**:\n\n- 대기 및 진행 중: **${activeCount}건**\n- 긴급 처리 필요: **${urgentCount}건**\n- 오늘 처리 완료: **${doneCount}건**\n\n언제든 질문이나 추가 지시를 말씀해주세요.`;
       setCopilotMessages((prev) => [...prev, { role: "ai", text }]);
       return true;
     }
@@ -1675,7 +1675,7 @@ export default function Home() {
 
     if (cmd === "/help" || cmd === "/?") {
       setCopilotInput("");
-      const text = `💡 **AI 바리스타 슬래시 커맨드 안내**:\n\n- \`/connect\` : 서비스 연동 저장정보와 실제 API 권한 진단\n- \`/tools\` : 모든 기기에서 사용하는 Cloud Tool 목록\n- \`/tool finance\` : 한국은행 환율·금리 조회\n- \`/tool tasks\` : 현재 업무 현황 집계\n- \`/clear\` : 대화 내역 초기화\n- \`/status\` : 업무 처리 현황 요약\n- \`/handoff\` : 남은 업무 퇴근 보존 및 정리\n- \`/reorder\` : 남은 업무 AI 일정 재배치\n- \`/help\` : 커맨드 도움말 출력\n\n**단어-앱 바로가기**: 등록한 키워드만 단독으로(또는 \`@키워드\`) 입력하면 해당 앱이 실행돼요. 문장 속에 키워드가 있으면 실행 대신 평소처럼 답변해 드립니다.`;
+      const text = `**AI 바리스타 슬래시 커맨드 안내**:\n\n- \`/connect\` : 서비스 연동 저장정보와 실제 API 권한 진단\n- \`/tools\` : 모든 기기에서 사용하는 Cloud Tool 목록\n- \`/tool finance\` : 한국은행 환율·금리 조회\n- \`/tool tasks\` : 현재 업무 현황 집계\n- \`/clear\` : 대화 내역 초기화\n- \`/status\` : 업무 처리 현황 요약\n- \`/handoff\` : 남은 업무 퇴근 보존 및 정리\n- \`/reorder\` : 남은 업무 AI 일정 재배치\n- \`/help\` : 커맨드 도움말 출력\n\n**단어-앱 바로가기**: 등록한 키워드만 단독으로(또는 \`@키워드\`) 입력하면 해당 앱이 실행돼요. 문장 속에 키워드가 있으면 실행 대신 평소처럼 답변해 드립니다.`;
       setCopilotMessages((prev) => [...prev, { role: "ai", text }]);
       return true;
     }
@@ -1717,7 +1717,7 @@ export default function Home() {
           {
             role: "ai",
             text: res.ok
-              ? `🚀 **'${matchedShortcut.keyword}'** 명령 확인! **[${matchedShortcut.target}]** 실행했어요 ☕`
+              ? `**'${matchedShortcut.keyword}'** 명령을 확인하여 **[${matchedShortcut.target}]**을 실행했습니다.`
               : `앗, **'${matchedShortcut.keyword}'** 실행에 실패했어요 — ${json.error ?? `HTTP ${res.status}`}`,
           },
         ]);
@@ -1775,7 +1775,7 @@ export default function Home() {
       }
       setCopilotMessages((prev) => [
         ...prev,
-        { role: "ai", text: json.answer ?? "앗, 주문이 밀렸나 봐요 ☕ 잠시 후 다시 물어봐 주세요.", fallback: json.ai_fallback },
+        { role: "ai", text: json.answer ?? "응답이 지연되고 있습니다. 잠시 후 다시 물어봐 주세요.", fallback: json.ai_fallback },
       ]);
     } catch {
       setCopilotMessages((prev) => [
@@ -1865,7 +1865,7 @@ export default function Home() {
       showToast("승인한 외부 변경을 완료했습니다.");
     } catch (error) {
       const message = error instanceof Error ? error.message : "외부 서비스 변경에 실패했습니다.";
-      setCopilotMessages((previous) => [...previous, { role: "ai", text: `⚠️ ${message}` }]);
+      setCopilotMessages((previous) => [...previous, { role: "ai", text: `오류: ${message}` }]);
       showToast(message);
     } finally {
       setCloudWriteBusy(false);
@@ -2141,7 +2141,7 @@ export default function Home() {
               console.warn("Push subscribe error:", err);
             }
           } else {
-            showToast("🔔 데스크톱 알림 권한이 허용되었습니다!");
+            showToast("데스크톱 알림 권한이 허용되었습니다.");
           }
         } else {
           showToast("알림 권한이 거부되어 있습니다. 브라우저 설정에서 허용해주세요.");
@@ -2362,7 +2362,7 @@ export default function Home() {
           const res = await requestNotificationPermission();
           setNotifPerm(res);
           if (res === "granted") {
-            showToast("🔔 브라우저 데스크톱 알림이 활성화되었습니다!");
+            showToast("브라우저 데스크톱 알림이 활성화되었습니다.");
           } else {
             showToast("알림 권한이 거부되어 있습니다. 브라우저 설정에서 허용해 주세요.");
           }
@@ -2372,7 +2372,6 @@ export default function Home() {
       {handoffRestoredInfo && (
         <div className={styles.handoffBanner}>
           <div className={styles.handoffBannerContent}>
-            <span style={{ fontSize: "1.1rem" }}>🌅</span>
             <span>
               <b>지난 퇴근 보존 상태 복원:</b> {handoffRestoredInfo.savedAt} 퇴근 시 기록된 업무 ({handoffRestoredInfo.pendingCount}건) 및 UI 상태가 그대로 유지되었습니다.
             </span>
@@ -2444,7 +2443,7 @@ export default function Home() {
           className={styles.errorBanner}
           style={{ borderColor: "var(--accent)", color: "var(--text)", background: "var(--accent-dim)" }}
         >
-          🔑 연동해둔 로컬 폴더의 브라우저 접근 권한이 만료됐어요.{" "}
+          연동해둔 로컬 폴더의 브라우저 접근 권한이 만료됐어요.{" "}
           <button
             className={styles.btn}
             style={{ padding: "2px 10px", fontSize: "0.76rem" }}
@@ -2455,54 +2454,57 @@ export default function Home() {
         </div>
       )}
 
-      {/* 📱 모바일 축소 모드 전용 스마트 3단 세그먼트 탭 바 */}
-      {compactMode && (
+      {/* 업무 흐름과 휴식 도구를 분리하는 주 탐색 */}
+      {isWorkspaceTabMode && (
         <nav
           className={styles.compactTabBar}
-          role={isMobileTabMode ? "tablist" : undefined}
-          aria-label={isMobileTabMode ? "축소 모드 섹션 전환" : undefined}
+          role="tablist"
+          aria-label="CoffeeTide 작업 공간"
           onKeyDown={handleTabKeyDown}
         >
           <button
             id="tab-todo"
             type="button"
-            role={isMobileTabMode ? "tab" : undefined}
-            aria-selected={isMobileTabMode ? activeCompactTab === "todo" : undefined}
-            aria-controls={isMobileTabMode ? "panel-todo" : undefined}
+            role="tab"
+            aria-selected={activeCompactTab === "todo"}
+            aria-controls="panel-todo"
             tabIndex={activeCompactTab === "todo" ? 0 : -1}
             className={`${styles.compactTabBtn} ${activeCompactTab === "todo" ? styles.compactTabBtnActive : ""}`}
             onClick={() => setActiveCompactTab("todo")}
           >
-            <span>📋 오늘 할 일</span>
+            <UiIcon name="tasks" />
+            <span>오늘 업무</span>
             {activeCount > 0 && <span className={styles.compactTabBadge}>{activeCount}</span>}
           </button>
           <button
             id="tab-copilot"
             type="button"
-            role={isMobileTabMode ? "tab" : undefined}
-            aria-selected={isMobileTabMode ? activeCompactTab === "copilot" : undefined}
-            aria-controls={isMobileTabMode ? "panel-copilot" : undefined}
+            role="tab"
+            aria-selected={activeCompactTab === "copilot"}
+            aria-controls="panel-copilot"
             tabIndex={activeCompactTab === "copilot" ? 0 : -1}
             className={`${styles.compactTabBtn} ${activeCompactTab === "copilot" ? styles.compactTabBtnActive : ""}`}
             onClick={() => setActiveCompactTab("copilot")}
           >
-            <span>☕ AI 바리스타</span>
-            {urgentCount > 0 && (
-              <span className={`${styles.compactTabBadge} ${styles.compactTabBadgeUrgent}`}>{urgentCount}</span>
+            <UiIcon name="coffee" />
+            <span>AI 바리스타</span>
+            {unreadQaKeys.size > 0 && (
+              <span className={styles.compactTabBadge}>{unreadQaKeys.size}</span>
             )}
           </button>
           <button
             id="tab-widgets"
             type="button"
-            role={isMobileTabMode ? "tab" : undefined}
-            aria-selected={isMobileTabMode ? activeCompactTab === "widgets" : undefined}
-            aria-controls={isMobileTabMode ? "panel-widgets" : undefined}
+            role="tab"
+            aria-selected={activeCompactTab === "widgets"}
+            aria-controls="panel-widgets"
             tabIndex={activeCompactTab === "widgets" ? 0 : -1}
             className={`${styles.compactTabBtn} ${activeCompactTab === "widgets" ? styles.compactTabBtnActive : ""}`}
             onClick={() => setActiveCompactTab("widgets")}
           >
-            <span>🧩 빠른 위젯</span>
-            {activeWidget && <span className={styles.compactTabDot} title="위젯 활성화됨" />}
+            <UiIcon name="widgets" />
+            <span>휴식·도구</span>
+            {activeWidget && <span className={styles.compactTabDot} title="열린 도구가 있음" />}
           </button>
         </nav>
       )}
@@ -2510,12 +2512,12 @@ export default function Home() {
       <div className={`${styles.grid} ${styles.dashboardGrid}`}>
         {/* 🧩 widgets 패널 (KST 맞춤 추천 스트립 + 확장형 빠른 위젯 도구함) */}
         <div
-          id={isMobileTabMode ? "panel-widgets" : undefined}
-          role={isMobileTabMode ? "tabpanel" : undefined}
-          aria-labelledby={isMobileTabMode ? "tab-widgets" : undefined}
-          hidden={isMobileTabMode && activeCompactTab !== "widgets"}
+          id="panel-widgets"
+          role="tabpanel"
+          aria-labelledby="tab-widgets"
+          hidden={activeCompactTab !== "widgets"}
           className={`${styles.widgetsPanelWrapper} ${styles.areaWidgets} ${
-            isMobileTabMode && activeCompactTab !== "widgets" ? styles.compactPanelHidden : ""
+            activeCompactTab !== "widgets" ? styles.compactPanelHidden : ""
           }`}
         >
           {/* 💡 KST 시간대별 맞춤 추천 스트립 */}
@@ -2538,7 +2540,7 @@ export default function Home() {
                   <rect x="14" y="14" width="7" height="7"></rect>
                   <rect x="3" y="14" width="7" height="7"></rect>
                 </svg>
-                빠른 위젯 도구함
+                휴식·도구 모음
                 <span className={styles.drawerToggleBadge}>
                   {isWidgetDrawerExpanded ? "⌃ 접기" : "⫶⫶ 한눈에 보기 ⌄"}
                 </span>
@@ -2558,7 +2560,7 @@ export default function Home() {
                 onClick={() => setActiveWidget((prev) => (prev === "weather" ? null : "weather"))}
                 title="실시간 날씨 정보 및 브리핑 열기/닫기"
               >
-                <span>🌤️</span>
+                <UiIcon name="weather" size={16} />
                 <span>실시간 날씨</span>
               </button>
               <button
@@ -2567,7 +2569,7 @@ export default function Home() {
                 onClick={toggleFinanceWidget}
                 title="공식 환율 및 한국은행 기준금리 열기/닫기"
               >
-                <span>💱</span>
+                <UiIcon name="finance" size={16} />
                 <span>환율·금리</span>
               </button>
               {commuteConfig.enabled && (
@@ -2577,7 +2579,7 @@ export default function Home() {
                   onClick={() => setActiveWidget((prev) => (prev === "commute" ? null : "commute"))}
                   title="출퇴근 길찾기 위젯 열기/닫기"
                 >
-                  <span>🚇</span>
+                  <UiIcon name="route" size={16} />
                   <span>스마트 길찾기</span>
                 </button>
               )}
@@ -2587,7 +2589,7 @@ export default function Home() {
                 onClick={() => setActiveWidget((prev) => (prev === "timer" ? null : "timer"))}
                 title="집중 몰입 타이머 열기/닫기"
               >
-                <span>⏱️</span>
+                <UiIcon name="timer" size={16} />
                 <span>몰입 타이머</span>
               </button>
               <button
@@ -2596,7 +2598,7 @@ export default function Home() {
                 onClick={() => setActiveWidget((prev) => (prev === "calc" ? null : "calc"))}
                 title="빠른 수치 계산기 열기/닫기"
               >
-                <span>🧮</span>
+                <UiIcon name="calculator" size={16} />
                 <span>빠른 계산기</span>
               </button>
               <button
@@ -2605,7 +2607,7 @@ export default function Home() {
                 onClick={() => setActiveWidget((prev) => (prev === "shortcuts" ? null : "shortcuts"))}
                 title="앱/레시피 바로가기 즐겨찾기 열기/닫기"
               >
-                <span>⭐</span>
+                <UiIcon name="bookmark" size={16} />
                 <span>바로가기 즐겨찾기</span>
               </button>
               <button
@@ -2614,7 +2616,7 @@ export default function Home() {
                 onClick={() => setActiveWidget((prev) => (prev === "youtube" ? null : "youtube"))}
                 title="테마별 유튜브 스마트 번들 피드 열기/닫기"
               >
-                <span>📺</span>
+                <UiIcon name="video" size={16} />
                 <span>유튜브 번들</span>
               </button>
               {/* 사용자가 동적으로 등록한 커스텀 위젯 칩들 */}
@@ -2626,7 +2628,7 @@ export default function Home() {
                   onClick={() => setActiveWidget((prev) => (prev === w.id ? null : w.id))}
                   title={`${w.name} 최신 글 핵심 브리핑 보기`}
                 >
-                  <span>{w.icon || "🌐"}</span>
+                  <span className={styles.customWidgetMark} aria-hidden="true">{w.name.slice(0, 1)}</span>
                   <span>{w.name}</span>
                 </button>
               ))}
@@ -2638,7 +2640,7 @@ export default function Home() {
                 title="새로운 뉴스/블로그 사이트 URL을 등록하여 나만의 위젯 칩 추가"
                 style={{ borderStyle: "dashed" }}
               >
-                <span>➕</span>
+                <UiIcon name="plus" size={16} />
                 <span>사이트 추가</span>
               </button>
             </div>
@@ -2654,7 +2656,7 @@ export default function Home() {
                     void fetchWeatherData(weatherCoords.lat, weatherCoords.lon).then((weather) => {
                       if (weather) {
                         setWeatherData(weather);
-                        showToast("실시간 날씨 정보가 갱신되었습니다 🌤️");
+                        showToast("실시간 날씨 정보가 갱신되었습니다.");
                       } else {
                         showToast("날씨 정보를 갱신하지 못했어요. 잠시 후 다시 시도해 주세요.");
                       }
@@ -2675,7 +2677,7 @@ export default function Home() {
                     void fetchFinanceData(true).then((success) => {
                       showToast(
                         success
-                          ? "환율·금리 정보가 갱신되었습니다 💱"
+                          ? "환율·금리 정보가 갱신되었습니다."
                           : "환율·금리 정보를 확인하지 못했어요. API 설정을 확인해 주세요."
                       );
                     });
@@ -2740,12 +2742,12 @@ export default function Home() {
 
         {/* 📋 todo 패널 래퍼 (QuickAdd + 오늘의 행동 지침 + 오늘의 LLM 작업 + 받은 항목 전체) */}
         <div
-          id={isMobileTabMode ? "panel-todo" : undefined}
-          role={isMobileTabMode ? "tabpanel" : undefined}
-          aria-labelledby={isMobileTabMode ? "tab-todo" : undefined}
-          hidden={isMobileTabMode && activeCompactTab !== "todo"}
+          id="panel-todo"
+          role="tabpanel"
+          aria-labelledby="tab-todo"
+          hidden={activeCompactTab !== "todo"}
           className={`${styles.todoPanelWrapper} ${
-            isMobileTabMode && activeCompactTab !== "todo" ? styles.compactPanelHidden : ""
+            activeCompactTab !== "todo" ? styles.compactPanelHidden : ""
           }`}
         >
           {/* G1: 빠른 업무 추가 + 붙여넣기 — 입력 경로가 최우선 (00-product-spec §4.1) */}
@@ -2770,7 +2772,7 @@ export default function Home() {
               className={`${styles.cardTitle} ${styles.cardTitleToggleable}`}
               onClick={() => setTodoSectionCollapsed((prev) => !prev)}
             >
-              <span>🎯 오늘의 행동 지침</span>
+              <span className={styles.sectionTitleLabel}><UiIcon name="tasks" size={17} />오늘의 행동 지침</span>
               <small>{todoItems.length}건</small>
               <button
                 type="button"
@@ -2781,7 +2783,7 @@ export default function Home() {
                 }}
                 title="미완료 및 진행 중 업무들을 AI 바리스타가 일정 재배치 브리핑으로 정리합니다"
               >
-                🔄 남은 업무 AI 재배치
+                <UiIcon name="refresh" size={15} /> 남은 업무 재배치
               </button>
               <span className={styles.folderToggleIcon} title={todoSectionCollapsed ? "섹션 펼치기" : "섹션 접기"}>
                 <svg
@@ -2850,7 +2852,7 @@ export default function Home() {
                 className={`${styles.cardTitle} ${styles.cardTitleToggleable}`}
                 onClick={() => setLlmSectionCollapsed((prev) => !prev)}
               >
-                <span>🧠 오늘의 LLM 작업</span>
+                <span className={styles.sectionTitleLabel}><UiIcon name="brain" size={17} />AI 작업 결과</span>
                 <small>{llmItems.length}건</small>
                 {connections?.obsidian && (
                   <button
@@ -2860,7 +2862,7 @@ export default function Home() {
                       exportLlmDigest();
                     }}
                   >
-                    📥 Obsidian에 오늘 요약 내보내기
+                    Obsidian으로 내보내기
                   </button>
                 )}
                 <span className={styles.folderToggleIcon} title={llmSectionCollapsed ? "섹션 펼치기" : "섹션 접기"}>
@@ -2900,7 +2902,7 @@ export default function Home() {
               className={`${styles.cardTitle} ${styles.cardTitleToggleable}`}
               onClick={() => setRestSectionCollapsed((prev) => !prev)}
             >
-              <span>📚 받은 항목 전체</span>
+              <span className={styles.sectionTitleLabel}><UiIcon name="inbox" size={17} />받은 항목</span>
               <small>{restItems.length}건</small>
               <span className={styles.folderToggleIcon} title={restSectionCollapsed ? "섹션 펼치기" : "섹션 접기"}>
                 <svg
@@ -2963,18 +2965,18 @@ export default function Home() {
 
         {/* ☕ copilot 패널 래퍼 (AI 바리스타) */}
         <div
-          id={isMobileTabMode ? "panel-copilot" : undefined}
-          role={isMobileTabMode ? "tabpanel" : undefined}
-          aria-labelledby={isMobileTabMode ? "tab-copilot" : undefined}
-          hidden={isMobileTabMode && activeCompactTab !== "copilot"}
+          id="panel-copilot"
+          role="tabpanel"
+          aria-labelledby="tab-copilot"
+          hidden={activeCompactTab !== "copilot"}
           className={`${styles.copilotPanelWrapper} ${
-            isMobileTabMode && activeCompactTab !== "copilot" ? styles.compactPanelHidden : ""
+            activeCompactTab !== "copilot" ? styles.compactPanelHidden : ""
           }`}
         >
           {/* G3/G6: Copilot — 무연동에서도 활성, MarkdownLite 렌더링 */}
           <section className={`${styles.card} ${styles.colCopilot} ${styles.areaCopilot}`}>
             <div className={`${styles.cardTitle} ${styles.copilotCardTitle}`}>
-              <span className={styles.copilotTitleLabel}>☕ AI 바리스타</span>
+              <span className={`${styles.copilotTitleLabel} ${styles.sectionTitleLabel}`}><UiIcon name="assistant" size={17} />AI 바리스타</span>
               <div className={styles.copilotStatus} aria-label="현재 업무 상태">
                 <span className={styles.statChip}>
                   대기 <b>{activeCount}</b>
@@ -3189,7 +3191,7 @@ export default function Home() {
               setSparkBriefing(null);
               setSparkBriefingLoading(false);
             }
-            showToast(checked ? "Gemini Spark 24시간 클라우드 수신이 켜졌습니다 ⚡" : "Gemini Spark 수신이 꺼졌습니다.");
+            showToast(checked ? "Gemini Spark 24시간 클라우드 수신이 켜졌습니다." : "Gemini Spark 수신이 꺼졌습니다.");
           }}
           connections={connections}
           errors={errors}
@@ -3222,7 +3224,7 @@ export default function Home() {
             aria-modal="true"
             aria-label={`답장 초안 — ${draft.title}`}
           >
-            <div className={styles.cardTitle}>✍️ 답장 초안 — {draft.title}</div>
+            <div className={styles.cardTitle}>답장 초안 — {draft.title}</div>
             {draft.message && <p className={styles.connNote}>{draft.message}</p>}
             <div className={styles.draftText}>{draft.text}</div>
             <div className={styles.formRow}>
@@ -3257,7 +3259,7 @@ export default function Home() {
             aria-label="나만의 사이트 위젯 추가"
           >
             <div className={styles.cardTitle} style={{ marginBottom: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span>🌐 나만의 뉴스/블로그 사이트 추가</span>
+              <span>뉴스·블로그 사이트 추가</span>
               <button className={styles.iconBtn} onClick={closeAddCustomModal}>✕</button>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 12, fontSize: "0.82rem" }}>
@@ -3303,7 +3305,7 @@ export default function Home() {
 
               {addChecking && (
                 <div style={{ color: "var(--text-dim)", fontSize: "0.76rem" }}>
-                  ☕ 사이트에 연결해 최신 글을 읽을 수 있는지 확인하는 중입니다...
+                  사이트에 연결해 최신 글을 읽을 수 있는지 확인하는 중입니다...
                 </div>
               )}
 
@@ -3322,7 +3324,7 @@ export default function Home() {
                   }}
                 >
                   <span>
-                    {addFeedback.kind === "ok" ? "✅ " : "⚠️ "}
+                    {addFeedback.kind === "ok" ? "완료: " : "확인 필요: "}
                     {addFeedback.message}
                   </span>
                   {addFeedback.allowForce && (
@@ -3344,7 +3346,7 @@ export default function Home() {
                   onClick={() => void handleAddCustomWidget()}
                   disabled={addChecking || !newWidgetUrl.trim()}
                 >
-                  {addChecking ? "확인 중..." : "✨ 연결 확인 후 추가"}
+                  {addChecking ? "확인 중..." : "연결 확인 후 추가"}
                 </button>
               </div>
             </div>

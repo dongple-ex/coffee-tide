@@ -19,9 +19,9 @@ interface Props {
 }
 
 function draftLabel(draft: CloudDraftPayload): string {
-  if (draft.kind === "calendar_event") return "📅 일정 초안";
-  if (draft.kind === "email_reply") return "✉️ 메일 답장 초안";
-  return "📄 보고서 초안";
+  if (draft.kind === "calendar_event") return "일정 초안";
+  if (draft.kind === "email_reply") return "메일 답장 초안";
+  return "보고서 초안";
 }
 
 export function CloudDraftReviewCard({

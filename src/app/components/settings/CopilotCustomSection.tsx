@@ -35,7 +35,7 @@ export function CopilotCustomSection({ config, onChangeConfig }: Props) {
 
   return (
     <section className={styles.card} style={{ border: "none", padding: "10px 0" }}>
-      <div className={styles.cardTitle}>☕ AI 바리스타 커스텀</div>
+      <div className={styles.cardTitle}>AI 바리스타 설정</div>
       <p style={{ fontSize: "0.85rem", color: "#666", marginBottom: "12px", lineHeight: "1.4" }}>
         안전한 기본 바운더리(날짜 추정 금지·출처 명시·보안 세이프가드) 내에서 말투와 브리핑 스타일을 자유롭게 맞춤 설정합니다.
       </p>
@@ -43,7 +43,7 @@ export function CopilotCustomSection({ config, onChangeConfig }: Props) {
       <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
         <div>
           <label style={{ fontSize: "0.85rem", fontWeight: 600, display: "block", marginBottom: "4px" }}>
-            🤖 AI 호칭
+            AI 호칭
           </label>
           <input
             className={styles.input}
@@ -57,7 +57,7 @@ export function CopilotCustomSection({ config, onChangeConfig }: Props) {
 
         <div>
           <label style={{ fontSize: "0.85rem", fontWeight: 600, display: "block", marginBottom: "4px" }}>
-            🗣️ 어조 & 페르소나
+            어조 & 페르소나
           </label>
           <select
             className={styles.input}
@@ -65,10 +65,10 @@ export function CopilotCustomSection({ config, onChangeConfig }: Props) {
             onChange={handleChangeTone}
             style={{ width: "100%", marginBottom: "6px" }}
           >
-            <option value="friendly">☕ 친근하고 따뜻한 개인 비서 (&quot;~해드릴게요&quot;)</option>
-            <option value="formal">👔 정중하고 격식 있는 수석 비서 (&quot;~하십시오&quot;)</option>
-            <option value="concise">⚡ 극도로 간결한 개조식 보고 (결론·핵심 위주)</option>
-            <option value="custom">✍️ 사용자 지정 말투 직접 작성</option>
+            <option value="friendly">친근하고 따뜻한 개인 비서 (&quot;~해드릴게요&quot;)</option>
+            <option value="formal">정중하고 격식 있는 수석 비서 (&quot;~하십시오&quot;)</option>
+            <option value="concise">극도로 간결한 개조식 보고 (결론·핵심 위주)</option>
+            <option value="custom">사용자 지정 말투 직접 작성</option>
           </select>
 
           {config.tone === "custom" && (
@@ -85,7 +85,7 @@ export function CopilotCustomSection({ config, onChangeConfig }: Props) {
 
         <div>
           <label style={{ fontSize: "0.85rem", fontWeight: 600, display: "block", marginBottom: "4px" }}>
-            📜 추가 응답 규칙 & 제약조건
+            추가 응답 규칙 & 제약조건
           </label>
           <textarea
             className={styles.input}

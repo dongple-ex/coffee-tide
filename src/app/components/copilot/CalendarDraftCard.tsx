@@ -60,7 +60,7 @@ export function CalendarDraftCard({
 }: Props) {
   return (
     <section className={styles.calendarDraftCard} aria-label="Google Calendar 일정 등록 확인">
-      <div className={styles.calendarDraftBadge}>📅 Google Calendar 일정 초안</div>
+      <div className={styles.calendarDraftBadge}>Google Calendar 일정 초안</div>
       <strong className={styles.calendarDraftTitle}>{draft.title}</strong>
       <dl className={styles.calendarDraftDetails}>
         <div>

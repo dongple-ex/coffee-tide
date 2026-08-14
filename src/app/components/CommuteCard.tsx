@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { CommuteInfo, CommuteStop } from "@/lib/types/commute";
 import { buildMapLinks, LatLng } from "@/lib/mapLinks";
 import { KakaoMapIcon, NaverMapIcon } from "./brandIcons";
+import { UiIcon } from "./UiIcon";
 import styles from "./commuteCard.module.css";
 
 interface CommuteCardProps {
@@ -91,7 +92,7 @@ export function CommuteCard({
     void loadCommute().then((info) => {
       if (info) setCommute(info);
       // 실패를 조용히 삼키면 "새로고침했다"는 인상만 남는다 — 결과를 그대로 알린다
-      setNoticeText(info ? "도착정보를 다시 불러왔어요 ☕" : "정보를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.");
+      setNoticeText(info ? "도착정보를 다시 불러왔어요." : "정보를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.");
       setTimeout(() => setNoticeText(""), 4000);
       setRefreshing(false);
     });
@@ -140,7 +141,7 @@ export function CommuteCard({
     return (
       <div className={styles.card}>
         <div className={styles.cardHeader}>
-          <div className={styles.titleGroup}>🚇 출퇴근 스마트 길찾기</div>
+          <div className={styles.titleGroup}><UiIcon name="route" size={18} />출퇴근 스마트 길찾기</div>
         </div>
         <div className={styles.infoRow}>길찾기 정보를 불러오고 있습니다…</div>
       </div>
@@ -152,7 +153,7 @@ export function CommuteCard({
     return (
       <div className={styles.card}>
         <div className={styles.cardHeader}>
-          <div className={styles.titleGroup}>🚇 출퇴근 스마트 길찾기</div>
+          <div className={styles.titleGroup}><UiIcon name="route" size={18} />출퇴근 스마트 길찾기</div>
           <button
             className={styles.iconBtn}
             disabled={refreshing}
@@ -177,9 +178,9 @@ export function CommuteCard({
     <div className={styles.card}>
       <div className={styles.cardHeader}>
         <div className={styles.titleGroup}>
-          <span>{isCar ? "🚗 자차 길찾기" : "🚌 대중교통 길찾기"}</span>
+          <span className={styles.titleGroup}><UiIcon name="route" size={18} />{isCar ? "자차 길찾기" : "대중교통 길찾기"}</span>
           <span className={`${styles.modeBadge} ${isMorning ? styles.morningBadge : styles.eveningBadge}`}>
-            {isMorning ? "🌅 출근길 모드" : "🌆 퇴근길 모드"}
+            {isMorning ? "출근길" : "퇴근길"}
           </span>
         </div>
         <button
@@ -243,7 +244,7 @@ export function CommuteCard({
         <>
           {commute.stopName && (
             <div className={styles.infoRow} style={{ marginBottom: 6 }}>
-              🚏 <b>{commute.stopName}</b> 실시간 도착
+              <b>{commute.stopName}</b> 실시간 도착
             </div>
           )}
           <div className={styles.modeRouteGrid}>
@@ -251,7 +252,6 @@ export function CommuteCard({
               <div key={`${arr.routeNo}-${i}`} className={styles.modeRouteCard}>
                 <div className={styles.modeRouteHeader}>
                   <div className={styles.modeRouteTitle}>
-                    <span>🚌</span>
                     <span>{arr.routeNo}번</span>
                   </div>
                   {arr.routeType && <span className={styles.modeRouteBadge}>{arr.routeType}</span>}
@@ -260,7 +260,7 @@ export function CommuteCard({
                 {arr.stopsAway !== undefined && (
                   <div className={styles.modeRouteDetails}>
                     <div className={styles.modeRouteDetailsRow}>
-                      <span>🚏 남은 정류장</span>
+                      <span>남은 정류장</span>
                       <span style={{ fontWeight: 600, color: "var(--text)" }}>{arr.stopsAway}개</span>
                     </div>
                   </div>
@@ -320,7 +320,7 @@ export function CommuteCard({
 
       {!mapLinks.hasCoords && (
         <p style={{ fontSize: "0.72rem", color: "var(--muted)", marginTop: 8, lineHeight: 1.5 }}>
-          📍 설정에서 집·회사 위치를 지정하면 지도 <b>앱</b>이 출발지·도착지까지 채운 채로 열리고,
+          설정에서 집·회사 위치를 지정하면 지도 <b>앱</b>이 출발지·도착지까지 채운 채로 열리고,
           가까운 정류소의 실시간 도착정보도 함께 보여드려요.
         </p>
       )}

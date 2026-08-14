@@ -11,7 +11,7 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 10px 0 20px;
+  padding: 8px 0 14px;
 }
 
 .headerRow {
@@ -43,7 +43,7 @@
   justify-content: space-between;
   flex-wrap: nowrap;
   gap: 6px;
-  background: var(--card);
+  background: color-mix(in srgb, var(--card) 86%, transparent);
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 4px 8px;
@@ -406,15 +406,15 @@
 .widgetChip {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 4px 10px;
+  border-radius: 10px;
+  padding: 7px 11px;
   font-size: 0.76rem;
   font-weight: 600;
   color: var(--text);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 7px;
   transition: all 0.2s ease;
   flex-shrink: 0;
   white-space: nowrap;
@@ -429,7 +429,30 @@
   background: var(--accent-dim) !important;
   border-color: var(--accent) !important;
   color: var(--accent) !important;
-  box-shadow: 0 0 12px rgba(43, 91, 238, 0.25);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 32%, transparent);
+}
+
+.widgetChip svg {
+  color: var(--text-dim);
+  transition: color 0.18s ease, transform 0.18s ease;
+}
+
+.widgetChip:hover svg,
+.widgetChipActive svg {
+  color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.customWidgetMark {
+  width: 18px;
+  height: 18px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 5px;
+  background: var(--accent-dim);
+  color: var(--accent);
+  font-size: 0.68rem;
+  font-weight: 800;
 }
 
 .widgetChipAdd {
@@ -700,7 +723,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 18px;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .card:hover {
@@ -722,6 +745,17 @@
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.sectionTitleLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.sectionTitleLabel svg {
+  color: var(--accent);
+  flex: 0 0 auto;
 }
 
 .cardTitle small {
@@ -984,7 +1018,11 @@
 }
 
 .pinIcon {
-  font-size: 0.75rem;
+  font-size: 0.64rem;
+  font-weight: 800;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 /* ── Copilot ──────────────────────────── */
@@ -1043,6 +1081,7 @@
   background: rgba(161, 98, 7, 0.72);
   font-size: 0.72rem;
   font-weight: 700;
+  gap: 5px;
 }
 
 .sparkAutonomousEmpty {
@@ -2340,19 +2379,19 @@
 
 /* 모바일 3단 세그먼트 탭 바 */
 .compactTabBar {
-  display: none;
-  background: var(--card);
+  display: flex;
+  background: color-mix(in srgb, var(--card) 90%, transparent);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 4px;
-  margin-bottom: 14px;
-  gap: 4px;
+  border-radius: 14px;
+  padding: 5px;
+  margin: 0 0 16px;
+  gap: 5px;
   position: sticky;
-  top: 8px;
+  top: 6px;
   z-index: 50;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
 }
 
 .compactTabBtn {
@@ -2360,7 +2399,7 @@
   min-height: 44px; /* 모바일 터치 타겟 44px 보장 */
   background: transparent;
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   color: var(--text-dim);
   font-size: 0.84rem;
   font-weight: 600;
@@ -2369,7 +2408,8 @@
   justify-content: center;
   gap: 6px;
   cursor: pointer;
-  transition: all 0.18s ease;
+  position: relative;
+  transition: color 0.18s ease, background 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
   user-select: none;
 }
 
@@ -2384,10 +2424,28 @@
 }
 
 .compactTabBtnActive {
-  background: var(--surface) !important;
+  background: var(--card-hover) !important;
   color: var(--accent) !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
   font-weight: 700;
+  transform: translateY(-1px);
+}
+
+.compactTabBtnActive::after {
+  content: "";
+  position: absolute;
+  left: 30%;
+  right: 30%;
+  bottom: 3px;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--accent);
+  animation: tabIndicatorIn 0.22s ease-out;
+}
+
+@keyframes tabIndicatorIn {
+  from { transform: scaleX(0.25); opacity: 0; }
+  to { transform: scaleX(1); opacity: 1; }
 }
 
 .compactTabBadge {
@@ -2409,7 +2467,12 @@
   height: 6px;
   border-radius: 50%;
   background: var(--accent);
-  box-shadow: 0 0 6px var(--accent);
+  animation: toolStatusPulse 2.2s ease-in-out infinite;
+}
+
+@keyframes toolStatusPulse {
+  0%, 100% { opacity: 0.45; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1); }
 }
 
 /* 🖥️ 데스크톱 고밀도 2열 Grid Area 배치 (901px 이상: 업무+AI 상단, 위젯 하단 전폭) */
@@ -2477,6 +2540,48 @@
   }
 }
 
+/* 상단 탭을 사용하는 동안 선택한 작업 공간은 데스크톱에서도 빈 열 없이 전폭을 쓴다. */
+.page[data-compact-tab="todo"] .areaInput,
+.page[data-compact-tab="copilot"] .areaCopilot,
+.page[data-compact-tab="widgets"] .areaWidgets {
+  grid-column: 1 / -1;
+}
+
+.page[data-compact-tab="todo"] .todoPanelWrapper > *,
+.page[data-compact-tab="copilot"] .copilotPanelWrapper > *,
+.page[data-compact-tab="widgets"] .widgetsPanelWrapper {
+  animation: workspaceReveal 0.24s ease-out;
+}
+
+@keyframes workspaceReveal {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (min-width: 901px) {
+  .pageCompact .dashboardGrid {
+    grid-template-columns: repeat(12, 1fr);
+    grid-template-areas: none;
+  }
+
+  .pageCompact .areaInput,
+  .pageCompact .areaCopilot,
+  .pageCompact .areaTodo,
+  .pageCompact .areaLlm,
+  .pageCompact .areaRest,
+  .pageCompact .areaWidgets,
+  .pageCompact .widgetsPanelWrapper {
+    grid-area: auto;
+  }
+
+  .pageCompact[data-compact-tab="todo"] .areaInput,
+  .pageCompact[data-compact-tab="copilot"] .areaCopilot,
+  .pageCompact[data-compact-tab="widgets"] .areaWidgets,
+  .pageCompact[data-compact-tab="widgets"] .widgetsPanelWrapper {
+    grid-column: 1 / -1;
+  }
+}
+
 /* 📱 태블릿 컴팩트 모드 (769px ~ 900px: 단일 열, 업무+AI 상단, 위젯 하단) */
 @media (min-width: 769px) and (max-width: 900px) {
   .pageCompact .dashboardGrid {
@@ -2513,16 +2618,16 @@
 
 /* 📱 모바일 컴팩트 탭 모드 (768px 이하) */
 @media (max-width: 768px) {
-  .pageCompact .compactTabBar {
-    display: flex;
-  }
-
+  .dashboardGrid,
   .pageCompact .dashboardGrid {
     display: flex;
     flex-direction: column;
     gap: 12px;
   }
 
+  .todoPanelWrapper,
+  .copilotPanelWrapper,
+  .widgetsPanelWrapper,
   .pageCompact .todoPanelWrapper,
   .pageCompact .copilotPanelWrapper,
   .pageCompact .widgetsPanelWrapper {
@@ -2532,6 +2637,7 @@
     width: 100%;
   }
 
+  .compactPanelHidden,
   .pageCompact .compactPanelHidden {
     display: none !important;
   }
@@ -2547,6 +2653,14 @@
   .compactTabBar,
   .pageCompact .card {
     transition: none !important;
+    animation: none !important;
+  }
+
+  .compactTabDot,
+  .compactTabBtnActive::after,
+  .page[data-compact-tab] .todoPanelWrapper > *,
+  .page[data-compact-tab] .copilotPanelWrapper > *,
+  .page[data-compact-tab] .widgetsPanelWrapper {
     animation: none !important;
   }
 }

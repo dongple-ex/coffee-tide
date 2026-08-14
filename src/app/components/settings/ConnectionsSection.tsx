@@ -84,7 +84,7 @@ export function ConnectionsSection({
   const renderBrowserPicker = (kind: BrowserFolderKind, label: string) =>
     fsaSupported ? (
       <button className={styles.btn} onClick={() => onConnectBrowserFolder(kind)}>
-        📂 {label}
+        {label}
       </button>
     ) : (
       <p className={styles.connNote}>이 브라우저는 폴더 열기를 지원하지 않아요 (Chrome/Edge 필요).</p>
@@ -93,12 +93,12 @@ export function ConnectionsSection({
   return (
     <>
       <div className={styles.cardTitle} style={{ marginTop: 20 }}>
-        🔌 서비스 연동 <small>전부 선택 사항이에요</small>
+        서비스 연동 <small>전부 선택 사항이에요</small>
       </div>
 
       {browserNeedsPermission && (
         <div className={styles.permRow}>
-          🔑 저장된 폴더의 접근 권한을 다시 허용해 주세요 (브라우저 보안 정책상 재방문 시 필요할 수
+          저장된 폴더의 접근 권한을 다시 허용해 주세요 (브라우저 보안 정책상 재방문 시 필요할 수
           있어요)
           <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={onRegrantBrowserFolders}>
             다시 허용
@@ -151,7 +151,7 @@ export function ConnectionsSection({
               <label className={styles.settingToggleRow}>
                 <div className={styles.settingToggleCopy}>
                   <span className={styles.settingToggleTitle}>
-                    📁 Drive 일자별 마크다운 백업
+                    Drive 일자별 마크다운 백업
                   </span>
                   <div className={styles.settingToggleDesc}>
                     `CoffeeTide/YYYY-MM-DD/` 폴더에 회의록과 메모 원문을 자동 동기화합니다.
@@ -165,7 +165,7 @@ export function ConnectionsSection({
               </label>
               <label className={styles.settingToggleRow}>
                 <div className={styles.settingToggleCopy}>
-                  <span className={styles.settingToggleTitle}>⚡ Gemini Spark 브리핑 자동 수신</span>
+                  <span className={styles.settingToggleTitle}>Gemini Spark 브리핑 자동 수신</span>
                   <div className={styles.settingToggleDesc}>
                     Spark가 분석한 메일·일정·승인 결과를 AI 바리스타 브리핑으로 수신합니다.
                   </div>
@@ -236,7 +236,7 @@ export function ConnectionsSection({
               {browserObsidian ? (
                 <div className={styles.folderRow}>
                   <span className={styles.folderPath} title={browserObsidian.name}>
-                    📂 {browserObsidian.name}
+                    {browserObsidian.name}
                   </span>
                   <button
                     className={styles.iconBtn}
@@ -266,7 +266,7 @@ export function ConnectionsSection({
                     aria-label="Obsidian 볼트 폴더 선택"
                     title="폴더 선택"
                   >
-                    📂
+                    폴더 선택
                   </button>
                   <button className={styles.btn} onClick={() => onConnectPath("obsidian", obsidianPath)}>
                     연동
@@ -279,7 +279,7 @@ export function ConnectionsSection({
 
         <div className={styles.connCard}>
           <div className={styles.connHead}>
-            📁 로컬 문서
+            로컬 문서
             <span
               className={`${styles.connStatus} ${connections?.local_doc || browserDocs.length > 0 ? styles.connOn : ""}`}
             >
@@ -293,7 +293,7 @@ export function ConnectionsSection({
           {browserDocs.map((folder) => (
             <div key={folder.key} className={styles.folderRow}>
               <span className={styles.folderPath} title={folder.name}>
-                📂 {folder.name}
+                {folder.name}
               </span>
               <button
                 className={styles.iconBtn}
@@ -338,10 +338,10 @@ export function ConnectionsSection({
                 aria-label="로컬 문서 폴더 선택"
                 title="폴더 선택"
               >
-                📂
+                폴더 선택
               </button>
               <button className={styles.btn} onClick={() => void submitLocalDoc()}>
-                ➕ 추가
+                추가
               </button>
             </div>
           </details>
@@ -350,7 +350,7 @@ export function ConnectionsSection({
 
         <div className={styles.connCard}>
           <div className={styles.connHead}>
-            🧠 LLM 산출물
+            LLM 산출물
             <span
               className={`${styles.connStatus} ${connections?.llm || browserLlm ? styles.connOn : ""}`}
             >
@@ -366,7 +366,7 @@ export function ConnectionsSection({
               {browserLlm ? (
                 <div className={styles.folderRow}>
                   <span className={styles.folderPath} title={browserLlm.name}>
-                    📂 {browserLlm.name}
+                    {browserLlm.name}
                   </span>
                   <button
                     className={styles.iconBtn}
@@ -396,7 +396,7 @@ export function ConnectionsSection({
                     aria-label="LLM 산출물 폴더 선택"
                     title="폴더 선택"
                   >
-                    📂
+                    폴더 선택
                   </button>
                   <button className={styles.btn} onClick={() => onConnectPath("llm", llmPath)}>
                     연동

@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { ThreeProVideo } from "../api/news/threepro/route";
 import styles from "./threeProWidget.module.css";
+import { UiIcon } from "./UiIcon";
 
 interface ThreeProWidgetProps {
   onNotify?: (msg: string) => void;
@@ -60,7 +61,7 @@ export function ThreeProWidget({ onNotify }: ThreeProWidgetProps) {
     <div className={styles.container}>
       <div className={styles.header}>
         <div className={styles.title}>
-          <span>📺</span>
+          <UiIcon name="video" size={18} />
           <span>삼프로TV 경제 심층 브리핑</span>
           <span className={styles.titleBadge}>3PRO TV</span>
         </div>
@@ -70,7 +71,7 @@ export function ThreeProWidget({ onNotify }: ThreeProWidgetProps) {
           onClick={() => {
             setLoading(true);
             void fetchVideos();
-            onNotify?.("최신 삼프로TV 경제 브리핑을 가져왔습니다 📺");
+            onNotify?.("최신 삼프로TV 경제 브리핑을 가져왔습니다.");
           }}
           disabled={loading}
         >
@@ -79,7 +80,7 @@ export function ThreeProWidget({ onNotify }: ThreeProWidgetProps) {
       </div>
 
       {loading && videos.length === 0 ? (
-        <div className={styles.loadingHint}>삼프로TV 최신 경제 브리핑 방송을 가져오는 중입니다... ☕</div>
+        <div className={styles.loadingHint}>삼프로TV 최신 경제 브리핑 방송을 가져오는 중입니다...</div>
       ) : (
         <div className={styles.videoList}>
           {videos.map((item) => {
@@ -95,7 +96,7 @@ export function ThreeProWidget({ onNotify }: ThreeProWidgetProps) {
                   <span className={styles.videoDate}>{item.date}</span>
                 </div>
                 <div className={styles.videoTitle}>{item.title}</div>
-                {item.speaker && <div className={styles.speakerInfo}>🎙️ 출연: {item.speaker}</div>}
+                {item.speaker && <div className={styles.speakerInfo}>출연: {item.speaker}</div>}
                 {isExpanded && (
                   <>
                     <div className={styles.videoSummary}>{item.summary}</div>
@@ -106,7 +107,7 @@ export function ThreeProWidget({ onNotify }: ThreeProWidgetProps) {
                       className={styles.watchLink}
                       onClick={(e) => e.stopPropagation()}
                     >
-                      ▶️ 삼프로TV 영상 보기 ↗
+                      삼프로TV 영상 보기 ↗
                     </a>
                   </>
                 )}

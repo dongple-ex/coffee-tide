@@ -4,6 +4,7 @@ import React, { RefObject } from "react";
 import { buildQaPairs, CopilotMessage } from "@/lib/copilotPairs";
 import CafeWait from "../cafeWait";
 import MarkdownLite from "../markdownLite";
+import { UiIcon } from "../UiIcon";
 import styles from "../../page.module.css";
 
 interface Props {
@@ -44,7 +45,7 @@ export function CopilotConversation({
     <div className={styles.copilotBody} ref={bodyRef}>
       {sparkEnabled && (
         <section className={styles.sparkAutonomousBriefing} aria-label="Gemini Spark 자율 수신 브리핑">
-          <div className={styles.sparkAutonomousBadge}>⚡ Gemini Spark 24시간 자율 비서</div>
+          <div className={styles.sparkAutonomousBadge}><UiIcon name="spark" size={15} />Gemini Spark 24시간 자율 비서</div>
           {sparkLoading ? (
             <p className={styles.sparkAutonomousEmpty}>최신 Gemini Spark 브리핑을 확인하고 있습니다…</p>
           ) : sparkBriefing ? (
@@ -58,7 +59,7 @@ export function CopilotConversation({
       )}
       {pairs.length === 0 ? (
         <div className={styles.msgHint}>
-          “오늘 뭐 해야 해?”라고 주문하듯 편하게 물어보세요 ☕
+          “오늘 뭐 해야 해?”라고 편하게 물어보세요.
           {!hasItems &&
             " 아직 아는 업무가 없어서 브리핑이 좀 심심할 거예요 — 위에서 몇 개만 알려주세요!"}
         </div>
@@ -78,11 +79,11 @@ export function CopilotConversation({
                   onClick={() => onToggleExpand(pair.id)}
                 >
                   <div className={styles.chatQuestionTitle}>
-                    <span style={{ fontSize: "0.95rem" }}>💬</span>
+                    <UiIcon name="assistant" size={16} />
                     <span>{pair.userText}</span>
                   </div>
                   <div className={styles.headerRightControls}>
-                    {isUnread && <span className={styles.blinkingBadge}>✨ 답변 완료</span>}
+                    {isUnread && <span className={styles.blinkingBadge}>답변 완료</span>}
                     <button
                       type="button"
                       className={styles.chatQaToggleBtn}

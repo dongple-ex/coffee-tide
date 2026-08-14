@@ -5,6 +5,7 @@ import React, { useEffect, useState } from "react";
 import { ContextualRecommendation, YouTubeVideo } from "@/lib/types/youtube";
 import { loadYouTubeContinuitySession } from "@/lib/youtube/continuity";
 import { SmartPlayerModal } from "./SmartPlayerModal";
+import { UiIcon } from "../UiIcon";
 import styles from "./contextualRecStrip.module.css";
 
 const LS_REC_DISMISSED_DATE = "ct_rec_dismissed_date";
@@ -69,7 +70,7 @@ export function ContextualRecStrip({ onNotify, userScope }: ContextualRecStripPr
     const today = todayInSeoul();
     localStorage.setItem(LS_REC_DISMISSED_DATE, today);
     setIsDismissed(true);
-    onNotify?.("💡 추천 영상 카드를 숨겼습니다. (내일 새로운 추천으로 다시 나타납니다)");
+    onNotify?.("추천 영상 카드를 숨겼습니다. 내일 새로운 추천으로 다시 나타납니다.");
   };
 
   const handleSelectVideo = (video: YouTubeVideo) => {
@@ -88,7 +89,7 @@ export function ContextualRecStrip({ onNotify, userScope }: ContextualRecStripPr
         <div className={styles.container}>
           <div className={styles.header}>
             <div className={styles.badge}>
-              <span>💡</span>
+              <UiIcon name="video" size={16} />
               <span>{rec.badge}</span>
             </div>
             <div className={styles.headline}>{rec.headline}</div>
@@ -155,4 +156,3 @@ export function ContextualRecStrip({ onNotify, userScope }: ContextualRecStripPr
     </>
   );
 }
-

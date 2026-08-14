@@ -13,6 +13,7 @@ import {
 } from "@/lib/localStore";
 import { loadYouTubeContinuitySession } from "@/lib/youtube/continuity";
 import { SmartPlayerModal } from "./SmartPlayerModal";
+import { UiIcon } from "../UiIcon";
 import styles from "./youTubeBundleWidget.module.css";
 
 interface YouTubeBundleWidgetProps {
@@ -133,7 +134,7 @@ export function YouTubeBundleWidget({ onNotify, userScope }: YouTubeBundleWidget
         setVideos([]);
         setBriefing(null);
         setErrorMessage(message);
-        onNotify?.(`📺 ${message}`);
+        onNotify?.(message);
       } finally {
         window.clearTimeout(timeout);
         if (activeRequest.current === controller) activeRequest.current = null;
@@ -199,7 +200,7 @@ export function YouTubeBundleWidget({ onNotify, userScope }: YouTubeBundleWidget
       <div className={styles.header}>
         <div className={styles.titleGroup}>
           <div className={styles.title}>
-            <span>📺</span>
+            <UiIcon name="video" size={18} />
             <span>유튜브 테마 묶음 피드</span>
           </div>
           <span className={styles.titleBadge}>스마트 번들</span>
@@ -212,7 +213,7 @@ export function YouTubeBundleWidget({ onNotify, userScope }: YouTubeBundleWidget
             onClick={() => {
               if (!currentBundle) return;
               void fetchBundleData(currentBundle, true);
-              onNotify?.(`[${currentBundle.name}] 최신 영상을 다시 확인합니다 📺`);
+              onNotify?.(`[${currentBundle.name}] 최신 영상을 다시 확인합니다.`);
             }}
             disabled={loading || !currentBundle}
           >
@@ -238,7 +239,6 @@ export function YouTubeBundleWidget({ onNotify, userScope }: YouTubeBundleWidget
             onClick={() => handleSelectBundle(bundle.id)}
             onKeyDown={(event) => handleBundleTabKeyDown(event, bundle.id)}
           >
-            <span>{bundle.icon}</span>
             <span>{bundle.name}</span>
           </button>
         ))}
@@ -279,7 +279,6 @@ export function YouTubeBundleWidget({ onNotify, userScope }: YouTubeBundleWidget
       {briefing && (
         <div className={styles.briefingCard}>
           <div className={styles.briefingHeader}>
-            <span>✨</span>
             <span>{currentBundle?.name} AI 다이제스트</span>
           </div>
           <div className={styles.briefingHeadline}>{briefing.headline}</div>
@@ -294,7 +293,7 @@ export function YouTubeBundleWidget({ onNotify, userScope }: YouTubeBundleWidget
       {errorMessage && <div className={styles.errorHint} role="status">{errorMessage}</div>}
 
       {loading && videos.length === 0 ? (
-        <div className={styles.loadingHint}>{currentBundle?.name} 채널의 최신 영상을 모으는 중입니다... ☕</div>
+        <div className={styles.loadingHint}>{currentBundle?.name} 채널의 최신 영상을 모으는 중입니다...</div>
       ) : displayedVideos.length === 0 && currentBundle ? (
         <div className={styles.loadingHint}>표시할 영상이 없습니다.</div>
       ) : (
@@ -359,4 +358,3 @@ export function YouTubeBundleWidget({ onNotify, userScope }: YouTubeBundleWidget
     </div>
   );
 }
-

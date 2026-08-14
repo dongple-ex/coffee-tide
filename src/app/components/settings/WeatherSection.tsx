@@ -16,7 +16,7 @@ export function WeatherSection({ enabled, busy, weather, onEnable, onDisable }: 
   return (
     <section className={styles.card} style={{ border: "none", padding: "10px 0" }}>
       <div className={styles.cardTitle} style={{ display: "flex", alignItems: "center" }}>
-        <span>📍 위치 &amp; 날씨 브리핑</span>
+        <span>위치 &amp; 날씨 브리핑</span>
         {weather && enabled && (
           <small style={{ marginLeft: 6 }}>
             {weather.city} ({weather.temp}°C)

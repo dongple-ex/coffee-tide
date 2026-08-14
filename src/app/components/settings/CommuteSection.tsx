@@ -18,7 +18,7 @@ export function CommuteSection({ config, onChange, onCaptureCoords }: Props) {
   return (
     <section className={styles.card} style={{ border: "none", padding: "10px 0" }}>
       <div className={styles.cardTitle} style={{ display: "flex", alignItems: "center" }}>
-        <span>🚇 출퇴근 길찾기 브리핑</span>
+        <span>출퇴근 길찾기 브리핑</span>
         <label className={styles.switchLabel}>
           <span>{config.enabled ? "ON" : "OFF"}</span>
           <input
@@ -38,7 +38,7 @@ export function CommuteSection({ config, onChange, onCaptureCoords }: Props) {
           onClick={() => onChange({ ...config, transportType: "public" })}
           style={{ flex: 1 }}
         >
-          🚌 / 🚇 대중교통
+          대중교통
         </button>
         <button
           type="button"
@@ -46,7 +46,7 @@ export function CommuteSection({ config, onChange, onCaptureCoords }: Props) {
           onClick={() => onChange({ ...config, transportType: "car" })}
           style={{ flex: 1 }}
         >
-          🚗 자동차 (자차)
+          자동차 (자차)
         </button>
       </div>
 
@@ -75,7 +75,7 @@ export function CommuteSection({ config, onChange, onCaptureCoords }: Props) {
           onClick={() => onCaptureCoords("home")}
           style={{ flex: 1 }}
         >
-          {config.homeCoords ? "📍 집 위치 재지정" : "📍 현재 위치를 집으로"}
+          {config.homeCoords ? "집 위치 재지정" : "현재 위치를 집으로"}
         </button>
         <button
           type="button"
@@ -83,13 +83,13 @@ export function CommuteSection({ config, onChange, onCaptureCoords }: Props) {
           onClick={() => onCaptureCoords("work")}
           style={{ flex: 1 }}
         >
-          {config.workCoords ? "📍 회사 위치 재지정" : "📍 현재 위치를 회사로"}
+          {config.workCoords ? "회사 위치 재지정" : "현재 위치를 회사로"}
         </button>
       </div>
 
       {(config.homeStop || config.workStop) && (
         <div className={styles.connNote} style={{ marginTop: 6, lineHeight: 1.6 }}>
-          🚏 등록된 정류소 —{" "}
+          등록된 정류소 —{" "}
           {config.homeStop ? (
             <>
               집: <b>{config.homeStop.name}</b>
@@ -116,7 +116,7 @@ export function CommuteSection({ config, onChange, onCaptureCoords }: Props) {
         <br />
         집·회사에서 각각 <b>위치 지정</b>을 눌러두면 ① 카카오맵·네이버지도 <b>앱</b>이 출발지·도착지까지
         채운 채로 열리고 ② 가까운 정류소의 <b>실시간 버스 도착정보</b>(국토교통부 TAGO)를 보여드립니다
-        {bothCoordsSet ? " (지정 완료 ✅)" : " (미지정 시 웹 지도 연결만)"}.
+        {bothCoordsSet ? " (지정 완료)" : " (미지정 시 웹 지도 연결만)"}.
         <br />
         좌표는 이 브라우저에만 저장되며, 정류소를 찾을 때 <b>한 번만</b> 서버를 거칩니다. 이후에는
         정류소 코드만 오갑니다.

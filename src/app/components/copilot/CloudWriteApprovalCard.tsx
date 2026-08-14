@@ -19,7 +19,7 @@ export function CloudWriteApprovalCard({ approval, busy, onConfirm, onCancel }: 
     <section className={styles.card} aria-label="외부 서비스 변경 최종 승인">
       <div className={styles.header}>
         <div>
-          <div className={styles.badge}>🔐 외부 변경 최종 승인</div>
+          <div className={styles.badge}>외부 변경 최종 승인</div>
           <strong>{approval.preview.title}</strong>
         </div>
         <span>Phase D</span>

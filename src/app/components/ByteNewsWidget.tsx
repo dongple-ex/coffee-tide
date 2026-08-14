@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { ByteNewsArticle } from "../api/news/byte/route";
 import styles from "./byteNewsWidget.module.css";
+import { UiIcon } from "./UiIcon";
 
 interface ByteNewsWidgetProps {
   onNotify?: (msg: string) => void;
@@ -60,7 +61,7 @@ export function ByteNewsWidget({ onNotify }: ByteNewsWidgetProps) {
     <div className={styles.container}>
       <div className={styles.header}>
         <div className={styles.title}>
-          <span>📰</span>
+          <UiIcon name="inbox" size={18} />
           <span>바이트 경제 브리핑</span>
           <span className={styles.titleBadge}>DAILY BYTE</span>
         </div>
@@ -70,7 +71,7 @@ export function ByteNewsWidget({ onNotify }: ByteNewsWidgetProps) {
           onClick={() => {
             setLoading(true);
             void fetchNews();
-            onNotify?.("최신 바이트 경제 기사를 읽어왔습니다 📰");
+            onNotify?.("최신 바이트 경제 기사를 읽어왔습니다.");
           }}
           disabled={loading}
         >
@@ -79,7 +80,7 @@ export function ByteNewsWidget({ onNotify }: ByteNewsWidgetProps) {
       </div>
 
       {loading && articles.length === 0 ? (
-        <div className={styles.loadingHint}>바이트컴퍼니의 최신 경제 기사를 읽어오는 중입니다... ☕</div>
+        <div className={styles.loadingHint}>바이트컴퍼니의 최신 경제 기사를 읽어오는 중입니다...</div>
       ) : (
         <div className={styles.newsList}>
           {articles.map((item) => {
@@ -105,7 +106,7 @@ export function ByteNewsWidget({ onNotify }: ByteNewsWidgetProps) {
                       className={styles.readLink}
                       onClick={(e) => e.stopPropagation()}
                     >
-                      🔗 바이트컴퍼니 원문 읽기 ↗
+                      바이트컴퍼니 원문 읽기 ↗
                     </a>
                   </>
                 )}

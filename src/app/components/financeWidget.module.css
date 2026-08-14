@@ -21,7 +21,12 @@
   color: var(--text);
   font-size: 0.95rem;
   font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
 }
+
+.title svg { color: var(--accent); }
 
 .subtitle,
 .baseDate,

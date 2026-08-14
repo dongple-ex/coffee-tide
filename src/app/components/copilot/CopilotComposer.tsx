@@ -115,7 +115,7 @@ export function CopilotComposer({
               }}
               disabled={uploadBusy}
             >
-              📎 파일 첨부
+              파일 첨부
             </button>
             <button
               className={styles.plusMenuItem}
@@ -128,7 +128,7 @@ export function CopilotComposer({
                   : "Google 연동 후 드라이브 영구 저장을 쓸 수 있어요. 지금은 일회성 분석으로 업로드돼요."
               }
             >
-              {saveToDrive ? "☁️ 드라이브 영구 저장" : "⏳ 일회성 분석 (임시)"}
+              {saveToDrive ? "드라이브 영구 저장" : "일회성 분석"}
               <span
                 className={`${styles.plusMenuState} ${saveToDrive ? "" : styles.plusMenuStateOff}`}
               >
@@ -144,7 +144,7 @@ export function CopilotComposer({
               }}
               disabled={busy}
             >
-              📋 오늘 브리핑
+              오늘 브리핑
             </button>
           </div>
         </>

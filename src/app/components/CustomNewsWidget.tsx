@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import type { CustomNewsItem, CustomNewsResponse, SiteBriefing } from "@/lib/news/types";
+import { UiIcon } from "./UiIcon";
 import styles from "./customNewsWidget.module.css";
 
 interface ChatMessage {
@@ -126,7 +127,7 @@ export function CustomNewsWidget({ widget, onNotify, onDelete, onUpdateName }: C
     const trimmed = editingName.trim();
     if (trimmed && trimmed !== widget.name && onUpdateName) {
       onUpdateName(widget.id, trimmed);
-      onNotify?.(`위젯 이름이 [${trimmed}] (으)로 변경되었습니다 ✏️`);
+      onNotify?.(`위젯 이름이 [${trimmed}] (으)로 변경되었습니다.`);
     }
     setIsEditingTitle(false);
   };
@@ -139,7 +140,7 @@ export function CustomNewsWidget({ widget, onNotify, onDelete, onUpdateName }: C
     if (!chatHistories[id]) {
       setChatHistories((prev) => ({
         ...prev,
-        [id]: [{ role: "model", content: "이 영상에 관해 무엇이든 물어보세요! ✨" }]
+        [id]: [{ role: "model", content: "이 영상에 관해 무엇이든 물어보세요." }]
       }));
     }
   };
@@ -287,7 +288,7 @@ export function CustomNewsWidget({ widget, onNotify, onDelete, onUpdateName }: C
     <div className={styles.container}>
       <div className={styles.header}>
         <div className={styles.title}>
-          <span>{widget.icon || "🌐"}</span>
+          <UiIcon name="inbox" size={18} />
           {isEditingTitle ? (
             <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
               <input
@@ -317,7 +318,7 @@ export function CustomNewsWidget({ widget, onNotify, onDelete, onUpdateName }: C
               }}
               title="클릭하여 위젯 이름 수정"
             >
-              {widget.name} <span className={styles.editIcon}>✏️</span>
+              {widget.name} <span className={styles.editIcon}>수정</span>
             </span>
           )}
           {onDelete && (
@@ -326,9 +327,9 @@ export function CustomNewsWidget({ widget, onNotify, onDelete, onUpdateName }: C
               className={`${styles.iconOnlyBtn} ${styles.btnDanger}`}
               onClick={() => onDelete(widget.id)}
               title="이 위젯 삭제"
-              style={{ width: 22, height: 22, fontSize: "0.7rem", marginLeft: 2 }}
+              style={{ width: "auto", height: 24, padding: "0 7px", fontSize: "0.68rem", marginLeft: 2 }}
             >
-              🗑️
+              삭제
             </button>
           )}
           {articles.length > 0 && (
@@ -361,7 +362,7 @@ export function CustomNewsWidget({ widget, onNotify, onDelete, onUpdateName }: C
             className={styles.iconOnlyBtn}
             onClick={() => {
               void fetchCustomArticles(true).then(() => {
-                onNotify?.(`${widget.name} 최신 소식을 다시 읽어왔습니다 🌐`);
+                onNotify?.(`${widget.name} 최신 소식을 다시 읽어왔습니다.`);
               });
             }}
             disabled={loading}
@@ -380,13 +381,13 @@ export function CustomNewsWidget({ widget, onNotify, onDelete, onUpdateName }: C
 
       {loading && articles.length === 0 && (
         <div className={styles.loadingHint}>
-          {widget.name}의 최신 글을 읽고 핵심만 추리는 중입니다... ☕
+          {widget.name}의 최신 글을 읽고 핵심만 추리는 중입니다...
         </div>
       )}
 
       {!loading && error && (
         <div className={styles.errorBox}>
-          <div className={styles.errorTitle}>⚠️ {error.reason}</div>
+          <div className={styles.errorTitle}>{error.reason}</div>
           {error.hint && <div className={styles.errorHint}>{error.hint}</div>}
           <div className={styles.errorActions}>
             <button type="button" className={styles.btn} onClick={() => void fetchCustomArticles(true)}>
@@ -401,7 +402,7 @@ export function CustomNewsWidget({ widget, onNotify, onDelete, onUpdateName }: C
 
       {briefing && !error && (
         <div className={styles.briefingBox}>
-          <div className={styles.briefingLabel}>📌 지금 핵심 브리핑</div>
+          <div className={styles.briefingLabel}>지금 핵심 브리핑</div>
           <div className={styles.briefingHeadline}>{briefing.headline}</div>
           {briefing.keyPoints.length > 0 && (
             <ul className={styles.briefingList}>
@@ -486,7 +487,7 @@ export function CustomNewsWidget({ widget, onNotify, onDelete, onUpdateName }: C
                             className={styles.readLink}
                             onClick={(e) => e.stopPropagation()}
                           >
-                            🔗 원문 전체 읽기 ↗
+                            원문 전체 읽기 ↗
                           </a>
                         </>
                       );
@@ -497,7 +498,7 @@ export function CustomNewsWidget({ widget, onNotify, onDelete, onUpdateName }: C
                         {isChatOpen[item.id] ? (
                           <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden", display: "flex", flexDirection: "column" }}>
                             <div style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                              <div style={{ fontWeight: 600, fontSize: "0.9rem" }}>✨ AI 질문하기 <span style={{fontSize: "0.65rem", padding: "2px 6px", border:"1px solid var(--accent)", borderRadius:10, color: "var(--accent)", marginLeft: 6}}>실험실</span></div>
+                              <div style={{ fontWeight: 600, fontSize: "0.9rem" }}>AI 질문하기 <span style={{fontSize: "0.65rem", padding: "2px 6px", border:"1px solid var(--accent)", borderRadius:10, color: "var(--accent)", marginLeft: 6}}>실험실</span></div>
                               <button onClick={(e) => handleToggleChat(item.id, e)} style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: "1.1rem", color: "var(--text-dim)" }}>✕</button>
                             </div>
                             <div
