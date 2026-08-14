@@ -342,6 +342,26 @@ export default function Home() {
   // 업무, AI, 휴식 도구를 항상 분리해 사용자가 현재 모드를 명확히 인지하게 한다.
   const isWorkspaceTabMode = true;
   const [activeCompactTab, setActiveCompactTab] = useState<"todo" | "copilot" | "widgets">("todo");
+  const activeCompactTabRef = useRef<"todo" | "copilot" | "widgets">("todo");
+  const [todoTabSignal, setTodoTabSignal] = useState(false);
+  const [sparkTabSignal, setSparkTabSignal] = useState(false);
+  const [widgetTabSignal, setWidgetTabSignal] = useState(false);
+  const todoTabSignalTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastSignaledSparkBriefing = useRef<string | null>(null);
+
+  const [expandedQaKeys, setExpandedQaKeys] = useState<Set<string>>(new Set());
+  const [unreadQaKeys, setUnreadQaKeys] = useState<Set<string>>(new Set());
+
+  const openWorkspaceTab = useCallback((tab: "todo" | "copilot" | "widgets") => {
+    activeCompactTabRef.current = tab;
+    setActiveCompactTab(tab);
+    if (tab === "todo") setTodoTabSignal(false);
+    if (tab === "copilot") {
+      setSparkTabSignal(false);
+      setUnreadQaKeys(new Set());
+    }
+    if (tab === "widgets") setWidgetTabSignal(false);
+  }, []);
 
   const handleTabKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLElement>) => {
@@ -350,28 +370,25 @@ export default function Home() {
       if (e.key === "ArrowRight") {
         e.preventDefault();
         const nextIndex = (currentIndex + 1) % tabs.length;
-        setActiveCompactTab(tabs[nextIndex]);
+        openWorkspaceTab(tabs[nextIndex]);
         document.getElementById(`tab-${tabs[nextIndex]}`)?.focus();
       } else if (e.key === "ArrowLeft") {
         e.preventDefault();
         const prevIndex = (currentIndex - 1 + tabs.length) % tabs.length;
-        setActiveCompactTab(tabs[prevIndex]);
+        openWorkspaceTab(tabs[prevIndex]);
         document.getElementById(`tab-${tabs[prevIndex]}`)?.focus();
       } else if (e.key === "Home") {
         e.preventDefault();
-        setActiveCompactTab("todo");
+        openWorkspaceTab("todo");
         document.getElementById("tab-todo")?.focus();
       } else if (e.key === "End") {
         e.preventDefault();
-        setActiveCompactTab("widgets");
+        openWorkspaceTab("widgets");
         document.getElementById("tab-widgets")?.focus();
       }
     },
-    [activeCompactTab]
+    [activeCompactTab, openWorkspaceTab]
   );
-
-  const [expandedQaKeys, setExpandedQaKeys] = useState<Set<string>>(new Set());
-  const [unreadQaKeys, setUnreadQaKeys] = useState<Set<string>>(new Set());
 
   // Q&A 답변 도착 시 접혀있는 카드가 있으면 깜빡이는 알림(unreadQaKeys) 등록.
   // 쌍 묶기는 CopilotConversation과 반드시 같은 결과여야 해서 buildQaPairs를 공유한다.
@@ -401,7 +418,14 @@ export default function Home() {
         const res = await fetch("/api/copilot?includeSpark=1");
         if (!res.ok) return;
         const data = (await res.json()) as { answer?: string | null; spark_autonomous?: boolean };
-        if (!cancelled) setSparkBriefing(data.spark_autonomous ? data.answer ?? null : null);
+        const nextBriefing = data.spark_autonomous ? data.answer ?? null : null;
+        if (!cancelled) {
+          if (nextBriefing && lastSignaledSparkBriefing.current !== nextBriefing) {
+            lastSignaledSparkBriefing.current = nextBriefing;
+            if (activeCompactTabRef.current !== "copilot") setSparkTabSignal(true);
+          }
+          setSparkBriefing(nextBriefing);
+        }
       } catch {
         if (!cancelled) setSparkBriefing(null);
       } finally {
@@ -786,6 +810,26 @@ export default function Home() {
     setToast(message);
     if (toastTimer.current) clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToast(""), 3500);
+  }, []);
+
+  const signalTodoCompletion = useCallback(() => {
+    setTodoTabSignal(true);
+    if (todoTabSignalTimer.current) clearTimeout(todoTabSignalTimer.current);
+    todoTabSignalTimer.current = setTimeout(() => setTodoTabSignal(false), 4200);
+  }, []);
+
+  const notifyFromWidget = useCallback(
+    (message: string) => {
+      showToast(message);
+      if (activeCompactTab !== "widgets") setWidgetTabSignal(true);
+    },
+    [activeCompactTab, showToast]
+  );
+
+  useEffect(() => {
+    return () => {
+      if (todoTabSignalTimer.current) clearTimeout(todoTabSignalTimer.current);
+    };
   }, []);
 
   const markBusy = (id: string, busy: boolean) =>
@@ -1533,6 +1577,7 @@ export default function Home() {
 
   function setLocalStatus(id: string, status: UnifiedData["status"]) {
     setManualItems((prev) => prev.map((i) => (i.id === id ? { ...i, status } : i)));
+    if (status === "completed") signalTodoCompletion();
   }
 
   function deleteLocal(id: string) {
@@ -1555,6 +1600,7 @@ export default function Home() {
       markBusy(item.id, true);
       try {
         await completeBrowserObsidianTask(item.id);
+        signalTodoCompletion();
         showToast("완료 도장 꾹 찍어뒀어요! (노트 체크박스도 갱신)");
         void scanBrowser();
       } catch (err) {
@@ -1573,6 +1619,7 @@ export default function Home() {
       });
       const json = (await res.json()) as { message?: string; error?: string };
       if (!res.ok) throw new Error(json.error);
+      signalTodoCompletion();
       showToast(json.message ?? "완료 도장 꾹 찍어뒀어요!");
       dismissItem(item.id);
       void fetchMails(true);
@@ -2469,11 +2516,12 @@ export default function Home() {
             aria-selected={activeCompactTab === "todo"}
             aria-controls="panel-todo"
             tabIndex={activeCompactTab === "todo" ? 0 : -1}
+            aria-label={`오늘 업무${todoTabSignal ? ", 새 완료 알림 있음" : ""}`}
             className={`${styles.compactTabBtn} ${activeCompactTab === "todo" ? styles.compactTabBtnActive : ""}`}
-            onClick={() => setActiveCompactTab("todo")}
+            onClick={() => openWorkspaceTab("todo")}
           >
             <UiIcon name="tasks" />
-            <span>오늘 업무</span>
+            <span className={todoTabSignal ? styles.compactTabLabelSignal : undefined}>오늘 업무</span>
             {activeCount > 0 && <span className={styles.compactTabBadge}>{activeCount}</span>}
           </button>
           <button
@@ -2483,13 +2531,18 @@ export default function Home() {
             aria-selected={activeCompactTab === "copilot"}
             aria-controls="panel-copilot"
             tabIndex={activeCompactTab === "copilot" ? 0 : -1}
+            aria-label={`AI 바리스타${unreadQaKeys.size > 0 || sparkTabSignal ? ", 새 응답 있음" : ""}`}
             className={`${styles.compactTabBtn} ${activeCompactTab === "copilot" ? styles.compactTabBtnActive : ""}`}
-            onClick={() => setActiveCompactTab("copilot")}
+            onClick={() => openWorkspaceTab("copilot")}
           >
             <UiIcon name="coffee" />
-            <span>AI 바리스타</span>
-            {unreadQaKeys.size > 0 && (
-              <span className={styles.compactTabBadge}>{unreadQaKeys.size}</span>
+            <span
+              className={unreadQaKeys.size > 0 || sparkTabSignal ? styles.compactTabLabelSignal : undefined}
+            >
+              AI 바리스타
+            </span>
+            {unreadQaKeys.size + (sparkTabSignal ? 1 : 0) > 0 && (
+              <span className={styles.compactTabBadge}>{unreadQaKeys.size + (sparkTabSignal ? 1 : 0)}</span>
             )}
           </button>
           <button
@@ -2499,11 +2552,12 @@ export default function Home() {
             aria-selected={activeCompactTab === "widgets"}
             aria-controls="panel-widgets"
             tabIndex={activeCompactTab === "widgets" ? 0 : -1}
+            aria-label={`휴식·도구${widgetTabSignal ? ", 새 알림 있음" : ""}`}
             className={`${styles.compactTabBtn} ${activeCompactTab === "widgets" ? styles.compactTabBtnActive : ""}`}
-            onClick={() => setActiveCompactTab("widgets")}
+            onClick={() => openWorkspaceTab("widgets")}
           >
             <UiIcon name="widgets" />
-            <span>휴식·도구</span>
+            <span className={widgetTabSignal ? styles.compactTabLabelSignal : undefined}>휴식·도구</span>
             {activeWidget && <span className={styles.compactTabDot} title="열린 도구가 있음" />}
           </button>
         </nav>
@@ -2522,7 +2576,7 @@ export default function Home() {
         >
           {/* 💡 KST 시간대별 맞춤 추천 스트립 */}
           <div style={{ marginBottom: compactMode ? 4 : 12 }}>
-            <ContextualRecStrip onNotify={showToast} userScope={userScope} />
+            <ContextualRecStrip onNotify={notifyFromWidget} userScope={userScope} />
           </div>
 
           {/* 🧩 확장형 빠른 위젯 바 (Widget Toolbar) */}
@@ -2701,7 +2755,7 @@ export default function Home() {
             )}
             {activeWidget === "timer" && (
               <div className={styles.widgetPanel}>
-                <TimerWidget onCompleteToast={showToast} />
+                <TimerWidget onCompleteToast={notifyFromWidget} />
               </div>
             )}
             {activeWidget === "calc" && (
@@ -2720,7 +2774,7 @@ export default function Home() {
             )}
             {activeWidget === "youtube" && (
               <div className={styles.widgetPanel}>
-                <YouTubeBundleWidget onNotify={showToast} userScope={userScope} />
+                <YouTubeBundleWidget onNotify={notifyFromWidget} userScope={userScope} />
               </div>
             )}
             {/* 커스텀 위젯 패널 */}
@@ -2730,7 +2784,7 @@ export default function Home() {
                 <div key={w.id} className={styles.widgetPanel}>
                   <CustomNewsWidget
                     widget={w}
-                    onNotify={showToast}
+                    onNotify={notifyFromWidget}
                     onDelete={(id) => handleDeleteCustomWidget(id)}
                     onUpdateName={(id, newName) => handleUpdateCustomWidgetName(id, newName)}
                   />

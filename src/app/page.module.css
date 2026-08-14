@@ -2443,6 +2443,17 @@
   animation: tabIndicatorIn 0.22s ease-out;
 }
 
+.compactTabLabelSignal {
+  background: linear-gradient(120deg, var(--accent) 0%, #fbbf24 50%, var(--accent) 100%);
+  background-size: 200% auto;
+  animation: tideShimmer 2.4s linear infinite;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  font-weight: 800;
+}
+
 @keyframes tabIndicatorIn {
   from { transform: scaleX(0.25); opacity: 0; }
   to { transform: scaleX(1); opacity: 1; }
@@ -2657,6 +2668,7 @@
   }
 
   .compactTabDot,
+  .compactTabLabelSignal,
   .compactTabBtnActive::after,
   .page[data-compact-tab] .todoPanelWrapper > *,
   .page[data-compact-tab] .copilotPanelWrapper > *,
