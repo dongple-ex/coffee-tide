@@ -21,6 +21,7 @@ doc/
 ├── 03-source-fix-plan.md            소스 점검 계획 (K 항목)
 ├── 04-mobile-strategy.md            모바일 전략
 ├── 05-hybrid-app-release-guide.md   하이브리드 앱 출시 가이드
+├── 14-data-storage-ai-knowledge-architecture-plan.md 데이터·저장소·AI 지식 구조 계획
 ├── spec/                            단계별 기능 상세 스펙 (phaseN)
 └── legacy_timepilot/                구 TimePilot 시절 역사 문서
 ```
@@ -47,6 +48,8 @@ doc/
    - 모바일 전략 (웹 우선, 하이브리드 앱 방향성).
 6. [`05-hybrid-app-release-guide.md`](./05-hybrid-app-release-guide.md)
    - Capacitor 기반 하이브리드 앱 출시 가이드.
+7. [`14-data-storage-ai-knowledge-architecture-plan.md`](./14-data-storage-ai-knowledge-architecture-plan.md)
+   - Supabase·Google Drive·브라우저 저장소의 역할, 자료 관계, AI 파생 데이터와 단계별 전환 기준.
 
 ---
 
@@ -61,6 +64,13 @@ doc/
 | [`phase5-write-back.md`](./spec/phase5-write-back.md) | 양방향 쓰기(Notion 완료 처리·Outlook 답장 초안) | ✅ 구현 완료 |
 | [`phase6-llm-artifacts.md`](./spec/phase6-llm-artifacts.md) | 로컬 LLM 도구 산출물 수집 + Obsidian 미러링 | ✅ 구현 완료 |
 | [`phase7-copilot-briefing.md`](./spec/phase7-copilot-briefing.md) | 브리핑 고도화(상황 맞춤 그리팅·시간대별 제안) | ✅ 구현 완료 (2026-07-22) |
+| [`phase14-00-execution-roadmap.md`](./spec/phase14-00-execution-roadmap.md) | 데이터·저장소·AI 지식 구조 단계별 실행 로드맵 | 🔎 검증 중 |
+| [`phase14-01-storage-safety.md`](./spec/phase14-01-storage-safety.md) | Drive 옵션·저장 상태·회귀 테스트 기반 | 🔎 검증 중 |
+| [`phase14-02-data-contract-schema.md`](./spec/phase14-02-data-contract-schema.md) | 공통 데이터 계약·Supabase 스키마·RLS | 🔎 검증 중 |
+| [`phase14-03-sync-offline.md`](./spec/phase14-03-sync-offline.md) | 항목 단위 동기화·최초 병합·오프라인 | 🔎 검증 중 |
+| [`phase14-04-assets-relations-ai-artifacts.md`](./spec/phase14-04-assets-relations-ai-artifacts.md) | 원문·첨부·자료 관계·AI 파생 결과 | 🔎 검증 중 |
+| [`phase14-05-cost-voice-quick-capture.md`](./spec/phase14-05-cost-voice-quick-capture.md) | 비용·음성 빠른 추가와 모바일 입력 | 🔎 검증 중 |
+| [`phase14-06-ai-knowledge-retrieval.md`](./spec/phase14-06-ai-knowledge-retrieval.md) | 관계·근거 기반 AI 지식 검색 | 🔎 검증 중 |
 
 > 스펙 문서는 **당시 설계 의도**의 기록입니다. "지금 코드가 하는 일"의 정본은 항상 [`01-as-built-reference.md`](./01-as-built-reference.md)입니다.
 

@@ -4,6 +4,7 @@ import React, { RefObject } from "react";
 import { buildQaPairs, CopilotMessage } from "@/lib/copilotPairs";
 import CafeWait from "../cafeWait";
 import MarkdownLite from "../markdownLite";
+import { EvidencePanel } from "./EvidencePanel";
 import { UiIcon } from "../UiIcon";
 import styles from "../../page.module.css";
 
@@ -113,6 +114,7 @@ export function CopilotConversation({
               {isExpanded && pair.aiText && (
                 <div className={styles.chatAnswerScroll}>
                   <MarkdownLite text={pair.aiText} />
+                  <EvidencePanel evidences={pair.evidences} />
                 </div>
               )}
             </div>

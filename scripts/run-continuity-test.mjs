@@ -1,10 +1,9 @@
-// runner for continuity unit tests using Next.js ts-node or compiled ts
+// runner for continuity unit tests using vitest
 import { execSync } from "child_process";
 
-console.log("Compiling and running continuity tests...");
-// We can run with tsx or node --import
+console.log("Running YouTube continuity tests with Vitest...");
 try {
-  const output = execSync("npx tsx src/lib/youtube/continuity.test.ts", {
+  const output = execSync("npx vitest run src/lib/youtube/continuity.test.ts", {
     encoding: "utf-8",
     cwd: process.cwd(),
   });

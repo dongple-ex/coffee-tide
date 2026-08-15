@@ -14,6 +14,10 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isCalendarCreateRequest } from "@/lib/calendar/types";
 import { executeCloudTool, listCloudTools } from "@/lib/cloudTools/registry";
+import { searchKnowledge } from "@/lib/knowledge/search";
+import { filterItemsByExecutionPolicy } from "@/lib/knowledge/policy";
+import { mapItemRelationFromDb, mapUnifiedItemFromDb } from "@/lib/data/mappers";
+import type { ItemRelation, WorkspaceItem } from "@/lib/data/contracts";
 
 function mergeById(items: UnifiedData[]): UnifiedData[] {
   return [...new Map(items.map((item) => [item.id, item])).values()];
@@ -138,16 +142,19 @@ export async function POST(request: NextRequest) {
           toolId: execution.toolId,
           toolVersion: execution.toolVersion,
           durationMs: execution.durationMs,
-          sources: execution.result.sources,
-          warnings: execution.result.warnings,
+          output: execution.result.data,
+          previewSummary: execution.result.summary,
+          requiresUserApproval: false,
         },
       });
-    } catch (error) {
-      console.warn("[coffeeTide] Copilot Cloud Tool failed:", error);
-      return NextResponse.json({
-        answer: `Cloud Tool을 실행하지 못했습니다. ${error instanceof Error ? error.message : "잠시 후 다시 시도해 주세요."}`,
-        cloud_tool_error: true,
-      });
+    } catch (err) {
+      return NextResponse.json(
+        {
+          answer: `도구 실행 실패: ${err instanceof Error ? err.message : "알 수 없는 오류"}`,
+          cloud_tool_error: true,
+        },
+        { status: 500 }
+      );
     }
   }
 
@@ -191,9 +198,97 @@ export async function POST(request: NextRequest) {
     : [];
   const items = mergeById([...sparkItems, ...clientItems]);
 
+  // Phase 14-06: 근거 기반 지식 검색 수행
+  let evidences: Array<{ itemId: string; title: string; excerpt: string; scoreReason: "relation" | "keyword" | "vector" | "recency" }> = [];
+  let allowedItems: UnifiedData[] = items.filter((item) => {
+    const candidate = item as UnifiedData & Partial<WorkspaceItem>;
+    return candidate.privacyScope !== "local_only" &&
+      candidate.aiPolicy !== "local_only" &&
+      candidate.aiPolicy !== "disabled";
+  });
+  try {
+    let serverItems: WorkspaceItem[] = [];
+    let relations: ItemRelation[] = [];
+    if (identity.supabase) {
+      const requestedIds = Array.from(new Set(items.map((item) => item.id))).slice(0, 80);
+      const requestedItemResult = requestedIds.length > 0
+        ? await identity.supabase
+            .from("unified_items")
+            .select("*")
+            .eq("user_id", identity.id)
+            .in("id", requestedIds)
+        : { data: [], error: null };
+      const [itemResult, relationResult] = await Promise.all([
+        identity.supabase
+          .from("unified_items")
+          .select("*")
+          .eq("user_id", identity.id)
+          .is("deleted_at", null)
+          .order("updated_at", { ascending: false })
+          .limit(500),
+        identity.supabase
+          .from("item_relations")
+          .select("*")
+          .eq("user_id", identity.id)
+          .is("deleted_at", null)
+          .limit(500),
+      ]);
+      if (requestedItemResult.error || itemResult.error || relationResult.error) {
+        throw new Error("지식 정책을 서버에서 확인하지 못했습니다.");
+      }
+      const authoritativeRows = [
+        ...(itemResult.data || []),
+        ...(requestedItemResult.data || []),
+      ];
+      serverItems = Array.from(
+        new Map(authoritativeRows.map((row) => [String(row.id), mapUnifiedItemFromDb(row)])).values()
+      );
+      relations = (relationResult.data || []).map(mapItemRelationFromDb);
+    }
+
+    const clientWorkspaceItems: WorkspaceItem[] = items.map((item) => {
+      const candidate = item as UnifiedData & Partial<WorkspaceItem>;
+      return {
+        ...item,
+        itemType: candidate.itemType ?? "task",
+        attributes: candidate.attributes ?? {},
+        version: candidate.version ?? 1,
+        privacyScope: candidate.privacyScope ?? "cloud_private",
+        aiPolicy: candidate.aiPolicy ?? "cloud_allowed",
+        updatedAt: candidate.updatedAt ?? item.created_at,
+      };
+    });
+
+    // 동일 ID는 서버 정책을 정본으로 사용하여 클라이언트가 local_only를 우회하지 못하게 합니다.
+    const workspaceMap = new Map(clientWorkspaceItems.map((item) => [item.id, item]));
+    for (const serverItem of serverItems) workspaceMap.set(serverItem.id, serverItem);
+    const workspaceItems = Array.from(workspaceMap.values());
+    const policyResult = filterItemsByExecutionPolicy(workspaceItems, "cloud_allowed");
+    const knowledgePkg = searchKnowledge(policyResult.allowed, relations, {
+      query: question,
+      executionPolicy: "cloud_allowed",
+      limit: 5,
+    });
+    evidences = knowledgePkg.evidence.map((e) => ({
+      itemId: e.itemId,
+      title: e.title,
+      excerpt: e.excerpt,
+      scoreReason: e.scoreReason,
+    }));
+    const evidenceIds = new Set(evidences.map((evidence) => evidence.itemId));
+    allowedItems = [
+      ...policyResult.allowed.filter((item) => evidenceIds.has(item.id)),
+      ...policyResult.allowed.filter((item) => !evidenceIds.has(item.id)),
+    ].slice(0, 80);
+  } catch {
+    // 로그인 사용자의 서버 정책을 확인하지 못하면 클라이언트 사본을 외부 AI에 보내지 않습니다.
+    if (identity.supabase) allowedItems = [];
+    evidences = [];
+  }
+
   const { answer, aiUsed, cloudToolExecution, cloudToolDraft } = await askCopilot(
     question,
-    items,
+    allowedItems,
     body.timezone || "Asia/Seoul",
     body.copilotConfig,
     { userId: identity.id }
@@ -201,6 +296,7 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({
     answer,
     ai_fallback: !aiUsed,
+    evidences: evidences.length > 0 ? evidences : undefined,
     ...(cloudToolExecution ? { cloud_tool_execution: cloudToolExecution } : {}),
     ...(cloudToolDraft ? { cloud_tool_draft: cloudToolDraft } : {}),
   });

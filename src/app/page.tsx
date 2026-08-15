@@ -30,6 +30,8 @@ import {
   UnifiedCategory,
   UnifiedData,
 } from "@/lib/types/unified";
+import type { KnowledgeEvidence } from "@/lib/knowledge/contracts";
+import { isWorkflowTask } from "@/lib/data/itemTypes";
 import { ACTION_LABEL, ERROR_SOURCE_LABELS, FIELD_LABEL } from "@/lib/labels";
 import {
   isWithinCollectWindow,
@@ -63,6 +65,7 @@ import { HeaderControls, Theme } from "./components/HeaderControls";
 import { UiIcon } from "./components/UiIcon";
 import { QuickAddBar } from "./components/QuickAddBar";
 import { SettingsModal } from "./components/SettingsModal";
+import { SyncConflictModal } from "./components/SyncConflictModal";
 import CafeWait from "./components/cafeWait";
 import { TaskItemCard } from "./components/TaskItemCard";
 import { CopilotComposer } from "./components/copilot/CopilotComposer";
@@ -94,6 +97,7 @@ import { SubTask } from "@/lib/types/unified";
 import { CopilotUserConfig, DEFAULT_COPILOT_CONFIG } from "@/lib/ai/harness";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { useCloudSync } from "./hooks/useCloudSync";
+import type { ExtractTasksResponse } from "@/lib/types/storage";
 import type { CalendarEventDraft } from "@/lib/calendar/types";
 import type { CloudDraftPayload } from "@/lib/cloudTools/drafts";
 import {
@@ -288,7 +292,19 @@ export default function Home() {
     loadLS<AutomationRule[]>(LS_RULES, [])
   );
   const [dismissed, setDismissed] = useState<string[]>(() => loadLS<string[]>(LS_DISMISSED, []));
-  const { fetchUserData, syncUserData } = useCloudSync();
+  const {
+    fetchUserData,
+    syncUserData,
+    syncStatus,
+    provider: cloudProvider,
+    lastSyncedAt,
+    pendingCount: syncPendingCount,
+    errorMessage: syncErrorMessage,
+    conflicts: syncConflicts,
+    retrySync,
+    resolveConflict,
+    dismissConflict,
+  } = useCloudSync();
   const cloudHydratedRef = useRef(false);
   const [followupHours, setFollowupHours] = useState(() => loadLS<number>(LS_FOLLOWUP, 24));
   const [viewWindow, setViewWindow] = useState<ViewWindowSetting>(() =>
@@ -761,6 +777,9 @@ export default function Home() {
       saveLS(LS_WORK_NOTES, next);
       return next;
     });
+    setManualItems((previous) =>
+      previous.map((item) => (item.id === taskId ? { ...item, workNote: note } : item))
+    );
   };
 
   const handleAddSubTask = (taskId: string, title: string) => {
@@ -777,6 +796,13 @@ export default function Home() {
       saveLS(LS_SUB_TASKS, next);
       return next;
     });
+    setManualItems((previous) =>
+      previous.map((item) =>
+        item.id === taskId
+          ? { ...item, subTasks: [...(item.subTasks || []), newSub] }
+          : item
+      )
+    );
   };
 
   const handleToggleSubTask = (taskId: string, subId: string) => {
@@ -787,6 +813,18 @@ export default function Home() {
       saveLS(LS_SUB_TASKS, next);
       return next;
     });
+    setManualItems((previous) =>
+      previous.map((item) =>
+        item.id === taskId
+          ? {
+              ...item,
+              subTasks: (item.subTasks || []).map((subTask) =>
+                subTask.id === subId ? { ...subTask, completed: !subTask.completed } : subTask
+              ),
+            }
+          : item
+      )
+    );
   };
 
   const handleRemoveSubTask = (taskId: string, subId: string) => {
@@ -797,6 +835,13 @@ export default function Home() {
       saveLS(LS_SUB_TASKS, next);
       return next;
     });
+    setManualItems((previous) =>
+      previous.map((item) =>
+        item.id === taskId
+          ? { ...item, subTasks: (item.subTasks || []).filter((subTask) => subTask.id !== subId) }
+          : item
+      )
+    );
   };
 
   const [toast, setToast] = useState("");
@@ -1160,17 +1205,38 @@ export default function Home() {
     if (phase !== "ready" || cloudHydratedRef.current) return;
     let cancelled = false;
 
-    void fetchUserData().then((cloudState) => {
+    const localItemsWithDetails = manualItems.map((item) => ({
+      ...item,
+      workNote: item.workNote ?? workNotes[item.id],
+      subTasks: item.subTasks ?? subTasksMap[item.id],
+    }));
+
+    void fetchUserData({
+      items: localItemsWithDetails,
+      widgets: customWidgets,
+      rules,
+      dismissedIds: dismissed,
+    }).then((cloudState) => {
       if (cancelled) return;
       if (cloudState) {
         setManualItems(cloudState.items);
         setCustomWidgets(cloudState.widgets);
         setRules(cloudState.rules);
         setDismissed(cloudState.dismissedIds);
+        const restoredWorkNotes = { ...workNotes };
+        const restoredSubTasks = { ...subTasksMap };
+        for (const item of cloudState.items) {
+          if (item.workNote) restoredWorkNotes[item.id] = item.workNote;
+          if (item.subTasks?.length) restoredSubTasks[item.id] = item.subTasks;
+        }
+        setWorkNotes(restoredWorkNotes);
+        setSubTasksMap(restoredSubTasks);
         saveLS(LS_MANUAL, cloudState.items);
         saveLS(LS_CUSTOM_WIDGETS, cloudState.widgets);
         saveLS(LS_RULES, cloudState.rules);
         saveLS(LS_DISMISSED, cloudState.dismissedIds);
+        saveLS(LS_WORK_NOTES, restoredWorkNotes);
+        saveLS(LS_SUB_TASKS, restoredSubTasks);
       } else {
         syncUserData({ items: manualItems, widgets: customWidgets, rules, dismissedIds: dismissed });
       }
@@ -1180,7 +1246,17 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
-  }, [phase, fetchUserData, syncUserData, manualItems, customWidgets, rules, dismissed]);
+  }, [
+    phase,
+    fetchUserData,
+    syncUserData,
+    manualItems,
+    customWidgets,
+    rules,
+    dismissed,
+    workNotes,
+    subTasksMap,
+  ]);
 
   useEffect(() => {
     if (phase !== "ready" || !cloudHydratedRef.current) return;
@@ -1416,9 +1492,10 @@ export default function Home() {
       buildMergedView(manualItems, [...serverMails, ...browserItems], dismissed, rules, followupHours, nowTick, viewWindow),
     [manualItems, serverMails, browserItems, dismissed, rules, followupHours, nowTick, viewWindow]
   );
+  const workflowItems = useMemo(() => merged.filter(isWorkflowTask), [merged]);
 
   const handleLogoutHandoff = useCallback(async () => {
-    const pendingItems = merged.filter((i) => i.status !== "completed");
+    const pendingItems = workflowItems.filter((i) => i.status !== "completed");
     const summary = pendingItems.map((i) => `- [ ] ${i.title}`).join("\n");
     const text = `# ☕ coffeeTide Hand-off\n\n## 🚧 내일 이어서 할 일\n${summary}`;
 
@@ -1453,7 +1530,7 @@ export default function Home() {
       showToast(`퇴근 처리가 완료되어 업무 ${pendingItems.length}건의 상태를 저장했습니다.`);
     }
   }, [
-    merged,
+    workflowItems,
     todoSectionCollapsed,
     llmSectionCollapsed,
     restSectionCollapsed,
@@ -1466,7 +1543,7 @@ export default function Home() {
   // 이벤트 핸들러에서만 호출되므로 메모이제이션하지 않는다 —
   // askCopilot(비메모)을 참조해 useCallback을 걸면 매 렌더 identity가 바뀌어 의미가 없다.
   async function handleReorderRemainingWithAI() {
-    const pendingItems = merged.filter((i) => i.status !== "completed");
+    const pendingItems = workflowItems.filter((i) => i.status !== "completed");
     if (pendingItems.length === 0) {
       showToast("현재 처리할 미완료 업무가 없습니다.");
       return;
@@ -1491,23 +1568,23 @@ export default function Home() {
 
   // H4: 데스크톱 브라우저 알림 (긴급/팔로업 초과 업무 발생 시)
   useEffect(() => {
-    if (merged.length > 0 && notifPerm === "granted") {
-      triggerTaskNotifications(merged, followupHours);
+    if (workflowItems.length > 0 && notifPerm === "granted") {
+      triggerTaskNotifications(workflowItems, followupHours);
     }
-  }, [merged, followupHours, notifPerm]);
+  }, [workflowItems, followupHours, notifPerm]);
 
-  const todoItems = merged.filter(
+  const todoItems = workflowItems.filter(
     (i) => TODO_CATS.has(i.category ?? "") && i.status !== "completed"
   );
-  const restItems = merged.filter(
+  const restItems = workflowItems.filter(
     (i) => !TODO_CATS.has(i.category ?? "") || i.status === "completed"
   );
-  const llmItems = merged.filter((i) => i.source === "llm");
-  const activeCount = merged.filter((i) => i.status !== "completed").length;
-  const urgentCount = merged.filter(
+  const llmItems = workflowItems.filter((i) => i.source === "llm");
+  const activeCount = workflowItems.filter((i) => i.status !== "completed").length;
+  const urgentCount = workflowItems.filter(
     (i) => i.category === "urgent" && i.status !== "completed"
   ).length;
-  const doneCount = manualItems.filter((i) => i.status === "completed").length;
+  const doneCount = manualItems.filter((i) => isWorkflowTask(i) && i.status === "completed").length;
 
   // ── G1: 수동 입력 / 붙여넣기 ────────────────
   async function addManual() {
@@ -1526,6 +1603,37 @@ export default function Home() {
     };
     setManualItems((prev) => [item, ...prev]);
     await classifyManualItem(item);
+  }
+
+  async function saveExpense(expense: {
+    itemId?: string;
+    title: string;
+    amount: string;
+    currency: string;
+    category?: string;
+    paymentMethod?: string;
+    merchant?: string;
+    occurredAt?: string;
+  }) {
+    try {
+      const res = await fetch("/api/expenses", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(expense),
+      });
+      if (res.ok) {
+        const saved = (await res.json()) as { item?: UnifiedData };
+        if (saved.item) {
+          setManualItems((previous) => [saved.item!, ...previous.filter((item) => item.id !== saved.item!.id)]);
+        }
+        showToast(`${expense.amount} ${expense.currency} 비용이 기록되었어요!`);
+      } else {
+        throw new Error("Expense save failed");
+      }
+    } catch {
+      showToast("비용을 기록하지 못했어요. 로그인과 네트워크 상태를 확인해 주세요.");
+      throw new Error("Expense save failed");
+    }
   }
 
   async function classifyManualItem(item: UnifiedData) {
@@ -1557,7 +1665,7 @@ export default function Home() {
         body: JSON.stringify({ text, saveToDrive: driveBackupEnabled }),
       });
       if (!res.ok) throw new Error();
-      const { tasks } = (await res.json()) as { tasks: UnifiedData[] };
+      const { tasks, drive } = (await res.json()) as ExtractTasksResponse;
       // PC IndexedDB 대용량 DB에도 옵션 켜짐 시 원문 보관
       if (rawEnabled) {
         tasks.forEach((t) => {
@@ -1567,7 +1675,11 @@ export default function Home() {
       setManualItems((prev) => [...tasks, ...prev]);
       setPasteText("");
       setShowPaste(false);
-      showToast(`할 일 ${tasks.length}건을 쏙 골라냈어요!`);
+      if (drive?.requested && drive.saved) {
+        showToast(`할 일 ${tasks.length}건을 골라내고 Drive에도 백업했어요!`);
+      } else {
+        showToast(`할 일 ${tasks.length}건을 쏙 골라냈어요!`);
+      }
     } catch {
       showToast("앗, 골라내다 놓쳤어요. 한 번만 다시 시도해 주세요.");
     } finally {
@@ -1700,9 +1812,9 @@ export default function Home() {
 
     if (cmd === "/status" || cmd === "/stats") {
       setCopilotInput("");
-      const activeCount = merged.filter((i) => i.status !== "completed").length;
-      const urgentCount = merged.filter((i) => i.category === "urgent" && i.status !== "completed").length;
-      const doneCount = manualItems.filter((i) => i.status === "completed").length;
+      const activeCount = workflowItems.filter((i) => i.status !== "completed").length;
+      const urgentCount = workflowItems.filter((i) => i.category === "urgent" && i.status !== "completed").length;
+      const doneCount = manualItems.filter((i) => isWorkflowTask(i) && i.status === "completed").length;
       const text = `**현재 업무 처리 상태**:\n\n- 대기 및 진행 중: **${activeCount}건**\n- 긴급 처리 필요: **${urgentCount}건**\n- 오늘 처리 완료: **${doneCount}건**\n\n언제든 질문이나 추가 지시를 말씀해주세요.`;
       setCopilotMessages((prev) => [...prev, { role: "ai", text }]);
       return true;
@@ -1795,6 +1907,7 @@ export default function Home() {
       const json = (await res.json()) as {
         answer?: string;
         ai_fallback?: boolean;
+        evidences?: KnowledgeEvidence[];
         calendar_draft?: CalendarEventDraft;
         cloud_tool_draft?: CloudDraftPayload;
         connections?: ConnectionState;
@@ -1822,7 +1935,12 @@ export default function Home() {
       }
       setCopilotMessages((prev) => [
         ...prev,
-        { role: "ai", text: json.answer ?? "응답이 지연되고 있습니다. 잠시 후 다시 물어봐 주세요.", fallback: json.ai_fallback },
+        {
+          role: "ai",
+          text: json.answer ?? "응답이 지연되고 있습니다. 잠시 후 다시 물어봐 주세요.",
+          fallback: json.ai_fallback,
+          evidences: json.evidences,
+        },
       ]);
     } catch {
       setCopilotMessages((prev) => [
@@ -2817,6 +2935,11 @@ export default function Home() {
               pasteBusy={pasteBusy}
               onImportPaste={importPaste}
               dynamicPasteSteps={dynamicPasteSteps}
+              onSaveExpense={saveExpense}
+              onStoredVoiceItem={(item, warnings) => {
+                setManualItems((previous) => [item, ...previous.filter((current) => current.id !== item.id)]);
+                showToast(warnings[0] ?? "음성 원본과 전사 내용을 비공개 저장소에 보관했습니다.");
+              }}
             />
           </section>
 
@@ -3071,8 +3194,8 @@ export default function Home() {
               weather={weatherData}
               collapsed={welcomeCardCollapsed}
               onToggleCollapsed={setWelcomeCardCollapsed}
-              taskCount={merged.filter((i) => i.status !== "completed" && i.status !== "dismissed").length}
-              urgentCount={merged.filter((i) => i.category === "urgent" && i.status !== "completed" && i.status !== "dismissed").length}
+              taskCount={workflowItems.filter((i) => i.status !== "completed" && i.status !== "dismissed").length}
+              urgentCount={workflowItems.filter((i) => i.category === "urgent" && i.status !== "completed" && i.status !== "dismissed").length}
             />
             <CopilotConversation
               bodyRef={copilotBodyRef}
@@ -3247,6 +3370,17 @@ export default function Home() {
             }
             showToast(checked ? "Gemini Spark 24시간 클라우드 수신이 켜졌습니다." : "Gemini Spark 수신이 꺼졌습니다.");
           }}
+          storageStatus={{
+            cloudProvider: (cloudProvider as "supabase" | "upstash" | "guest") || "guest",
+            syncState: syncStatus,
+            lastSyncedAt,
+            pendingChanges: syncPendingCount,
+            driveConnected: Boolean(connections?.google),
+            driveBackupEnabled,
+            rawLocalStorageEnabled: rawEnabled,
+            errorMessage: syncErrorMessage,
+          }}
+          onRetrySync={retrySync}
           connections={connections}
           errors={errors}
           fsaSupported={fsaSupported}
@@ -3300,6 +3434,22 @@ export default function Home() {
       )}
 
       {toast && <div className={styles.toast}>{toast}</div>}
+
+      <SyncConflictModal
+        conflict={syncConflicts[0] ?? null}
+        onClose={() => {
+          const conflict = syncConflicts[0];
+          if (conflict) dismissConflict(conflict.itemId);
+          showToast("동기화 충돌은 다음 동기화 때 다시 안내할게요.");
+        }}
+        onResolve={(choice, conflict) => {
+          void resolveConflict(choice, conflict).then((items) => {
+            const unifiedItems = items as UnifiedData[];
+            setManualItems(unifiedItems);
+            saveLS(LS_MANUAL, unifiedItems);
+          });
+        }}
+      />
 
       {/* 🌐 사이트 추가 모달 */}
       {showAddCustomModal && (

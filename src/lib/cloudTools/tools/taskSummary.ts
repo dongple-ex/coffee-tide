@@ -1,4 +1,5 @@
 import type { UnifiedData } from "@/lib/types/unified";
+import { isWorkflowTask } from "@/lib/data/itemTypes";
 import type { CloudToolDefinition } from "../types";
 
 function isActive(item: UnifiedData): boolean {
@@ -35,7 +36,8 @@ export const taskSummaryTool: CloudToolDefinition = {
   async execute(input, context) {
     const scope = input.scope === "all" ? "all" : "active";
     const groupBy = input.groupBy === "source" ? "source" : "category";
-    const selected = scope === "all" ? context.items : context.items.filter(isActive);
+    const taskItems = context.items.filter(isWorkflowTask);
+    const selected = scope === "all" ? taskItems : taskItems.filter(isActive);
     const groups: Record<string, number> = {};
     for (const item of selected) {
       const key = groupBy === "source" ? item.source : item.category ?? "unclassified";
@@ -67,7 +69,7 @@ export const taskSummaryTool: CloudToolDefinition = {
       data: { scope, groupBy, counts, groups },
       sources: [{ label: "현재 CoffeeTide 업무 화면" }],
       warnings:
-        context.items.length >= 80
+        taskItems.length >= 80
           ? ["Copilot 요청 상한인 80개 항목 안에서 집계했습니다."]
           : [],
     };

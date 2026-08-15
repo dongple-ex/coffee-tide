@@ -1,0 +1,272 @@
+/* QuickCapture.module.css - CoffeeTide CSS Module Styles */
+
+.quickCaptureContainer {
+  background: var(--bg-card, rgba(24, 24, 27, 0.45));
+  border: 1px solid var(--border-color, rgba(63, 63, 70, 0.6));
+  border-radius: 16px;
+  padding: 14px;
+  margin-bottom: 16px;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.tabHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border-subtle, rgba(63, 63, 70, 0.4));
+  padding-bottom: 10px;
+  margin-bottom: 12px;
+}
+
+.tabButtonGroup {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tabButton {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted, #a1a1aa);
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tabButton:hover {
+  color: var(--text-main, #f4f4f5);
+  background: var(--bg-hover, rgba(255, 255, 255, 0.05));
+}
+
+.tabButtonActive {
+  background: var(--primary-subtle, rgba(99, 102, 241, 0.15));
+  color: var(--primary-light, #a5b4fc);
+  border-color: var(--primary-border, rgba(99, 102, 241, 0.35));
+}
+
+.micButton {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: var(--bg-surface, rgba(39, 39, 42, 0.6));
+  border: 1px solid var(--border-color, rgba(63, 63, 70, 0.6));
+  color: var(--text-main, #f4f4f5);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+.micButton:hover {
+  background: var(--primary-subtle, rgba(99, 102, 241, 0.2));
+  border-color: var(--primary-border, rgba(99, 102, 241, 0.4));
+  color: #fff;
+}
+
+/* 입력 폼 공통 스타일 */
+.inputForm {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.inputRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.textInput {
+  flex: 1;
+  min-height: 44px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--bg-input, rgba(18, 18, 20, 0.8));
+  border: 1px solid var(--border-color, rgba(63, 63, 70, 0.6));
+  color: var(--text-main, #f4f4f5);
+  font-size: 0.88rem;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.textInput:focus {
+  border-color: var(--primary-color, #6366f1);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+}
+
+.textArea {
+  width: 100%;
+  min-height: 90px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--bg-input, rgba(18, 18, 20, 0.8));
+  border: 1px solid var(--border-color, rgba(63, 63, 70, 0.6));
+  color: var(--text-main, #f4f4f5);
+  font-size: 0.85rem;
+  resize: vertical;
+  outline: none;
+  font-family: inherit;
+}
+
+.textArea:focus {
+  border-color: var(--primary-color, #6366f1);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+}
+
+.submitButton {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 10px 18px;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: var(--primary-color, #4f46e5);
+  color: #ffffff;
+  border: none;
+  transition: background-color 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+.submitButton:hover:not(:disabled) {
+  background: var(--primary-hover, #4338ca);
+}
+
+.submitButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.secondaryButton {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-size: 0.82rem;
+  cursor: pointer;
+  background: var(--bg-surface, rgba(39, 39, 42, 0.6));
+  border: 1px solid var(--border-color, rgba(63, 63, 70, 0.6));
+  color: var(--text-muted, #a1a1aa);
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.secondaryButton:hover:not(:disabled) {
+  color: var(--text-main, #f4f4f5);
+  background: var(--bg-hover, rgba(255, 255, 255, 0.08));
+}
+
+.checkboxLabel {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: var(--text-muted, #a1a1aa);
+  cursor: pointer;
+  user-select: none;
+}
+
+.cardPreview {
+  background: var(--bg-surface, rgba(24, 24, 27, 0.7));
+  border: 1px solid var(--border-subtle, rgba(63, 63, 70, 0.5));
+  border-radius: 12px;
+  padding: 12px;
+  margin-top: 8px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.72rem;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-weight: 600;
+}
+
+.badgeInfo {
+  background: rgba(99, 102, 241, 0.15);
+  color: #a5b4fc;
+  border: 1px solid rgba(99, 102, 241, 0.3);
+}
+
+.badgeWarning {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fcd34d;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.errorMessage {
+  padding: 8px 10px;
+  color: #b91c1c;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: 8px;
+  font-size: 0.75rem;
+}
+
+.expenseSummary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  align-items: center;
+  padding: 9px 10px;
+  color: var(--text-muted, #71717a);
+  background: var(--bg-surface, rgba(24, 24, 27, 0.05));
+  border: 1px solid var(--border-subtle, rgba(63, 63, 70, 0.18));
+  border-radius: 9px;
+  font-size: 0.74rem;
+}
+
+/* 모달 오버레이 */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 16px;
+}
+
+.modalContent {
+  background: var(--bg-card-solid, #18181b);
+  border: 1px solid var(--border-color, rgba(63, 63, 70, 0.8));
+  border-radius: 18px;
+  padding: 20px;
+  max-width: 440px;
+  width: 100%;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+}
+
+@media (max-width: 640px) {
+  .quickCaptureContainer {
+    padding: 10px;
+    border-radius: 12px;
+  }
+  .tabButton {
+    padding: 6px 10px;
+    font-size: 0.78rem;
+  }
+}

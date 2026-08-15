@@ -1,12 +1,13 @@
 // 붙여넣기 가져오기 — 메모/메일/회의록 텍스트에서 업무 추출 (G1 paste 경로).
 // 추출 결과는 클라이언트가 localStorage에 저장하는 1급 'paste' 소스가 된다.
-// 구글 연동 세션이 있을 경우, Google Drive 'CoffeeTide/YYYY-MM-DD/' 일자별 폴더에 원문을 마크다운 파일로 자동 저장합니다.
+// 구글 연동 세션이 있고 saveToDrive가 활성화된 경우에만 Google Drive 'CoffeeTide/YYYY-MM-DD/' 일자별 폴더에 원문을 마크다운 파일로 저장합니다.
 
 import { NextRequest, NextResponse } from "next/server";
 import { classifyTasks, extractTasks } from "@/lib/ai/gemini";
 import { unauthorized } from "@/lib/auth/cookies";
 import { readSessionWithIntegrations } from "@/lib/auth/integrationStore";
-import { UnifiedData } from "@/lib/types/unified";
+import type { ExtractTasksRequest, ExtractTasksResponse } from "@/lib/types/storage";
+import type { UnifiedData } from "@/lib/types/unified";
 
 async function getDriveFolderId(token: string, folderName: string, parentId?: string): Promise<string | null> {
   let query = `mimeType='application/vnd.google-apps.folder' and name='${folderName}' and trashed=false`;
@@ -14,6 +15,9 @@ async function getDriveFolderId(token: string, folderName: string, parentId?: st
   const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id)`, {
     headers: { Authorization: `Bearer ${token}` },
   });
+  if (res.status === 401 || res.status === 403) {
+    throw new Error(`Failed to search Drive folder: HTTP ${res.status}`);
+  }
   if (!res.ok) return null;
   const data = (await res.json()) as { files?: Array<{ id: string }> };
   return data.files && data.files.length > 0 ? data.files[0].id : null;
@@ -30,12 +34,15 @@ async function createDriveFolder(token: string, folderName: string, parentId?: s
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify(bodyData),
   });
-  if (!res.ok) throw new Error("Failed to create Drive folder");
+  if (!res.ok) throw new Error(`Failed to create Drive folder: HTTP ${res.status}`);
   const data = (await res.json()) as { id: string };
   return data.id;
 }
 
-async function saveToGoogleDriveDaily(token: string, text: string): Promise<{ driveUrl?: string }> {
+export async function saveToGoogleDriveDaily(
+  token: string,
+  text: string
+): Promise<{ saved: boolean; url?: string; reason?: "auth_expired" | "write_failed" }> {
   try {
     const today = new Date();
     const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
@@ -59,48 +66,80 @@ async function saveToGoogleDriveDaily(token: string, text: string): Promise<{ dr
     form.append("metadata", new Blob([JSON.stringify(metadata)], { type: "application/json" }));
     form.append("file", new Blob([fileContent], { type: "text/markdown" }), fileName);
 
-    const res = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-      body: form,
-    });
+    const res = await fetch(
+      "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink",
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: form,
+      }
+    );
 
     if (res.ok) {
       const data = (await res.json()) as { id?: string; webViewLink?: string };
-      return { driveUrl: data.webViewLink };
+      return { saved: true, url: data.webViewLink };
     }
+
+    if (res.status === 401 || res.status === 403) {
+      return { saved: false, reason: "auth_expired" };
+    }
+    return { saved: false, reason: "write_failed" };
   } catch (err) {
-    console.warn("[tasks/extract] Google Drive daily backup skipped:", err);
+    const message = err instanceof Error ? err.message : "unknown error";
+    console.warn("[tasks/extract] Google Drive daily backup skipped:", message);
+    if (message.includes("HTTP 401") || message.includes("HTTP 403")) {
+      return { saved: false, reason: "auth_expired" };
+    }
+    return { saved: false, reason: "write_failed" };
   }
-  return {};
 }
 
 export async function POST(request: NextRequest) {
   const session = await readSessionWithIntegrations();
   if (!session) return unauthorized();
 
-  const body = (await request.json().catch(() => ({}))) as { text?: string };
+  const body = (await request.json().catch(() => ({}))) as ExtractTasksRequest;
   const text = body.text?.trim();
   if (!text) {
     return NextResponse.json({ error: "text가 필요합니다" }, { status: 400 });
   }
 
-  // 구글 연동 세션이 있을 경우 Google Drive CoffeeTide/YYYY-MM-DD 폴더에 원문 마크다운 파일 자동 업로드
-  let driveUrl: string | undefined;
-  if (session.googleToken) {
-    const driveRes = await saveToGoogleDriveDaily(session.googleToken, text);
-    driveUrl = driveRes.driveUrl;
+  const saveToDriveRequested = Boolean(body.saveToDrive);
+  let driveResult: ExtractTasksResponse["drive"];
+
+  if (!saveToDriveRequested) {
+    driveResult = {
+      requested: false,
+      saved: false,
+      reason: "not_requested",
+    };
+  } else if (!session.googleToken) {
+    driveResult = {
+      requested: true,
+      saved: false,
+      reason: "not_connected",
+    };
+  } else {
+    const backupRes = await saveToGoogleDriveDaily(session.googleToken, text);
+    driveResult = {
+      requested: true,
+      saved: backupRes.saved,
+      url: backupRes.url,
+      reason: backupRes.reason,
+    };
   }
 
   const extracted = await extractTasks(text);
   const now = Date.now();
+  const driveUrl = driveResult.saved ? driveResult.url : undefined;
+
   const items: UnifiedData[] = extracted.map((t, i) => ({
     id: `paste-${now}-${i}`,
     source: "paste",
     title: t.title,
     content: t.content,
     rawContent: text, // 사용자가 입력/붙여넣은 원문 텍스트 전체
-    driveUrl, // Google Drive 일자별 저장 링크
+    driveUrl, // Google Drive 일자별 저장 링크 (성공 시에만)
     created_at: new Date().toISOString(),
     author: { name: session.userEmail },
     url: driveUrl ?? "",
@@ -108,5 +147,11 @@ export async function POST(request: NextRequest) {
   }));
 
   const { items: classified } = await classifyTasks(items);
-  return NextResponse.json({ tasks: classified, driveUrl });
+  const response: ExtractTasksResponse = {
+    tasks: classified,
+    drive: driveResult,
+    driveUrl,
+  };
+
+  return NextResponse.json(response);
 }

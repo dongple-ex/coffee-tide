@@ -1,8 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { UnifiedData, UnifiedCategory } from "../types/unified";
+import { UnifiedData } from "../types/unified";
 import { CustomWidgetConfig } from "@/app/components/CustomNewsWidget";
 import { AutomationRule } from "../automation/rules";
 import { getActiveDbProvider } from "./client";
+import { mapUnifiedItemFromDb } from "../data/mappers";
 
 export interface UserCloudState {
   items: UnifiedData[];
@@ -12,24 +13,6 @@ export interface UserCloudState {
 }
 
 type DbRow = Record<string, unknown>;
-
-function mapUnifiedItem(row: DbRow): UnifiedData {
-  return {
-    id: String(row.id),
-    source: row.source as UnifiedData["source"],
-    sourceApp: row.source_app ? String(row.source_app) : undefined,
-    title: String(row.title),
-    content: String(row.content || ""),
-    created_at: String(row.created_at),
-    author: (row.author as { name: string }) || { name: "System" },
-    url: String(row.url || ""),
-    category: row.category as UnifiedCategory,
-    actionDirective: row.action_directive ? String(row.action_directive) : undefined,
-    status: row.status as UnifiedData["status"],
-    workNote: row.work_note ? String(row.work_note) : undefined,
-    subTasks: row.sub_tasks as UnifiedData["subTasks"],
-  };
-}
 
 async function supabaseSyncGet(
   supabase: SupabaseClient,
@@ -48,13 +31,14 @@ async function supabaseSyncGet(
     return null;
   }
 
-  const hasCloudState = Boolean(profileResult.data) ||
+  const hasCloudState =
+    Boolean(profileResult.data) ||
     (itemsResult.data?.length ?? 0) > 0 ||
     (widgetsResult.data?.length ?? 0) > 0 ||
     (rulesResult.data?.length ?? 0) > 0;
   if (!hasCloudState) return null;
 
-  const items = (itemsResult.data as DbRow[]).map(mapUnifiedItem);
+  const items = (itemsResult.data as DbRow[]).map(mapUnifiedItemFromDb);
   const widgets: CustomWidgetConfig[] = (widgetsResult.data as DbRow[]).map((row) => ({
     id: String(row.id),
     name: String(row.name),
@@ -78,7 +62,7 @@ async function supabaseSyncGet(
 
 async function replaceUserRows(
   supabase: SupabaseClient,
-  table: "unified_items" | "user_widgets" | "user_rules",
+  table: "user_widgets" | "user_rules",
   userId: string,
   rows: Array<Record<string, unknown>>
 ): Promise<boolean> {
@@ -132,23 +116,6 @@ async function supabaseSyncSave(
     return false;
   }
 
-  const dbItems = state.items.map((item) => ({
-    id: item.id,
-    user_id: userId,
-    source: item.source,
-    source_app: item.sourceApp,
-    title: item.title,
-    content: item.content,
-    created_at: item.created_at,
-    author: item.author,
-    url: item.url,
-    category: item.category,
-    action_directive: item.actionDirective,
-    status: item.status,
-    work_note: item.workNote,
-    sub_tasks: item.subTasks,
-    updated_at: new Date().toISOString(),
-  }));
   const dbWidgets = state.widgets.map((widget) => ({
     id: widget.id,
     user_id: userId,
@@ -167,7 +134,6 @@ async function supabaseSyncSave(
   }));
 
   const results = await Promise.all([
-    replaceUserRows(supabase, "unified_items", userId, dbItems),
     replaceUserRows(supabase, "user_widgets", userId, dbWidgets),
     replaceUserRows(supabase, "user_rules", userId, dbRules),
   ]);

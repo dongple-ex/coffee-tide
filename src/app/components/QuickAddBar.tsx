@@ -1,9 +1,15 @@
 "use client";
 
-import React from "react";
-import CafeWait from "./cafeWait";
+import React, { useState } from "react";
+import type { UnifiedData } from "@/lib/types/unified";
 import { UiIcon } from "./UiIcon";
+import { VoiceCaptureSheet } from "./quickCapture/VoiceCaptureSheet";
+import { ExpenseCapture } from "./quickCapture/ExpenseCapture";
+import CafeWait from "./cafeWait";
 import styles from "../page.module.css";
+import captureStyles from "./quickCapture/QuickCapture.module.css";
+
+export type QuickAddMode = "task" | "note" | "expense";
 
 export interface QuickAddBarProps {
   quickTitle: string;
@@ -16,6 +22,17 @@ export interface QuickAddBarProps {
   pasteBusy: boolean;
   onImportPaste: () => void;
   dynamicPasteSteps: string[];
+  onSaveExpense?: (expense: {
+    itemId?: string;
+    title: string;
+    amount: string;
+    currency: string;
+    category?: string;
+    paymentMethod?: string;
+    merchant?: string;
+    occurredAt?: string;
+  }) => Promise<void>;
+  onStoredVoiceItem?: (item: UnifiedData, warnings: string[]) => void;
 }
 
 export function QuickAddBar({
@@ -29,40 +46,130 @@ export function QuickAddBar({
   pasteBusy,
   onImportPaste,
   dynamicPasteSteps,
+  onSaveExpense,
+  onStoredVoiceItem,
 }: QuickAddBarProps) {
+  const [activeMode, setActiveMode] = useState<QuickAddMode>("task");
+  const [isVoiceOpen, setIsVoiceOpen] = useState(false);
+  const [voiceExpenseText, setVoiceExpenseText] = useState("");
+  const [voiceExpenseVersion, setVoiceExpenseVersion] = useState(0);
+
+  const handleVoiceTranscript = (transcriptText: string) => {
+    if (activeMode === "task") {
+      onQuickTitleChange(transcriptText);
+    } else if (activeMode === "note") {
+      onPasteTextChange(transcriptText);
+      if (!showPaste) onToggleShowPaste();
+    } else if (activeMode === "expense" && onSaveExpense) {
+      setVoiceExpenseText(transcriptText);
+      setVoiceExpenseVersion((version) => version + 1);
+    }
+  };
+
   return (
     <div>
       <div
         className={styles.cardTitle}
-        style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}
+        style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 8 }}
       >
-        <span className={styles.sectionTitleLabel}><UiIcon name="plus" size={17} />빠른 업무 추가</span>
-        <button
-          type="button"
-          className={`${styles.btn} ${styles.cardTitleBtn}`}
-          onClick={onToggleShowPaste}
-          aria-expanded={showPaste}
-          style={{ fontSize: "0.78rem", padding: "4px 10px" }}
-        >
-          {showPaste ? "접기" : "메모·회의록 붙여넣기"}
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span className={styles.sectionTitleLabel}>
+            <UiIcon name="plus" size={17} />빠른 추가
+          </span>
+          {/* 모드 전환 탭 */}
+          <div className={captureStyles.tabButtonGroup} style={{ marginLeft: 8 }}>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveMode("task");
+                if (showPaste) onToggleShowPaste();
+              }}
+              className={`${captureStyles.tabButton} ${activeMode === "task" ? captureStyles.tabButtonActive : ""}`}
+              style={{ padding: "4px 10px", fontSize: "0.76rem" }}
+            >
+              업무
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveMode("note");
+                if (!showPaste) onToggleShowPaste();
+              }}
+              className={`${captureStyles.tabButton} ${activeMode === "note" ? captureStyles.tabButtonActive : ""}`}
+              style={{ padding: "4px 10px", fontSize: "0.76rem" }}
+            >
+              메모·회의록
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveMode("expense");
+                if (showPaste) onToggleShowPaste();
+              }}
+              className={`${captureStyles.tabButton} ${activeMode === "expense" ? captureStyles.tabButtonActive : ""}`}
+              style={{ padding: "4px 10px", fontSize: "0.76rem" }}
+            >
+              비용
+            </button>
+          </div>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <button
+            type="button"
+            className={`${styles.btn} ${styles.cardTitleBtn}`}
+            onClick={() => setIsVoiceOpen(true)}
+            style={{ fontSize: "0.76rem", padding: "4px 8px", minHeight: 44, display: "inline-flex", alignItems: "center", gap: 4 }}
+            title="음성으로 입력하기"
+          >
+            <span>🎤</span> 음성
+          </button>
+          {activeMode !== "expense" && (
+            <button
+              type="button"
+              className={`${styles.btn} ${styles.cardTitleBtn}`}
+              onClick={onToggleShowPaste}
+              aria-expanded={showPaste}
+              style={{ fontSize: "0.78rem", padding: "4px 10px", minHeight: 44 }}
+            >
+              {showPaste ? "접기" : "붙여넣기 창"}
+            </button>
+          )}
+        </div>
       </div>
 
-      <div className={styles.formRow}>
-        <input
-          className={styles.input}
-          placeholder="예: 내일까지 주간 보고서 제출"
-          value={quickTitle}
-          onChange={(e) => onQuickTitleChange(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && onAddManual()}
-          aria-label="빠른 업무 추가 입력"
+      {activeMode === "task" && (
+        <div className={styles.formRow}>
+          <input
+            className={styles.input}
+            placeholder="예: 내일까지 주간 보고서 제출"
+            value={quickTitle}
+            onChange={(e) => onQuickTitleChange(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && onAddManual()}
+            aria-label="빠른 업무 추가 입력"
+            style={{ minHeight: 44 }}
+          />
+          <button
+            className={`${styles.btn} ${styles.btnPrimary}`}
+            onClick={onAddManual}
+            style={{ minHeight: 44, minWidth: 44 }}
+          >
+            추가
+          </button>
+        </div>
+      )}
+
+      {activeMode === "expense" && onSaveExpense && (
+        <ExpenseCapture
+          key={`expense-${voiceExpenseVersion}`}
+          onSaveExpense={onSaveExpense}
+          isLoading={pasteBusy}
+          initialText={voiceExpenseText}
+          onInitialTextConsumed={() => setVoiceExpenseText("")}
         />
-        <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={onAddManual}>
-          추가
-        </button>
-      </div>
+      )}
 
-      {showPaste && (
+      {showPaste && activeMode !== "expense" && (
         <div
           style={{
             marginTop: 10,
@@ -84,12 +191,21 @@ export function QuickAddBar({
               className={`${styles.btn} ${styles.btnPrimary}`}
               disabled={pasteBusy || !pasteText.trim()}
               onClick={onImportPaste}
+              style={{ minHeight: 44 }}
             >
               {pasteBusy ? <CafeWait steps={dynamicPasteSteps} interval={1200} /> : "할 일 골라내기"}
             </button>
           </div>
         </div>
       )}
+
+      <VoiceCaptureSheet
+        isOpen={isVoiceOpen}
+        onClose={() => setIsVoiceOpen(false)}
+        onTranscript={handleVoiceTranscript}
+        onStoredVoiceItem={onStoredVoiceItem}
+        targetMode={activeMode}
+      />
     </div>
   );
 }

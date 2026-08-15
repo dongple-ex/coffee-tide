@@ -108,7 +108,7 @@ coffeeTide는 여러 채널의 업무 데이터를 하나의 대시보드로 통
 | `/api/auth/obsidian` · `local-doc` · `llm` | POST | 폴더 경로 저장/해제 (존재 검증 포함) |
 | `/api/mails` | GET | 멀티채널 병렬 수집 + 토큰 리프레시 + AI 분류 + LLM 다이제스트 자동 미러링 |
 | `/api/copilot` | POST | Copilot 브리핑 — body의 `items`(클라 병합 목록)+`timezone`으로 무연동 동작(G3), 서버가 기준일 주입(G4) |
-| `/api/tasks/extract` | POST | 붙여넣기 텍스트 → paste 업무 추출+분류 (G1) |
+| `/api/tasks/extract` | POST | 붙여넣기 텍스트 → paste 업무 추출+분류 (G1). `saveToDrive=true`일 때만 Google Drive 일자별 마크다운 저장 시도 및 `drive` 결과 상태 반환 (`not_requested`, `not_connected`, `auth_expired`, `write_failed`) |
 | `/api/tasks/classify` | POST | manual 항목 분류·행동지침 부여 (G1) |
 | `/api/tasks/update` | POST | Notion 페이지 완료 / Obsidian 체크박스 완료 write-back |
 | `/api/tasks/capture` | POST | 항목을 Notion 페이지/Obsidian 수집함으로 저장 |
@@ -126,6 +126,18 @@ coffeeTide는 여러 채널의 업무 데이터를 하나의 대시보드로 통
 | `/api/push/subscribe` · `unsubscribe` | POST | 웹 푸시 구독 등록(발송 시각·타임존 포함)/해제 (H5) |
 | `/api/push/state` | POST | 업무 스냅샷 동기화 — 스케줄 발송의 데이터 소스 (2초 디바운스, 최대 50건) |
 | `/api/push/test` | POST | 즉시 테스트 알림 발송 |
+| `/api/sync/changes` | GET | Cursor 기반 항목 증분 동기화 및 tombstone 조회 (Phase 14-03) |
+| `/api/sync/mutations` | POST | 낙관적 잠금 버전 검사 및 멱등성 배치 변경 반영 (Phase 14-03) |
+| `/api/sync/status` | GET | 사용자 동기화 메타데이터 및 활성 항목 건수 조회 (Phase 14-03) |
+| `/api/assets` | GET/POST | 비공개 첨부·원문 메타데이터 조회 및 생성 (Phase 14-04) |
+| `/api/relations` | GET/POST | 자료 간 명시적·AI 관계 목록 조회 및 등록 (Phase 14-04) |
+| `/api/ai/artifacts` | GET/POST | AI 파생 결과(요약·전사·추출) 조회 및 생성 (Phase 14-04) |
+| `/api/expenses` | GET/POST | 비용 구조화 항목 목록 조회 및 생성 트랜잭션 (Phase 14-05) |
+| `/api/expenses/parse` | POST | 자연어 텍스트 비용 정보 AI/규칙 구조화 파싱 (Phase 14-05) |
+| `/api/expenses/summary` | GET | 기간 및 통화별 비용 합산 요약 집계 (Phase 14-05) |
+| `/api/voice/transcribe` | POST | 음성 오디오 멀티모달 STT 전사 및 선택적 원본 보관 (Phase 14-05) |
+| `/api/knowledge/search` | POST | 개인정보 정책 및 관계 기반 지식 검색 (Phase 14-06) |
+| `/api/knowledge/context` | POST | AI 바리스타 답변용 Grounded Context 패키지 빌드 (Phase 14-06) |
 | `/api/briefing/daily` | GET/POST | 브리핑 발송 트리거 — 공개 경로, `CRON_SECRET` Bearer 인증 (Vercel Cron용) |
 
 ## 5. AI & 자동화
@@ -185,7 +197,7 @@ coffeeTide는 여러 채널의 업무 데이터를 하나의 대시보드로 통
 - 채널당 10건 고정 (C3), hide/dismiss 이원화 (D4)
 - AI 분류 캐시는 서버 메모리 `Map`으로 선언돼 있으나 현재 결과 저장 코드가 없어 실질적으로 동작하지 않음
 - 실제 로컬 모델 추론은 미구현. 현재 로컬 AI 표시는 규칙 기반 `FallbackEngine` 또는 LLM 산출물 파일 스캔을 뜻함 ([`08-local-ai-enhancement-plan.md`](./08-local-ai-enhancement-plan.md))
-- `page.tsx` 2,351줄 — 분할 진행 중, 목표 1,000줄 (**K10** 5단계 남음)
+- `page.tsx` 3,561줄 — 분할 진행 중, 목표 1,000줄 (**K10** 5단계 남음)
 
 ## 8. 코드 구조 (K10 분할 반영, 2026-07-27)
 
@@ -200,3 +212,22 @@ src/app/page.tsx    상태 소유 + 데이터 흐름 (표현은 위 컴포넌트
 
 - 분리한 컴포넌트는 `page.module.css`를 그대로 import합니다(CSS 모듈 다중 import). CSS 분할은 K10 5단계.
 - 컴포넌트는 값 + `onChange` 콜백만 받는 표현 컴포넌트이며, 상태와 영속화는 `page.tsx`가 소유합니다.
+
+## 9. 데이터·저장소·AI 지식 아키텍처 (Phase 14 구현 현황)
+
+- **데이터 정본**: 로그인한 클라우드 사용자는 Supabase Postgres를 공통 정본으로 사용하고, localStorage와 IndexedDB를 기존 호환·오프라인 계층으로 유지한다 (`unified_items`, `expense_entries`, `content_assets`, `item_relations`, `ai_artifacts`).
+- **커서 페이지 동기화 계층 (`/api/sync/*`)**:
+  - `(updated_at, id)` 복합 커서 기반 페이지 수신 (`/api/sync/changes`). 현재 클라이언트는 안전한 전체 병합을 위해 첫 커서부터 모든 페이지를 읽는다.
+  - `.eq("version", baseVersion)` 원자적 낙관적 잠금 및 중복 멱등성 처리 (`/api/sync/mutations`).
+  - 브라우저 IndexedDB 큐(`mutationQueue`)를 통한 오프라인 우선 영속화 및 자동 온라인 플러시 (`useCloudSync`).
+- **비공개 스토리지 & 자산 관리**:
+  - Supabase Storage `private-assets` 버킷 및 RLS 정책을 통한 음성/문서 원본 격리.
+  - 단기(60초) 서명된 다운로드 URL API (`/api/assets/[id]/download`).
+- **빠른 캡처 & 비용 관리**:
+  - QuickAddBar (업무, 메모·회의록, 비용, 음성) 탭 기반 캡처 UI (`QuickCapture.module.css`, 44px 터치 타깃).
+  - 지출 원장 영구 저장 및 요약 통계 API (`/api/expenses`, `/api/expenses/summary`).
+- **AI 지식 검색 & 근거 기반 바리스타**:
+  - `privacyScope` 및 `aiPolicy`를 준수하는 정책 기반 지식 검색 (`searchKnowledge()`).
+  - AI 바리스타 답변 하단 근거 자료 표시 패널 (`EvidencePanel`) 및 업무 카드 원문·연관자료 패널 (`SourceAndRelationsPanel`).
+
+> Phase 14는 자동 검사(`lint`, `typecheck`, `test`, `build`)를 통과했지만, 원격 Supabase RLS·실제 다중 기기·모바일 수동 검증은 아직 완료 게이트가 아니다. 세부 상태는 [`phase14-00-execution-roadmap.md`](./spec/phase14-00-execution-roadmap.md)를 따른다.

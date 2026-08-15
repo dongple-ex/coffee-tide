@@ -7,6 +7,7 @@ import { CommuteConfig } from "@/lib/types/commute";
 import { ConnectionState } from "@/lib/types/unified";
 import { BrowserFolderInfo, BrowserFolderKind } from "@/lib/browser/localFolders";
 import { CopilotUserConfig } from "@/lib/ai/harness";
+import type { DataStorageStatus } from "@/lib/types/storage";
 import { CopilotCustomSection } from "./settings/CopilotCustomSection";
 import { AutomationRulesSection } from "./settings/AutomationRulesSection";
 import { ConnectionsSection } from "./settings/ConnectionsSection";
@@ -16,6 +17,7 @@ import { ShortcutsSection } from "./settings/ShortcutsSection";
 import { YouTubeBundleSection } from "./settings/YouTubeBundleSection";
 import { WeatherSection } from "./settings/WeatherSection";
 import { LocalToolsSection } from "./settings/LocalToolsSection";
+import { DataStorageSection } from "./settings/DataStorageSection";
 import { WeatherData } from "./WelcomeCard";
 import styles from "../page.module.css";
 
@@ -60,6 +62,8 @@ export interface SettingsModalProps {
   onChangeDriveBackupEnabled: (enabled: boolean) => void;
   sparkEnabled: boolean;
   onChangeSparkEnabled: (enabled: boolean) => void;
+  storageStatus?: DataStorageStatus;
+  onRetrySync?: () => void;
   connections: ConnectionState | null;
   errors?: Partial<Record<string, string>>;
   fsaSupported: boolean;
@@ -119,6 +123,8 @@ export function SettingsModal({
   onChangeDriveBackupEnabled,
   sparkEnabled,
   onChangeSparkEnabled,
+  storageStatus,
+  onRetrySync,
   connections,
   errors,
   fsaSupported,
@@ -153,6 +159,15 @@ export function SettingsModal({
       setAccountDeleteBusy(false);
     }
   }
+
+  const defaultStorageStatus: DataStorageStatus = storageStatus ?? {
+    cloudProvider: "guest",
+    syncState: "guest",
+    pendingChanges: 0,
+    driveConnected: Boolean(connections?.google),
+    driveBackupEnabled,
+    rawLocalStorageEnabled: rawEnabled,
+  };
 
   return (
     <div className={`${styles.overlay} ${styles.overlayTop}`} onClick={onClose}>
@@ -255,6 +270,9 @@ export function SettingsModal({
             </div>
           </div>
         </div>
+
+        {/* 💾 데이터 및 보관 상태 요약 */}
+        <DataStorageSection storageStatus={defaultStorageStatus} onRetrySync={onRetrySync} />
 
         <CopilotCustomSection
           config={copilotConfig}

@@ -1,12 +1,11 @@
 // AI 바리스타 대화 — 메시지 배열을 질문/답변 쌍으로 묶는다.
-//
-// 렌더링(대화 목록)과 미읽음 표시(unread 배지) 두 곳에서 같은 묶음이 필요하다.
-// 각자 따로 계산하면 두 화면의 id가 어긋나 배지가 엉뚱한 쌍에 붙는다.
+import type { KnowledgeEvidence } from "./knowledge/contracts";
 
 export interface CopilotMessage {
   role: "user" | "ai";
   text: string;
   fallback?: boolean;
+  evidences?: KnowledgeEvidence[];
 }
 
 export interface QaPair {
@@ -14,6 +13,7 @@ export interface QaPair {
   userText?: string;
   aiText?: string;
   fallback?: boolean;
+  evidences?: KnowledgeEvidence[];
 }
 
 export function buildQaPairs(messages: CopilotMessage[]): QaPair[] {
@@ -29,8 +29,14 @@ export function buildQaPairs(messages: CopilotMessage[]): QaPair[] {
     if (current && !current.aiText) {
       current.aiText = msg.text;
       current.fallback = msg.fallback;
+      current.evidences = msg.evidences;
     } else {
-      current = { id: `qa-ai-${idx}`, aiText: msg.text, fallback: msg.fallback };
+      current = {
+        id: `qa-ai-${idx}`,
+        aiText: msg.text,
+        fallback: msg.fallback,
+        evidences: msg.evidences,
+      };
       pairs.push(current);
     }
   });
