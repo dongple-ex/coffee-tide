@@ -1,13 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import {
-  mapAiArtifactToDbRow,
-  mapContentAssetToDbRow,
-  mapUnifiedItemFromDb,
-  mapUnifiedItemToDbRow,
-} from "@/lib/data/mappers";
-import { buildContentAsset } from "@/lib/assets/service";
-import { buildAiArtifact } from "@/lib/ai/artifacts";
+
+export interface MeetingTranscriptSegment {
+  speaker: string;
+  text: string;
+}
 
 const ALLOWED_MIME_TYPES = new Set([
   "audio/webm",
@@ -26,15 +23,7 @@ const ALLOWED_MIME_TYPES = new Set([
 const MAX_AUDIO_SIZE_BYTES = 4 * 1024 * 1024;
 const MAX_AUDIO_DURATION_SECONDS = 10 * 60;
 
-function audioExtension(mimeType: string): string {
-  const baseMime = mimeType.split(";")[0].toLowerCase();
-  if (baseMime === "audio/mp4" || baseMime === "audio/x-m4a") return ".m4a";
-  if (baseMime === "audio/mpeg" || baseMime === "audio/mp3") return ".mp3";
-  if (baseMime === "audio/wav" || baseMime === "audio/x-wav") return ".wav";
-  if (baseMime === "audio/ogg") return ".ogg";
-  if (baseMime === "audio/aac") return ".aac";
-  return ".webm";
-}
+
 
 export async function POST(req: NextRequest) {
   // 1. 인증 확인
@@ -55,8 +44,6 @@ export async function POST(req: NextRequest) {
     const formData = await req.formData();
     const file = formData.get("audio") as File | null;
     const mode = String(formData.get("mode") || "dictation");
-    const retainOriginal = formData.get("retainOriginal") === "true";
-    const itemId = String(formData.get("itemId") || `voice-${Date.now()}`);
     const durationSeconds = Number(formData.get("durationSeconds") || 0);
 
     if (!file) {
@@ -101,7 +88,7 @@ export async function POST(req: NextRequest) {
 
     const promptText =
       mode === "meeting"
-        ? "이 회의 오디오를 한국어로 정확하게 전사(음성 인식)해 주세요. 참석자들의 발언을 자연스럽게 텍스트로 풀어주세요. 부가적인 설명 없이 전사 결과 텍스트만 출력하세요."
+        ? "이 회의 오디오를 한국어로 정확하게 전사(음성 인식)해 주세요. 참석자들의 발언을 자연스럽게 텍스트로 풀어주되, 화자를 확실히 알 수 없을 땐 추측하지 말고 'A', 'B', 'C' 또는 'uncertain'으로 표시하세요. 반드시 JSON 배열 형태로 응답하세요. 각 요소는 { \"speaker\": string, \"text\": string } 형태여야 합니다. 부가적인 설명 없이 JSON 배열만 출력하세요."
         : "이 음성을 한국어로 정확하게 전사(STT)해 주세요. 말한 문장 그대로 텍스트만 출력하세요.";
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
@@ -123,6 +110,9 @@ export async function POST(req: NextRequest) {
             ],
           },
         ],
+        generationConfig: mode === "meeting" ? {
+          responseMimeType: "application/json"
+        } : undefined,
       }),
     });
 
@@ -135,119 +125,29 @@ export async function POST(req: NextRequest) {
     }
 
     const geminiData = await res.json();
-    const transcript =
+    const transcriptText =
       geminiData.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
 
-    if (!transcript) {
+    if (!transcriptText) {
       return NextResponse.json({ error: "음성에서 텍스트를 확인하지 못했습니다." }, { status: 422 });
     }
 
-    let createdAssetId: string | undefined = undefined;
-    let createdArtifactId: string | undefined = undefined;
-    let savedItem: ReturnType<typeof mapUnifiedItemFromDb> | undefined = undefined;
-    let actuallyRetained = false;
-    const warnings: string[] = [];
+    let transcriptResult: string | MeetingTranscriptSegment[] = transcriptText;
 
-    // 받아쓰기는 텍스트 초안일 뿐이므로 기본값에서는 DB/Storage에 자동 저장하지 않습니다.
-    // '원본 보관'을 명시적으로 선택한 경우에만 voice 항목과 전사 이력을 생성합니다.
-    if (retainOriginal) {
-      const nowIso = new Date().toISOString();
-      const parentItem = {
-        id: itemId,
-        source: "manual" as const,
-        title: transcript.slice(0, 80),
-        content: transcript,
-        created_at: nowIso,
-        author: { name: user.email || "사용자" },
-        url: "",
-        status: "pending" as const,
-        itemType: "voice" as const,
-        attributes: { captureMode: "voice", durationSeconds: durationSeconds || undefined },
-        version: 1,
-        privacyScope: "cloud_private" as const,
-        aiPolicy: "cloud_allowed" as const,
-        updatedAt: nowIso,
-      };
-      const { data: insertedItem, error: parentError } = await supabase
-        .from("unified_items")
-        .insert(mapUnifiedItemToDbRow(parentItem, user.id))
-        .select("*")
-        .single();
-      if (parentError || !insertedItem) {
-        return NextResponse.json({ error: "음성 메모 항목을 저장하지 못했습니다." }, { status: 500 });
-      }
-      savedItem = mapUnifiedItemFromDb(insertedItem);
-
-      const storagePath = `${user.id}/${itemId}/${crypto.randomUUID()}${audioExtension(mimeType)}`;
-      const { error: uploadError } = await supabase.storage
-        .from("private-assets")
-        .upload(storagePath, buffer, {
-          contentType: mimeType,
-          upsert: false,
-        });
-
-      if (!uploadError) {
-        const asset = buildContentAsset(
-          {
-            itemId,
-            kind: "audio",
-            provider: "supabase",
-            providerRef: storagePath,
-            mimeType,
-            sizeBytes: file.size,
-            retentionPolicy: "user_kept",
-          },
-          user.id
-        );
-
-        const assetRow = mapContentAssetToDbRow(asset, user.id);
-        const { data: insertedAsset, error: assetInsertError } = await supabase
-          .from("content_assets")
-          .insert(assetRow)
-          .select("id")
-          .single();
-
-        if (assetInsertError) {
-          await supabase.storage.from("private-assets").remove([storagePath]);
-          warnings.push("음성 원본은 보관되지 않았습니다.");
-        } else if (insertedAsset) {
-          createdAssetId = insertedAsset.id;
-          actuallyRetained = true;
-        }
-      } else {
-        warnings.push("음성 원본은 보관되지 않았습니다.");
-      }
-
-      const artifact = buildAiArtifact(
-        {
-          itemId,
-          artifactType: "transcription",
-          contentText: transcript,
-          provider: "gemini",
-          model: "gemini-2.5-flash",
-        },
-        user.id
-      );
-      const { data: insertedArt, error: artifactError } = await supabase
-        .from("ai_artifacts")
-        .insert(mapAiArtifactToDbRow(artifact, user.id))
-        .select("id")
-        .single();
-      if (artifactError || !insertedArt) {
-        warnings.push("전사 결과의 AI 이력 저장에 실패했습니다.");
-      } else {
-        createdArtifactId = insertedArt.id;
+    if (mode === "meeting") {
+      try {
+        transcriptResult = JSON.parse(transcriptText) as MeetingTranscriptSegment[];
+      } catch (err) {
+        console.warn("Failed to parse gemini response as JSON", transcriptText, err);
+        // Fallback
+        transcriptResult = [{ speaker: "unknown", text: transcriptText }];
       }
     }
 
     return NextResponse.json({
-      transcript,
-      item: savedItem,
-      artifactId: createdArtifactId,
-      assetId: createdAssetId,
+      transcript: transcriptResult,
       provider: "gemini",
-      retained: actuallyRetained,
-      warnings,
+      warnings: [],
     });
   } catch {
     return NextResponse.json({ error: "음성 전사 처리 중 오류가 발생했습니다." }, { status: 500 });

@@ -1,9 +1,18 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { useVoiceRecorder } from "@/app/hooks/useVoiceRecorder";
 import type { UnifiedData } from "@/lib/types/unified";
+import { saveAudioChunk, updateChunkStatus, clearAudioChunks } from "@/lib/audioStore";
 import styles from "./QuickCapture.module.css";
+
+interface ChunkState {
+  id: string;
+  index: number;
+  blob: Blob;
+  status: "pending" | "uploading" | "transcribing" | "completed" | "failed";
+  transcription?: string;
+}
 
 interface VoiceCaptureSheetProps {
   isOpen: boolean;
@@ -20,6 +29,31 @@ export const VoiceCaptureSheet: React.FC<VoiceCaptureSheetProps> = ({
   onStoredVoiceItem,
   targetMode,
 }) => {
+  const [meetingId] = useState(() => `meeting_${Date.now()}`);
+  const meetingIdRef = useRef<string>(meetingId);
+  const chunkIndexRef = useRef<number>(0);
+  const [chunks, setChunks] = useState<ChunkState[]>([]);
+
+  const handleChunk = async (blob: Blob, durationSeconds: number) => {
+    if (targetMode !== "note") return; // meeting(note) 모드일 때만 chunking
+    const index = chunkIndexRef.current++;
+    const id = `${meetingIdRef.current}_${index}`;
+    const newChunk: ChunkState = { id, index, blob, status: "pending" };
+
+    setChunks((prev) => [...prev, newChunk]);
+    await saveAudioChunk({
+      id,
+      meetingId: meetingIdRef.current,
+      chunkIndex: index,
+      blob,
+      durationSeconds,
+      status: "pending"
+    });
+
+    // 백그라운드 업로드 및 전사 시작
+    uploadChunk(newChunk);
+  };
+
   const {
     isRecording,
     recordingTime,
@@ -28,7 +62,10 @@ export const VoiceCaptureSheet: React.FC<VoiceCaptureSheetProps> = ({
     stopRecording,
     cancelRecording,
     reset,
-  } = useVoiceRecorder();
+  } = useVoiceRecorder({
+    chunkIntervalSeconds: targetMode === "note" ? 300 : undefined,
+    onChunk: handleChunk,
+  });
 
   const [retainOriginal, setRetainOriginal] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
@@ -44,7 +81,67 @@ export const VoiceCaptureSheet: React.FC<VoiceCaptureSheetProps> = ({
     }
   };
 
+  const uploadChunk = async (chunk: ChunkState) => {
+    setChunks((prev) => prev.map((c) => (c.id === chunk.id ? { ...c, status: "uploading" } : c)));
+    await updateChunkStatus(chunk.id, "uploading");
+
+    try {
+      const formData = new FormData();
+      formData.append("audio", chunk.blob, `chunk_${chunk.index}.webm`);
+      formData.append("mode", "meeting");
+      formData.append("retainOriginal", String(retainOriginal));
+
+      setChunks((prev) => prev.map((c) => (c.id === chunk.id ? { ...c, status: "transcribing" } : c)));
+      await updateChunkStatus(chunk.id, "transcribing");
+
+      const res = await fetch("/api/voice/transcribe", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) throw new Error("전사 실패");
+
+      const data = await res.json();
+      // data.transcript가 JSON 배열일 수 있음 (MeetingTranscriptSegment[])
+      const transcriptStr = typeof data.transcript === 'string' ? data.transcript : JSON.stringify(data.transcript);
+
+      setChunks((prev) => prev.map((c) => (c.id === chunk.id ? { ...c, status: "completed", transcription: transcriptStr } : c)));
+      await updateChunkStatus(chunk.id, "completed", transcriptStr);
+    } catch (err) {
+      console.error(err);
+      setChunks((prev) => prev.map((c) => (c.id === chunk.id ? { ...c, status: "failed" } : c)));
+      await updateChunkStatus(chunk.id, "failed");
+    }
+  };
+
   const handleTranscribe = async () => {
+    if (targetMode === "note") {
+      // meeting 모드: 현재 진행중인(마지막) blob도 chunk로 추가
+      if (audioBlob) {
+        await handleChunk(audioBlob, recordingTime % 300);
+      }
+
+      // 모든 청크가 완료되었는지 확인 (대기)
+      // 간단한 구현: 진행중이면 완료될 때까지 기다림 (여기서는 그냥 병합 시도)
+      // 실제로는 별도의 완료 대기 UI가 필요하지만 임시로 병합
+      const completedText = chunks
+        .map(c => c.transcription)
+        .filter(Boolean)
+        .join("\n\n");
+
+      if (completedText) {
+        onTranscript(completedText);
+        await clearAudioChunks(meetingIdRef.current);
+        reset();
+        setChunks([]);
+        onClose();
+      } else {
+        setErrorMessage("완료된 전사가 없거나 아직 진행 중입니다. 잠시 후 다시 시도해주세요.");
+      }
+      return;
+    }
+
+    // 일반(단건) 모드
     if (!audioBlob) return;
     setIsTranscribing(true);
     setErrorMessage(null);
@@ -52,9 +149,9 @@ export const VoiceCaptureSheet: React.FC<VoiceCaptureSheetProps> = ({
     try {
       const formData = new FormData();
       formData.append("audio", audioBlob, "recording.webm");
-      formData.append("mode", targetMode === "note" ? "meeting" : "dictation");
-        formData.append("retainOriginal", String(retainOriginal));
-        formData.append("durationSeconds", String(recordingTime));
+      formData.append("mode", "dictation");
+      formData.append("retainOriginal", String(retainOriginal));
+      formData.append("durationSeconds", String(recordingTime));
 
       const res = await fetch("/api/voice/transcribe", {
         method: "POST",
@@ -71,7 +168,8 @@ export const VoiceCaptureSheet: React.FC<VoiceCaptureSheetProps> = ({
         if (data.item && onStoredVoiceItem) {
           onStoredVoiceItem(data.item, Array.isArray(data.warnings) ? data.warnings : []);
         }
-        onTranscript(data.transcript);
+        // dictation 모드면 단순 텍스트
+        onTranscript(typeof data.transcript === 'string' ? data.transcript : JSON.stringify(data.transcript));
         reset();
         onClose();
       } else {
@@ -140,6 +238,12 @@ export const VoiceCaptureSheet: React.FC<VoiceCaptureSheetProps> = ({
           {errorMessage && (
             <div style={{ color: "#ef4444", fontSize: "0.8rem", marginBottom: 10 }}>
               {errorMessage}
+            </div>
+          )}
+
+          {targetMode === "note" && chunks.length > 0 && (
+            <div style={{ fontSize: "0.8rem", color: "#a1a1aa", marginTop: 10, marginBottom: 10 }}>
+              진행 상태: {chunks.filter(c => c.status === "completed").length} / {chunks.length} 구간 완료
             </div>
           )}
 

@@ -5,7 +5,8 @@ import type { UnifiedData } from "@/lib/types/unified";
 import { UiIcon } from "./UiIcon";
 import { VoiceCaptureSheet } from "./quickCapture/VoiceCaptureSheet";
 import { ExpenseCapture } from "./quickCapture/ExpenseCapture";
-import { MeetingAnalysisSheet, MeetingAnalysisContext } from "./quickCapture/meeting/MeetingAnalysisSheet";
+import { MeetingAnalysisSheet, MeetingAnalysisContext, MeetingAnalysisResult } from "./quickCapture/meeting/MeetingAnalysisSheet";
+import { saveMeetingTasks, ActionItem, SaveTasksResult } from "./quickCapture/meeting/meetingTasks";
 import CafeWait from "./cafeWait";
 import styles from "../page.module.css";
 import captureStyles from "./quickCapture/QuickCapture.module.css";
@@ -34,6 +35,7 @@ export interface QuickAddBarProps {
     occurredAt?: string;
   }) => Promise<void>;
   onStoredVoiceItem?: (item: UnifiedData, warnings: string[]) => void;
+  onSaveTaskItem?: (item: UnifiedData) => void;
 }
 
 export function QuickAddBar({
@@ -49,6 +51,7 @@ export function QuickAddBar({
   dynamicPasteSteps,
   onSaveExpense,
   onStoredVoiceItem,
+  onSaveTaskItem,
 }: QuickAddBarProps) {
   const [activeMode, setActiveMode] = useState<QuickAddMode>("task");
   const [isVoiceOpen, setIsVoiceOpen] = useState(false);
@@ -66,19 +69,35 @@ export function QuickAddBar({
         body: JSON.stringify({ ...context, transcript: pasteText }),
       });
       if (res.ok) {
-        // 성공 시 폼 초기화 및 시트 닫기
-        onPasteTextChange("");
-        setIsMeetingAnalysisOpen(false);
-        // 서버에서 생성된 항목(요약본, 추출된 할일)은 서버 푸시(sync)로 클라이언트에 내려올 예정이거나, 
-        // 성공 토스트 등을 보여줄 수 있습니다.
+        const data = (await res.json()) as { analysis?: MeetingAnalysisResult } & MeetingAnalysisResult;
+        return data.analysis ?? data;
       } else {
         alert("회의록 분석에 실패했습니다.");
+        return null;
       }
-    } catch (e) {
+    } catch {
       alert("오류가 발생했습니다.");
+      return null;
     } finally {
       setIsMeetingAnalyzing(false);
     }
+  };
+
+  const handleSaveToDrive = async (context: MeetingAnalysisContext, result: MeetingAnalysisResult) => {
+    try {
+      const res = await fetch("/api/ai/save-meeting", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ context, transcript: pasteText, result })
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  };
+
+  const handleSaveTasks = async (tasks: ActionItem[]): Promise<SaveTasksResult> => {
+    return saveMeetingTasks(tasks, { onSaveTaskItem, onStoredVoiceItem });
   };
 
   const handleVoiceTranscript = (transcriptText: string) => {
@@ -247,6 +266,8 @@ export function QuickAddBar({
         onClose={() => setIsMeetingAnalysisOpen(false)}
         transcript={pasteText}
         onAnalyze={handleAnalyzeMeeting}
+        onSaveToDrive={handleSaveToDrive}
+        onSaveTasks={handleSaveTasks}
         isAnalyzing={isMeetingAnalyzing}
       />
     </div>

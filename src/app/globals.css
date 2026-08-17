@@ -49,20 +49,20 @@
 }
 
 :root[data-theme="mega"] {
-  /* 💛 메가커피 — 옐로우+화이트+우드톤(인테리어), 네이비(로고 텍스트) */
-  --bg: #fbf8f0;
+  /* 💛 메가커피 — 옐로우 + 그레이(메인), 네이비(포인트) 3색 중심 팔레트 (녹색 배제) */
+  --bg: #f4f5f8;
   --card: #ffffff;
-  --card-hover: #f6efdd;
-  --card-hover-border: #cdb98f;
-  --border: #e3d9c2;
-  --text: #26304a;
-  --text-dim: #6b7185;
-  --accent: #1f2f5c;
-  --accent-dim: rgba(255, 212, 0, 0.22);
+  --card-hover: #eef1f6;
+  --card-hover-border: #cbd5e1;
+  --border: #e2e8f0;
+  --text: #18223c;
+  --text-dim: #64748b;
+  --accent: #18223c;
+  --accent-dim: rgba(255, 212, 0, 0.28);
   --accent-contrast: #ffd400;
-  --danger: #d64545;
-  --warn: #c07c10;
-  --ok: #2e7d32;
+  --danger: #dc2626;
+  --warn: #d97706;
+  --ok: #18223c;
 }
 
 :root[data-theme="kustom"] {

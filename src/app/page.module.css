@@ -2220,62 +2220,88 @@
   }
 }
 
-/* ── 밝은 테마(라이트·메가커피) 배지 색 보정 (어두운 배경 전제 색들을 진하게) ── */
-:global([data-theme="light"]) .badge_outlook,
-:global([data-theme="mega"]) .badge_outlook {
+/* ── 밝은 테마 배지 색 보정 (어두운 배경 전제 색들을 진하게) ── */
+:global([data-theme="light"]) .badge_outlook {
   background: rgba(0, 120, 212, 0.12);
   color: #0b67c2;
 }
+:global([data-theme="mega"]) .badge_outlook {
+  background: rgba(24, 34, 60, 0.08);
+  color: #18223c;
+}
 
-:global([data-theme="light"]) .badge_gmail,
-:global([data-theme="mega"]) .badge_gmail {
+:global([data-theme="light"]) .badge_gmail {
   background: rgba(234, 67, 53, 0.1);
   color: #c5221f;
 }
+:global([data-theme="mega"]) .badge_gmail {
+  background: rgba(220, 38, 38, 0.1);
+  color: #b91c1c;
+}
 
-:global([data-theme="light"]) .badge_notion,
-:global([data-theme="mega"]) .badge_notion {
+:global([data-theme="light"]) .badge_notion {
   background: rgba(15, 23, 42, 0.08);
   color: #1f2937;
 }
+:global([data-theme="mega"]) .badge_notion {
+  background: rgba(30, 41, 59, 0.08);
+  color: #0f172a;
+}
 
-:global([data-theme="light"]) .badge_obsidian,
-:global([data-theme="mega"]) .badge_obsidian {
+:global([data-theme="light"]) .badge_obsidian {
   background: rgba(124, 58, 237, 0.1);
   color: #6d28d9;
 }
+:global([data-theme="mega"]) .badge_obsidian {
+  background: rgba(100, 116, 139, 0.12);
+  color: #334155;
+}
 
-:global([data-theme="light"]) .badge_manual,
-:global([data-theme="mega"]) .badge_manual {
+:global([data-theme="light"]) .badge_manual {
   background: rgba(22, 163, 74, 0.12);
   color: #15803d;
 }
+:global([data-theme="mega"]) .badge_manual {
+  background: rgba(255, 212, 0, 0.3);
+  color: #854d0e;
+}
 
-:global([data-theme="light"]) .badge_paste,
-:global([data-theme="mega"]) .badge_paste {
+:global([data-theme="light"]) .badge_paste {
   background: rgba(101, 163, 13, 0.12);
   color: #4d7c0f;
 }
-
-:global([data-theme="light"]) .badge_llm,
-:global([data-theme="mega"]) .badge_llm {
-  background: rgba(8, 145, 178, 0.1);
+:global([data-theme="mega"]) .badge_paste {
+  background: rgba(24, 34, 60, 0.08);
+  color: #18223c;
 }
 
-/* ── 메가커피 테마 — 행동지침 카드를 시그니처 옐로우 + 회색 테두리로 ── */
+:global([data-theme="light"]) .badge_llm {
+  background: rgba(8, 145, 178, 0.1);
+}
+:global([data-theme="mega"]) .badge_llm {
+  background: rgba(255, 212, 0, 0.25);
+  color: #854d0e;
+}
+
+/* ── 메가커피 테마 — 행동지침 카드를 시그니처 옐로우 + 네이비/그레이 3색 조합 ── */
 :global([data-theme="mega"]) .colTodo,
 :global([data-theme="mega"]) .colTodo:hover {
   background: #ffd400;
-  border-color: #a8a8a8;
+  border-color: #18223c;
+}
+
+:global([data-theme="mega"]) .colTodo .cardTitle {
+  color: #18223c;
 }
 
 :global([data-theme="mega"]) .colTodo .item {
   background: #ffffff;
-  border-color: #c9c9c9;
+  border-color: #e2e8f0;
+  color: #18223c;
 }
 
 :global([data-theme="mega"]) .colTodo .itemPinned {
-  border-color: var(--accent);
+  border-color: #18223c;
 }
 
 :global([data-theme="mega"]) .colTodo .itemOverdue {
@@ -2283,12 +2309,13 @@
 }
 
 :global([data-theme="mega"]) .colTodo .emptyState {
-  border-color: rgba(38, 48, 74, 0.35);
-  color: #4a5165;
+  border-color: rgba(24, 34, 60, 0.25);
+  color: #475569;
 }
 
 :global([data-theme="mega"]) .colTodo .actionBtn {
-  border-color: #c9c9c9;
+  border-color: #cbd5e1;
+  color: #18223c;
 }
 
 /* ── 커스텀커피 테마 — 행동지침 카드를 그린 포인트로 ── */
@@ -2402,21 +2429,40 @@
   }
 
   .quickTaskFormRow {
-    display: grid;
-    grid-template-columns: 44px minmax(0, 1fr);
+    display: flex;
+    flex-direction: row;
+    align-items: center;
   }
 
   .quickTaskFormRow .input {
-    grid-column: 1 / -1;
+    flex: 1;
+    min-width: 0;
   }
 
   .quickTaskFormRow .cardTitleBtn {
     width: 44px;
-    margin-left: 0;
+    flex-shrink: 0;
   }
 
   .quickTaskFormRow .btnPrimary {
-    width: 100%;
+    width: auto;
+    white-space: nowrap;
+    padding: 0 12px;
+  }
+
+  .quickActionRow {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    gap: 8px;
+  }
+
+  .quickActionRow > button {
+    flex: 1 1 calc(50% - 4px) !important;
+  }
+
+  .quickActionRow .voiceInputButton {
+    flex: 0 0 44px !important;
   }
 
   /* iOS Safari는 16px 미만 입력 포커스 시 뷰포트를 자동 확대 — 모바일에서만 16px로 승격 */

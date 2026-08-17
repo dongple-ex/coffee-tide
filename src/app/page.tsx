@@ -1587,6 +1587,11 @@ export default function Home() {
   const doneCount = manualItems.filter((i) => isWorkflowTask(i) && i.status === "completed").length;
 
   // ── G1: 수동 입력 / 붙여넣기 ────────────────
+  function registerManualTask(item: UnifiedData) {
+    setManualItems((previous) => [item, ...previous.filter((current) => current.id !== item.id)]);
+    void classifyManualItem(item);
+  }
+
   async function addManual() {
     const title = quickTitle.trim();
     if (!title) return;
@@ -1601,8 +1606,7 @@ export default function Home() {
       url: "",
       status: "pending",
     };
-    setManualItems((prev) => [item, ...prev]);
-    await classifyManualItem(item);
+    registerManualTask(item);
   }
 
   async function saveExpense(expense: {
@@ -2940,6 +2944,7 @@ export default function Home() {
                 setManualItems((previous) => [item, ...previous.filter((current) => current.id !== item.id)]);
                 showToast(warnings[0] ?? "음성 원본과 전사 내용을 비공개 저장소에 보관했습니다.");
               }}
+              onSaveTaskItem={registerManualTask}
             />
           </section>
 

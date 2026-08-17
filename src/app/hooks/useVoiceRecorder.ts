@@ -2,8 +2,7 @@
 
 import { useState, useRef, useCallback } from "react";
 
-const MAX_RECORDING_SECONDS = 10 * 60;
-const MAX_RECORDING_BYTES = Math.floor(3.8 * 1024 * 1024);
+const MAX_RECORDING_SECONDS = 60 * 60; // 60 minutes
 
 export interface VoiceRecorderState {
   isRecording: boolean;
@@ -16,7 +15,12 @@ export interface VoiceRecorderState {
   reset: () => void;
 }
 
-export function useVoiceRecorder(): VoiceRecorderState {
+export interface UseVoiceRecorderOptions {
+  onChunk?: (blob: Blob, durationSeconds: number) => void;
+  chunkIntervalSeconds?: number;
+}
+
+export function useVoiceRecorder(options?: UseVoiceRecorderOptions): VoiceRecorderState {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
@@ -24,8 +28,8 @@ export function useVoiceRecorder(): VoiceRecorderState {
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
-  const recordedBytesRef = useRef(0);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const lastChunkTimeRef = useRef(0);
 
   const stopRecording = useCallback((): Promise<Blob | null> => {
     return new Promise((resolve) => {
@@ -59,7 +63,7 @@ export function useVoiceRecorder(): VoiceRecorderState {
     setError(null);
     setAudioBlob(null);
     chunksRef.current = [];
-    recordedBytesRef.current = 0;
+    lastChunkTimeRef.current = 0;
 
     if (typeof window === "undefined" || !navigator.mediaDevices?.getUserMedia) {
       setError("현재 브라우저는 마이크 입력을 지원하지 않습니다.");
@@ -90,10 +94,6 @@ export function useVoiceRecorder(): VoiceRecorderState {
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
           chunksRef.current.push(event.data);
-          recordedBytesRef.current += event.data.size;
-          if (recordedBytesRef.current >= MAX_RECORDING_BYTES && mediaRecorder.state !== "inactive") {
-            void stopRecording();
-          }
         }
       };
 
@@ -104,6 +104,21 @@ export function useVoiceRecorder(): VoiceRecorderState {
       timerRef.current = setInterval(() => {
         setRecordingTime((prev) => {
           const next = prev + 1;
+
+          // Chunk emit check
+          if (options?.chunkIntervalSeconds && options.onChunk) {
+            const timeSinceLastChunk = next - lastChunkTimeRef.current;
+            if (timeSinceLastChunk >= options.chunkIntervalSeconds) {
+              if (chunksRef.current.length > 0 && mediaRecorderRef.current) {
+                const mimeType = mediaRecorderRef.current.mimeType || "audio/webm";
+                const chunkBlob = new Blob(chunksRef.current, { type: mimeType });
+                options.onChunk(chunkBlob, timeSinceLastChunk);
+                chunksRef.current = [];
+                lastChunkTimeRef.current = next;
+              }
+            }
+          }
+
           if (next >= MAX_RECORDING_SECONDS) {
             queueMicrotask(() => void stopRecording());
           }
@@ -133,7 +148,7 @@ export function useVoiceRecorder(): VoiceRecorderState {
     setRecordingTime(0);
     setAudioBlob(null);
     chunksRef.current = [];
-    recordedBytesRef.current = 0;
+    lastChunkTimeRef.current = 0;
   }, []);
 
   const reset = useCallback(() => {
