@@ -112,23 +112,77 @@ export async function DELETE(
       // 본문이 없는 DELETE 요청도 허용
     }
 
-    const { data: deletedResult, error: deleteError } = await supabase.rpc("soft_delete_expense", {
-      p_item_id: id,
-      p_expected_version: expectedVersion,
-    });
+    let versionToDelete = expectedVersion;
+    if (versionToDelete === null) {
+      const { data: currentItem, error: currentError } = await supabase
+        .from("unified_items")
+        .select("id, version, deleted_at")
+        .eq("id", id)
+        .eq("user_id", user.id)
+        .eq("item_type", "expense")
+        .maybeSingle();
 
-    if (deleteError) {
-      if (deleteError.message.includes("version conflict")) {
-        return NextResponse.json(
-          { error: "다른 기기에서 항목이 변경되었습니다." },
-          { status: 409 }
-        );
+      if (currentError) {
+        return NextResponse.json({ error: currentError.message }, { status: 500 });
       }
-      if (deleteError.message.includes("not found")) {
+      if (!currentItem || currentItem.deleted_at) {
         return NextResponse.json({ error: "비용 항목을 찾지 못했습니다." }, { status: 404 });
       }
+
+      versionToDelete = Number(currentItem.version);
+      if (!Number.isSafeInteger(versionToDelete) || versionToDelete < 1) {
+        return NextResponse.json({ error: "비용 항목의 버전 정보가 올바르지 않습니다." }, { status: 500 });
+      }
+    }
+
+    const deletedAt = new Date().toISOString();
+    const { data: deletedItem, error: deleteError } = await supabase
+      .from("unified_items")
+      .update({
+        deleted_at: deletedAt,
+        updated_at: deletedAt,
+        version: versionToDelete + 1,
+      })
+      .eq("id", id)
+      .eq("user_id", user.id)
+      .eq("item_type", "expense")
+      .is("deleted_at", null)
+      .eq("version", versionToDelete)
+      .select("id, deleted_at, version")
+      .maybeSingle();
+
+    if (deleteError) {
       return NextResponse.json({ error: deleteError.message }, { status: 500 });
     }
+
+    if (!deletedItem) {
+      const { data: currentItem, error: currentError } = await supabase
+        .from("unified_items")
+        .select("version, deleted_at")
+        .eq("id", id)
+        .eq("user_id", user.id)
+        .eq("item_type", "expense")
+        .maybeSingle();
+
+      if (currentError) {
+        return NextResponse.json({ error: currentError.message }, { status: 500 });
+      }
+      if (!currentItem || currentItem.deleted_at) {
+        return NextResponse.json({ error: "비용 항목을 찾지 못했습니다." }, { status: 404 });
+      }
+
+      return NextResponse.json(
+        { error: "다른 기기에서 항목이 변경되었습니다." },
+        { status: 409 }
+      );
+    }
+
+    const deletedResult = {
+      success: true,
+      itemId: deletedItem.id,
+      deletedAt: deletedItem.deleted_at,
+      version: deletedItem.version,
+    };
 
     return NextResponse.json({
       success: true,

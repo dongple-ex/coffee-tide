@@ -5,6 +5,7 @@ import type { UnifiedData } from "@/lib/types/unified";
 import { UiIcon } from "./UiIcon";
 import { VoiceCaptureSheet } from "./quickCapture/VoiceCaptureSheet";
 import { ExpenseCapture } from "./quickCapture/ExpenseCapture";
+import { MeetingAnalysisSheet, MeetingAnalysisContext } from "./quickCapture/meeting/MeetingAnalysisSheet";
 import CafeWait from "./cafeWait";
 import styles from "../page.module.css";
 import captureStyles from "./quickCapture/QuickCapture.module.css";
@@ -51,8 +52,34 @@ export function QuickAddBar({
 }: QuickAddBarProps) {
   const [activeMode, setActiveMode] = useState<QuickAddMode>("task");
   const [isVoiceOpen, setIsVoiceOpen] = useState(false);
+  const [isMeetingAnalysisOpen, setIsMeetingAnalysisOpen] = useState(false);
+  const [isMeetingAnalyzing, setIsMeetingAnalyzing] = useState(false);
   const [voiceExpenseText, setVoiceExpenseText] = useState("");
   const [voiceExpenseVersion, setVoiceExpenseVersion] = useState(0);
+
+  const handleAnalyzeMeeting = async (context: MeetingAnalysisContext) => {
+    setIsMeetingAnalyzing(true);
+    try {
+      const res = await fetch("/api/ai/analyze-meeting", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...context, transcript: pasteText }),
+      });
+      if (res.ok) {
+        // 성공 시 폼 초기화 및 시트 닫기
+        onPasteTextChange("");
+        setIsMeetingAnalysisOpen(false);
+        // 서버에서 생성된 항목(요약본, 추출된 할일)은 서버 푸시(sync)로 클라이언트에 내려올 예정이거나, 
+        // 성공 토스트 등을 보여줄 수 있습니다.
+      } else {
+        alert("회의록 분석에 실패했습니다.");
+      }
+    } catch (e) {
+      alert("오류가 발생했습니다.");
+    } finally {
+      setIsMeetingAnalyzing(false);
+    }
+  };
 
   const handleVoiceTranscript = (transcriptText: string) => {
     if (activeMode === "task") {
@@ -190,9 +217,18 @@ export function QuickAddBar({
               className={`${styles.btn} ${styles.btnPrimary}`}
               disabled={pasteBusy || !pasteText.trim()}
               onClick={onImportPaste}
-              style={{ minHeight: 44, flex: 1, width: "100%" }}
+              style={{ minHeight: 44, flex: 1, width: "100%", background: "var(--card-hover)" }}
             >
               {pasteBusy ? <CafeWait steps={dynamicPasteSteps} interval={1200} /> : "할 일 골라내기"}
+            </button>
+            <button
+              type="button"
+              className={`${styles.btn} ${styles.btnPrimary}`}
+              disabled={!pasteText.trim()}
+              onClick={() => setIsMeetingAnalysisOpen(true)}
+              style={{ minHeight: 44, flex: 1, width: "100%" }}
+            >
+              AI로 회의록 정리
             </button>
           </div>
         </div>
@@ -204,6 +240,14 @@ export function QuickAddBar({
         onTranscript={handleVoiceTranscript}
         onStoredVoiceItem={onStoredVoiceItem}
         targetMode={activeMode}
+      />
+
+      <MeetingAnalysisSheet
+        isOpen={isMeetingAnalysisOpen}
+        onClose={() => setIsMeetingAnalysisOpen(false)}
+        transcript={pasteText}
+        onAnalyze={handleAnalyzeMeeting}
+        isAnalyzing={isMeetingAnalyzing}
       />
     </div>
   );
