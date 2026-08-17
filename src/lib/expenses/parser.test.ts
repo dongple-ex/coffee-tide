@@ -26,4 +26,26 @@ describe("Phase 14-05: 비용 자연어 파서 테스트", () => {
     expect(draft.currency).toBe("USD");
     expect(draft.category).toBe("교통비");
   });
+
+  it.each([
+    ["오늘 점심 2만 3천원", "23000"],
+    ["점심 2만3천원", "23000"],
+    ["택시비 1만 5백원", "10500"],
+    ["회의비 12만 3500원", "123500"],
+  ])("한국어 단위 금액 '%s'을 %s원으로 환산한다", (text, expected) => {
+    expect(parseExpenseText(text).amount).toBe(expected);
+  });
+
+  it.each([
+    ["맥도날드에서 점심 2만 3천원", "맥도날드"],
+    ["오늘 점심 김밥천국 9천원 법인카드", "김밥천국"],
+    ["사용처: 동네분식 금액 8000원", "동네분식"],
+    ["점심 12000원 버거킹", "버거킹"],
+  ])("하드코딩되지 않은 사용처를 '%s'에서 추출한다", (text, expected) => {
+    expect(parseExpenseText(text).merchant).toBe(expected);
+  });
+
+  it("상호가 없는 일반 비용 문장에는 사용처를 임의 생성하지 않는다", () => {
+    expect(parseExpenseText("오늘 점심 2만 3천원").merchant).toBeUndefined();
+  });
 });

@@ -29,6 +29,7 @@ interface ExpenseCaptureProps {
   isLoading?: boolean;
   initialText?: string;
   onInitialTextConsumed?: () => void;
+  onRequestVoice?: () => void;
 }
 
 function toLocalDateTimeInput(value?: string): string {
@@ -50,6 +51,7 @@ export const ExpenseCapture: React.FC<ExpenseCaptureProps> = ({
   isLoading,
   initialText,
   onInitialTextConsumed,
+  onRequestVoice,
 }) => {
   const [inputText, setInputText] = useState(initialText ?? "");
   const [isParsing, setIsParsing] = useState(false);
@@ -157,6 +159,18 @@ export const ExpenseCapture: React.FC<ExpenseCaptureProps> = ({
             disabled={disabled || isLoading || isParsing}
             className={styles.textInput}
           />
+          {onRequestVoice && (
+            <button
+              type="button"
+              onClick={onRequestVoice}
+              disabled={disabled || isLoading || isParsing}
+              className={styles.secondaryButton}
+              title="음성으로 비용 입력하기"
+              aria-label="음성으로 비용 입력하기"
+            >
+              🎤 음성
+            </button>
+          )}
           <button
             type="submit"
             disabled={!inputText.trim() || disabled || isLoading || isParsing}

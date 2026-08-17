@@ -141,7 +141,7 @@ export function TaskItemCard({
               onClick={onDelete}
               title="삭제"
             >
-              🗑️
+              🗑
             </button>
           )}
         </div>
@@ -180,7 +180,7 @@ export function TaskItemCard({
             onClick={() => onSetStatus(isCompleted ? "pending" : "completed")}
             disabled={busy}
           >
-            {isCompleted ? "✓ 완료됨" : "완료"}
+            {isCompleted ? "✓ 완료됨" : "✅ 완료"}
           </button>
           <button
             type="button"
@@ -188,7 +188,7 @@ export function TaskItemCard({
             onClick={() => onSetStatus(isHeld ? "pending" : "held")}
             disabled={busy}
           >
-            {isHeld ? "보류 중" : "보류"}
+            {isHeld ? "▶️ 재개" : "⏸ 보류"}
           </button>
         </div>
 
@@ -210,7 +210,7 @@ export function TaskItemCard({
               onClick={() => onCapture("obsidian")}
               disabled={busy}
             >
-              Obsidian 수집
+              📥 Obsidian 수집
             </button>
           )}
           {canCaptureNotion && (

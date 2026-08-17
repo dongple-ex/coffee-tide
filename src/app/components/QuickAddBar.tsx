@@ -70,7 +70,7 @@ export function QuickAddBar({
     <div>
       <div
         className={styles.cardTitle}
-        style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 8 }}
+        style={{ display: "flex", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 8 }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <span className={styles.sectionTitleLabel}>
@@ -114,28 +114,6 @@ export function QuickAddBar({
           </div>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <button
-            type="button"
-            className={`${styles.btn} ${styles.cardTitleBtn}`}
-            onClick={() => setIsVoiceOpen(true)}
-            style={{ fontSize: "0.76rem", padding: "4px 8px", minHeight: 44, display: "inline-flex", alignItems: "center", gap: 4 }}
-            title="음성으로 입력하기"
-          >
-            <span>🎤</span> 음성
-          </button>
-          {activeMode !== "expense" && (
-            <button
-              type="button"
-              className={`${styles.btn} ${styles.cardTitleBtn}`}
-              onClick={onToggleShowPaste}
-              aria-expanded={showPaste}
-              style={{ fontSize: "0.78rem", padding: "4px 10px", minHeight: 44 }}
-            >
-              {showPaste ? "접기" : "붙여넣기 창"}
-            </button>
-          )}
-        </div>
       </div>
 
       {activeMode === "task" && (
@@ -149,6 +127,16 @@ export function QuickAddBar({
             aria-label="빠른 업무 추가 입력"
             style={{ minHeight: 44 }}
           />
+          <button
+            type="button"
+            className={`${styles.btn} ${styles.cardTitleBtn}`}
+            onClick={() => setIsVoiceOpen(true)}
+            style={{ minHeight: 44, minWidth: 44 }}
+            title="음성으로 업무 입력하기"
+            aria-label="음성으로 업무 입력하기"
+          >
+            🎤 음성
+          </button>
           <button
             className={`${styles.btn} ${styles.btnPrimary}`}
             onClick={onAddManual}
@@ -166,6 +154,7 @@ export function QuickAddBar({
           isLoading={pasteBusy}
           initialText={voiceExpenseText}
           onInitialTextConsumed={() => setVoiceExpenseText("")}
+          onRequestVoice={() => setIsVoiceOpen(true)}
         />
       )}
 
@@ -187,6 +176,16 @@ export function QuickAddBar({
             aria-label="붙여넣기 가져오기 입력"
           />
           <div className={styles.formRow} style={{ marginTop: 8 }}>
+            <button
+              type="button"
+              className={`${styles.btn} ${styles.cardTitleBtn}`}
+              onClick={() => setIsVoiceOpen(true)}
+              style={{ minHeight: 44 }}
+              title="음성으로 메모·회의록 입력하기"
+              aria-label="음성으로 메모·회의록 입력하기"
+            >
+              🎤 음성
+            </button>
             <button
               className={`${styles.btn} ${styles.btnPrimary}`}
               disabled={pasteBusy || !pasteText.trim()}
