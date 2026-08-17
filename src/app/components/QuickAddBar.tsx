@@ -214,10 +214,10 @@ export function QuickAddBar({
               <UiIcon name="microphone" size={20} />
             </button>
             <button
-              className={`${styles.btn} ${styles.btnPrimary}`}
+              className={styles.btn}
               disabled={pasteBusy || !pasteText.trim()}
               onClick={onImportPaste}
-              style={{ minHeight: 44, flex: 1, width: "100%", background: "var(--card-hover)" }}
+              style={{ minHeight: 44, flex: 1, width: "100%" }}
             >
               {pasteBusy ? <CafeWait steps={dynamicPasteSteps} interval={1200} /> : "할 일 골라내기"}
             </button>
