@@ -11,6 +11,41 @@ function safeExtension(file: File): string {
   return extension ? `.${extension.slice(0, 10)}` : "";
 }
 
+function isValidImageSignature(bytes: Buffer): { valid: boolean; detectedMime?: string } {
+  if (bytes.length < 12) return { valid: false };
+  // JPEG: FF D8 FF
+  if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+    return { valid: true, detectedMime: "image/jpeg" };
+  }
+  // PNG: 89 50 4E 47 0D 0A 1A 0A
+  if (
+    bytes[0] === 0x89 &&
+    bytes[1] === 0x50 &&
+    bytes[2] === 0x4e &&
+    bytes[3] === 0x47 &&
+    bytes[4] === 0x0d &&
+    bytes[5] === 0x0a &&
+    bytes[6] === 0x1a &&
+    bytes[7] === 0x0a
+  ) {
+    return { valid: true, detectedMime: "image/png" };
+  }
+  // WEBP: RIFF....WEBP
+  if (
+    bytes[0] === 0x52 &&
+    bytes[1] === 0x49 &&
+    bytes[2] === 0x46 &&
+    bytes[3] === 0x46 &&
+    bytes[8] === 0x57 &&
+    bytes[9] === 0x45 &&
+    bytes[10] === 0x42 &&
+    bytes[11] === 0x50
+  ) {
+    return { valid: true, detectedMime: "image/webp" };
+  }
+  return { valid: false };
+}
+
 export async function GET(req: NextRequest) {
   const supabase = await createServerSupabaseClient();
   if (!supabase) {
@@ -74,21 +109,58 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "file과 itemId가 필요합니다." }, { status: 400 });
       }
       if (file.size > MAX_ASSET_SIZE_BYTES) {
-        return NextResponse.json({ error: "서버 경유 첨부 파일은 최대 4MB까지 저장할 수 있습니다." }, { status: 413 });
+        return NextResponse.json({ error: "첨부 파일은 최대 4MB까지 저장할 수 있습니다." }, { status: 413 });
       }
 
       const { data: parentItem } = await supabase
         .from("unified_items")
-        .select("id")
+        .select("id, item_type")
         .eq("user_id", user.id)
         .eq("id", itemId)
+        .is("deleted_at", null)
         .maybeSingle();
       if (!parentItem) {
-        return NextResponse.json({ error: "연결할 업무 항목을 찾지 못했습니다." }, { status: 404 });
+        return NextResponse.json({ error: "연결할 활성 항목을 찾지 못했습니다." }, { status: 404 });
+      }
+
+      const bytes = Buffer.from(await file.arrayBuffer());
+
+      // 이미지(영수증) 첨부 검증 강화
+      if (kind === "image" || parentItem.item_type === "expense") {
+        const allowedMimes = ["image/jpeg", "image/png", "image/webp"];
+        if (!allowedMimes.includes(file.type.toLowerCase())) {
+          return NextResponse.json(
+            { error: "영수증 이미지는 JPG, PNG, WebP 형식만 지원합니다." },
+            { status: 415 }
+          );
+        }
+
+        const signatureCheck = isValidImageSignature(bytes);
+        if (!signatureCheck.valid) {
+          return NextResponse.json(
+            { error: "유효하지 않거나 손상된 이미지 파일입니다." },
+            { status: 415 }
+          );
+        }
+
+        // 최대 5장 검사
+        const { count: existingReceiptsCount } = await supabase
+          .from("content_assets")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", user.id)
+          .eq("item_id", itemId)
+          .eq("kind", "image")
+          .is("deleted_at", null);
+
+        if ((existingReceiptsCount || 0) >= 5) {
+          return NextResponse.json(
+            { error: "한 비용 항목당 최대 5장의 영수증만 첨부할 수 있습니다." },
+            { status: 409 }
+          );
+        }
       }
 
       const storagePath = `${user.id}/${itemId}/${crypto.randomUUID()}${safeExtension(file)}`;
-      const bytes = Buffer.from(await file.arrayBuffer());
       const { error: uploadError } = await supabase.storage
         .from("private-assets")
         .upload(storagePath, bytes, { contentType: file.type || "application/octet-stream" });
@@ -99,7 +171,7 @@ export async function POST(req: NextRequest) {
       try {
         asset = buildContentAsset({
           itemId,
-          kind: kind as "document" | "image" | "audio" | "raw_text",
+          kind: (kind === "image" || parentItem.item_type === "expense") ? "image" : (kind as "document" | "image" | "audio" | "raw_text"),
           provider: "supabase",
           providerRef: storagePath,
           mimeType: file.type || "application/octet-stream",

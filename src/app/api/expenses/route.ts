@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import {
+  mapContentAssetFromDb,
   mapExpenseEntryFromDb,
   mapExpenseEntryToDbRow,
   mapUnifiedItemFromDb,
   mapUnifiedItemToDbRow,
 } from "@/lib/data/mappers";
 import { buildExpenseItems } from "@/lib/expenses/service";
-import type { ExpenseEntry, WorkspaceItem } from "@/lib/data/contracts";
+import type { ContentAsset, ExpenseEntry, WorkspaceItem } from "@/lib/data/contracts";
 
 export async function GET(req: NextRequest) {
   const supabase = await createServerSupabaseClient();
@@ -24,40 +25,108 @@ export async function GET(req: NextRequest) {
   }
 
   const { searchParams } = new URL(req.url);
-  const limit = Math.min(Number(searchParams.get("limit")) || 50, 100);
+  const limit = Math.min(Math.max(Number(searchParams.get("limit")) || 20, 1), 100);
+  const from = searchParams.get("from");
+  const to = searchParams.get("to");
+  const category = searchParams.get("category");
+  const currency = searchParams.get("currency");
+  const cursor = searchParams.get("cursor");
 
-  const { data: itemRows, error: itemsError } = await supabase
+  // 1. unified_items 활성 expense 항목 쿼리
+  let itemQuery = supabase
     .from("unified_items")
     .select("*")
     .eq("user_id", user.id)
     .eq("item_type", "expense")
-    .is("deleted_at", null)
-    .order("occurred_at", { ascending: false })
-    .limit(limit);
+    .is("deleted_at", null);
 
+  if (from) {
+    itemQuery = itemQuery.gte("occurred_at", from);
+  }
+  if (to) {
+    itemQuery = itemQuery.lte("occurred_at", to);
+  }
+  if (cursor) {
+    itemQuery = itemQuery.lt("occurred_at", cursor);
+  }
+
+  itemQuery = itemQuery.order("occurred_at", { ascending: false }).limit(limit + 1);
+
+  const { data: itemRows, error: itemsError } = await itemQuery;
   if (itemsError) {
     return NextResponse.json({ error: itemsError.message }, { status: 500 });
   }
 
-  const items: WorkspaceItem[] = (itemRows || []).map(mapUnifiedItemFromDb);
+  let items: WorkspaceItem[] = (itemRows || []).map(mapUnifiedItemFromDb);
+  let nextCursor: string | undefined = undefined;
+
+  if (items.length > limit) {
+    const nextItem = items[limit];
+    nextCursor = nextItem.occurredAt || nextItem.created_at;
+    items = items.slice(0, limit);
+  }
+
   const itemIds = items.map((i) => i.id);
 
   let expenseEntries: ExpenseEntry[] = [];
-  if (itemIds.length > 0) {
-    const { data: entryRows } = await supabase
-      .from("expense_entries")
-      .select("*")
-      .eq("user_id", user.id)
-      .in("item_id", itemIds);
+  const receiptsMap = new Map<string, ContentAsset[]>();
 
-    expenseEntries = (entryRows || []).map(mapExpenseEntryFromDb);
+  if (itemIds.length > 0) {
+    const [entryRes, assetRes] = await Promise.all([
+      supabase
+        .from("expense_entries")
+        .select("*")
+        .eq("user_id", user.id)
+        .in("item_id", itemIds),
+      supabase
+        .from("content_assets")
+        .select("*")
+        .eq("user_id", user.id)
+        .in("item_id", itemIds)
+        .eq("kind", "image")
+        .is("deleted_at", null),
+    ]);
+
+    if (entryRes.data) {
+      expenseEntries = entryRes.data.map(mapExpenseEntryFromDb);
+    }
+    if (assetRes.data) {
+      const allAssets = assetRes.data.map(mapContentAssetFromDb);
+      for (const asset of allAssets) {
+        if (!asset.itemId) continue;
+        const list = receiptsMap.get(asset.itemId) || [];
+        list.push(asset);
+        receiptsMap.set(asset.itemId, list);
+      }
+    }
+  }
+
+  // category / currency 클라이언트 요청 필터링 (필요 시)
+  let records = items.map((item) => {
+    const entry = expenseEntries.find((e) => e.itemId === item.id) || {
+      itemId: item.id,
+      amount: String(item.attributes?.amount || "0"),
+      currency: String(item.attributes?.currency || "KRW"),
+      category: item.attributes?.category ? String(item.attributes.category) : undefined,
+      merchant: item.attributes?.merchant ? String(item.attributes.merchant) : undefined,
+      occurredAt: item.occurredAt || item.created_at,
+      taxDeductible: false,
+      reimbursable: false,
+    };
+    const receipts = receiptsMap.get(item.id) || [];
+    return { item, entry, receipts };
+  });
+
+  if (category && category !== "전체") {
+    records = records.filter((r) => (r.entry.category || "미분류") === category);
+  }
+  if (currency && currency !== "전체") {
+    records = records.filter((r) => (r.entry.currency || "KRW").toUpperCase() === currency.toUpperCase());
   }
 
   return NextResponse.json({
-    expenses: items.map((item) => {
-      const entry = expenseEntries.find((e) => e.itemId === item.id);
-      return { item, entry };
-    }),
+    expenses: records,
+    nextCursor,
   });
 }
 

@@ -2985,9 +2985,16 @@ export default function Home() {
               todoItems.length === 0 ? (
                 <div className={styles.emptyState}>
                   {/* G2: 연동 전제가 아닌 입력 우선 안내 */}
-                  오늘은 아직 조용하네요. <b>위에서 업무를 추가하거나 메모를 붙여넣어
-                  보세요.</b>
-                  {!isAnyConnected && " Outlook/Notion 연동은 나중에 해도 충분해요."}
+                  <p style={{ margin: 0 }}>오늘은 아직 조용하네요.</p>
+                  <p style={{ margin: "4px 0 0" }}>
+                    <b>위에서 업무를 추가하거나 메모를 붙여넣어
+                    보세요.</b>
+                  </p>
+                  {!isAnyConnected && (
+                    <p style={{ margin: "4px 0 0" }}>
+                      Outlook/Notion 연동은 나중에 해도 충분해요.
+                    </p>
+                  )}
                 </div>
               ) : (
                 <>
@@ -3064,7 +3071,8 @@ export default function Home() {
               {!llmSectionCollapsed && (
                 llmItems.length === 0 ? (
                   <div className={styles.emptyState}>
-                    오늘은 AI 동료들이 조용하네요. 산출물이 생기면 여기 모아드릴게요.
+                    <p style={{ margin: 0 }}>오늘은 AI 동료들이 조용하네요.</p>
+                    <p style={{ margin: "4px 0 0" }}>산출물이 생기면 여기 모아드릴게요.</p>
                   </div>
                 ) : (
                   <div className={styles.list}>{llmItems.map(renderItem)}</div>
@@ -3103,8 +3111,11 @@ export default function Home() {
             {!restSectionCollapsed && (
               restItems.length === 0 ? (
                 <div className={styles.emptyState}>
-                  참고용 소식이 모이는 자리예요. 아직은 텅 — 업무를 추가하거나 문서를
-                  가져오면 채워드릴게요.
+                  <p style={{ margin: 0 }}>참고용 소식이 모이는 자리예요.</p>
+                  <p style={{ margin: "4px 0 0" }}>
+                    아직은 텅 — 업무를 추가하거나 문서를
+                    가져오면 채워드릴게요.
+                  </p>
                 </div>
               ) : (
                 <>

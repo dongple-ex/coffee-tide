@@ -22,35 +22,41 @@
 .tabButtonGroup {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
+  background: var(--bg);
+  padding: 3px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
 }
 
 .tabButton {
-  min-height: 44px;
-  min-width: 44px;
-  padding: 8px 14px;
-  border-radius: 10px;
-  font-size: 0.82rem;
+  min-height: 28px;
+  padding: 4px 12px;
+  border-radius: 8px;
+  font-size: 0.78rem;
   font-weight: 600;
   cursor: pointer;
   background: transparent;
   border: 1px solid transparent;
-  color: var(--text-muted, #a1a1aa);
+  color: var(--text-dim);
   transition: all 0.15s ease;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  user-select: none;
 }
 
 .tabButton:hover {
-  color: var(--text-main, #f4f4f5);
-  background: var(--bg-hover, rgba(255, 255, 255, 0.05));
+  color: var(--text);
+  background: var(--card-hover);
 }
 
 .tabButtonActive {
-  background: var(--primary-subtle, rgba(99, 102, 241, 0.15));
-  color: var(--primary-light, #a5b4fc);
-  border-color: var(--primary-border, rgba(99, 102, 241, 0.35));
+  background: var(--card) !important;
+  color: var(--accent) !important;
+  border-color: var(--border) !important;
+  font-weight: 700;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .micButton {
@@ -90,22 +96,30 @@
   align-items: center;
 }
 
+.quickActionRow {
+  display: flex !important;
+  flex-direction: row !important;
+  gap: 8px;
+  align-items: stretch;
+  margin-top: 8px;
+}
+
 .textInput {
   flex: 1;
   min-height: 44px;
   padding: 10px 14px;
   border-radius: 10px;
-  background: var(--bg-input, rgba(18, 18, 20, 0.8));
-  border: 1px solid var(--border-color, rgba(63, 63, 70, 0.6));
-  color: var(--text-main, #f4f4f5);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
   font-size: 0.88rem;
   outline: none;
   transition: border-color 0.15s ease;
 }
 
 .textInput:focus {
-  border-color: var(--primary-color, #6366f1);
-  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+  border-color: var(--accent);
+  box-shadow: none;
 }
 
 .textArea {
@@ -135,10 +149,10 @@
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
-  background: var(--primary-color, #4f46e5);
-  color: #ffffff;
-  border: none;
-  transition: background-color 0.15s ease;
+  background: var(--accent);
+  color: var(--accent-contrast);
+  border: 1px solid var(--accent);
+  transition: filter 0.15s ease, opacity 0.15s ease;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -146,7 +160,7 @@
 }
 
 .submitButton:hover:not(:disabled) {
-  background: var(--primary-hover, #4338ca);
+  filter: brightness(1.12);
 }
 
 .submitButton:disabled {
@@ -173,6 +187,29 @@
 .secondaryButton:hover:not(:disabled) {
   color: var(--text-main, #f4f4f5);
   background: var(--bg-hover, rgba(255, 255, 255, 0.08));
+}
+
+.voiceButton {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 8px 10px;
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  background: var(--accent);
+  color: var(--accent-contrast);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: filter 0.15s ease;
+}
+
+.voiceButton:hover:not(:disabled) {
+  filter: brightness(1.12);
+}
+
+.voiceButton:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .checkboxLabel {

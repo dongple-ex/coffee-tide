@@ -607,6 +607,13 @@
   gap: 4px;
 }
 
+.panelLabel {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--text-dim);
+  margin-bottom: 2px;
+}
+
 .subTaskSection {
   display: flex;
   flex-direction: column;
@@ -633,9 +640,27 @@
   border-radius: 6px;
 }
 
-.subTaskTitleCompleted {
+.subTaskTitleCompleted,
+.subTaskDone {
   text-decoration: line-through;
   color: var(--text-dim);
+}
+
+.btnSubTaskDelete {
+  margin-left: auto;
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  font-size: 0.74rem;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+}
+
+.btnSubTaskDelete:hover {
+  color: var(--danger);
+  background: rgba(255, 93, 115, 0.1);
 }
 
 .subTaskInputRow {
@@ -658,6 +683,23 @@
 .subTaskInput:focus {
   outline: none;
   border-color: var(--accent);
+}
+
+.btnSubTaskAdd {
+  background: var(--card-hover);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 0.76rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btnSubTaskAdd:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-dim);
 }
 
 /* 슬래시 커맨드 힌트 팝업 메뉴 */
@@ -856,6 +898,21 @@
   filter: brightness(1.12);
 }
 
+.voiceInputButton {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-contrast);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding-inline: 10px;
+}
+
+.voiceInputButton:hover:not(:disabled) {
+  color: var(--accent-contrast);
+  filter: brightness(1.12);
+}
+
 .btnDanger:hover:not(:disabled) {
   border-color: var(--danger);
   color: var(--danger);
@@ -871,6 +928,14 @@
   flex: 1;
 }
 
+.quickActionRow {
+  display: flex !important;
+  flex-direction: row !important;
+  gap: 8px;
+  align-items: stretch;
+  margin-top: 8px;
+}
+
 /* ── 아이템 리스트 ─────────────────────── */
 .list {
   display: flex;
@@ -878,11 +943,18 @@
   gap: 10px;
 }
 
-.item {
+.item,
+.taskItem {
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 12px 14px;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.item:hover,
+.taskItem:hover {
+  border-color: var(--card-hover-border, var(--border));
 }
 
 .itemPinned {
@@ -893,56 +965,220 @@
   border-color: var(--warn);
 }
 
-.itemDone {
-  opacity: 0.5;
+.itemDone,
+.taskItemDone {
+  opacity: 0.55;
 }
 
-.itemDone .itemTitle {
+.itemDone .itemTitle,
+.taskItemDone .taskTitle {
   text-decoration: line-through;
 }
 
-.itemHeader {
+.taskItemHeld {
+  border-color: var(--warn);
+  background: rgba(255, 180, 84, 0.03);
+}
+
+.taskItemUrgent {
+  border-color: var(--danger);
+}
+
+.itemHeader,
+.taskHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.itemMeta,
+.taskMeta {
   display: flex;
   align-items: center;
   gap: 6px;
   flex-wrap: wrap;
-  margin-bottom: 4px;
+  font-size: 0.72rem;
+  color: var(--text-dim);
 }
 
-.itemTitle {
+.taskAuthor {
+  font-weight: 500;
+  color: var(--text);
+}
+
+.taskTime {
+  color: var(--text-dim);
+}
+
+.taskActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.btnIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  line-height: 1;
+}
+
+.btnIcon:hover {
+  background: var(--card-hover);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.btnIcon[aria-expanded="true"] {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.btnIcon:active {
+  transform: scale(0.94);
+}
+
+.taskLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 0.82rem;
+  text-decoration: none;
+  transition: all 0.15s ease;
+  line-height: 1;
+}
+
+.taskLink:hover {
+  background: var(--card-hover);
+  border-color: var(--border);
+  color: var(--accent);
+}
+
+.taskBody {
+  margin: 4px 0 8px;
+}
+
+.itemTitle,
+.taskTitle {
   font-size: 0.92rem;
   font-weight: 600;
   margin: 2px 0;
   word-break: break-word;
+  color: var(--text);
 }
 
-.itemContent {
+.itemContent,
+.taskContent {
   font-size: 0.82rem;
   color: var(--text-dim);
+  line-height: 1.45;
+  margin-top: 4px;
+  word-break: break-word;
+}
+
+.taskContentClamped {
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
   cursor: pointer;
-  word-break: break-word;
 }
 
-.itemContentOpen {
+.itemContentOpen,
+.taskContentExpanded {
+  display: block;
   -webkit-line-clamp: unset;
+  cursor: pointer;
 }
 
-.directive {
+.directive,
+.actionDirective {
   font-size: 0.82rem;
   color: var(--accent);
-  margin-top: 5px;
+  margin-top: 6px;
+  background: var(--accent-dim);
+  padding: 4px 8px;
+  border-radius: 6px;
+  display: inline-block;
+  line-height: 1.4;
 }
 
-.itemMeta {
-  font-size: 0.72rem;
-  color: var(--text-dim);
-  margin-top: 6px;
+.taskFooter {
   display: flex;
-  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.taskStatusButtons {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.btnStatus {
+  background: var(--card-hover);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 4px 10px;
+  font-size: 0.76rem;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  min-height: 28px;
+  line-height: 1;
+}
+
+.btnStatus:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.btnStatus:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btnStatusActive {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.taskSecondaryActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   flex-wrap: wrap;
 }
 
@@ -953,19 +1189,47 @@
   flex-wrap: wrap;
 }
 
-.actionBtn {
+.actionBtn,
+.btnAction {
   background: transparent;
   border: 1px solid var(--border);
   color: var(--text-dim);
   border-radius: 8px;
   padding: 4px 10px;
   font-size: 0.76rem;
-  min-height: 30px;
+  min-height: 28px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  text-decoration: none;
 }
 
-.actionBtn:hover {
+.actionBtn:hover:not(:disabled),
+.btnAction:hover:not(:disabled) {
   border-color: var(--accent);
   color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.btnActionActive {
+  background: var(--accent-dim) !important;
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+  font-weight: 600;
+}
+
+.btnDangerHover:hover:not(:disabled) {
+  border-color: var(--danger) !important;
+  color: var(--danger) !important;
+  background: rgba(255, 93, 115, 0.1) !important;
+}
+
+.actionBtn:disabled,
+.btnAction:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* ── 배지 ─────────────────────────────── */
@@ -2135,6 +2399,24 @@
 
   .formRow {
     flex-direction: column;
+  }
+
+  .quickTaskFormRow {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr);
+  }
+
+  .quickTaskFormRow .input {
+    grid-column: 1 / -1;
+  }
+
+  .quickTaskFormRow .cardTitleBtn {
+    width: 44px;
+    margin-left: 0;
+  }
+
+  .quickTaskFormRow .btnPrimary {
+    width: 100%;
   }
 
   /* iOS Safari는 16px 미만 입력 포커스 시 뷰포트를 자동 확대 — 모바일에서만 16px로 승격 */

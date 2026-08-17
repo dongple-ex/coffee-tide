@@ -117,7 +117,7 @@ export function QuickAddBar({
       </div>
 
       {activeMode === "task" && (
-        <div className={styles.formRow}>
+        <div className={`${styles.formRow} ${styles.quickTaskFormRow}`}>
           <input
             className={styles.input}
             placeholder="예: 내일까지 주간 보고서 제출"
@@ -129,13 +129,13 @@ export function QuickAddBar({
           />
           <button
             type="button"
-            className={`${styles.btn} ${styles.cardTitleBtn}`}
+            className={`${styles.btn} ${styles.cardTitleBtn} ${styles.voiceInputButton}`}
             onClick={() => setIsVoiceOpen(true)}
             style={{ minHeight: 44, minWidth: 44 }}
             title="음성으로 업무 입력하기"
             aria-label="음성으로 업무 입력하기"
           >
-            🎤 음성
+            <UiIcon name="microphone" size={20} />
           </button>
           <button
             className={`${styles.btn} ${styles.btnPrimary}`}
@@ -175,22 +175,22 @@ export function QuickAddBar({
             onChange={(e) => onPasteTextChange(e.target.value)}
             aria-label="붙여넣기 가져오기 입력"
           />
-          <div className={styles.formRow} style={{ marginTop: 8 }}>
+          <div className={styles.quickActionRow}>
             <button
               type="button"
-              className={`${styles.btn} ${styles.cardTitleBtn}`}
+              className={`${styles.btn} ${styles.voiceInputButton}`}
               onClick={() => setIsVoiceOpen(true)}
-              style={{ minHeight: 44 }}
+              style={{ minHeight: 44, minWidth: 44, width: 44, padding: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
               title="음성으로 메모·회의록 입력하기"
               aria-label="음성으로 메모·회의록 입력하기"
             >
-              🎤 음성
+              <UiIcon name="microphone" size={20} />
             </button>
             <button
               className={`${styles.btn} ${styles.btnPrimary}`}
               disabled={pasteBusy || !pasteText.trim()}
               onClick={onImportPaste}
-              style={{ minHeight: 44 }}
+              style={{ minHeight: 44, flex: 1, width: "100%" }}
             >
               {pasteBusy ? <CafeWait steps={dynamicPasteSteps} interval={1200} /> : "할 일 골라내기"}
             </button>

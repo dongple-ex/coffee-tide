@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { ProcessedData } from "@/lib/automation/rules";
 import { timeAgo } from "@/lib/mergeView";
 import { CATEGORY_LABELS, SOURCE_LABELS, SubTask, UnifiedData } from "@/lib/types/unified";
+import { UiIcon } from "./UiIcon";
 import { SourceAndRelationsPanel } from "./item/SourceAndRelationsPanel";
 import styles from "../page.module.css";
 
@@ -82,6 +83,11 @@ export function TaskItemCard({
   const isCompleted = item.status === "completed";
   const isHeld = item.status === "held";
   const isUrgent = item.category === "urgent";
+  const showAuthor =
+    Boolean(item.author?.name) &&
+    item.source !== "manual" &&
+    item.author.name !== "나" &&
+    item.author.name !== "User";
 
   return (
     <div
@@ -99,51 +105,8 @@ export function TaskItemCard({
               {CATEGORY_LABELS[item.category] || item.category}
             </span>
           )}
-          <span className={styles.taskAuthor}>{item.author.name}</span>
+          {showAuthor && <span className={styles.taskAuthor}>{item.author.name}</span>}
           <span className={styles.taskTime}>{timeAgo(item.created_at)}</span>
-        </div>
-
-        <div className={styles.taskActions}>
-          {item.url && (
-            <a
-              href={item.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={styles.taskLink}
-              title="원문 열기"
-            >
-              🔗
-            </a>
-          )}
-          <button
-            type="button"
-            className={styles.btnIcon}
-            onClick={onToggleWorkNote}
-            title="진행 메모 / 하위 작업"
-            aria-expanded={workNoteOpen}
-          >
-            📝
-          </button>
-          {isExternal && (
-            <button
-              type="button"
-              className={styles.btnIcon}
-              onClick={onDismiss}
-              title="목록에서 숨기기"
-            >
-              ✕
-            </button>
-          )}
-          {!isExternal && (
-            <button
-              type="button"
-              className={styles.btnIcon}
-              onClick={onDelete}
-              title="삭제"
-            >
-              🗑
-            </button>
-          )}
         </div>
       </div>
 
@@ -171,7 +134,7 @@ export function TaskItemCard({
         )}
       </div>
 
-      {/* 상태 조작 버튼 */}
+      {/* 하단 상태 조작 및 기능 액션 버튼 바 */}
       <div className={styles.taskFooter}>
         <div className={styles.taskStatusButtons}>
           <button
@@ -179,16 +142,20 @@ export function TaskItemCard({
             className={`${styles.btnStatus} ${isCompleted ? styles.btnStatusActive : ""}`}
             onClick={() => onSetStatus(isCompleted ? "pending" : "completed")}
             disabled={busy}
+            title={isCompleted ? "완료 취소 (대기로 변경)" : "완료 처리"}
           >
-            {isCompleted ? "✓ 완료됨" : "✅ 완료"}
+            <UiIcon name="check" size={13} />
+            <span>{isCompleted ? "완료됨" : "완료"}</span>
           </button>
           <button
             type="button"
             className={`${styles.btnStatus} ${isHeld ? styles.btnStatusActive : ""}`}
             onClick={() => onSetStatus(isHeld ? "pending" : "held")}
             disabled={busy}
+            title={isHeld ? "보류 해제 (대기로 변경)" : "보류 처리"}
           >
-            {isHeld ? "▶️ 재개" : "⏸ 보류"}
+            <UiIcon name={isHeld ? "play" : "pause"} size={13} />
+            <span>{isHeld ? "재개" : "보류"}</span>
           </button>
         </div>
 
@@ -210,7 +177,7 @@ export function TaskItemCard({
               onClick={() => onCapture("obsidian")}
               disabled={busy}
             >
-              📥 Obsidian 수집
+              Obsidian 수집
             </button>
           )}
           {canCaptureNotion && (
@@ -221,6 +188,49 @@ export function TaskItemCard({
               disabled={busy}
             >
               Notion 수집
+            </button>
+          )}
+          {item.url && (
+            <a
+              href={item.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={styles.btnAction}
+              title="원문 열기"
+            >
+              <UiIcon name="link" size={13} />
+              <span>원문</span>
+            </a>
+          )}
+          <button
+            type="button"
+            className={`${styles.btnAction} ${workNoteOpen ? styles.btnActionActive : ""}`}
+            onClick={onToggleWorkNote}
+            title="진행 메모 / 하위 작업"
+            aria-expanded={workNoteOpen}
+          >
+            <UiIcon name="pencil" size={13} />
+            <span>메모</span>
+          </button>
+          {isExternal ? (
+            <button
+              type="button"
+              className={styles.btnAction}
+              onClick={onDismiss}
+              title="목록에서 숨기기"
+            >
+              <UiIcon name="close" size={13} />
+              <span>숨기기</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              className={`${styles.btnAction} ${styles.btnDangerHover}`}
+              onClick={onDelete}
+              title="삭제"
+            >
+              <UiIcon name="trash" size={13} />
+              <span>삭제</span>
             </button>
           )}
         </div>

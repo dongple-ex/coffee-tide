@@ -132,9 +132,13 @@ coffeeTide는 여러 채널의 업무 데이터를 하나의 대시보드로 통
 | `/api/assets` | GET/POST | 비공개 첨부·원문 메타데이터 조회 및 생성 (Phase 14-04) |
 | `/api/relations` | GET/POST | 자료 간 명시적·AI 관계 목록 조회 및 등록 (Phase 14-04) |
 | `/api/ai/artifacts` | GET/POST | AI 파생 결과(요약·전사·추출) 조회 및 생성 (Phase 14-04) |
-| `/api/expenses` | GET/POST | 비용 구조화 항목 목록 조회 및 생성 트랜잭션 (Phase 14-05) |
+| `/api/expenses` | GET/POST | 비용 목록 조회 (기간·분류·통화 필터, 커서 페이징, 영수증 메타 결합) 및 등록 원자적 RPC (Phase 14-05, Phase 15) |
+| `/api/expenses/[id]` | PATCH/DELETE | 비용 수정(낙관적 락 version 검증 원자적 RPC) 및 소프트 삭제(소프트 삭제 RPC, 분석·목록 즉시 제외) (Phase 15) |
 | `/api/expenses/parse` | POST | 자연어 텍스트 비용 정보 AI/규칙 구조화 파싱 (Phase 14-05) |
-| `/api/expenses/summary` | GET | 기간 및 통화별 비용 합산 요약 집계 (Phase 14-05) |
+| `/api/expenses/summary` | GET | 통화별·월별·분류별 다차원 집계 분석 (소프트 삭제 항목 제외, 통화 분리 원칙) (Phase 14-05, Phase 15) |
+| `/api/expenses/export` | GET | 현재 필터 기준 UTF-8 BOM CRLF CSV 다운로드 (수식 주입 방어, 최대 10,000건) (Phase 15) |
+| `/api/expenses/export/google-sheets/preview` | POST | Google Sheets 4개 시트 및 통화별 차트 생성 사전 미리보기 (Phase 15) |
+| `/api/expenses/export/google-sheets` | POST | Google Sheets 4개 시트(`비용내역`, `월별합계`, `분류별분석`, `대시보드`) 및 통화별 차트 멱등 생성, RAW 값 기록, 부분 실패 보상 삭제 (Phase 15) |
 | `/api/voice/transcribe` | POST | 음성 오디오 멀티모달 STT 전사 및 선택적 원본 보관 (Phase 14-05) |
 | `/api/knowledge/search` | POST | 개인정보 정책 및 관계 기반 지식 검색 (Phase 14-06) |
 | `/api/knowledge/context` | POST | AI 바리스타 답변용 Grounded Context 패키지 빌드 (Phase 14-06) |

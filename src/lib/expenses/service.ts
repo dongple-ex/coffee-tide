@@ -16,6 +16,38 @@ export interface CreateExpenseInput {
   sourceText?: string;
 }
 
+export interface UpdateExpenseInput {
+  title?: string;
+  amount?: string;
+  currency?: string;
+  merchant?: string;
+  category?: string;
+  paymentMethod?: string;
+  occurredAt?: string;
+  expectedVersion?: number;
+}
+
+export function validateUpdateExpenseInput(input: UpdateExpenseInput): { valid: boolean; errors: string[] } {
+  const errors: string[] = [];
+  if (input.amount !== undefined) {
+    if (!/^\d+(\.\d{1,4})?$/.test(input.amount.trim()) || Number(input.amount) < 0) {
+      errors.push("유효한 양수 또는 0 금액이어야 합니다.");
+    }
+  }
+  if (input.currency !== undefined) {
+    if (!/^[A-Za-z]{3}$/.test(input.currency.trim())) {
+      errors.push("통화 코드는 3자리 영문(ISO 4217)이어야 합니다.");
+    }
+  }
+  if (input.occurredAt !== undefined) {
+    const d = new Date(input.occurredAt);
+    if (Number.isNaN(d.getTime())) {
+      errors.push("유효한 발생 일시(ISO)여야 합니다.");
+    }
+  }
+  return { valid: errors.length === 0, errors };
+}
+
 export function buildExpenseItems(
   input: CreateExpenseInput,
   userId?: string
