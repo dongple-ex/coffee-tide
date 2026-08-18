@@ -276,6 +276,7 @@ export default function Home() {
   const userScope = useMemo(() => computeUserScope(authUserEmail), [authUserEmail]);
   const [authBusy, setAuthBusy] = useState(false);
   const [authError, setAuthError] = useState<string>();
+  const [integrationError, setIntegrationError] = useState<string | null>(null);
   const [serverMails, setServerMails] = useState<UnifiedData[]>([]);
   const [manualItems, setManualItems] = useState<UnifiedData[]>(() =>
     loadLS<UnifiedData[]>(LS_MANUAL, [])
@@ -1105,9 +1106,32 @@ export default function Home() {
           await fetch("/api/auth/bootstrap", { method: "POST" }).catch(() => null);
           if (active) void fetchMails(true);
         }
-        const authErrorCode = new URLSearchParams(window.location.search).get("authError");
+        const searchParams = new URLSearchParams(window.location.search);
+        const authErrorCode = searchParams.get("authError");
         if (authErrorCode) {
           setAuthError("Google 로그인 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+        }
+        const errorParam = searchParams.get("error");
+        if (errorParam) {
+          let errorMsg = "";
+          if (errorParam === "google_token") {
+            errorMsg = "Google 연동 중 오류가 발생했습니다 (토큰 발급 실패). Google Cloud 설정 또는 권한을 확인해 주세요.";
+          } else if (errorParam === "google_auth") {
+            errorMsg = "Google 연동 보안 확인(OAuth State)에 실패했습니다. 다시 시도해 주세요.";
+          } else if (errorParam === "outlook_token") {
+            errorMsg = "Outlook 연동 중 오류가 발생했습니다 (토큰 발급 실패).";
+          } else if (errorParam === "outlook_auth") {
+            errorMsg = "Outlook 연동 보안 확인(OAuth State)에 실패했습니다. 다시 시도해 주세요.";
+          } else {
+            errorMsg = `외부 서비스 연동에 실패했습니다 (${errorParam}).`;
+          }
+          setIntegrationError(errorMsg);
+          setAuthError(errorMsg);
+          try {
+            window.history.replaceState({}, document.title, window.location.pathname);
+          } catch {
+            // URL 교체 실패 무시
+          }
         }
       });
       const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -2551,6 +2575,32 @@ export default function Home() {
             onClick={acknowledgeHandoff}
           >
             확인 ✕
+          </button>
+        </div>
+      )}
+
+      {integrationError && (
+        <div
+          className={styles.errorBanner}
+          style={{ borderColor: "var(--err)", color: "var(--err)", background: "rgba(255,80,80,0.08)" }}
+        >
+          {integrationError}{" "}
+          <button
+            className={styles.btn}
+            style={{ padding: "2px 10px", fontSize: "0.76rem" }}
+            onClick={() => {
+              setIntegrationError(null);
+              setShowConn(true);
+            }}
+          >
+            설정 열기
+          </button>
+          <button
+            className={styles.btn}
+            style={{ padding: "2px 10px", fontSize: "0.76rem", marginLeft: "6px" }}
+            onClick={() => setIntegrationError(null)}
+          >
+            닫기
           </button>
         </div>
       )}
