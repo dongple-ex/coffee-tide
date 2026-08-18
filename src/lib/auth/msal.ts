@@ -1,15 +1,14 @@
 // Microsoft Entra ID OAuth (Authorization Code) — 현행 흐름: /api/auth/outlook → callback.
 // 백로그 D1 반영: 레거시 PKCE 잔재 없이 처음부터 단일 흐름으로 구현.
 
+import { getOutlookIntegrationCallbackUrl } from "./siteOrigin";
+
 export const MS_SCOPES = ["User.Read", "Mail.Read", "Mail.ReadWrite", "offline_access"];
 
 const TENANT = () => process.env.MS_TENANT_ID || "common";
 const CLIENT_ID = () => process.env.NEXT_PUBLIC_MS_CLIENT_ID || "";
 const CLIENT_SECRET = () => process.env.MS_CLIENT_SECRET || "";
-const REDIRECT_URI = () =>
-  process.env.MS_REDIRECT_URI ||
-  process.env.NEXT_PUBLIC_MS_REDIRECT_URI ||
-  "http://localhost:3000/api/auth/outlook/callback";
+const REDIRECT_URI = () => getOutlookIntegrationCallbackUrl();
 
 export function isOutlookConfigured(): boolean {
   return Boolean(CLIENT_ID() && CLIENT_SECRET());

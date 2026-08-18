@@ -1,6 +1,8 @@
 // Google OAuth (Gmail 읽기·Calendar 일정 쓰기·Drive 앱 파일) — doc/01-as-built-reference.md §2.
 // access_type=offline + prompt=consent 로 refresh token 확보.
 
+import { getGoogleIntegrationCallbackUrl } from "./siteOrigin";
+
 export const GOOGLE_SCOPES = [
   "openid",
   "email",
@@ -12,10 +14,7 @@ export const GOOGLE_SCOPES = [
 
 const CLIENT_ID = () => process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
 const CLIENT_SECRET = () => process.env.GOOGLE_CLIENT_SECRET || "";
-const REDIRECT_URI = () =>
-  process.env.GOOGLE_REDIRECT_URI ||
-  process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI ||
-  "http://localhost:3000/api/auth/google/callback";
+const REDIRECT_URI = () => getGoogleIntegrationCallbackUrl();
 
 export function isGoogleConfigured(): boolean {
   return Boolean(CLIENT_ID() && CLIENT_SECRET());

@@ -173,8 +173,9 @@ coffeeTide는 여러 채널의 업무 데이터를 하나의 대시보드로 통
 | `GEMINI_API_KEY` | Gemini API 키. 미설정 시 로컬 FallbackEngine |
 | `DISABLE_AI_CLASSIFY` | `true`면 AI 분류 킬스위치 (백로그 C1) |
 | `DISABLE_CLOUD_TOOL_AGENT` | `true`면 자연어 Cloud Tool 자동 선택만 비활성. 명시적 `/tool` 명령은 유지 |
-| `NEXT_PUBLIC_MS_CLIENT_ID` / `MS_CLIENT_SECRET` / `MS_TENANT_ID` / `NEXT_PUBLIC_MS_REDIRECT_URI` | Microsoft Entra ID 4종 |
-| `NEXT_PUBLIC_GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `NEXT_PUBLIC_GOOGLE_REDIRECT_URI` | Google Identity 로그인 Client ID + 입장 후 Gmail·Calendar·Drive OAuth 3종 |
+| `NEXT_PUBLIC_SITE_URL` | 운영 사이트 기본 URL (`https://coffee-tide.dongple.kr`, 미설정 시 자동 감지) — 모든 OAuth 콜백 URI 자동 생성 기준점 |
+| `NEXT_PUBLIC_MS_CLIENT_ID` / `MS_CLIENT_SECRET` / `MS_TENANT_ID` | Microsoft Entra ID (Outlook 연동 3종, 콜백은 `NEXT_PUBLIC_SITE_URL` 기준 자동 생성) |
+| `NEXT_PUBLIC_GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google Identity 로그인 Client ID + 입장 후 Gmail·Calendar·Drive OAuth (콜백은 `NEXT_PUBLIC_SITE_URL` 기준 자동 생성) |
 | `NOTION_INTEGRATION_TOKEN` / `NOTION_DATABASE_ID` | Notion 기본값 (UI 세션별 입력 우선) |
 | `LLM_ARTIFACTS_DEFAULT_PATH` | (선택) LLM 산출물 기본 경로 |
 | `DATA_GO_KR_SERVICE_KEY` | (선택) **공공데이터포털 공용 인증키**. 포털은 계정당 인증키 1개를 활용신청한 모든 오픈API에 공통 적용하므로 기상청·(예정)TAGO·도로공사가 이 하나를 공유한다. 판독은 `src/lib/env.ts` |
