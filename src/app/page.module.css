@@ -1921,6 +1921,69 @@
   }
 }
 
+/* 설정 모달 탭 내비게이션 */
+.settingsTabBar {
+  display: flex;
+  gap: 6px;
+  padding: 4px;
+  background: var(--bg, #f4eee3);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-bottom: 18px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.settingsTabBar::-webkit-scrollbar {
+  display: none;
+}
+
+.settingsTabBtn {
+  flex: 1;
+  min-width: fit-content;
+  padding: 9px 14px;
+  border-radius: 9px;
+  border: none;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  white-space: nowrap;
+  transition: all 0.16s ease;
+}
+
+.settingsTabBtn:hover {
+  color: var(--text);
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.settingsTabBtnActive {
+  background: var(--card, #fff);
+  color: var(--accent, #9e5b22);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.settingsTabPanel {
+  animation: settingsPanelFadeIn 0.18s ease-out;
+}
+
+@keyframes settingsPanelFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* 타이틀 옆 ON/OFF 토글 스위치 */
 .switchLabel {
   display: inline-flex;

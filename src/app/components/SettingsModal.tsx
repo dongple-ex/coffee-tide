@@ -82,6 +82,15 @@ export interface SettingsModalProps {
   onPickFolder: () => Promise<string | null>;
 }
 
+type SettingsTab = "connections" | "ai" | "lifestyle" | "general";
+
+const SETTINGS_TABS: Array<{ id: SettingsTab; label: string; icon: string }> = [
+  { id: "connections", label: "서비스 연동", icon: "🔌" },
+  { id: "ai", label: "AI·자동화", icon: "🤖" },
+  { id: "lifestyle", label: "알림·일상", icon: "🌤️" },
+  { id: "general", label: "일반·도구", icon: "⚙️" },
+];
+
 export function SettingsModal({
   connPanelRef,
   onClose,
@@ -142,6 +151,7 @@ export function SettingsModal({
   onRegrantBrowserFolders,
   onPickFolder,
 }: SettingsModalProps) {
+  const [activeTab, setActiveTab] = useState<SettingsTab>("connections");
   const [accountDeleteBusy, setAccountDeleteBusy] = useState(false);
 
   async function confirmAccountDeletion() {
@@ -217,177 +227,213 @@ export function SettingsModal({
           </div>
         </div>
 
-        {/* 🖥️ 화면 뷰 모드 설정 */}
-        <div className={styles.card} style={{ marginBottom: 16 }}>
-          <div className={styles.cardTitle} style={{ fontSize: "0.9rem", marginBottom: 10 }}>
-            화면 보기
-          </div>
-          <div className={styles.settingToggleList}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 4 }}>
-              <button
-                type="button"
-                className={`${styles.btn} ${!compactMode ? styles.btnPrimary : styles.btnSecondary}`}
-                style={{
-                  padding: "9px 12px",
-                  fontSize: "0.82rem",
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 4,
-                  fontWeight: !compactMode ? 700 : 500,
-                }}
-                onClick={() => onChangeCompactMode(false)}
-                aria-pressed={!compactMode}
-              >
-                <span>일반 뷰</span>
-                <small style={{ opacity: 0.8, fontSize: "0.72rem" }}>PC 넓은 화면 기본</small>
-              </button>
-              <button
-                type="button"
-                className={`${styles.btn} ${compactMode ? styles.btnPrimary : styles.btnSecondary}`}
-                style={{
-                  padding: "9px 12px",
-                  fontSize: "0.82rem",
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 4,
-                  fontWeight: compactMode ? 700 : 500,
-                }}
-                onClick={() => onChangeCompactMode(true)}
-                aria-pressed={compactMode}
-              >
-                <span>축소(컴팩트) 뷰</span>
-                <small style={{ opacity: 0.8, fontSize: "0.72rem" }}>여백과 카드 밀도 축소</small>
-              </button>
-            </div>
-            <div className={styles.settingToggleDesc} style={{ marginTop: 10, lineHeight: 1.5, fontSize: "0.78rem" }}>
-              • <b>일반 뷰</b>: 카드 여백을 넉넉하게 표시합니다.<br />
-              • <b>축소(컴팩트) 뷰</b>: 같은 내용을 더 높은 밀도로 표시합니다. 업무·AI·휴식 도구 탭은 두 모드에서 동일하게 유지됩니다.<br />
-              • <i>(미설정 시 모바일 기기는 축소 뷰, PC 환경은 일반 뷰로 자동 시작됩니다.)</i>
-            </div>
-          </div>
+        {/* 📑 상단 4대 카테고리 탭 바 */}
+        <div className={styles.settingsTabBar} role="tablist" aria-label="설정 카테고리">
+          {SETTINGS_TABS.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === tab.id}
+              className={`${styles.settingsTabBtn} ${activeTab === tab.id ? styles.settingsTabBtnActive : ""}`}
+              onClick={() => setActiveTab(tab.id)}
+            >
+              <span>{tab.icon}</span>
+              <span>{tab.label}</span>
+            </button>
+          ))}
         </div>
 
-        {/* 💾 데이터 및 보관 상태 요약 */}
-        <DataStorageSection storageStatus={defaultStorageStatus} onRetrySync={onRetrySync} />
+        {/* 🔌 1. 서비스 연동 탭 */}
+        {activeTab === "connections" && (
+          <div className={styles.settingsTabPanel}>
+            <ConnectionsSection
+              connections={connections}
+              errors={errors}
+              driveBackupEnabled={driveBackupEnabled}
+              onChangeDriveBackupEnabled={onChangeDriveBackupEnabled}
+              sparkEnabled={sparkEnabled}
+              onChangeSparkEnabled={onChangeSparkEnabled}
+              fsaSupported={fsaSupported}
+              browserObsidian={browserObsidian}
+              browserDocs={browserDocs}
+              browserLlm={browserLlm}
+              browserNeedsPermission={browserNeedsPermission}
+              onDisconnect={onDisconnect}
+              onConnectPath={onConnectPath}
+              onConnectNotion={onConnectNotion}
+              onAddLocalDocFolder={onAddLocalDocFolder}
+              onRemoveLocalDocFolder={onRemoveLocalDocFolder}
+              onConnectBrowserFolder={onConnectBrowserFolder}
+              onDisconnectBrowserFolder={onDisconnectBrowserFolder}
+              onRegrantBrowserFolders={onRegrantBrowserFolders}
+              onPickFolder={onPickFolder}
+            />
 
-        <CopilotCustomSection
-          config={copilotConfig}
-          onChangeConfig={onChangeCopilotConfig}
-        />
+            <DataStorageSection storageStatus={defaultStorageStatus} onRetrySync={onRetrySync} />
 
-        <AutomationRulesSection
-          rules={rules}
-          onChangeRules={onChangeRules}
-          ruleInput={ruleInput}
-          onChangeRuleInput={onChangeRuleInput}
-          ruleBusy={ruleBusy}
-          onAddRule={onAddRule}
-        />
-
-        <NotificationSection
-          pushSupported={pushSupported}
-          pushEndpoint={pushEndpoint}
-          pushBusy={pushBusy}
-          notifPerm={notifPerm}
-          briefTime={briefTime}
-          onChangeBriefTime={onChangeBriefTime}
-          onToggle={onToggleNotification}
-          onTestPush={onTestPush}
-        />
-
-        <WeatherSection
-          enabled={weatherEnabled}
-          busy={weatherBusy}
-          weather={weatherData}
-          onEnable={onEnableWeatherLocation}
-          onDisable={onDisableWeatherLocation}
-        />
-
-        <CommuteSection
-          config={commuteConfig}
-          onChange={onChangeCommuteConfig}
-          onCaptureCoords={onCaptureCommuteCoords}
-        />
-
-        <ShortcutsSection
-          shortcuts={appShortcuts}
-          onChange={onChangeAppShortcuts}
-          onNotify={onNotify}
-        />
-
-        <YouTubeBundleSection onNotify={onNotify} />
-
-        <LocalToolsSection onNotify={onNotify} />
-
-        {/* PC 로컬 원문 보관 — Google 연동 기능은 아래 Google 카드에서 관리 */}
-        <div className={styles.card} style={{ marginBottom: 16 }}>
-          <div className={styles.cardTitle} style={{ fontSize: "0.9rem", marginBottom: 12 }}>
-            회의록·메모 원문 보관
+            {/* PC 로컬 원문 보관 */}
+            <div className={styles.card} style={{ marginTop: 16, marginBottom: 16 }}>
+              <div className={styles.cardTitle} style={{ fontSize: "0.9rem", marginBottom: 12 }}>
+                회의록·메모 원문 보관
+              </div>
+              <div className={styles.settingToggleList}>
+                <label className={styles.settingToggleRow}>
+                  <div className={styles.settingToggleCopy}>
+                    <span className={styles.settingToggleTitle}>PC 대용량 스토리지 원문 보관</span>
+                    <div className={styles.settingToggleDesc}>
+                      붙여넣은 메모/회의록 원문 텍스트 전체를 PC 내 대용량 저장소에 무제한 보관합니다.
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={rawEnabled}
+                    onChange={(e) => onChangeRawEnabled(e.target.checked)}
+                  />
+                </label>
+              </div>
+            </div>
           </div>
-          <div className={styles.settingToggleList}>
-            <label className={styles.settingToggleRow}>
-              <div className={styles.settingToggleCopy}>
-                <span className={styles.settingToggleTitle}>PC 대용량 스토리지 원문 보관</span>
-                <div className={styles.settingToggleDesc}>
-                  붙여넣은 메모/회의록 원문 텍스트 전체를 PC 내 대용량 저장소에 무제한 보관합니다.
+        )}
+
+        {/* 🤖 2. AI & 자동화 탭 */}
+        {activeTab === "ai" && (
+          <div className={styles.settingsTabPanel}>
+            <CopilotCustomSection
+              config={copilotConfig}
+              onChangeConfig={onChangeCopilotConfig}
+            />
+
+            <AutomationRulesSection
+              rules={rules}
+              onChangeRules={onChangeRules}
+              ruleInput={ruleInput}
+              onChangeRuleInput={onChangeRuleInput}
+              ruleBusy={ruleBusy}
+              onAddRule={onAddRule}
+            />
+          </div>
+        )}
+
+        {/* 🌤️ 3. 알림 & 일상 탭 */}
+        {activeTab === "lifestyle" && (
+          <div className={styles.settingsTabPanel}>
+            <NotificationSection
+              pushSupported={pushSupported}
+              pushEndpoint={pushEndpoint}
+              pushBusy={pushBusy}
+              notifPerm={notifPerm}
+              briefTime={briefTime}
+              onChangeBriefTime={onChangeBriefTime}
+              onToggle={onToggleNotification}
+              onTestPush={onTestPush}
+            />
+
+            <WeatherSection
+              enabled={weatherEnabled}
+              busy={weatherBusy}
+              weather={weatherData}
+              onEnable={onEnableWeatherLocation}
+              onDisable={onDisableWeatherLocation}
+            />
+
+            <CommuteSection
+              config={commuteConfig}
+              onChange={onChangeCommuteConfig}
+              onCaptureCoords={onCaptureCommuteCoords}
+            />
+          </div>
+        )}
+
+        {/* ⚙️ 4. 일반 & 도구 탭 */}
+        {activeTab === "general" && (
+          <div className={styles.settingsTabPanel}>
+            {/* 🖥️ 화면 뷰 모드 설정 */}
+            <div className={styles.card} style={{ marginBottom: 16 }}>
+              <div className={styles.cardTitle} style={{ fontSize: "0.9rem", marginBottom: 10 }}>
+                화면 보기
+              </div>
+              <div className={styles.settingToggleList}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 4 }}>
+                  <button
+                    type="button"
+                    className={`${styles.btn} ${!compactMode ? styles.btnPrimary : styles.btnSecondary}`}
+                    style={{
+                      padding: "9px 12px",
+                      fontSize: "0.82rem",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 4,
+                      fontWeight: !compactMode ? 700 : 500,
+                    }}
+                    onClick={() => onChangeCompactMode(false)}
+                    aria-pressed={!compactMode}
+                  >
+                    <span>일반 뷰</span>
+                    <small style={{ opacity: 0.8, fontSize: "0.72rem" }}>PC 넓은 화면 기본</small>
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.btn} ${compactMode ? styles.btnPrimary : styles.btnSecondary}`}
+                    style={{
+                      padding: "9px 12px",
+                      fontSize: "0.82rem",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 4,
+                      fontWeight: compactMode ? 700 : 500,
+                    }}
+                    onClick={() => onChangeCompactMode(true)}
+                    aria-pressed={compactMode}
+                  >
+                    <span>축소(컴팩트) 뷰</span>
+                    <small style={{ opacity: 0.8, fontSize: "0.72rem" }}>여백과 카드 밀도 축소</small>
+                  </button>
+                </div>
+                <div className={styles.settingToggleDesc} style={{ marginTop: 10, lineHeight: 1.5, fontSize: "0.78rem" }}>
+                  • <b>일반 뷰</b>: 카드 여백을 넉넉하게 표시합니다.<br />
+                  • <b>축소(컴팩트) 뷰</b>: 같은 내용을 더 높은 밀도로 표시합니다. 업무·AI·휴식 도구 탭은 두 모드에서 동일하게 유지됩니다.<br />
+                  • <i>(미설정 시 모바일 기기는 축소 뷰, PC 환경은 일반 뷰로 자동 시작됩니다.)</i>
                 </div>
               </div>
-              <input
-                type="checkbox"
-                checked={rawEnabled}
-                onChange={(e) => onChangeRawEnabled(e.target.checked)}
-              />
-            </label>
-          </div>
-        </div>
-
-        <ConnectionsSection
-          connections={connections}
-          errors={errors}
-          driveBackupEnabled={driveBackupEnabled}
-          onChangeDriveBackupEnabled={onChangeDriveBackupEnabled}
-          sparkEnabled={sparkEnabled}
-          onChangeSparkEnabled={onChangeSparkEnabled}
-          fsaSupported={fsaSupported}
-          browserObsidian={browserObsidian}
-          browserDocs={browserDocs}
-          browserLlm={browserLlm}
-          browserNeedsPermission={browserNeedsPermission}
-          onDisconnect={onDisconnect}
-          onConnectPath={onConnectPath}
-          onConnectNotion={onConnectNotion}
-          onAddLocalDocFolder={onAddLocalDocFolder}
-          onRemoveLocalDocFolder={onRemoveLocalDocFolder}
-          onConnectBrowserFolder={onConnectBrowserFolder}
-          onDisconnectBrowserFolder={onDisconnectBrowserFolder}
-          onRegrantBrowserFolders={onRegrantBrowserFolders}
-          onPickFolder={onPickFolder}
-        />
-
-        <div className={styles.accountManagementCard}>
-          <div>
-            <div className={styles.cardTitle} style={{ marginBottom: 6 }}>
-              계정 및 개인정보
             </div>
-            <p className={styles.connNote}>
-              저장 항목과 보유 기간은 <a href="/privacy">개인정보처리방침</a>에서 확인할 수 있어요.
-            </p>
+
+            <ShortcutsSection
+              shortcuts={appShortcuts}
+              onChange={onChangeAppShortcuts}
+              onNotify={onNotify}
+            />
+
+            <YouTubeBundleSection onNotify={onNotify} />
+
+            <LocalToolsSection onNotify={onNotify} />
+
+            <div className={styles.accountManagementCard}>
+              <div>
+                <div className={styles.cardTitle} style={{ marginBottom: 6 }}>
+                  계정 및 개인정보
+                </div>
+                <p className={styles.connNote}>
+                  저장 항목과 보유 기간은 <a href="/privacy">개인정보처리방침</a>에서 확인할 수 있어요.
+                </p>
+              </div>
+              {accountEmail && (
+                <button
+                  type="button"
+                  className={`${styles.btn} ${styles.btnDanger}`}
+                  onClick={() => void confirmAccountDeletion()}
+                  disabled={accountDeleteBusy}
+                >
+                  {accountDeleteBusy ? "계정 삭제 중…" : "계정 및 서버 데이터 삭제"}
+                </button>
+              )}
+            </div>
           </div>
-          {accountEmail && (
-            <button
-              type="button"
-              className={`${styles.btn} ${styles.btnDanger}`}
-              onClick={() => void confirmAccountDeletion()}
-              disabled={accountDeleteBusy}
-            >
-              {accountDeleteBusy ? "계정 삭제 중…" : "계정 및 서버 데이터 삭제"}
-            </button>
-          )}
-        </div>
+        )}
       </div>
     </div>
   );
