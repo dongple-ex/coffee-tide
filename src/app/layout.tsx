@@ -1,10 +1,12 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { TestModeBadge } from "./components/TestModeBadge";
 
 export const metadata: Metadata = {
   title: "coffee Tide",
   description:
     "연동이 없어도 직접 입력과 붙여넣기로 바로 시작하고, 연결되면 더 강력해지는 AI 업무 비서",
+  manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     title: "coffee Tide",
@@ -26,6 +28,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT }} />
         {children}
+        <TestModeBadge />
       </body>
     </html>
   );

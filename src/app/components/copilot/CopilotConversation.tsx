@@ -25,6 +25,7 @@ interface Props {
   expandedKeys: Set<string>;
   unreadKeys: Set<string>;
   onToggleExpand: (pairId: string) => void;
+  onCompleteItem: (id: string) => void;
 }
 
 export function CopilotConversation({
@@ -39,6 +40,7 @@ export function CopilotConversation({
   expandedKeys,
   unreadKeys,
   onToggleExpand,
+  onCompleteItem,
 }: Props) {
   const pairs = buildQaPairs(messages);
 
@@ -114,7 +116,7 @@ export function CopilotConversation({
               {isExpanded && pair.aiText && (
                 <div className={styles.chatAnswerScroll}>
                   <MarkdownLite text={pair.aiText} />
-                  <EvidencePanel evidences={pair.evidences} />
+                  <EvidencePanel evidences={pair.evidences} onCompleteItem={onCompleteItem} />
                 </div>
               )}
             </div>

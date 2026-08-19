@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import IcedAmericano from "./icedAmericano";
 import { ConnectionState } from "@/lib/types/unified";
 import { ViewWindowSetting, WINDOW_TIERS_DAYS } from "@/lib/collectWindow";
@@ -26,6 +26,12 @@ export interface HeaderControlsProps {
   onRequestNotifPerm: () => void;
 }
 
+interface BeforeInstallPromptEvent extends Event {
+  readonly platforms: string[];
+  readonly userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
+  prompt(): Promise<void>;
+}
+
 export function HeaderControls({
   userEmail,
   connections,
@@ -41,6 +47,25 @@ export function HeaderControls({
   fetchLimit,
   onFetchLimitChange,
 }: HeaderControlsProps) {
+  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e as BeforeInstallPromptEvent);
+    };
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt as EventListener);
+    return () => window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt as EventListener);
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === "accepted") {
+      setDeferredPrompt(null);
+    }
+  };
   const displayEmail = userEmail || connections?.googleEmail || connections?.outlookEmail || "게스트";
 
   return (
@@ -71,6 +96,16 @@ export function HeaderControls({
             <option value="mega">메가커피</option>
             <option value="kustom">커스텀커피</option>
           </select>
+          {deferredPrompt && (
+            <button
+              className={styles.logoutBtnSmall}
+              style={{ backgroundColor: "var(--accent)", color: "#fff", borderColor: "transparent" }}
+              onClick={handleInstallClick}
+              title="독립된 창과 백그라운드 푸시 알림을 지원하는 크롬 앱(PWA) 설치"
+            >
+              앱 설치
+            </button>
+          )}
           <button className={styles.logoutBtnSmall} onClick={onLogoutHandoff}>
             퇴근하기
           </button>

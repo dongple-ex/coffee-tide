@@ -8,6 +8,7 @@ import { emailReplyDraftTool } from "./tools/emailReplyDraft";
 import { reportDraftTool } from "./tools/reportDraft";
 import { calendarCreateTool } from "./tools/calendarCreate";
 import { driveReportSaveTool } from "./tools/driveReportSave";
+import { clientActionTool } from "./tools/clientAction";
 import type {
   CloudToolContext,
   CloudToolDefinition,

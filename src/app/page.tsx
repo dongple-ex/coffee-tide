@@ -60,6 +60,7 @@ import {
   LS_WEATHER_ENABLED,
   LS_WORK_NOTES,
 } from "@/lib/localStore";
+import { queueMutation } from "@/lib/browser/mutationQueue";
 import { useModalA11y } from "./hooks/useModalA11y";
 import { HeaderControls, Theme } from "./components/HeaderControls";
 import { UiIcon } from "./components/UiIcon";
@@ -406,6 +407,66 @@ export default function Home() {
     },
     [activeCompactTab, openWorkspaceTab]
   );
+
+  useEffect(() => {
+    if (!compactMode) return;
+
+    let startX: number | null = null;
+    let isDragging = false;
+
+    const onPointerDown = (e: PointerEvent) => {
+      const target = e.target as HTMLElement;
+      // 드래그 금지 영역 (버튼, 링크, 입력창)
+      if (
+        ["BUTTON", "INPUT", "TEXTAREA", "A", "SELECT"].includes(target.tagName) ||
+        target.closest("button") ||
+        target.closest("a")
+      ) {
+        return;
+      }
+      startX = e.clientX;
+      isDragging = true;
+    };
+
+    const onPointerUp = (e: PointerEvent) => {
+      if (startX === null || !isDragging) return;
+      const diff = startX - e.clientX;
+
+      if (Math.abs(diff) > 100) {
+        // 사용자가 텍스트를 드래그(블록 지정)한 경우 스와이프 취소
+        if (window.getSelection()?.toString().length) {
+          startX = null;
+          isDragging = false;
+          return;
+        }
+        
+        const tabs: Array<"todo" | "copilot" | "widgets"> = ["todo", "copilot", "widgets"];
+        const currentIndex = tabs.indexOf(activeCompactTabRef.current);
+        if (diff > 0 && currentIndex < tabs.length - 1) {
+          openWorkspaceTab(tabs[currentIndex + 1]);
+        } else if (diff < 0 && currentIndex > 0) {
+          openWorkspaceTab(tabs[currentIndex - 1]);
+        }
+      }
+      startX = null;
+      isDragging = false;
+    };
+
+    const onPointerCancel = () => {
+      startX = null;
+      isDragging = false;
+    };
+
+    window.addEventListener("pointerdown", onPointerDown);
+    window.addEventListener("pointerup", onPointerUp);
+    window.addEventListener("pointercancel", onPointerCancel);
+
+    return () => {
+      window.removeEventListener("pointerdown", onPointerDown);
+      window.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("pointercancel", onPointerCancel);
+    };
+  }, [compactMode, openWorkspaceTab]);
 
   // Q&A 답변 도착 시 접혀있는 카드가 있으면 깜빡이는 알림(unreadQaKeys) 등록.
   // 쌍 묶기는 CopilotConversation과 반드시 같은 결과여야 해서 buildQaPairs를 공유한다.
@@ -1716,7 +1777,21 @@ export default function Home() {
   }
 
   function setLocalStatus(id: string, status: UnifiedData["status"]) {
-    setManualItems((prev) => prev.map((i) => (i.id === id ? { ...i, status } : i)));
+    setManualItems((prev) => {
+      const exists = prev.some((i) => i.id === id);
+      if (exists) {
+        return prev.map((i) => (i.id === id ? { ...i, status } : i));
+      }
+      const target = [...serverMails, ...browserItems].find((i) => i.id === id);
+      if (target) {
+        return [{ ...target, status }, ...prev];
+      }
+      return prev;
+    });
+
+    // 서버 연동 시 로컬 상태가 유실(revert)되지 않도록 Mutation Queue에 등록
+    queueMutation(id, "update", undefined, { status }).catch(console.error);
+
     if (status === "completed") signalTodoCompletion();
   }
 
@@ -3275,6 +3350,7 @@ export default function Home() {
               expandedKeys={expandedQaKeys}
               unreadKeys={unreadQaKeys}
               onToggleExpand={toggleQaPair}
+              onCompleteItem={(id) => setLocalStatus(id, "completed")}
             />
             {calendarDraft && (
               <CalendarDraftCard

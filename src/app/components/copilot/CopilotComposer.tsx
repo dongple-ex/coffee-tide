@@ -15,6 +15,34 @@ const SLASH_COMMANDS = [
   { name: "/help", desc: "슬래시 커맨드 도움말 출력" },
 ];
 
+const RECOMMENDED_PROMPTS = [
+  {
+    title: "글쓰기 스타일 맞추기",
+    desc: "Workspace 앱 전반에서 사용자가 실제 작성한 글을 통해 문체를 학습합니다.",
+    prompt: "내 기존 문서들을 분석해서 내 글쓰기 스타일과 문체를 학습하고, 앞으로 그 스타일에 맞춰서 답변해줘.",
+  },
+  {
+    title: "에너지 효율 최적화",
+    desc: "일정이 아닌 에너지에 맞춰 업무량을 조정하세요.",
+    prompt: "현재 내 업무 목록을 내 에너지 수준(높음/보통/낮음)에 따라 재배치해서 추천해줘.",
+  },
+  {
+    title: "다양한 관점 살펴보기",
+    desc: "결정을 내리기 전에 3~5가지 관점을 파악해 보세요.",
+    prompt: "현재 진행 중인 주요 결정 사항에 대해 3가지 다른 관점(낙관적, 비관적, 객관적)에서 분석해줘.",
+  },
+  {
+    title: "새로운 아이디어 생성",
+    desc: "기존 콘텐츠를 완전히 새로운 5가지 창의적인 개념으로 바꿔 보세요.",
+    prompt: "선택된 업무나 메모를 바탕으로 완전히 새로운 5가지 창의적인 아이디어를 제안해줘.",
+  },
+  {
+    title: "회의 준비",
+    desc: "컨텍스트, 목표, 위험 영역 등이 포함된 요약으로 어떤 회의든 준비하세요.",
+    prompt: "다가오는 회의를 위해 배경 컨텍스트, 주요 목표, 그리고 예상되는 위험 영역을 포함한 브리핑을 작성해줘.",
+  },
+];
+
 interface Props {
   value: string;
   onChange: (value: string) => void;
@@ -105,6 +133,25 @@ export function CopilotComposer({
         <>
           <div className={styles.plusBackdrop} onClick={() => onTogglePlus(false)} />
           <div className={styles.plusMenu} role="menu">
+            <div className={styles.recommendationHeader}>추천</div>
+            {RECOMMENDED_PROMPTS.map((rec) => (
+              <button
+                key={rec.title}
+                className={styles.recommendationItem}
+                role="menuitem"
+                onClick={() => {
+                  onTogglePlus(false);
+                  onChange(rec.prompt);
+                }}
+                disabled={busy}
+              >
+                <div className={styles.recTitle}>{rec.title}</div>
+                <div className={styles.recDesc}>{rec.desc}</div>
+              </button>
+            ))}
+            
+            <div className={styles.plusMenuDivider} />
+
             <button
               ref={plusFirstItemRef}
               className={styles.plusMenuItem}
