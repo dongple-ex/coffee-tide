@@ -35,6 +35,24 @@ const ALLOWED_ORIGINS = new Set([
 ]);
 const YOUTUBE_EMBED_ORIGIN = "https://www.youtube-nocookie.com";
 
+interface DocumentPictureInPictureOptions {
+  width?: number;
+  height?: number;
+  disallowReturnToOpener?: boolean;
+}
+
+interface DocumentPictureInPicture {
+  requestWindow(options?: DocumentPictureInPictureOptions): Promise<Window>;
+  window?: Window;
+  onenter?: (event: Event) => void;
+}
+
+declare global {
+  interface Window {
+    documentPictureInPicture?: DocumentPictureInPicture;
+  }
+}
+
 function extractYoutubeVideoId(video: YouTubeVideo | null): string {
   if (!video) return "";
   if (video.url) {
@@ -80,6 +98,13 @@ export function SmartPlayerModal({
   const mountedRef = useRef(true);
   const isMiniRef = useRef(false);
   const modeMountedRef = useRef(false);
+
+  // 재생 모드 및 상태 확장
+  const [audioOnly, setAudioOnly] = useState(false);
+  const [playbackRate, setPlaybackRate] = useState<number>(1.0);
+  const [isMuted, setIsMuted] = useState<boolean>(false);
+  const [isPiPActive, setIsPiPActive] = useState<boolean>(false);
+  const pipWindowRef = useRef<Window | null>(null);
 
   // 복원 세션인 경우 직전 재생 여부(wasPlaying / playerState)에 따라 자동재생 결정, 신규는 항상 자동재생
   const isRestoredSession = Boolean(
@@ -144,6 +169,155 @@ export function SmartPlayerModal({
     chatInputRef.current = chatInput;
   }, [chatInput]);
 
+  // IFrame 명령 전송 헬퍼
+  const postIframeCommand = useCallback((func: string, args: unknown[] = []) => {
+    if (iframeRef.current?.contentWindow) {
+      iframeRef.current.contentWindow.postMessage(
+        JSON.stringify({ event: "command", func, args }),
+        YOUTUBE_EMBED_ORIGIN
+      );
+    }
+  }, []);
+
+  // IFrame 내부 특정 초로 이동 및 자동 재생
+  const seekTo = useCallback((seconds: number) => {
+    postIframeCommand("seekTo", [seconds, true]);
+    postIframeCommand("playVideo");
+    currentTimeRef.current = seconds;
+    onNotify?.(`⏱️ ${Math.floor(seconds / 60)}분 ${Math.floor(seconds % 60)}초 시점으로 이동했습니다.`);
+  }, [postIframeCommand, onNotify]);
+
+  // 재생 / 일시정지 토글
+  const togglePlayPause = useCallback(() => {
+    if (playerStateRef.current === "playing") {
+      postIframeCommand("pauseVideo");
+      playerStateRef.current = "paused";
+      wasPlayingRef.current = false;
+      onNotify?.("⏸️ 영상이 일시정지되었습니다.");
+    } else {
+      postIframeCommand("playVideo");
+      playerStateRef.current = "playing";
+      wasPlayingRef.current = true;
+      onNotify?.("▶️ 영상 재생이 시작되었습니다.");
+    }
+  }, [postIframeCommand, onNotify]);
+
+  // 앞뒤 시간 스킵
+  const skipSeconds = useCallback((delta: number) => {
+    const nextTime = Math.max(0, currentTimeRef.current + delta);
+    seekTo(nextTime);
+  }, [seekTo]);
+
+  // 음소거 토글
+  const toggleMute = useCallback(() => {
+    setIsMuted((prev) => {
+      const next = !prev;
+      postIframeCommand(next ? "mute" : "unMute");
+      onNotify?.(next ? "🔇 음소거되었습니다." : "🔊 음소거가 해제되었습니다.");
+      return next;
+    });
+  }, [postIframeCommand, onNotify]);
+
+  // 배속 변경
+  const changePlaybackRate = useCallback((rate: number) => {
+    setPlaybackRate(rate);
+    postIframeCommand("setPlaybackRate", [rate]);
+    onNotify?.(`⚡ 재생 속도: ${rate}배속`);
+  }, [postIframeCommand, onNotify]);
+
+  // 브라우저 별도 독립 팝업 창 분리 실행
+  const handleOpenExternalPopup = useCallback(() => {
+    const width = 640;
+    const height = 400;
+    const left = Math.max(0, Math.round((window.screen.width - width) / 2));
+    const top = Math.max(0, Math.round((window.screen.height - height) / 2));
+
+    const popupUrl = `https://www.youtube-nocookie.com/embed/${ytVideoId}?autoplay=1&enablejsapi=1&rel=0&iv_load_policy=3&modestbranding=1&start=${Math.floor(currentTimeRef.current)}`;
+    window.open(
+      popupUrl,
+      `yt_popup_${ytVideoId}`,
+      `width=${width},height=${height},top=${top},left=${left},menubar=no,toolbar=no,location=no,status=no,resizable=yes`
+    );
+    onNotify?.("별도 팝업 창으로 영상을 분리했습니다.");
+    onClose();
+  }, [ytVideoId, onNotify, onClose]);
+
+  // OS 항상 위 Document PiP (Picture-in-Picture) 모드 제어
+  const handleToggleDocumentPiP = useCallback(async () => {
+    if (typeof window === "undefined") return;
+
+    if (pipWindowRef.current) {
+      pipWindowRef.current.close();
+      pipWindowRef.current = null;
+      setIsPiPActive(false);
+      return;
+    }
+
+    if (window.documentPictureInPicture && typeof window.documentPictureInPicture.requestWindow === "function") {
+      try {
+        const pipWin = await window.documentPictureInPicture.requestWindow({
+          width: 580,
+          height: 380,
+        });
+        pipWindowRef.current = pipWin;
+
+        // 스타일 복사
+        Array.from(document.styleSheets).forEach((sheet) => {
+          try {
+            const css = Array.from(sheet.cssRules).map((r) => r.cssText).join("");
+            const style = pipWin.document.createElement("style");
+            style.textContent = css;
+            pipWin.document.head.appendChild(style);
+          } catch {
+            if (sheet.href) {
+              const link = pipWin.document.createElement("link");
+              link.rel = "stylesheet";
+              link.href = sheet.href;
+              pipWin.document.head.appendChild(link);
+            }
+          }
+        });
+
+        pipWin.document.body.style.margin = "0";
+        pipWin.document.body.style.background = "#121420";
+        pipWin.document.body.style.color = "#fff";
+        pipWin.document.body.style.overflow = "hidden";
+        pipWin.document.body.style.display = "flex";
+        pipWin.document.body.style.flexDirection = "column";
+        pipWin.document.body.style.padding = "8px";
+        pipWin.document.title = video?.title || "CoffeeTide PiP Player";
+
+        // Iframe 주입
+        const iframeContainer = pipWin.document.createElement("div");
+        iframeContainer.style.width = "100%";
+        iframeContainer.style.height = "100%";
+        iframeContainer.style.borderRadius = "8px";
+        iframeContainer.style.overflow = "hidden";
+
+        const pipIframe = pipWin.document.createElement("iframe");
+        pipIframe.src = `https://www.youtube-nocookie.com/embed/${ytVideoId}?enablejsapi=1&autoplay=1&rel=0&iv_load_policy=3&modestbranding=1&start=${Math.floor(currentTimeRef.current)}`;
+        pipIframe.style.width = "100%";
+        pipIframe.style.height = "100%";
+        pipIframe.style.border = "none";
+        pipIframe.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture";
+        iframeContainer.appendChild(pipIframe);
+        pipWin.document.body.appendChild(iframeContainer);
+
+        setIsPiPActive(true);
+        onNotify?.("📺 항상 위 OS Document PiP 모드로 전환되었습니다.");
+
+        pipWin.addEventListener("pagehide", () => {
+          pipWindowRef.current = null;
+          setIsPiPActive(false);
+        });
+      } catch {
+        handleOpenExternalPopup();
+      }
+    } else {
+      handleOpenExternalPopup();
+    }
+  }, [ytVideoId, video?.title, onNotify, handleOpenExternalPopup]);
+
   // 현재 세션 즉시 저장 유틸
   const saveCurrentSession = useCallback(() => {
     if (!video) return;
@@ -179,9 +353,51 @@ export function SmartPlayerModal({
 
   // 사용자가 명시적으로 플레이어를 닫는 경우 세션 삭제
   const handleExplicitClose = useCallback(() => {
+    if (pipWindowRef.current) {
+      pipWindowRef.current.close();
+      pipWindowRef.current = null;
+    }
     clearYouTubeContinuitySession();
     onCloseRef.current();
   }, []);
+
+  // MediaSession API 연동 (백그라운드 & OS 미디어 키 지원)
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !("mediaSession" in navigator) || !video) return;
+
+    try {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: video.title,
+        artist: "CoffeeTide YouTube",
+        album: "스마트 번들",
+        artwork: video.thumbnailUrl
+          ? [
+              { src: video.thumbnailUrl, sizes: "96x96", type: "image/jpeg" },
+              { src: video.thumbnailUrl, sizes: "256x256", type: "image/jpeg" },
+              { src: video.thumbnailUrl, sizes: "512x512", type: "image/jpeg" },
+            ]
+          : [],
+      });
+
+      navigator.mediaSession.setActionHandler("play", () => togglePlayPause());
+      navigator.mediaSession.setActionHandler("pause", () => togglePlayPause());
+      navigator.mediaSession.setActionHandler("seekbackward", (details) => {
+        const offset = details.seekOffset || 10;
+        skipSeconds(-offset);
+      });
+      navigator.mediaSession.setActionHandler("seekforward", (details) => {
+        const offset = details.seekOffset || 10;
+        skipSeconds(offset);
+      });
+      navigator.mediaSession.setActionHandler("seekto", (details) => {
+        if (typeof details.seekTime === "number") {
+          seekTo(details.seekTime);
+        }
+      });
+    } catch {
+      // Ignore MediaSession error
+    }
+  }, [video, togglePlayPause, skipSeconds, seekTo]);
 
   // visibilitychange 및 pagehide 생명주기 연동
   useEffect(() => {
@@ -190,10 +406,7 @@ export function SmartPlayerModal({
         saveCurrentSession();
       } else if (document.visibilityState === "visible") {
         if (wasPlayingRef.current && iframeRef.current?.contentWindow) {
-          iframeRef.current.contentWindow.postMessage(
-            JSON.stringify({ event: "command", func: "playVideo", args: [] }),
-            YOUTUBE_EMBED_ORIGIN
-          );
+          postIframeCommand("playVideo");
         }
       }
     };
@@ -209,7 +422,7 @@ export function SmartPlayerModal({
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("pagehide", handlePageHide);
     };
-  }, [saveCurrentSession]);
+  }, [saveCurrentSession, postIframeCommand]);
 
   // YouTube IFrame postMessage 리스너 & listening 등록
   useEffect(() => {
@@ -234,16 +447,10 @@ export function SmartPlayerModal({
             YOUTUBE_EMBED_ORIGIN
           );
           if (initialSeekTime && initialSeekTime > 0) {
-            iframeRef.current?.contentWindow?.postMessage(
-              JSON.stringify({ event: "command", func: "seekTo", args: [initialSeekTime, true] }),
-              YOUTUBE_EMBED_ORIGIN
-            );
+            postIframeCommand("seekTo", [initialSeekTime, true]);
           }
           if (shouldAutoplay) {
-            iframeRef.current?.contentWindow?.postMessage(
-              JSON.stringify({ event: "command", func: "playVideo", args: [] }),
-              YOUTUBE_EMBED_ORIGIN
-            );
+            postIframeCommand("playVideo");
           }
         }
 
@@ -294,7 +501,7 @@ export function SmartPlayerModal({
       window.clearTimeout(t1);
       window.clearTimeout(t2);
     };
-  }, [initialSeekTime, shouldAutoplay]);
+  }, [initialSeekTime, shouldAutoplay, postIframeCommand]);
 
   useEffect(() => {
     isMiniRef.current = isMini;
@@ -319,6 +526,7 @@ export function SmartPlayerModal({
     return () => mediaQuery.removeEventListener("change", syncViewport);
   }, []);
 
+  // 글로벌 키보드 핫키 컨트롤
   useEffect(() => {
     previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     window.requestAnimationFrame(() => {
@@ -333,25 +541,54 @@ export function SmartPlayerModal({
         else handleExplicitClose();
         return;
       }
-      if (
-        (isMiniRef.current && isMobileViewportRef.current) ||
-        event.key !== "Tab" ||
-        !modalContainerRef.current
-      ) return;
-      const focusable = Array.from(
-        modalContainerRef.current.querySelectorAll<HTMLElement>(
-          'button:not([disabled]), input:not([disabled]), iframe, [href], [tabindex]:not([tabindex="-1"])'
-        )
-      ).filter((element) => element.offsetParent !== null);
-      if (focusable.length === 0) return;
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
+
+      // 입력창 포커스 중에는 단축키 비활성화
+      const activeTag = (document.activeElement?.tagName || "").toLowerCase();
+      if (activeTag === "input" || activeTag === "textarea" || (document.activeElement as HTMLElement)?.isContentEditable) {
+        return;
+      }
+
+      if (event.code === "Space") {
         event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
+        togglePlayPause();
+      } else if (event.key === "j" || event.key === "J") {
         event.preventDefault();
-        first.focus();
+        skipSeconds(-10);
+      } else if (event.key === "l" || event.key === "L") {
+        event.preventDefault();
+        skipSeconds(10);
+      } else if (event.key === "m" || event.key === "M") {
+        event.preventDefault();
+        toggleMute();
+      } else if (event.key === "p" || event.key === "P") {
+        event.preventDefault();
+        void handleToggleDocumentPiP();
+      } else if (event.key === ">" || (event.shiftKey && event.key === ".")) {
+        event.preventDefault();
+        const rates = [0.75, 1.0, 1.25, 1.5, 2.0];
+        const next = rates.find((r) => r > playbackRate) || rates[rates.length - 1];
+        changePlaybackRate(next);
+      } else if (event.key === "<" || (event.shiftKey && event.key === ",")) {
+        event.preventDefault();
+        const rates = [0.75, 1.0, 1.25, 1.5, 2.0];
+        const prev = [...rates].reverse().find((r) => r < playbackRate) || rates[0];
+        changePlaybackRate(prev);
+      } else if (event.key === "Tab" && modalContainerRef.current && (!isMiniRef.current || !isMobileViewportRef.current)) {
+        const focusable = Array.from(
+          modalContainerRef.current.querySelectorAll<HTMLElement>(
+            'button:not([disabled]), input:not([disabled]), iframe, [href], [tabindex]:not([tabindex="-1"])'
+          )
+        ).filter((element) => element.offsetParent !== null);
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -361,7 +598,7 @@ export function SmartPlayerModal({
       chatRequestRef.current?.abort();
       previousFocusRef.current?.focus();
     };
-  }, [handleExplicitClose]);
+  }, [handleExplicitClose, togglePlayPause, skipSeconds, toggleMute, handleToggleDocumentPiP, changePlaybackRate, playbackRate]);
 
   useEffect(() => {
     if (isMini && isMobileViewport) return;
@@ -371,7 +608,6 @@ export function SmartPlayerModal({
       document.body.style.overflow = previousBodyOverflow;
     };
   }, [isMini, isMobileViewport]);
-
 
   useEffect(() => {
     if (!video) return;
@@ -397,7 +633,6 @@ export function SmartPlayerModal({
       controller.abort();
     }, 12_000);
 
-    // 상세 요약 및 챕터가 없는 경우 백엔드 API 요청
     if (needsDetails) {
       fetch("/api/youtube/transcript-summary", {
         method: "POST",
@@ -437,38 +672,6 @@ export function SmartPlayerModal({
   }, [video, ytVideoId, needsDetails]);
 
   if (!video) return null;
-
-  // IFrame 내부 특정 초로 이동 및 자동 재생
-  const seekTo = (seconds: number) => {
-    if (iframeRef.current && iframeRef.current.contentWindow) {
-      iframeRef.current.contentWindow.postMessage(
-        JSON.stringify({ event: "command", func: "seekTo", args: [seconds, true] }),
-        "*"
-      );
-      iframeRef.current.contentWindow.postMessage(
-        JSON.stringify({ event: "command", func: "playVideo", args: [] }),
-        "*"
-      );
-      onNotify?.(`⏱️ ${Math.floor(seconds / 60)}분 ${seconds % 60}초 시점으로 이동했습니다.`);
-    }
-  };
-
-  // 브라우저 별도 독립 팝업 창 분리 실행
-  const handleOpenExternalPopup = () => {
-    const width = 640;
-    const height = 400;
-    const left = Math.max(0, Math.round((window.screen.width - width) / 2));
-    const top = Math.max(0, Math.round((window.screen.height - height) / 2));
-
-    const popupUrl = `https://www.youtube-nocookie.com/embed/${ytVideoId}?autoplay=1&enablejsapi=1`;
-    window.open(
-      popupUrl,
-      `yt_popup_${ytVideoId}`,
-      `width=${width},height=${height},top=${top},left=${left},menubar=no,toolbar=no,location=no,status=no,resizable=yes`
-    );
-    onNotify?.("별도 팝업 창으로 영상을 분리했습니다.");
-    onClose();
-  };
 
   // AI 채팅 전송
   const handleSendChat = async (e: React.FormEvent) => {
@@ -567,15 +770,41 @@ export function SmartPlayerModal({
             )}
 
             <div className={styles.headerActions}>
+              {/* 오디오 전용 모드 토글 */}
+              <button
+                type="button"
+                className={`${styles.headerActionBtn} ${audioOnly ? styles.headerActionBtnActive : ""}`}
+                onClick={() => {
+                  setAudioOnly((prev) => !prev);
+                  onNotify?.(!audioOnly ? "🎧 오디오 전용 집중 모드로 전환되었습니다." : "🎬 비디오 모드로 전환되었습니다.");
+                }}
+                data-tooltip={audioOnly ? "비디오 모드로 복귀" : "오디오 전용 모드"}
+                aria-label={audioOnly ? "비디오 모드로 복귀" : "오디오 전용 모드"}
+              >
+                <UiIcon name="headphones" size={16} />
+              </button>
+
+              {/* OS Document PiP 모드 */}
+              <button
+                type="button"
+                className={`${styles.headerActionBtn} ${isPiPActive ? styles.headerActionBtnActive : ""}`}
+                onClick={() => void handleToggleDocumentPiP()}
+                data-tooltip="OS 항상 위 PiP 창"
+                aria-label="OS 항상 위 PiP 창"
+              >
+                <UiIcon name="pip" size={16} />
+              </button>
+
+              {/* 인앱 미니 모드 */}
               {isMini ? (
                 <button
                   type="button"
                   className={styles.headerActionBtn}
                   onClick={() => setIsMini(false)}
-                  data-tooltip="CoffeeTide 화면 복원"
-                  aria-label="CoffeeTide 화면 복원"
+                  data-tooltip="플레이어 확장"
+                  aria-label="플레이어 확장"
                 >
-                  <UiIcon name="expand" size={17} />
+                  <UiIcon name="expand" size={16} />
                 </button>
               ) : (
                 <button
@@ -583,21 +812,25 @@ export function SmartPlayerModal({
                   type="button"
                   className={styles.headerActionBtn}
                   onClick={() => setIsMini(true)}
-                  data-tooltip="축소 모드"
-                  aria-label="CoffeeTide 집중 축소 모드"
+                  data-tooltip="미니 도킹 모드"
+                  aria-label="미니 도킹 모드"
                 >
-                  <UiIcon name="expand" size={17} />
+                  <UiIcon name="expand" size={16} />
                 </button>
               )}
+
+              {/* 별도 창 팝업 */}
               <button
                 type="button"
                 className={styles.headerActionBtn}
                 onClick={handleOpenExternalPopup}
-                data-tooltip="별도 창 팝업"
-                aria-label="별도 창 팝업"
+                data-tooltip="별도 브라우저 창 팝업"
+                aria-label="별도 브라우저 창 팝업"
               >
-                <UiIcon name="popup" size={17} />
+                <UiIcon name="popup" size={16} />
               </button>
+
+              {/* 닫기 */}
               <button
                 ref={closeButtonRef}
                 type="button"
@@ -606,7 +839,7 @@ export function SmartPlayerModal({
                 aria-label="플레이어 닫기"
                 data-tooltip="플레이어 닫기"
               >
-                <UiIcon name="close" size={17} />
+                <UiIcon name="close" size={16} />
               </button>
             </div>
           </div>
@@ -623,10 +856,7 @@ export function SmartPlayerModal({
                   className={styles.resumeBtn}
                   onClick={() => {
                     seekTo(initialSeekTime);
-                    iframeRef.current?.contentWindow?.postMessage(
-                      JSON.stringify({ event: "command", func: "playVideo", args: [] }),
-                      YOUTUBE_EMBED_ORIGIN
-                    );
+                    postIframeCommand("playVideo");
                     setShowResumeNotice(false);
                   }}
                 >
@@ -646,10 +876,49 @@ export function SmartPlayerModal({
 
           <div className={isMini ? styles.miniBody : styles.modalBody}>
             <div className={isMini ? styles.miniVideoSection : styles.videoSection}>
-              <div className={isMini ? styles.miniIframeWrapper : styles.iframeWrapper}>
+              {/* 비디오 뷰 vs 오디오 전용 뷰 */}
+              {audioOnly ? (
+                <div className={styles.audioModeCard}>
+                  <div
+                    className={`${styles.audioArtworkWrapper} ${
+                      playerStateRef.current === "paused" ? styles.audioArtworkPaused : ""
+                    }`}
+                  >
+                    {video.thumbnailUrl ? (
+                      <Image
+                        src={video.thumbnailUrl}
+                        alt={video.title}
+                        fill
+                        style={{ objectFit: "cover" }}
+                        sizes="96px"
+                      />
+                    ) : (
+                      <div style={{ width: "100%", height: "100%", background: "#333", display: "grid", placeItems: "center" }}>
+                        <UiIcon name="headphones" size={32} />
+                      </div>
+                    )}
+                  </div>
+                  <div className={styles.audioWaveContainer}>
+                    <div className={styles.audioWaveBar} />
+                    <div className={styles.audioWaveBar} />
+                    <div className={styles.audioWaveBar} />
+                    <div className={styles.audioWaveBar} />
+                    <div className={styles.audioWaveBar} />
+                    <div className={styles.audioWaveBar} />
+                  </div>
+                  <div className={styles.audioTitle}>{video.title}</div>
+                  <div className={styles.audioBadge}>🎧 오디오 집중 모드 실행 중</div>
+                </div>
+              ) : null}
+
+              {/* 실제 iframe: 오디오 전용 모드일 때도 배경 백그라운드 재생 유지를 위해 1px로 은닉 렌더링 */}
+              <div
+                className={isMini ? styles.miniIframeWrapper : styles.iframeWrapper}
+                style={audioOnly ? { position: "absolute", width: 1, height: 1, opacity: 0, pointerEvents: "none" } : undefined}
+              >
                 <iframe
                   ref={iframeRef}
-                  src={`https://www.youtube-nocookie.com/embed/${ytVideoId}?enablejsapi=1&autoplay=${shouldAutoplay ? 1 : 0}&rel=0${
+                  src={`https://www.youtube-nocookie.com/embed/${ytVideoId}?enablejsapi=1&autoplay=${shouldAutoplay ? 1 : 0}&rel=0&iv_load_policy=3&modestbranding=1&playsinline=1${
                     initialSeekTime && initialSeekTime > 0 ? `&start=${Math.floor(initialSeekTime)}` : ""
                   }`}
                   title={video.title}
@@ -657,6 +926,65 @@ export function SmartPlayerModal({
                   allowFullScreen
                 />
               </div>
+
+              {/* 하단 통합 플레이어 컨트롤 스트립 (배속, 스킵, 음소거, 핫키 안내) */}
+              {!isMini && (
+                <div className={styles.playerControlsStrip}>
+                  <div className={styles.controlsLeft}>
+                    <button
+                      type="button"
+                      className={styles.ctrlBtn}
+                      onClick={togglePlayPause}
+                      title="재생 / 일시정지 (Space)"
+                    >
+                      <UiIcon name={playerStateRef.current === "playing" ? "pause" : "play"} size={14} />
+                      <span>{playerStateRef.current === "playing" ? "일시정지" : "재생"}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.ctrlBtn}
+                      onClick={() => skipSeconds(-10)}
+                      title="10초 뒤로 (J)"
+                    >
+                      <span>-10초</span>
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.ctrlBtn}
+                      onClick={() => skipSeconds(10)}
+                      title="10초 앞으로 (L)"
+                    >
+                      <span>+10초</span>
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.ctrlBtn}
+                      onClick={toggleMute}
+                      title="음소거 토글 (M)"
+                    >
+                      <UiIcon name={isMuted ? "volume-x" : "volume-2"} size={14} />
+                    </button>
+                    <div className={styles.speedChipGroup} title="재생 속도 조절 (<, >)">
+                      <UiIcon name="zap" size={13} style={{ marginLeft: 3, color: "var(--accent)" }} />
+                      {[0.75, 1.0, 1.25, 1.5, 2.0].map((rate) => (
+                        <button
+                          key={rate}
+                          type="button"
+                          className={`${styles.speedChip} ${playbackRate === rate ? styles.speedChipActive : ""}`}
+                          onClick={() => changePlaybackRate(rate)}
+                        >
+                          {rate}x
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className={styles.controlsRight}>
+                    <span className={styles.hotkeyHint} title="키보드 단축키">
+                      ⌨️ Space: 재생 · J/L: 10초 · M: 음소거 · P: PiP
+                    </span>
+                  </div>
+                </div>
+              )}
 
               {!isMini && chapters.length > 0 && (
                 <div className={styles.chapterSection}>

@@ -567,3 +567,176 @@
   align-items: center;
 }
 
+.headerActionBtnActive {
+  background: var(--accent) !important;
+  color: var(--accent-contrast, #fff) !important;
+  border-color: var(--accent) !important;
+}
+
+.playerControlsStrip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 6px 10px;
+  background: var(--card-hover);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.76rem;
+  flex-wrap: wrap;
+}
+
+.controlsLeft,
+.controlsRight {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.speedChipGroup {
+  display: inline-flex;
+  align-items: center;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.speedChip {
+  background: transparent;
+  border: 0;
+  color: var(--text-dim);
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.speedChip:hover {
+  color: var(--text);
+  background: var(--card-hover);
+}
+
+.speedChipActive {
+  background: var(--accent) !important;
+  color: var(--accent-contrast, #fff) !important;
+}
+
+.ctrlBtn {
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s;
+}
+
+.ctrlBtn:hover {
+  background: var(--accent);
+  color: var(--accent-contrast, #fff);
+  border-color: var(--accent);
+}
+
+.hotkeyHint {
+  color: var(--text-dim);
+  font-size: 0.68rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.audioModeCard {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: linear-gradient(135deg, #141724 0%, #1e2238 100%);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.audioArtworkWrapper {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  border: 3px solid rgba(255, 255, 255, 0.15);
+  animation: rotateVinyl 20s linear infinite;
+}
+
+.audioArtworkPaused {
+  animation-play-state: paused;
+}
+
+@keyframes rotateVinyl {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.audioWaveContainer {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  margin-top: 14px;
+}
+
+.audioWaveBar {
+  width: 4px;
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  animation: audioWave 1.2s ease-in-out infinite alternate;
+}
+
+.audioWaveBar:nth-child(2) { animation-delay: 0.2s; }
+.audioWaveBar:nth-child(3) { animation-delay: 0.4s; }
+.audioWaveBar:nth-child(4) { animation-delay: 0.6s; }
+.audioWaveBar:nth-child(5) { animation-delay: 0.8s; }
+.audioWaveBar:nth-child(6) { animation-delay: 1.0s; }
+
+@keyframes audioWave {
+  0% { height: 20%; opacity: 0.4; }
+  100% { height: 100%; opacity: 1; }
+}
+
+.audioTitle {
+  margin-top: 10px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #fff;
+  text-align: center;
+  max-width: 85%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.audioBadge {
+  margin-top: 4px;
+  font-size: 0.72rem;
+  color: var(--accent);
+  background: rgba(43, 91, 238, 0.15);
+  padding: 2px 8px;
+  border-radius: 9999px;
+  border: 1px solid rgba(43, 91, 238, 0.3);
+}
+
