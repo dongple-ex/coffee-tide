@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 
 const MAX_RECORDING_SECONDS = 60 * 60; // 60 minutes
 
@@ -30,6 +30,11 @@ export function useVoiceRecorder(options?: UseVoiceRecorderOptions): VoiceRecord
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const lastChunkTimeRef = useRef(0);
+  const optionsRef = useRef(options);
+
+  useEffect(() => {
+    optionsRef.current = options;
+  }, [options]);
 
   const stopRecording = useCallback((): Promise<Blob | null> => {
     return new Promise((resolve) => {
@@ -106,13 +111,14 @@ export function useVoiceRecorder(options?: UseVoiceRecorderOptions): VoiceRecord
           const next = prev + 1;
 
           // Chunk emit check
-          if (options?.chunkIntervalSeconds && options.onChunk) {
+          const currentOptions = optionsRef.current;
+          if (currentOptions?.chunkIntervalSeconds && currentOptions.onChunk) {
             const timeSinceLastChunk = next - lastChunkTimeRef.current;
-            if (timeSinceLastChunk >= options.chunkIntervalSeconds) {
+            if (timeSinceLastChunk >= currentOptions.chunkIntervalSeconds) {
               if (chunksRef.current.length > 0 && mediaRecorderRef.current) {
                 const mimeType = mediaRecorderRef.current.mimeType || "audio/webm";
                 const chunkBlob = new Blob(chunksRef.current, { type: mimeType });
-                options.onChunk(chunkBlob, timeSinceLastChunk);
+                currentOptions.onChunk(chunkBlob, timeSinceLastChunk);
                 chunksRef.current = [];
                 lastChunkTimeRef.current = next;
               }

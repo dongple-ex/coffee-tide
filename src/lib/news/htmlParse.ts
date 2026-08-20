@@ -4,6 +4,9 @@
 // (2) 본문은 non-greedy `<div>...</div>` 정규식으로 잘라내 첫 </div>에서 잘리는 문제가 있었다.
 // 여기서는 ① RSS/Atom 자동 탐지 ② JSON-LD articleBody ③ 균형 잡힌 태그 스캔으로 본문을 온전히 확보한다.
 
+import { lookup } from "node:dns/promises";
+import { isIP } from "node:net";
+
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
 
@@ -25,19 +28,40 @@ export async function fetchPage(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const res = await fetch(url, {
-      headers: {
-        "User-Agent": UA,
-        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
-      },
-      signal: controller.signal,
-      redirect: "follow",
-      next: { revalidate: 180 },
-    });
-    const contentType = res.headers.get("content-type") || "";
-    const text = res.ok ? await res.text() : "";
-    return { ok: res.ok, status: res.status, text, contentType, finalUrl: res.url || url };
+    let current = new URL(url);
+    const maxRedirects = 5;
+
+    for (let redirectCount = 0; redirectCount <= maxRedirects; redirectCount++) {
+      if (await rejectUnsafeRemoteUrl(current)) {
+        return { ok: false, status: 0, text: "", contentType: "", finalUrl: current.href };
+      }
+
+      const res = await fetch(current, {
+        headers: {
+          "User-Agent": UA,
+          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
+        },
+        signal: controller.signal,
+        redirect: "manual",
+        next: { revalidate: 180 },
+      });
+
+      if (res.status >= 300 && res.status < 400) {
+        const location = res.headers.get("location");
+        if (!location || redirectCount === maxRedirects) {
+          return { ok: false, status: res.status, text: "", contentType: "", finalUrl: current.href };
+        }
+        current = new URL(location, current);
+        continue;
+      }
+
+      const contentType = res.headers.get("content-type") || "";
+      const text = res.ok ? await res.text() : "";
+      return { ok: res.ok, status: res.status, text, contentType, finalUrl: current.href };
+    }
+
+    return { ok: false, status: 0, text: "", contentType: "", finalUrl: current.href };
   } catch {
     return { ok: false, status: 0, text: "", contentType: "", finalUrl: url };
   } finally {
@@ -53,23 +77,111 @@ export function rejectUnsafeUrl(target: URL): string | null {
   if (target.protocol !== "http:" && target.protocol !== "https:") {
     return "http/https 주소만 등록할 수 있습니다.";
   }
-  const host = target.hostname.toLowerCase();
+  const host = normalizedHostname(target.hostname);
   if (
     host === "localhost" ||
-    host === "0.0.0.0" ||
     host.endsWith(".local") ||
     host.endsWith(".internal") ||
-    /^127\./.test(host) ||
-    /^10\./.test(host) ||
-    /^192\.168\./.test(host) ||
-    /^169\.254\./.test(host) ||
-    /^172\.(1[6-9]|2\d|3[01])\./.test(host) ||
-    host === "[::1]" ||
-    host === "::1"
+    isUnsafeIpAddress(host)
   ) {
     return "내부망/로컬 주소는 등록할 수 없습니다.";
   }
   return null;
+}
+
+/** DNS 결과까지 검사해 공개 인터넷 주소만 허용한다. */
+export async function rejectUnsafeRemoteUrl(target: URL): Promise<string | null> {
+  const directReason = rejectUnsafeUrl(target);
+  if (directReason) return directReason;
+
+  const host = normalizedHostname(target.hostname);
+  if (isIP(host)) return isUnsafeIpAddress(host) ? "내부망/로컬 주소는 등록할 수 없습니다." : null;
+
+  try {
+    const addresses = await lookup(host, { all: true, verbatim: true });
+    if (addresses.length === 0 || addresses.some(({ address }) => isUnsafeIpAddress(address))) {
+      return "내부망/로컬 주소는 등록할 수 없습니다.";
+    }
+  } catch {
+    return "호스트 주소를 확인할 수 없습니다.";
+  }
+
+  return null;
+}
+
+function normalizedHostname(hostname: string): string {
+  return hostname.toLowerCase().replace(/^\[|\]$/g, "").replace(/\.+$/, "");
+}
+
+export function isUnsafeIpAddress(address: string): boolean {
+  const normalized = normalizedHostname(address).split("%")[0];
+  const version = isIP(normalized);
+  if (version === 4) return isUnsafeIpv4(normalized);
+  if (version !== 6) return false;
+
+  const parts = expandIpv6(normalized);
+  if (!parts) return true;
+  const [first, second] = parts;
+
+  if (parts.every((part) => part === 0)) return true;
+  if (parts.slice(0, 7).every((part) => part === 0) && parts[7] === 1) return true;
+  if ((first & 0xfe00) === 0xfc00) return true;
+  if ((first & 0xffc0) === 0xfe80) return true;
+  if ((first & 0xff00) === 0xff00) return true;
+  if (first === 0x2001 && second === 0x0db8) return true;
+  if (first === 0x0064 && second === 0xff9b) return true;
+
+  const ipv4Mapped = parts.slice(0, 5).every((part) => part === 0) && parts[5] === 0xffff;
+  if (ipv4Mapped) {
+    return isUnsafeIpv4(`${parts[6] >> 8}.${parts[6] & 0xff}.${parts[7] >> 8}.${parts[7] & 0xff}`);
+  }
+
+  return false;
+}
+
+function isUnsafeIpv4(address: string): boolean {
+  const octets = address.split(".").map(Number);
+  if (octets.length !== 4 || octets.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) {
+    return true;
+  }
+  const [a, b, c] = octets;
+  return (
+    a === 0 ||
+    a === 10 ||
+    a === 127 ||
+    (a === 100 && b >= 64 && b <= 127) ||
+    (a === 169 && b === 254) ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 0 && (c === 0 || c === 2)) ||
+    (a === 192 && b === 168) ||
+    (a === 198 && (b === 18 || b === 19)) ||
+    (a === 198 && b === 51 && c === 100) ||
+    (a === 203 && b === 0 && c === 113) ||
+    a >= 224
+  );
+}
+
+function expandIpv6(address: string): number[] | null {
+  let source = address;
+  if (source.includes(".")) {
+    const lastColon = source.lastIndexOf(":");
+    const octets = source.slice(lastColon + 1).split(".").map(Number);
+    if (octets.length !== 4 || octets.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) {
+      return null;
+    }
+    source = `${source.slice(0, lastColon)}:${((octets[0] << 8) | octets[1]).toString(16)}:${((octets[2] << 8) | octets[3]).toString(16)}`;
+  }
+
+  const halves = source.split("::");
+  if (halves.length > 2) return null;
+  const left = halves[0] ? halves[0].split(":") : [];
+  const right = halves[1] ? halves[1].split(":") : [];
+  const missing = 8 - left.length - right.length;
+  if ((halves.length === 1 && missing !== 0) || (halves.length === 2 && missing < 1)) return null;
+
+  const rawParts = [...left, ...Array(Math.max(0, missing)).fill("0"), ...right];
+  if (rawParts.length !== 8 || rawParts.some((part) => !/^[0-9a-f]{1,4}$/i.test(part))) return null;
+  return rawParts.map((part) => parseInt(part, 16));
 }
 
 const NAMED_ENTITIES: Record<string, string> = {

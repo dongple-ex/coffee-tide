@@ -60,7 +60,6 @@ import {
   LS_WEATHER_ENABLED,
   LS_WORK_NOTES,
 } from "@/lib/localStore";
-import { queueMutation } from "@/lib/browser/mutationQueue";
 import { useModalA11y } from "./hooks/useModalA11y";
 import { HeaderControls, Theme } from "./components/HeaderControls";
 import { UiIcon } from "./components/UiIcon";
@@ -1874,9 +1873,6 @@ export default function Home() {
       }
       return prev;
     });
-
-    // 서버 연동 시 로컬 상태가 유실(revert)되지 않도록 Mutation Queue에 등록
-    queueMutation(id, "update", undefined, { status }).catch(console.error);
 
     if (status === "completed") signalTodoCompletion();
   }

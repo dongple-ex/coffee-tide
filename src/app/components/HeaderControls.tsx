@@ -60,9 +60,11 @@ export function HeaderControls({
 
   const handleInstallClick = async () => {
     if (!deferredPrompt) return;
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    if (outcome === "accepted") {
+    try {
+      await deferredPrompt.prompt();
+      await deferredPrompt.userChoice;
+    } finally {
+      // beforeinstallprompt 이벤트는 한 번만 사용할 수 있으므로 수락/거절과 관계없이 폐기한다.
       setDeferredPrompt(null);
     }
   };

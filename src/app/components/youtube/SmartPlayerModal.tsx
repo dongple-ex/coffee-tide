@@ -15,6 +15,8 @@ interface ChatMessage {
   timestamps?: { time: string; seconds: number; label: string }[];
 }
 
+type PlayerState = "playing" | "paused" | "buffering" | "ended" | "unknown";
+
 interface SmartPlayerModalProps {
   video: YouTubeVideo | null;
   onClose: () => void;
@@ -118,9 +120,10 @@ export function SmartPlayerModal({
 
   // 재생 위치 및 상태 추적용 Ref
   const currentTimeRef = useRef<number>(initialSeekTime || 0);
-  const playerStateRef = useRef<"playing" | "paused" | "buffering" | "ended" | "unknown">(
-    initialPlayerState || (shouldAutoplay ? "playing" : "paused")
-  );
+  const initialRenderedPlayerState: PlayerState =
+    initialPlayerState || (shouldAutoplay ? "playing" : "paused");
+  const [playerState, setPlayerState] = useState<PlayerState>(initialRenderedPlayerState);
+  const playerStateRef = useRef<PlayerState>(initialRenderedPlayerState);
   const wasPlayingRef = useRef<boolean>(shouldAutoplay);
   const ownerRef = useRef<YouTubeContinuityOwner>(owner);
   const activeWidgetIdRef = useRef<string | null>(activeWidgetId);
@@ -179,6 +182,11 @@ export function SmartPlayerModal({
     }
   }, []);
 
+  const updatePlayerState = useCallback((nextState: PlayerState) => {
+    playerStateRef.current = nextState;
+    setPlayerState(nextState);
+  }, []);
+
   // IFrame 내부 특정 초로 이동 및 자동 재생
   const seekTo = useCallback((seconds: number) => {
     postIframeCommand("seekTo", [seconds, true]);
@@ -191,16 +199,16 @@ export function SmartPlayerModal({
   const togglePlayPause = useCallback(() => {
     if (playerStateRef.current === "playing") {
       postIframeCommand("pauseVideo");
-      playerStateRef.current = "paused";
+      updatePlayerState("paused");
       wasPlayingRef.current = false;
       onNotify?.("⏸️ 영상이 일시정지되었습니다.");
     } else {
       postIframeCommand("playVideo");
-      playerStateRef.current = "playing";
+      updatePlayerState("playing");
       wasPlayingRef.current = true;
       onNotify?.("▶️ 영상 재생이 시작되었습니다.");
     }
-  }, [postIframeCommand, onNotify]);
+  }, [postIframeCommand, onNotify, updatePlayerState]);
 
   // 앞뒤 시간 스킵
   const skipSeconds = useCallback((delta: number) => {
@@ -316,7 +324,7 @@ export function SmartPlayerModal({
     } else {
       handleOpenExternalPopup();
     }
-  }, [ytVideoId, video?.title, onNotify, handleOpenExternalPopup]);
+  }, [ytVideoId, video, onNotify, handleOpenExternalPopup]);
 
   // 현재 세션 즉시 저장 유틸
   const saveCurrentSession = useCallback(() => {
@@ -460,13 +468,13 @@ export function SmartPlayerModal({
           }
           if (typeof data.info.playerState !== "undefined") {
             const stateCode = data.info.playerState;
-            let nextState: "playing" | "paused" | "buffering" | "ended" | "unknown" = "unknown";
+            let nextState: PlayerState = "unknown";
             if (stateCode === 1) nextState = "playing";
             else if (stateCode === 2) nextState = "paused";
             else if (stateCode === 3) nextState = "buffering";
             else if (stateCode === 0) nextState = "ended";
 
-            playerStateRef.current = nextState;
+            updatePlayerState(nextState);
             if (nextState === "playing") {
               wasPlayingRef.current = true;
               setShowResumeNotice(false);
@@ -501,7 +509,7 @@ export function SmartPlayerModal({
       window.clearTimeout(t1);
       window.clearTimeout(t2);
     };
-  }, [initialSeekTime, shouldAutoplay, postIframeCommand]);
+  }, [initialSeekTime, shouldAutoplay, postIframeCommand, updatePlayerState]);
 
   useEffect(() => {
     isMiniRef.current = isMini;
@@ -881,7 +889,7 @@ export function SmartPlayerModal({
                 <div className={styles.audioModeCard}>
                   <div
                     className={`${styles.audioArtworkWrapper} ${
-                      playerStateRef.current === "paused" ? styles.audioArtworkPaused : ""
+                      playerState === "paused" ? styles.audioArtworkPaused : ""
                     }`}
                   >
                     {video.thumbnailUrl ? (
@@ -937,8 +945,8 @@ export function SmartPlayerModal({
                       onClick={togglePlayPause}
                       title="재생 / 일시정지 (Space)"
                     >
-                      <UiIcon name={playerStateRef.current === "playing" ? "pause" : "play"} size={14} />
-                      <span>{playerStateRef.current === "playing" ? "일시정지" : "재생"}</span>
+                      <UiIcon name={playerState === "playing" ? "pause" : "play"} size={14} />
+                      <span>{playerState === "playing" ? "일시정지" : "재생"}</span>
                     </button>
                     <button
                       type="button"

@@ -97,7 +97,7 @@ ${transcript}
     let parsedResult;
     try {
       parsedResult = JSON.parse(summaryText);
-    } catch (e) {
+    } catch {
       console.warn("Failed to parse meeting analysis JSON", summaryText);
       return NextResponse.json({ error: "AI 분석 결과가 올바른 형식이 아닙니다." }, { status: 500 });
     }
@@ -106,7 +106,7 @@ ${transcript}
       success: true,
       analysis: parsedResult
     });
-  } catch (err) {
+  } catch {
     return NextResponse.json({ error: "서버 처리 중 오류가 발생했습니다." }, { status: 500 });
   }
 }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { rejectUnsafeUrl } from "@/lib/news/htmlParse";
+import { fetchPage, rejectUnsafeRemoteUrl } from "@/lib/news/htmlParse";
 
 export interface CustomNewsItem {
   id: string;
@@ -38,16 +38,13 @@ export async function POST(req: NextRequest) {
     }
 
     // SSRF 방어: 내부망/로컬 호스트 IP 및 안전하지 않은 프로토콜 차단
-    const unsafeReason = rejectUnsafeUrl(urlObj);
+    const unsafeReason = await rejectUnsafeRemoteUrl(urlObj);
     if (unsafeReason) {
       return NextResponse.json(
         { success: false, reason: unsafeReason },
         { status: 400 }
       );
     }
-
-    const origin = urlObj.origin;
-    const hostname = urlObj.hostname;
 
     // 캐시 체크
     const cached = cacheMap.get(targetUrl);
@@ -61,33 +58,20 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const isYouTube = hostname.includes("youtube.com") || hostname.includes("youtu.be");
-    const isNaverSports = /sports\.naver\.com|sports\.news\.naver\.com|m\.sports\.naver\.com/i.test(targetUrl);
+    // 리다이렉트 목적지와 DNS 결과까지 검증하는 공용 SSRF 방어 페처를 사용한다.
+    const page = await fetchPage(targetUrl, 8000);
+    if (!page.ok) throw new Error(page.status ? `HTTP ${page.status}` : "안전하지 않거나 응답하지 않는 주소입니다.");
 
-    // 실시간 메인/피드페이지 HTML 수집 (타임아웃 적용)
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 8000);
-    let html = "";
-    try {
-      const res = await fetch(targetUrl, {
-        headers: {
-          "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-          "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
-        },
-        signal: controller.signal,
-        next: { revalidate: 180 },
-      });
-
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
-      }
-
-      html = await res.text();
-    } finally {
-      clearTimeout(timer);
-    }
+    const finalUrlObj = new URL(page.finalUrl);
+    const origin = finalUrlObj.origin;
+    const hostname = finalUrlObj.hostname.toLowerCase();
+    const html = page.text;
+    const isYouTube =
+      hostname === "youtube.com" ||
+      hostname.endsWith(".youtube.com") ||
+      hostname === "youtu.be" ||
+      hostname.endsWith(".youtu.be");
+    const isNaverSports = /sports\.naver\.com|sports\.news\.naver\.com|m\.sports\.naver\.com/i.test(page.finalUrl);
 
     const rawArticles: { title: string; url: string; date: string; summary?: string }[] = [];
 
@@ -429,40 +413,41 @@ function formatYouTubeSummary(title: string, description: string): string {
 async function fetchYouTubeVideoDetails(videoUrl: string): Promise<{ title: string; summary: string }> {
   try {
     const ytUrlObj = new URL(videoUrl);
-    if (rejectUnsafeUrl(ytUrlObj)) return { title: "", summary: "" };
-    if (!ytUrlObj.hostname.includes("youtube.com") && !ytUrlObj.hostname.includes("youtu.be")) {
+    if (await rejectUnsafeRemoteUrl(ytUrlObj)) return { title: "", summary: "" };
+    const hostname = ytUrlObj.hostname.toLowerCase();
+    const isYoutubeHost =
+      hostname === "youtube.com" ||
+      hostname.endsWith(".youtube.com") ||
+      hostname === "youtu.be" ||
+      hostname.endsWith(".youtu.be");
+    if (!isYoutubeHost) {
       return { title: "", summary: "" };
     }
 
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 6000);
-    try {
-      const res = await fetch(videoUrl, {
-        headers: {
-          "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-        },
-        signal: controller.signal,
-        next: { revalidate: 300 },
-      });
-
-      if (!res.ok) return { title: "", summary: "" };
-      const html = await res.text();
-
-      const ogTitleMatch =
-        html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i) ||
-        html.match(/<title>([^<]+)<\/title>/i);
-      const ogDescMatch =
-        html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["']/i) ||
-        html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i);
-
-      const title = ogTitleMatch ? cleanText(ogTitleMatch[1]).replace("- YouTube", "").trim() : "";
-      const desc = ogDescMatch ? cleanText(ogDescMatch[1]) : "";
-
-      return { title, summary: desc };
-    } finally {
-      clearTimeout(timer);
+    const page = await fetchPage(videoUrl, 6000);
+    if (!page.ok) return { title: "", summary: "" };
+    const finalHostname = new URL(page.finalUrl).hostname.toLowerCase();
+    if (
+      finalHostname !== "youtube.com" &&
+      !finalHostname.endsWith(".youtube.com") &&
+      finalHostname !== "youtu.be" &&
+      !finalHostname.endsWith(".youtu.be")
+    ) {
+      return { title: "", summary: "" };
     }
+    const html = page.text;
+
+    const ogTitleMatch =
+      html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i) ||
+      html.match(/<title>([^<]+)<\/title>/i);
+    const ogDescMatch =
+      html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["']/i) ||
+      html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i);
+
+    const title = ogTitleMatch ? cleanText(ogTitleMatch[1]).replace("- YouTube", "").trim() : "";
+    const desc = ogDescMatch ? cleanText(ogDescMatch[1]) : "";
+
+    return { title, summary: desc };
   } catch {
     return { title: "", summary: "" };
   }
@@ -474,57 +459,42 @@ async function fetchYouTubeVideoDetails(videoUrl: string): Promise<{ title: stri
 async function fetchArticleFullText(articleUrl: string): Promise<string> {
   try {
     const articleUrlObj = new URL(articleUrl);
-    if (rejectUnsafeUrl(articleUrlObj)) return "";
+    if (await rejectUnsafeRemoteUrl(articleUrlObj)) return "";
 
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 6000);
-    try {
-      const res = await fetch(articleUrl, {
-        headers: {
-          "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        },
-        signal: controller.signal,
-        next: { revalidate: 300 },
-      });
+    const page = await fetchPage(articleUrl, 6000);
+    if (!page.ok) return "";
+    const html = page.text;
 
-      if (!res.ok) return "";
-      const html = await res.text();
+    // 네이버 스포츠 및 언론사 기사 본문 영역 핀포인트 수집
+    const bodyContainerMatch =
+      html.match(/<div[^>]*id=["']newsct_article["'][^>]*>([\s\S]*?)<\/div>/i) ||
+      html.match(/<div[^>]*class=["'][^"']*newsct_article[^"']*["'][^>]*>([\s\S]*?)<\/div>/i) ||
+      html.match(/<div[^>]*id=["']articeBody["'][^>]*>([\s\S]*?)<\/div>/i) ||
+      html.match(/<div[^>]*id=["']newsEndContents["'][^>]*>([\s\S]*?)<\/div>/i) ||
+      html.match(/<div[^>]*id=["']sports_news_article["'][^>]*>([\s\S]*?)<\/div>/i) ||
+      html.match(/<article[^>]*>([\s\S]*?)<\/article>/i) ||
+      html.match(/<div[^>]*class=["'][^"']*article_body[^"']*["'][^>]*>([\s\S]*?)<\/div>/i) ||
+      html.match(/<div[^>]*class=["'][^"']*article-body[^"']*["'][^>]*>([\s\S]*?)<\/div>/i);
 
-      // 네이버 스포츠 및 언론사 기사 본문 영역 핀포인트 수집
-      const bodyContainerMatch =
-        html.match(/<div[^>]*id=["']newsct_article["'][^>]*>([\s\S]*?)<\/div>/i) ||
-        html.match(/<div[^>]*class=["'][^"']*newsct_article[^"']*["'][^>]*>([\s\S]*?)<\/div>/i) ||
-        html.match(/<div[^>]*id=["']articeBody["'][^>]*>([\s\S]*?)<\/div>/i) ||
-        html.match(/<div[^>]*id=["']newsEndContents["'][^>]*>([\s\S]*?)<\/div>/i) ||
-        html.match(/<div[^>]*id=["']sports_news_article["'][^>]*>([\s\S]*?)<\/div>/i) ||
-        html.match(/<article[^>]*>([\s\S]*?)<\/article>/i) ||
-        html.match(/<div[^>]*class=["'][^"']*article_body[^"']*["'][^>]*>([\s\S]*?)<\/div>/i) ||
-        html.match(/<div[^>]*class=["'][^"']*article-body[^"']*["'][^>]*>([\s\S]*?)<\/div>/i);
+    const bodyHtml = bodyContainerMatch ? bodyContainerMatch[1] : html;
 
-      const bodyHtml = bodyContainerMatch ? bodyContainerMatch[1] : html;
+    const pMatches = Array.from(bodyHtml.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi))
+      .map((m) => cleanText(m[1]))
+      .filter((t) => t.length > 15 && !isBoilerplateText(t));
 
-      const pMatches = Array.from(bodyHtml.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi))
-        .map((m) => cleanText(m[1]))
-        .filter((t) => t.length > 15 && !isBoilerplateText(t));
-
-      if (pMatches.length > 0) {
-        return pMatches.join(" ");
-      }
-
-      const ogDescMatch =
-        html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["']/i) ||
-        html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i);
-      const metaDesc = ogDescMatch ? cleanText(ogDescMatch[1]) : "";
-      if (metaDesc && !isBoilerplateText(metaDesc)) {
-        return metaDesc;
-      }
-
-      return "";
-    } finally {
-      clearTimeout(timer);
+    if (pMatches.length > 0) {
+      return pMatches.join(" ");
     }
+
+    const ogDescMatch =
+      html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["']/i) ||
+      html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i);
+    const metaDesc = ogDescMatch ? cleanText(ogDescMatch[1]) : "";
+    if (metaDesc && !isBoilerplateText(metaDesc)) {
+      return metaDesc;
+    }
+
+    return "";
   } catch {
     return "";
   }

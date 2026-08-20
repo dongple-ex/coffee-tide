@@ -1,18 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
-
 export function TestModeBadge() {
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted) return null;
-
-  const isTestMode = 
-    process.env.NEXT_PUBLIC_IS_TEST_MODE === "true" || 
+  const isTestMode =
+    process.env.NEXT_PUBLIC_IS_TEST_MODE === "true" ||
     process.env.NODE_ENV === "development";
 
   if (!isTestMode) return null;
