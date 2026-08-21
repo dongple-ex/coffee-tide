@@ -451,7 +451,6 @@ export default function Home() {
       dragging: false,
       hoveredTab: null,
     };
-    e.currentTarget.setPointerCapture(e.pointerId);
   }, []);
 
   const handleWorkspaceTabPointerMove = useCallback(
@@ -466,7 +465,12 @@ export default function Home() {
         return;
       }
 
-      gesture.dragging = true;
+      if (!gesture.dragging) {
+        gesture.dragging = true;
+        try {
+          e.currentTarget.setPointerCapture(e.pointerId);
+        } catch {}
+      }
       const hoveredTab = findWorkspaceTabAtPoint(e.clientX, e.clientY);
       if (hoveredTab !== gesture.hoveredTab) {
         gesture.hoveredTab = hoveredTab;

@@ -69,7 +69,7 @@ export function ShortcutsSection({ shortcuts, onChange, onNotify }: Props) {
             >
               {sc.enabled ? "●" : "○"}
             </button>
-            <span className={styles.ruleText}>
+            <span className={styles.ruleText} title={`${sc.keyword} ➔ ${sc.target}`}>
               <b>&lsquo;{sc.keyword}&rsquo;</b> ➔{" "}
               <small style={{ color: "var(--accent)" }}>{sc.target}</small>
             </span>
