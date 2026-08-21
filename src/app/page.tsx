@@ -90,6 +90,12 @@ import type { CustomSitePreview } from "@/lib/news/types";
 import { CommuteConfig, CommuteStop } from "@/lib/types/commute";
 import { AppShortcut } from "@/lib/types/appShortcut";
 import type { FinanceApiResponse, FinanceSnapshot } from "@/lib/types/finance";
+import {
+  hasCrossedWorkspaceTabDragThreshold,
+  isWorkspaceTab,
+  type WorkspaceTab,
+  WORKSPACE_TABS,
+} from "@/lib/ui/workspaceTabs";
 import { saveRawContent, getRawContent } from "@/lib/browser/rawStore";
 import styles from "./page.module.css";
 
@@ -358,8 +364,19 @@ export default function Home() {
   });
   // 업무, AI, 휴식 도구를 항상 분리해 사용자가 현재 모드를 명확히 인지하게 한다.
   const isWorkspaceTabMode = true;
-  const [activeCompactTab, setActiveCompactTab] = useState<"todo" | "copilot" | "widgets">("todo");
-  const activeCompactTabRef = useRef<"todo" | "copilot" | "widgets">("todo");
+  const [activeCompactTab, setActiveCompactTab] = useState<WorkspaceTab>("todo");
+  const activeCompactTabRef = useRef<WorkspaceTab>("todo");
+  const [dragHoverWorkspaceTab, setDragHoverWorkspaceTab] = useState<WorkspaceTab | null>(null);
+  const workspaceTabBarRef = useRef<HTMLElement>(null);
+  const workspaceTabGestureRef = useRef<{
+    pointerId: number | null;
+    startX: number;
+    startY: number;
+    dragging: boolean;
+    hoveredTab: WorkspaceTab | null;
+  }>({ pointerId: null, startX: 0, startY: 0, dragging: false, hoveredTab: null });
+  const suppressWorkspaceTabClickRef = useRef(false);
+  const suppressWorkspaceTabClickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [todoTabSignal, setTodoTabSignal] = useState(false);
   const [sparkTabSignal, setSparkTabSignal] = useState(false);
   const [widgetTabSignal, setWidgetTabSignal] = useState(false);
@@ -369,7 +386,7 @@ export default function Home() {
   const [expandedQaKeys, setExpandedQaKeys] = useState<Set<string>>(new Set());
   const [unreadQaKeys, setUnreadQaKeys] = useState<Set<string>>(new Set());
 
-  const openWorkspaceTab = useCallback((tab: "todo" | "copilot" | "widgets") => {
+  const openWorkspaceTab = useCallback((tab: WorkspaceTab) => {
     activeCompactTabRef.current = tab;
     setActiveCompactTab(tab);
     if (tab === "todo") setTodoTabSignal(false);
@@ -382,18 +399,17 @@ export default function Home() {
 
   const handleTabKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLElement>) => {
-      const tabs: Array<"todo" | "copilot" | "widgets"> = ["todo", "copilot", "widgets"];
-      const currentIndex = tabs.indexOf(activeCompactTab);
+      const currentIndex = WORKSPACE_TABS.indexOf(activeCompactTab);
       if (e.key === "ArrowRight") {
         e.preventDefault();
-        const nextIndex = (currentIndex + 1) % tabs.length;
-        openWorkspaceTab(tabs[nextIndex]);
-        document.getElementById(`tab-${tabs[nextIndex]}`)?.focus();
+        const nextTab = WORKSPACE_TABS[(currentIndex + 1) % WORKSPACE_TABS.length];
+        openWorkspaceTab(nextTab);
+        document.getElementById(`tab-${nextTab}`)?.focus();
       } else if (e.key === "ArrowLeft") {
         e.preventDefault();
-        const prevIndex = (currentIndex - 1 + tabs.length) % tabs.length;
-        openWorkspaceTab(tabs[prevIndex]);
-        document.getElementById(`tab-${tabs[prevIndex]}`)?.focus();
+        const previousTab = WORKSPACE_TABS[(currentIndex - 1 + WORKSPACE_TABS.length) % WORKSPACE_TABS.length];
+        openWorkspaceTab(previousTab);
+        document.getElementById(`tab-${previousTab}`)?.focus();
       } else if (e.key === "Home") {
         e.preventDefault();
         openWorkspaceTab("todo");
@@ -406,6 +422,107 @@ export default function Home() {
     },
     [activeCompactTab, openWorkspaceTab]
   );
+
+  const findWorkspaceTabAtPoint = useCallback((clientX: number, clientY: number): WorkspaceTab | null => {
+    if (typeof document === "undefined") return null;
+    const tabButton = document.elementFromPoint(clientX, clientY)?.closest<HTMLElement>("[data-workspace-tab]");
+    if (!tabButton || !workspaceTabBarRef.current?.contains(tabButton)) return null;
+    const tab = tabButton.dataset.workspaceTab;
+    return isWorkspaceTab(tab) ? tab : null;
+  }, []);
+
+  const resetWorkspaceTabGesture = useCallback(() => {
+    workspaceTabGestureRef.current = {
+      pointerId: null,
+      startX: 0,
+      startY: 0,
+      dragging: false,
+      hoveredTab: null,
+    };
+    setDragHoverWorkspaceTab(null);
+  }, []);
+
+  const handleWorkspaceTabPointerDown = useCallback((e: React.PointerEvent<HTMLElement>) => {
+    if (!e.isPrimary || (e.pointerType === "mouse" && e.button !== 0)) return;
+    workspaceTabGestureRef.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      dragging: false,
+      hoveredTab: null,
+    };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }, []);
+
+  const handleWorkspaceTabPointerMove = useCallback(
+    (e: React.PointerEvent<HTMLElement>) => {
+      const gesture = workspaceTabGestureRef.current;
+      if (gesture.pointerId !== e.pointerId) return;
+
+      if (
+        !gesture.dragging &&
+        !hasCrossedWorkspaceTabDragThreshold(gesture.startX, gesture.startY, e.clientX, e.clientY)
+      ) {
+        return;
+      }
+
+      gesture.dragging = true;
+      const hoveredTab = findWorkspaceTabAtPoint(e.clientX, e.clientY);
+      if (hoveredTab !== gesture.hoveredTab) {
+        gesture.hoveredTab = hoveredTab;
+        setDragHoverWorkspaceTab(hoveredTab);
+      }
+      if (e.cancelable) e.preventDefault();
+    },
+    [findWorkspaceTabAtPoint]
+  );
+
+  const handleWorkspaceTabPointerUp = useCallback(
+    (e: React.PointerEvent<HTMLElement>) => {
+      const gesture = workspaceTabGestureRef.current;
+      if (gesture.pointerId !== e.pointerId) return;
+
+      if (gesture.dragging) {
+        const hoveredTab = findWorkspaceTabAtPoint(e.clientX, e.clientY) ?? gesture.hoveredTab;
+        if (hoveredTab) {
+          suppressWorkspaceTabClickRef.current = true;
+          if (suppressWorkspaceTabClickTimerRef.current) {
+            clearTimeout(suppressWorkspaceTabClickTimerRef.current);
+          }
+          suppressWorkspaceTabClickTimerRef.current = setTimeout(() => {
+            suppressWorkspaceTabClickRef.current = false;
+          }, 0);
+          openWorkspaceTab(hoveredTab);
+        }
+        if (e.cancelable) e.preventDefault();
+      }
+
+      if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      }
+      resetWorkspaceTabGesture();
+    },
+    [findWorkspaceTabAtPoint, openWorkspaceTab, resetWorkspaceTabGesture]
+  );
+
+  const handleWorkspaceTabClickCapture = useCallback((e: React.MouseEvent<HTMLElement>) => {
+    if (!suppressWorkspaceTabClickRef.current) return;
+    suppressWorkspaceTabClickRef.current = false;
+    if (suppressWorkspaceTabClickTimerRef.current) {
+      clearTimeout(suppressWorkspaceTabClickTimerRef.current);
+      suppressWorkspaceTabClickTimerRef.current = null;
+    }
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (suppressWorkspaceTabClickTimerRef.current) {
+        clearTimeout(suppressWorkspaceTabClickTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!compactMode) return;
@@ -439,12 +556,11 @@ export default function Home() {
           return;
         }
         
-        const tabs: Array<"todo" | "copilot" | "widgets"> = ["todo", "copilot", "widgets"];
-        const currentIndex = tabs.indexOf(activeCompactTabRef.current);
-        if (diff > 0 && currentIndex < tabs.length - 1) {
-          openWorkspaceTab(tabs[currentIndex + 1]);
+        const currentIndex = WORKSPACE_TABS.indexOf(activeCompactTabRef.current);
+        if (diff > 0 && currentIndex < WORKSPACE_TABS.length - 1) {
+          openWorkspaceTab(WORKSPACE_TABS[currentIndex + 1]);
         } else if (diff < 0 && currentIndex > 0) {
-          openWorkspaceTab(tabs[currentIndex - 1]);
+          openWorkspaceTab(WORKSPACE_TABS[currentIndex - 1]);
         }
       }
       startX = null;
@@ -2833,10 +2949,17 @@ export default function Home() {
       {/* 업무 흐름과 휴식 도구를 분리하는 주 탐색 */}
       {isWorkspaceTabMode && (
         <nav
+          ref={workspaceTabBarRef}
           className={styles.compactTabBar}
           role="tablist"
           aria-label="CoffeeTide 작업 공간"
           onKeyDown={handleTabKeyDown}
+          onPointerDown={handleWorkspaceTabPointerDown}
+          onPointerMove={handleWorkspaceTabPointerMove}
+          onPointerUp={handleWorkspaceTabPointerUp}
+          onPointerCancel={resetWorkspaceTabGesture}
+          onLostPointerCapture={resetWorkspaceTabGesture}
+          onClickCapture={handleWorkspaceTabClickCapture}
         >
           <button
             id="tab-todo"
@@ -2846,7 +2969,10 @@ export default function Home() {
             aria-controls="panel-todo"
             tabIndex={activeCompactTab === "todo" ? 0 : -1}
             aria-label={`오늘 업무${todoTabSignal ? ", 새 완료 알림 있음" : ""}`}
-            className={`${styles.compactTabBtn} ${activeCompactTab === "todo" ? styles.compactTabBtnActive : ""}`}
+            data-workspace-tab="todo"
+            className={`${styles.compactTabBtn} ${activeCompactTab === "todo" ? styles.compactTabBtnActive : ""} ${
+              dragHoverWorkspaceTab === "todo" ? styles.compactTabBtnDragHover : ""
+            }`}
             onClick={() => openWorkspaceTab("todo")}
           >
             <UiIcon name="tasks" />
@@ -2861,7 +2987,10 @@ export default function Home() {
             aria-controls="panel-copilot"
             tabIndex={activeCompactTab === "copilot" ? 0 : -1}
             aria-label={`AI 바리스타${unreadQaKeys.size > 0 || sparkTabSignal ? ", 새 응답 있음" : ""}`}
-            className={`${styles.compactTabBtn} ${activeCompactTab === "copilot" ? styles.compactTabBtnActive : ""}`}
+            data-workspace-tab="copilot"
+            className={`${styles.compactTabBtn} ${activeCompactTab === "copilot" ? styles.compactTabBtnActive : ""} ${
+              dragHoverWorkspaceTab === "copilot" ? styles.compactTabBtnDragHover : ""
+            }`}
             onClick={() => openWorkspaceTab("copilot")}
           >
             <UiIcon name="coffee" />
@@ -2882,7 +3011,10 @@ export default function Home() {
             aria-controls="panel-widgets"
             tabIndex={activeCompactTab === "widgets" ? 0 : -1}
             aria-label={`휴식·도구${widgetTabSignal ? ", 새 알림 있음" : ""}`}
-            className={`${styles.compactTabBtn} ${activeCompactTab === "widgets" ? styles.compactTabBtnActive : ""}`}
+            data-workspace-tab="widgets"
+            className={`${styles.compactTabBtn} ${activeCompactTab === "widgets" ? styles.compactTabBtnActive : ""} ${
+              dragHoverWorkspaceTab === "widgets" ? styles.compactTabBtnDragHover : ""
+            }`}
             onClick={() => openWorkspaceTab("widgets")}
           >
             <UiIcon name="widgets" />
