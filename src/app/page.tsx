@@ -389,8 +389,22 @@ export default function Home() {
   const [todoTabSignal, setTodoTabSignal] = useState(false);
   const [sparkTabSignal, setSparkTabSignal] = useState(false);
   const [widgetTabSignal, setWidgetTabSignal] = useState(false);
+  const [audioFocusPlayer, setAudioFocusPlayer] = useState({ active: false, detached: false });
   const todoTabSignalTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSignaledSparkBriefing = useRef<string | null>(null);
+
+  useEffect(() => {
+    const syncAudioPlayerState = (event?: Event) => {
+      const detail = (event as CustomEvent<{ active?: boolean; detached?: boolean }> | undefined)?.detail;
+      setAudioFocusPlayer({
+        active: detail?.active ?? document.documentElement.dataset.audioPlayerActive === "true",
+        detached: detail?.detached ?? document.documentElement.dataset.audioPlayerDetached === "true",
+      });
+    };
+    syncAudioPlayerState();
+    window.addEventListener("coffeetide:audio-player-state", syncAudioPlayerState);
+    return () => window.removeEventListener("coffeetide:audio-player-state", syncAudioPlayerState);
+  }, []);
 
   const [expandedQaKeys, setExpandedQaKeys] = useState<Set<string>>(new Set());
   const [unreadQaKeys, setUnreadQaKeys] = useState<Set<string>>(new Set());
@@ -2893,19 +2907,20 @@ export default function Home() {
 
       {/* 업무 흐름과 휴식 도구를 분리하는 주 탐색 */}
       {isWorkspaceTabMode && (
-        <nav
-          ref={workspaceTabBarRef}
-          className={styles.compactTabBar}
-          role="tablist"
-          aria-label="CoffeeTide 작업 공간"
-          onKeyDown={handleTabKeyDown}
-          onPointerDown={handleWorkspaceTabPointerDown}
-          onPointerMove={handleWorkspaceTabPointerMove}
-          onPointerUp={handleWorkspaceTabPointerUp}
-          onPointerCancel={resetWorkspaceTabGesture}
-          onLostPointerCapture={resetWorkspaceTabGesture}
-          onClickCapture={handleWorkspaceTabClickCapture}
-        >
+        <div className={styles.compactTabDock}>
+          <nav
+            ref={workspaceTabBarRef}
+            className={styles.compactTabBar}
+            role="tablist"
+            aria-label="CoffeeTide 작업 공간"
+            onKeyDown={handleTabKeyDown}
+            onPointerDown={handleWorkspaceTabPointerDown}
+            onPointerMove={handleWorkspaceTabPointerMove}
+            onPointerUp={handleWorkspaceTabPointerUp}
+            onPointerCancel={resetWorkspaceTabGesture}
+            onLostPointerCapture={resetWorkspaceTabGesture}
+            onClickCapture={handleWorkspaceTabClickCapture}
+          >
           <button
             id="tab-todo"
             type="button"
@@ -2966,7 +2981,28 @@ export default function Home() {
             <span className={widgetTabSignal ? styles.compactTabLabelSignal : undefined}>휴식·도구</span>
             {activeWidget && <span className={styles.compactTabDot} title="열린 도구가 있음" />}
           </button>
-        </nav>
+          </nav>
+          {audioFocusPlayer.active && (
+            <button
+              type="button"
+              className={`${styles.compactAudioFocusBtn} ${
+                audioFocusPlayer.detached ? styles.compactAudioFocusBtnActive : ""
+              }`}
+              onClick={() => {
+                const handlers = window.__coffeeTideAudioFocusHandlers;
+                if (!handlers) return;
+                const entries = [...handlers];
+                const target = entries.reverse().find((entry) => entry.isVisible()) ?? entries[entries.length - 1];
+                target?.toggle();
+              }}
+              aria-label={audioFocusPlayer.detached ? "오디오 막대에서 CoffeeTide로 돌아가기" : "오디오 막대만 항상 위에 남기기"}
+              title={audioFocusPlayer.detached ? "CoffeeTide로 돌아가기" : "오디오 막대만 남기기"}
+            >
+              <UiIcon name={audioFocusPlayer.detached ? "expand" : "headphones"} size={18} />
+              <span className={styles.compactAudioFocusPulse} aria-hidden="true" />
+            </button>
+          )}
+        </div>
       )}
 
       <div className={`${styles.grid} ${styles.dashboardGrid}`}>

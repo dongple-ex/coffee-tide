@@ -405,6 +405,30 @@
   animation: slideUp 0.2s ease-out;
 }
 
+.miniAudioContainer {
+  border-radius: 999px;
+  background: var(--card-hover);
+}
+
+.miniAudioContainer .audioModeCard {
+  border: 0;
+  box-shadow: none;
+}
+
+.pipSourceContainer {
+  width: 1px !important;
+  height: 1px !important;
+  min-height: 0 !important;
+  max-height: 1px !important;
+  right: -20px !important;
+  bottom: -20px !important;
+  border: 0 !important;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+  box-shadow: none !important;
+}
+
 @media (max-width: 500px) {
   .miniContainer {
     width: calc(100vw - 24px);
@@ -656,87 +680,122 @@
   gap: 4px;
 }
 
+.audioModeActive {
+  position: relative;
+}
+
 .audioModeCard {
   width: 100%;
-  aspect-ratio: 16 / 9;
-  background: linear-gradient(135deg, #141724 0%, #1e2238 100%);
-  border-radius: 10px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-  position: relative;
-  overflow: hidden;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-}
-
-.audioArtworkWrapper {
-  position: relative;
-  width: 96px;
-  height: 96px;
-  border-radius: 50%;
-  overflow: hidden;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-  border: 3px solid rgba(255, 255, 255, 0.15);
-  animation: rotateVinyl 20s linear infinite;
-}
-
-.audioArtworkPaused {
-  animation-play-state: paused;
-}
-
-@keyframes rotateVinyl {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-.audioWaveContainer {
+  min-height: 42px;
+  background: var(--card-hover);
+  border: 1px solid var(--border);
+  border-radius: 999px;
   display: flex;
   align-items: center;
   gap: 4px;
-  height: 24px;
-  margin-top: 14px;
+  padding: 4px 6px;
+  position: relative;
+  overflow: hidden;
+  color: var(--text);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.12);
 }
 
-.audioWaveBar {
-  width: 4px;
-  height: 100%;
-  background: var(--accent);
-  border-radius: 2px;
-  animation: audioWave 1.2s ease-in-out infinite alternate;
+.pipAudioModeCard {
+  width: 100vw;
+  height: 100vh;
+  min-height: 0;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
 }
 
-.audioWaveBar:nth-child(2) { animation-delay: 0.2s; }
-.audioWaveBar:nth-child(3) { animation-delay: 0.4s; }
-.audioWaveBar:nth-child(4) { animation-delay: 0.6s; }
-.audioWaveBar:nth-child(5) { animation-delay: 0.8s; }
-.audioWaveBar:nth-child(6) { animation-delay: 1.0s; }
+.audioModeLead {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  display: grid;
+  place-items: center;
+  color: var(--accent);
+}
 
-@keyframes audioWave {
-  0% { height: 20%; opacity: 0.4; }
-  100% { height: 100%; opacity: 1; }
+.audioModeInfo {
+  min-width: 0;
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.audioModeState {
+  flex: 0 0 auto;
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: var(--accent);
 }
 
 .audioTitle {
-  margin-top: 10px;
-  font-size: 0.88rem;
-  font-weight: 700;
-  color: #fff;
-  text-align: center;
-  max-width: 85%;
+  min-width: 0;
+  flex: 1 1 auto;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-dim);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.audioBadge {
-  margin-top: 4px;
-  font-size: 0.72rem;
-  color: var(--accent);
-  background: rgba(43, 91, 238, 0.15);
-  padding: 2px 8px;
-  border-radius: 9999px;
-  border: 1px solid rgba(43, 91, 238, 0.3);
+.audioModeAction {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
+.audioModeAction:hover,
+.audioModeAction:focus-visible {
+  background: var(--card);
+  color: var(--accent);
+  outline: none;
+}
+
+@media (max-width: 420px) {
+  .audioModeState {
+    max-width: 102px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .audioModeInfo {
+    gap: 4px;
+  }
+}
+
+.audioOnlyIframeSlot {
+  position: absolute;
+  left: calc(50% + 105px);
+  bottom: 10px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  border: 0;
+}
+
+.audioOnlyIframeSlot iframe {
+  display: block;
+  width: 1px;
+  height: 1px;
+  border: 0;
+}

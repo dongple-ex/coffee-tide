@@ -1979,7 +1979,8 @@
   margin-bottom: 0;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--accent) 48%, transparent) transparent;
   touch-action: none;
   user-select: none;
   overscroll-behavior-x: contain;
@@ -1991,7 +1992,16 @@
 }
 
 .settingsTabBar::-webkit-scrollbar {
-  display: none;
+  height: 4px;
+}
+
+.settingsTabBar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.settingsTabBar::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--accent) 48%, transparent);
+  border-radius: 999px;
 }
 
 .settingsTabBtn {
@@ -2838,23 +2848,73 @@
   font-weight: 700;
 }
 
-/* 모바일 3단 세그먼트 탭 바 */
+/* 모바일 3단 세그먼트 탭 바와 오디오 집중 모드 전환 */
+.compactTabDock {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  margin: 0 0 16px;
+  position: sticky;
+  top: 6px;
+  z-index: 50;
+}
+
+.compactTabDock:has(.compactAudioFocusBtn) {
+  z-index: 1002;
+}
+
 .compactTabBar {
   display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
   background: color-mix(in srgb, var(--card) 90%, transparent);
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 5px;
-  margin: 0 0 16px;
   gap: 5px;
-  position: sticky;
-  top: 6px;
-  z-index: 50;
   backdrop-filter: blur(18px) saturate(140%);
   -webkit-backdrop-filter: blur(18px) saturate(140%);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
   touch-action: none;
   user-select: none;
+}
+
+.compactAudioFocusBtn {
+  position: relative;
+  width: 52px;
+  flex: 0 0 52px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--card) 90%, transparent);
+  color: var(--accent);
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  transition: transform 0.18s ease, background 0.18s ease, border-color 0.18s ease;
+}
+
+.compactAudioFocusBtn:hover,
+.compactAudioFocusBtn:focus-visible,
+.compactAudioFocusBtnActive {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.compactAudioFocusPulse {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+  animation: toolStatusPulse 2.2s ease-in-out infinite;
 }
 
 .compactTabBtn {
@@ -3144,6 +3204,7 @@
   }
 
   .compactTabDot,
+  .compactAudioFocusPulse,
   .compactTabLabelSignal,
   .compactTabBtnActive::after,
   .page[data-compact-tab] .todoPanelWrapper > *,

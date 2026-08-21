@@ -50,8 +50,14 @@ interface DocumentPictureInPicture {
 }
 
 declare global {
+  interface CoffeeTideAudioFocusHandler {
+    toggle: () => void;
+    isVisible: () => boolean;
+  }
+
   interface Window {
     documentPictureInPicture?: DocumentPictureInPicture;
+    __coffeeTideAudioFocusHandlers?: Set<CoffeeTideAudioFocusHandler>;
   }
 }
 
@@ -106,6 +112,7 @@ export function SmartPlayerModal({
   const [playbackRate, setPlaybackRate] = useState<number>(1.0);
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [isPiPActive, setIsPiPActive] = useState<boolean>(false);
+  const [pipWindow, setPipWindow] = useState<Window | null>(null);
   const pipWindowRef = useRef<Window | null>(null);
 
   // 복원 세션인 경우 직전 재생 여부(wasPlaying / playerState)에 따라 자동재생 결정, 신규는 항상 자동재생
@@ -250,22 +257,32 @@ export function SmartPlayerModal({
     onClose();
   }, [ytVideoId, onNotify, onClose]);
 
-  // OS 항상 위 Document PiP (Picture-in-Picture) 모드 제어
+  const closeDocumentPiP = useCallback(() => {
+    const activeWindow = pipWindowRef.current;
+    pipWindowRef.current = null;
+    setPipWindow(null);
+    setIsPiPActive(false);
+    if (activeWindow && !activeWindow.closed) activeWindow.close();
+  }, []);
+
+  // OS 항상 위 Document PiP에 오디오 조작 막대만 분리한다.
   const handleToggleDocumentPiP = useCallback(async () => {
     if (typeof window === "undefined") return;
 
     if (pipWindowRef.current) {
-      pipWindowRef.current.close();
-      pipWindowRef.current = null;
-      setIsPiPActive(false);
+      closeDocumentPiP();
+      window.focus();
       return;
     }
+
+    setAudioOnly(true);
+    setIsMini(true);
 
     if (window.documentPictureInPicture && typeof window.documentPictureInPicture.requestWindow === "function") {
       try {
         const pipWin = await window.documentPictureInPicture.requestWindow({
-          width: 580,
-          height: 380,
+          width: 420,
+          height: 58,
         });
         pipWindowRef.current = pipWin;
 
@@ -287,44 +304,36 @@ export function SmartPlayerModal({
         });
 
         pipWin.document.body.style.margin = "0";
-        pipWin.document.body.style.background = "#121420";
-        pipWin.document.body.style.color = "#fff";
+        pipWin.document.body.style.background = "var(--card-hover, #121420)";
+        pipWin.document.body.style.color = "var(--text, #fff)";
         pipWin.document.body.style.overflow = "hidden";
-        pipWin.document.body.style.display = "flex";
-        pipWin.document.body.style.flexDirection = "column";
-        pipWin.document.body.style.padding = "8px";
-        pipWin.document.title = video?.title || "CoffeeTide PiP Player";
+        pipWin.document.body.style.padding = "0";
+        pipWin.document.title = video?.title || "CoffeeTide 오디오 집중 모드";
 
-        // Iframe 주입
-        const iframeContainer = pipWin.document.createElement("div");
-        iframeContainer.style.width = "100%";
-        iframeContainer.style.height = "100%";
-        iframeContainer.style.borderRadius = "8px";
-        iframeContainer.style.overflow = "hidden";
+        const sourceStyle = window.getComputedStyle(document.body);
+        ["--card", "--card-hover", "--border", "--text", "--text-dim", "--accent", "--accent-dim"].forEach((name) => {
+          const value = sourceStyle.getPropertyValue(name);
+          if (value) pipWin.document.documentElement.style.setProperty(name, value);
+        });
 
-        const pipIframe = pipWin.document.createElement("iframe");
-        pipIframe.src = `https://www.youtube-nocookie.com/embed/${ytVideoId}?enablejsapi=1&autoplay=1&rel=0&iv_load_policy=3&modestbranding=1&start=${Math.floor(currentTimeRef.current)}`;
-        pipIframe.style.width = "100%";
-        pipIframe.style.height = "100%";
-        pipIframe.style.border = "none";
-        pipIframe.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture";
-        iframeContainer.appendChild(pipIframe);
-        pipWin.document.body.appendChild(iframeContainer);
-
+        setPipWindow(pipWin);
         setIsPiPActive(true);
-        onNotify?.("📺 항상 위 OS Document PiP 모드로 전환되었습니다.");
+        onNotify?.("🎧 오디오 조작 막대만 항상 위에 남겼습니다.");
 
         pipWin.addEventListener("pagehide", () => {
-          pipWindowRef.current = null;
-          setIsPiPActive(false);
+          if (pipWindowRef.current === pipWin) {
+            pipWindowRef.current = null;
+            setPipWindow(null);
+            setIsPiPActive(false);
+          }
         });
       } catch {
-        handleOpenExternalPopup();
+        onNotify?.("이 브라우저에서는 작은 항상-위 오디오 창을 열 수 없습니다.");
       }
     } else {
-      handleOpenExternalPopup();
+      onNotify?.("오디오 막대로 전환했습니다. 이 브라우저에서는 항상-위 분리를 지원하지 않습니다.");
     }
-  }, [ytVideoId, video, onNotify, handleOpenExternalPopup]);
+  }, [video, onNotify, closeDocumentPiP]);
 
   // 현재 세션 즉시 저장 유틸
   const saveCurrentSession = useCallback(() => {
@@ -361,13 +370,10 @@ export function SmartPlayerModal({
 
   // 사용자가 명시적으로 플레이어를 닫는 경우 세션 삭제
   const handleExplicitClose = useCallback(() => {
-    if (pipWindowRef.current) {
-      pipWindowRef.current.close();
-      pipWindowRef.current = null;
-    }
+    closeDocumentPiP();
     clearYouTubeContinuitySession();
     onCloseRef.current();
-  }, []);
+  }, [closeDocumentPiP]);
 
   // MediaSession API 연동 (백그라운드 & OS 미디어 키 지원)
   useEffect(() => {
@@ -406,6 +412,43 @@ export function SmartPlayerModal({
       // Ignore MediaSession error
     }
   }, [video, togglePlayPause, skipSeconds, seekTo]);
+
+  useEffect(() => {
+    const handler: CoffeeTideAudioFocusHandler = {
+      toggle: () => void handleToggleDocumentPiP(),
+      isVisible: () => Boolean(modalContainerRef.current && modalContainerRef.current.offsetParent !== null),
+    };
+    const handlers = window.__coffeeTideAudioFocusHandlers ?? new Set<CoffeeTideAudioFocusHandler>();
+    window.__coffeeTideAudioFocusHandlers = handlers;
+    handlers.add(handler);
+    return () => {
+      handlers.delete(handler);
+      if (handlers.size === 0) {
+        delete window.__coffeeTideAudioFocusHandlers;
+        delete document.documentElement.dataset.audioPlayerActive;
+        delete document.documentElement.dataset.audioPlayerDetached;
+        window.dispatchEvent(new CustomEvent("coffeetide:audio-player-state", {
+          detail: { active: false, detached: false },
+        }));
+      }
+    };
+  }, [handleToggleDocumentPiP]);
+
+  useEffect(() => {
+    document.documentElement.dataset.audioPlayerActive = "true";
+    document.documentElement.dataset.audioPlayerDetached = isPiPActive ? "true" : "false";
+    window.dispatchEvent(new CustomEvent("coffeetide:audio-player-state", {
+      detail: { active: true, detached: isPiPActive },
+    }));
+  }, [isPiPActive]);
+
+  useEffect(() => {
+    return () => {
+      const activeWindow = pipWindowRef.current;
+      pipWindowRef.current = null;
+      if (activeWindow && !activeWindow.closed) activeWindow.close();
+    };
+  }, []);
 
   // visibilitychange 및 pagehide 생명주기 연동
   useEffect(() => {
@@ -738,21 +781,23 @@ export function SmartPlayerModal({
 
   return createPortal(
     <>
-      {isMini && !isMobileFloating && <div className={styles.focusBackdrop} aria-hidden="true" />}
+      {isMini && !isMobileFloating && !isPiPActive && <div className={styles.focusBackdrop} aria-hidden="true" />}
       <div
         className={isMini ? styles.miniLayer : styles.modalBackdrop}
         onClick={isMini ? undefined : handleExplicitClose}
       >
         <div
           ref={modalContainerRef}
-          className={isMini ? styles.miniContainer : styles.modalContent}
+          className={`${isMini ? styles.miniContainer : styles.modalContent} ${
+            isMini && audioOnly ? styles.miniAudioContainer : ""
+          } ${isPiPActive ? styles.pipSourceContainer : ""}`}
           onClick={(event) => event.stopPropagation()}
           role={isMobileFloating ? "region" : "dialog"}
           aria-modal={isMobileFloating ? undefined : true}
           aria-labelledby={isMini ? miniTitleId : titleId}
           tabIndex={-1}
         >
-          <div className={isMini ? styles.miniHeader : styles.modalHeader}>
+          {!(isMini && audioOnly) && <div className={isMini ? styles.miniHeader : styles.modalHeader}>
             {isMini ? (
               <>
                 <button
@@ -778,7 +823,6 @@ export function SmartPlayerModal({
             )}
 
             <div className={styles.headerActions}>
-              {/* 오디오 전용 모드 토글 */}
               <button
                 type="button"
                 className={`${styles.headerActionBtn} ${audioOnly ? styles.headerActionBtnActive : ""}`}
@@ -797,6 +841,7 @@ export function SmartPlayerModal({
                 type="button"
                 className={`${styles.headerActionBtn} ${isPiPActive ? styles.headerActionBtnActive : ""}`}
                 onClick={() => void handleToggleDocumentPiP()}
+                data-coffeetide-audio-focus-control="true"
                 data-tooltip="OS 항상 위 PiP 창"
                 aria-label="OS 항상 위 PiP 창"
               >
@@ -850,7 +895,7 @@ export function SmartPlayerModal({
                 <UiIcon name="close" size={16} />
               </button>
             </div>
-          </div>
+          </div>}
 
           {showResumeNotice && initialSeekTime >= 3 && (
             <div className={styles.resumeNotice}>
@@ -883,46 +928,82 @@ export function SmartPlayerModal({
           )}
 
           <div className={isMini ? styles.miniBody : styles.modalBody}>
-            <div className={isMini ? styles.miniVideoSection : styles.videoSection}>
-              {/* 비디오 뷰 vs 오디오 전용 뷰 */}
+            <div
+              className={`${isMini ? styles.miniVideoSection : styles.videoSection} ${
+                audioOnly ? styles.audioModeActive : ""
+              }`}
+            >
               {audioOnly ? (
                 <div className={styles.audioModeCard}>
-                  <div
-                    className={`${styles.audioArtworkWrapper} ${
-                      playerState === "paused" ? styles.audioArtworkPaused : ""
-                    }`}
+                  <div className={styles.audioModeLead} aria-hidden="true">
+                    <UiIcon name="headphones" size={14} />
+                  </div>
+                  <div id={isMini ? miniTitleId : undefined} className={styles.audioModeInfo} title={video.title}>
+                    <span className={styles.audioModeState}>
+                      {playerState === "playing" ? "재생 중" : "일시정지"} · 오디오 집중 모드
+                    </span>
+                    <span className={styles.audioTitle}>{video.title}</span>
+                  </div>
+                  <button
+                    type="button"
+                    className={styles.audioModeAction}
+                    onClick={togglePlayPause}
+                    aria-label={playerState === "playing" ? "오디오 일시정지" : "오디오 재생"}
+                    title={playerState === "playing" ? "일시정지" : "재생"}
                   >
-                    {video.thumbnailUrl ? (
-                      <Image
-                        src={video.thumbnailUrl}
-                        alt={video.title}
-                        fill
-                        style={{ objectFit: "cover" }}
-                        sizes="96px"
-                      />
-                    ) : (
-                      <div style={{ width: "100%", height: "100%", background: "#333", display: "grid", placeItems: "center" }}>
-                        <UiIcon name="headphones" size={32} />
-                      </div>
-                    )}
-                  </div>
-                  <div className={styles.audioWaveContainer}>
-                    <div className={styles.audioWaveBar} />
-                    <div className={styles.audioWaveBar} />
-                    <div className={styles.audioWaveBar} />
-                    <div className={styles.audioWaveBar} />
-                    <div className={styles.audioWaveBar} />
-                    <div className={styles.audioWaveBar} />
-                  </div>
-                  <div className={styles.audioTitle}>{video.title}</div>
-                  <div className={styles.audioBadge}>🎧 오디오 집중 모드 실행 중</div>
+                    <UiIcon name={playerState === "playing" ? "pause" : "play"} size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.audioModeAction}
+                    onClick={toggleMute}
+                    aria-label={isMuted ? "오디오 음소거 해제" : "오디오 음소거"}
+                    title={isMuted ? "음소거 해제" : "음소거"}
+                  >
+                    <UiIcon name={isMuted ? "volume-x" : "volume-2"} size={15} />
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.audioModeAction}
+                    onClick={() => void handleToggleDocumentPiP()}
+                    data-coffeetide-audio-focus-control="true"
+                    aria-label="오디오 막대만 항상 위에 남기기"
+                    title="오디오 막대만 항상 위에 남기기"
+                  >
+                    <UiIcon name="pip" size={15} />
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.audioModeAction}
+                    onClick={() => {
+                      setAudioOnly(false);
+                      onNotify?.("🎬 비디오 모드로 전환되었습니다.");
+                    }}
+                    aria-label="비디오 모드로 복귀"
+                    title="비디오 모드로 복귀"
+                  >
+                    <UiIcon name="video" size={15} />
+                  </button>
+                  {isMini && (
+                    <button
+                      ref={closeButtonRef}
+                      type="button"
+                      className={styles.audioModeAction}
+                      onClick={handleExplicitClose}
+                      aria-label="플레이어 닫기"
+                      title="플레이어 닫기"
+                    >
+                      <UiIcon name="close" size={15} />
+                    </button>
+                  )}
                 </div>
               ) : null}
 
-              {/* 실제 iframe: 오디오 전용 모드일 때도 배경 백그라운드 재생 유지를 위해 1px로 은닉 렌더링 */}
               <div
-                className={isMini ? styles.miniIframeWrapper : styles.iframeWrapper}
-                style={audioOnly ? { position: "absolute", width: 1, height: 1, opacity: 0, pointerEvents: "none" } : undefined}
+                className={
+                  audioOnly ? styles.audioOnlyIframeSlot : isMini ? styles.miniIframeWrapper : styles.iframeWrapper
+                }
+                aria-hidden={audioOnly ? "true" : undefined}
               >
                 <iframe
                   ref={iframeRef}
@@ -1101,6 +1182,60 @@ export function SmartPlayerModal({
           </div>
         </div>
       </div>
+      {pipWindow && createPortal(
+        <div className={`${styles.audioModeCard} ${styles.pipAudioModeCard}`}>
+          <div className={styles.audioModeLead} aria-hidden="true">
+            <UiIcon name="headphones" size={14} />
+          </div>
+          <div className={styles.audioModeInfo} title={video.title}>
+            <span className={styles.audioModeState}>
+              {playerState === "playing" ? "재생 중" : "일시정지"} · 오디오 집중 모드
+            </span>
+            <span className={styles.audioTitle}>{video.title}</span>
+          </div>
+          <button
+            type="button"
+            className={styles.audioModeAction}
+            onClick={togglePlayPause}
+            aria-label={playerState === "playing" ? "오디오 일시정지" : "오디오 재생"}
+            title={playerState === "playing" ? "일시정지" : "재생"}
+          >
+            <UiIcon name={playerState === "playing" ? "pause" : "play"} size={14} />
+          </button>
+          <button
+            type="button"
+            className={styles.audioModeAction}
+            onClick={toggleMute}
+            aria-label={isMuted ? "오디오 음소거 해제" : "오디오 음소거"}
+            title={isMuted ? "음소거 해제" : "음소거"}
+          >
+            <UiIcon name={isMuted ? "volume-x" : "volume-2"} size={15} />
+          </button>
+          <button
+            type="button"
+            className={styles.audioModeAction}
+            onClick={() => {
+              closeDocumentPiP();
+              setIsMini(true);
+              window.focus();
+            }}
+            aria-label="CoffeeTide 화면으로 돌아가기"
+            title="CoffeeTide 화면으로 돌아가기"
+          >
+            <UiIcon name="expand" size={15} />
+          </button>
+          <button
+            type="button"
+            className={styles.audioModeAction}
+            onClick={handleExplicitClose}
+            aria-label="플레이어 닫기"
+            title="플레이어 닫기"
+          >
+            <UiIcon name="close" size={15} />
+          </button>
+        </div>,
+        pipWindow.document.body
+      )}
     </>,
     document.body
   );

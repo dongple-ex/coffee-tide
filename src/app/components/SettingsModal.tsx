@@ -163,9 +163,10 @@ export function SettingsModal({
     pointerId: number | null;
     startX: number;
     startY: number;
+    startScrollLeft: number;
     dragging: boolean;
     hoveredTab: SettingsTab | null;
-  }>({ pointerId: null, startX: 0, startY: 0, dragging: false, hoveredTab: null });
+  }>({ pointerId: null, startX: 0, startY: 0, startScrollLeft: 0, dragging: false, hoveredTab: null });
   const suppressSettingsTabClickRef = useRef(false);
   const suppressSettingsTabClickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [accountDeleteBusy, setAccountDeleteBusy] = useState(false);
@@ -207,6 +208,7 @@ export function SettingsModal({
       pointerId: null,
       startX: 0,
       startY: 0,
+      startScrollLeft: 0,
       dragging: false,
       hoveredTab: null,
     };
@@ -219,6 +221,7 @@ export function SettingsModal({
       pointerId: e.pointerId,
       startX: e.clientX,
       startY: e.clientY,
+      startScrollLeft: settingsTabBarRef.current?.scrollLeft ?? 0,
       dragging: false,
       hoveredTab: null,
     };
@@ -241,6 +244,11 @@ export function SettingsModal({
           e.currentTarget.setPointerCapture(e.pointerId);
         } catch {}
       }
+
+      if (settingsTabBarRef.current) {
+        settingsTabBarRef.current.scrollLeft = gesture.startScrollLeft - (e.clientX - gesture.startX);
+      }
+
       const pointedTab = findSettingsTabAtPoint(e.clientX, e.clientY);
       const hoveredTab = pointedTab ?? (isPointInsideSettingsTabBar(e.clientX, e.clientY) ? gesture.hoveredTab : null);
       if (hoveredTab !== gesture.hoveredTab) {
@@ -290,6 +298,17 @@ export function SettingsModal({
     }
     e.preventDefault();
     e.stopPropagation();
+  }, []);
+
+  const handleSettingsTabWheel = useCallback((e: React.WheelEvent<HTMLDivElement>) => {
+    const tabBar = settingsTabBarRef.current;
+    if (!tabBar || tabBar.scrollWidth <= tabBar.clientWidth) return;
+
+    const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+    if (delta === 0) return;
+
+    tabBar.scrollLeft += delta;
+    e.preventDefault();
   }, []);
 
   const handleSettingsTabKeyDown = useCallback(
@@ -403,6 +422,7 @@ export function SettingsModal({
             onLostPointerCapture={resetSettingsTabGesture}
             onClickCapture={handleSettingsTabClickCapture}
             onKeyDown={handleSettingsTabKeyDown}
+            onWheel={handleSettingsTabWheel}
           >
             {SETTINGS_TABS.map((tab) => (
               <button
