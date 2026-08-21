@@ -2907,7 +2907,9 @@ export default function Home() {
 
       {/* 업무 흐름과 휴식 도구를 분리하는 주 탐색 */}
       {isWorkspaceTabMode && (
-        <div className={styles.compactTabDock}>
+        <div
+          className={`${styles.compactTabDock} ${plusOpen ? styles.compactTabDockBehindComposerMenu : ""}`}
+        >
           <nav
             ref={workspaceTabBarRef}
             className={styles.compactTabBar}

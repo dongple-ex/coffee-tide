@@ -2863,6 +2863,11 @@
   z-index: 1002;
 }
 
+/* AI 바리스타 옵션 메뉴가 열리면 메뉴와 닫기용 backdrop이 탭 바를 가릴 수 있게 한다. */
+.compactTabDock.compactTabDockBehindComposerMenu {
+  z-index: 24;
+}
+
 .compactTabBar {
   display: flex;
   flex: 1 1 auto;

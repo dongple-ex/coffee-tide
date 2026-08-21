@@ -4,7 +4,15 @@ const { lookupMock } = vi.hoisted(() => ({ lookupMock: vi.fn() }));
 
 vi.mock("node:dns/promises", () => ({ lookup: lookupMock }));
 
-import { fetchPage, isUnsafeIpAddress, rejectUnsafeRemoteUrl, rejectUnsafeUrl } from "./htmlParse";
+import {
+  cleanText,
+  discoverFeedUrls,
+  fetchPage,
+  isUnsafeIpAddress,
+  looksLikeArticleLink,
+  rejectUnsafeRemoteUrl,
+  rejectUnsafeUrl,
+} from "./htmlParse";
 
 describe("news URL SSRF protection", () => {
   beforeEach(() => {
@@ -84,5 +92,35 @@ describe("news URL SSRF protection", () => {
     expect(result.ok).toBe(false);
     expect(result.finalUrl).toBe("http://127.0.0.1/private");
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("discovers a site's declared RSS feed before falling back to page links", () => {
+    const html = '<link rel="alternate" type="application/rss+xml" href="/magazine/feed/">';
+
+    expect(discoverFeedUrls(html, "https://yozm.wishket.com/magazine/")[0]).toBe(
+      "https://yozm.wishket.com/magazine/feed/"
+    );
+  });
+
+  it("removes HTML that was escaped inside an RSS description", () => {
+    expect(
+      cleanText(
+        "&lt;p style=&quot;text-align:justify;&quot;&gt;첫 문장입니다.&lt;/p&gt;&lt;p&gt;둘째 문장입니다.&lt;/p&gt;"
+      )
+    ).toBe("첫 문장입니다. 둘째 문장입니다.");
+  });
+
+  it("keeps article details but rejects author profiles and external promotion links", () => {
+    const origin = "https://yozm.wishket.com";
+
+    expect(
+      looksLikeArticleLink("https://yozm.wishket.com/magazine/detail/3908/", origin)
+    ).toBe(true);
+    expect(
+      looksLikeArticleLink("https://yozm.wishket.com/magazine/@FinalCatti/", origin)
+    ).toBe(false);
+    expect(
+      looksLikeArticleLink("https://chromewebstore.google.com/detail/example", origin)
+    ).toBe(false);
   });
 });

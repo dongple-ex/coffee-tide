@@ -216,14 +216,21 @@ const NAMED_ENTITIES: Record<string, string> = {
 /** 태그 제거 + 숫자형/명명형 HTML 엔티티 완전 디코딩 */
 export function cleanText(raw: string): string {
   if (!raw) return "";
-  let text = raw.replace(/<br\s*\/?>/gi, " ").replace(/<\/(p|div|li|h[1-6])>/gi, " ");
+  // RSS description에는 HTML 전체가 &lt;p&gt;처럼 이스케이프되어 들어오는 경우가 많다.
+  // 엔티티를 먼저 풀어야 그 안의 태그도 실제 콘텐츠에서 제거할 수 있다.
+  let text = decodeHtmlEntities(raw);
+  text = text.replace(/<br\s*\/?>/gi, " ").replace(/<\/(p|div|li|h[1-6])>/gi, " ");
   text = text.replace(/<[^>]*>/g, "");
-
-  text = text.replace(/&#(\d+);/g, (_, dec: string) => safeCodePoint(Number(dec)));
-  text = text.replace(/&#x([0-9a-fA-F]+);/g, (_, hex: string) => safeCodePoint(parseInt(hex, 16)));
-  text = text.replace(/&([a-zA-Z]+);/g, (whole, name: string) => NAMED_ENTITIES[name] ?? whole);
+  text = decodeHtmlEntities(text);
 
   return text.replace(/[​﻿]/g, "").replace(/\s+/g, " ").trim();
+}
+
+function decodeHtmlEntities(raw: string): string {
+  return raw
+    .replace(/&#(\d+);/g, (_, dec: string) => safeCodePoint(Number(dec)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex: string) => safeCodePoint(parseInt(hex, 16)))
+    .replace(/&([a-zA-Z]+);/g, (whole, name: string) => NAMED_ENTITIES[name] ?? whole);
 }
 
 /** 줄바꿈을 살린 정제 — 유튜브 설명란처럼 줄 구조 자체가 의미를 갖는 텍스트용 */
@@ -655,6 +662,9 @@ export function looksLikeArticleLink(href: string, origin: string): boolean {
   if (path === "/" || path.length < 5) return false;
   if (/\.(jpg|jpeg|png|gif|svg|webp|pdf|zip|mp4|css|js)$/i.test(path)) return false;
   if (/(login|signup|join|member|privacy|terms|subscribe|search|tag|category|about|contact)/i.test(path)) {
+    return false;
+  }
+  if (/(?:^|\/)@[^/]+(?:\/|$)|(?:^|\/)(?:authors?|writers?|contributors?|users?|profiles?|archives?)(?:\/|$)/i.test(path)) {
     return false;
   }
 

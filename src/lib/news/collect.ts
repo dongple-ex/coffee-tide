@@ -447,7 +447,8 @@ async function enrich(items: RawItem[], deep: boolean, limit: number): Promise<C
 
   const results = await Promise.allSettled(
     sliced.map(async (item) => {
-      if (item.text.length >= DEEP_MIN_CHARS) return item;
+      // 본문이 피드에 충분히 있어도 날짜가 빠졌다면 상세 페이지 메타에서 발행일을 보충한다.
+      if (item.text.length >= DEEP_MIN_CHARS && item.date !== "최신") return item;
       const res = await fetchPage(item.url, 7000);
       if (!res.ok) return item;
 
