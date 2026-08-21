@@ -1,4 +1,4 @@
-import type { AiPolicy, PrivacyScope, WorkspaceItemType } from "../data/contracts";
+import type { WorkspaceItemType } from "../data/contracts";
 
 export interface SourceLocation {
   page?: number;
@@ -6,20 +6,6 @@ export interface SourceLocation {
   slide?: number;
   startSeconds?: number;
   endSeconds?: number;
-}
-
-export interface ContentChunk {
-  id: string;
-  userId: string;
-  itemId: string;
-  assetId?: string;
-  ordinal: number;
-  text: string;
-  sourceLocation?: SourceLocation;
-  sourceHash: string;
-  sourceVersion: number;
-  privacyScope: PrivacyScope;
-  aiPolicy: AiPolicy;
 }
 
 export interface KnowledgeSearchRequest {

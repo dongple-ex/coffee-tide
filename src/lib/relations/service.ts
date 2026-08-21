@@ -1,5 +1,6 @@
 import type { ItemRelation, RelationCreatedBy, RelationType } from "../data/contracts";
 import { validateItemRelation } from "../data/validation";
+import { generateId } from "../ids";
 
 export interface CreateRelationInput {
   fromItemId: string;
@@ -16,7 +17,7 @@ export function buildItemRelation(
 ): ItemRelation {
   const createdBy = input.createdBy || "user";
   const relation: ItemRelation = {
-    id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : "rel-" + Math.random().toString(36).substring(2, 12),
+    id: generateId("rel"),
     userId,
     fromItemId: input.fromItemId,
     toItemId: input.toItemId,

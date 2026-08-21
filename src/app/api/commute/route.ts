@@ -10,15 +10,10 @@ import { NextResponse } from "next/server";
 import { fetchBusArrivals } from "@/lib/adapters/commute";
 import { CommuteArrival, CommuteInfo } from "@/lib/types/commute";
 import { getDataGoKrServiceKey } from "@/lib/env";
-
-interface CacheEntry {
-  timestamp: number;
-  arrivals: CommuteArrival[];
-}
+import { createTtlCache } from "@/lib/cache/memoryCache";
 
 // 실시간 도착정보는 금방 낡지만, 30초 폴링 × 일 1,000건 기본 쿼터라 캐시가 필수다.
-const arrivalCache = new Map<string, CacheEntry>();
-const ARRIVAL_TTL_MS = 45 * 1000;
+const arrivalCache = createTtlCache<CommuteArrival[]>(45 * 1000, 100);
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -60,15 +55,15 @@ export async function GET(request: Request) {
 
   const cacheKey = `${cityCode}:${nodeId}`;
   const cached = arrivalCache.get(cacheKey);
-  if (cached && Date.now() - cached.timestamp < ARRIVAL_TTL_MS) {
-    info.arrivals = cached.arrivals;
+  if (cached) {
+    info.arrivals = cached;
     if (info.arrivals.length === 0) info.notice = "지금은 도착 예정인 버스가 없어요.";
     return NextResponse.json({ success: true, commute: info, cached: true });
   }
 
   try {
     const arrivals = await fetchBusArrivals(cityCode, nodeId);
-    arrivalCache.set(cacheKey, { timestamp: Date.now(), arrivals });
+    arrivalCache.set(cacheKey, arrivals);
     info.arrivals = arrivals;
     if (arrivals.length === 0) info.notice = "지금은 도착 예정인 버스가 없어요.";
     return NextResponse.json({ success: true, commute: info, cached: false });

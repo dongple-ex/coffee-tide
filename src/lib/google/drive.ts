@@ -3,7 +3,6 @@ export interface DriveFileOptions {
   mimeType: string;
   parents?: string[];
 }
-
 const UPLOAD_URL = "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart";
 const FILE_URL = "https://www.googleapis.com/drive/v3/files";
 
@@ -92,35 +91,4 @@ export async function uploadToDrive(token: string, fileOptions: DriveFileOptions
 
   const data = await res.json();
   return data.id;
-}
-
-/** 파일 내용 텍스트로 읽기 (참고자료 추출용) */
-export async function downloadDriveFileText(token: string, fileId: string, mimeType: string): Promise<string> {
-  // Google Docs나 Sheets 같은 워크스페이스 문서는 export를 사용해야 함
-  if (mimeType.includes("vnd.google-apps.document")) {
-    const res = await fetch(`${FILE_URL}/${fileId}/export?mimeType=text/plain`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) throw new Error("Failed to export Google Document");
-    return res.text();
-  } else if (mimeType.includes("vnd.google-apps.spreadsheet")) {
-    const res = await fetch(`${FILE_URL}/${fileId}/export?mimeType=text/csv`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) throw new Error("Failed to export Google Spreadsheet");
-    return res.text();
-  } else if (mimeType.includes("vnd.google-apps.presentation")) {
-    const res = await fetch(`${FILE_URL}/${fileId}/export?mimeType=text/plain`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) throw new Error("Failed to export Google Presentation");
-    return res.text();
-  }
-  
-  // 일반 파일
-  const res = await fetch(`${FILE_URL}/${fileId}?alt=media`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) throw new Error("Failed to download file");
-  return res.text();
 }

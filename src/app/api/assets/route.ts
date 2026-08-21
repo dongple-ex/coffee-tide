@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { requireSupabaseUser } from "@/lib/supabase/server";
 import { mapContentAssetFromDb, mapContentAssetToDbRow } from "@/lib/data/mappers";
 import { buildContentAsset } from "@/lib/assets/service";
 
@@ -47,18 +47,9 @@ function isValidImageSignature(bytes: Buffer): { valid: boolean; detectedMime?: 
 }
 
 export async function GET(req: NextRequest) {
-  const supabase = await createServerSupabaseClient();
-  if (!supabase) {
-    return NextResponse.json({ error: "Supabase service unavailable" }, { status: 503 });
-  }
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireSupabaseUser();
+  if (!auth.ok) return auth.response;
+  const { supabase, user } = auth;
 
   const { searchParams } = new URL(req.url);
   const itemId = searchParams.get("itemId");
@@ -83,18 +74,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const supabase = await createServerSupabaseClient();
-  if (!supabase) {
-    return NextResponse.json({ error: "Supabase service unavailable" }, { status: 503 });
-  }
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireSupabaseUser();
+  if (!auth.ok) return auth.response;
+  const { supabase, user } = auth;
 
   try {
     const contentType = req.headers.get("content-type") || "";

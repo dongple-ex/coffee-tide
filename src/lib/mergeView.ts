@@ -25,8 +25,9 @@ export function buildMergedView(
   viewWindow: ViewWindowSetting = "auto"
 ): ViewItem[] {
   const manualIds = new Set(manualItems.map((i) => i.id));
+  const dismissedIds = new Set(dismissed);
   const all = [...manualItems, ...serverMails.filter((m) => !manualIds.has(m.id))];
-  const visible = all.filter((i) => !dismissed.includes(i.id));
+  const visible = all.filter((i) => !dismissedIds.has(i.id));
   const processed = applyRules(visible, rules);
 
   const now = nowTimestamp ?? Date.now();

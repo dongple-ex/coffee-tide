@@ -1,22 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { requireSupabaseUser } from "@/lib/supabase/server";
 import { mapItemRelationFromDb, mapUnifiedItemFromDb } from "@/lib/data/mappers";
 import { searchKnowledge } from "@/lib/knowledge/search";
 import type { KnowledgeSearchRequest } from "@/lib/knowledge/contracts";
 
 export async function POST(req: NextRequest) {
-  const supabase = await createServerSupabaseClient();
-  if (!supabase) {
-    return NextResponse.json({ error: "Supabase service unavailable" }, { status: 503 });
-  }
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireSupabaseUser();
+  if (!auth.ok) return auth.response;
+  const { supabase, user } = auth;
 
   try {
     const body: KnowledgeSearchRequest = await req.json();

@@ -1,19 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { requireSupabaseUser } from "@/lib/supabase/server";
+import {
+  generateGeminiContent,
+  geminiResponseText,
+  isGeminiConfigured,
+  type GeminiGenerateResponse,
+} from "@/lib/ai/gemini";
 
 export async function POST(req: NextRequest) {
-  const supabase = await createServerSupabaseClient();
-  if (!supabase) {
-    return NextResponse.json({ error: "Supabase service unavailable" }, { status: 503 });
-  }
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 });
-  }
+  const auth = await requireSupabaseUser("로그인이 필요합니다.");
+  if (!auth.ok) return auth.response;
 
   try {
     const body = await req.json();
@@ -23,8 +19,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "주제와 전사 텍스트는 필수입니다." }, { status: 400 });
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
+    if (!isGeminiConfigured()) {
       return NextResponse.json(
         { error: "AI 분석 서비스를 현재 사용할 수 없습니다." },
         { status: 503 }
@@ -63,32 +58,24 @@ ${references && references.length > 0 ? `[참고자료]\n${references.join("\n\n
 ${transcript}
 `;
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [{ text: promptText }],
-          },
-        ],
-        generationConfig: {
-          responseMimeType: "application/json"
-        }
-      }),
-    });
-
-    if (!res.ok) {
+    // 공용 진입점 사용 — 헤더 인증·429 쿼터 쿨다운을 gemini.ts가 일괄 관리
+    let geminiData: GeminiGenerateResponse;
+    try {
+      geminiData = await generateGeminiContent(
+        {
+          contents: [{ parts: [{ text: promptText }] }],
+          generationConfig: { responseMimeType: "application/json" },
+        },
+        { model: "gemini-2.5-flash" }
+      );
+    } catch {
       return NextResponse.json(
         { error: "AI 처리 중 오류가 발생했습니다." },
         { status: 500 }
       );
     }
 
-    const geminiData = await res.json();
-    const summaryText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+    const summaryText = geminiResponseText(geminiData).trim();
 
     if (!summaryText) {
       return NextResponse.json({ error: "AI 요약 결과를 받지 못했습니다." }, { status: 422 });

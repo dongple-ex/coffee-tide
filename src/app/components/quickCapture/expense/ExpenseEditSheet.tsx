@@ -2,20 +2,13 @@
 
 import React, { useState } from "react";
 import styles from "./ExpenseWorkspace.module.css";
-import type { ExpenseListRecord } from "./expenseTypes";
+import { toLocalDateTimeInput, type ExpenseListRecord } from "./expenseTypes";
 import type { UpdateExpenseInput } from "@/lib/expenses/service";
 
 interface ExpenseEditSheetProps {
   record: ExpenseListRecord;
   onSave: (id: string, patch: UpdateExpenseInput) => Promise<void>;
   onClose: () => void;
-}
-
-function toLocalDateTimeInput(value?: string): string {
-  if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
 }
 
 export const ExpenseEditSheet: React.FC<ExpenseEditSheetProps> = ({ record, onSave, onClose }) => {

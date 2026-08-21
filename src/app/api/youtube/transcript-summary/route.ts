@@ -3,6 +3,7 @@ import type { YouTubeChapter } from "@/lib/types/youtube";
 import { isAllowedYouTubeCaptionUrl, parseYouTubeVideoId } from "@/lib/youtube/url";
 import { isYouTubeRequestRateLimited } from "@/lib/youtube/rateLimit";
 import { readResponseTextLimited } from "@/lib/youtube/server";
+import { generateGeminiContent, geminiResponseText, isGeminiConfigured } from "@/lib/ai/gemini";
 
 const PAGE_TIMEOUT_MS = 8_000;
 const PLAYER_TIMEOUT_MS = 5_000;
@@ -340,8 +341,7 @@ export async function POST(req: NextRequest) {
     let summary = sourceText ? `${sourceText.slice(0, 260)}${sourceText.length > 260 ? "…" : ""}` : "영상 요약 정보가 없습니다.";
     let points = chapters.slice(0, 3).map((chapter) => chapter.label);
 
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (apiKey && sourceText) {
+    if (isGeminiConfigured() && sourceText) {
       try {
         const prompt = `역할: 유튜브 영상 요약기
 영상 제목: ${title}
@@ -351,27 +351,20 @@ ${sourceText.slice(0, 6000)}
 
 제공된 자료에 실제로 있는 내용만 사용해 다음 JSON으로 응답하세요.
 {"summary":"핵심 줄글 요약(120~240자)","points":["핵심 1","핵심 2","핵심 3"]}`;
-        const aiResponse = await fetch(
-          "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent",
+        // 공용 진입점 사용 — 429 쿼터 쿨다운을 gemini.ts가 일괄 관리 (실패 시 아래 catch로 폴백)
+        const aiJson = await generateGeminiContent(
           {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
-            body: JSON.stringify({
-              contents: [{ role: "user", parts: [{ text: prompt }] }],
-              generationConfig: { responseMimeType: "application/json" },
-            }),
-            signal: AbortSignal.timeout(AI_TIMEOUT_MS),
-          }
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            generationConfig: { responseMimeType: "application/json" },
+          },
+          { signal: AbortSignal.timeout(AI_TIMEOUT_MS) }
         );
-        if (aiResponse.ok) {
-          const aiJson = await aiResponse.json();
-          const text = aiJson?.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (typeof text === "string") {
-            const parsed = JSON.parse(text) as { summary?: unknown; points?: unknown };
-            if (typeof parsed.summary === "string" && parsed.summary.trim()) summary = parsed.summary.trim();
-            if (Array.isArray(parsed.points)) {
-              points = parsed.points.map((point) => String(point).trim()).filter(Boolean).slice(0, 3);
-            }
+        const text = geminiResponseText(aiJson);
+        if (text) {
+          const parsed = JSON.parse(text) as { summary?: unknown; points?: unknown };
+          if (typeof parsed.summary === "string" && parsed.summary.trim()) summary = parsed.summary.trim();
+          if (Array.isArray(parsed.points)) {
+            points = parsed.points.map((point) => String(point).trim()).filter(Boolean).slice(0, 3);
           }
         }
       } catch (aiError) {

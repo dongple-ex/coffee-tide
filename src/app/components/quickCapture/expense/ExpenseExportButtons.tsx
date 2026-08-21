@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import styles from "./ExpenseWorkspace.module.css";
 import type { ExpenseFilters } from "./expenseTypes";
 import { UiIcon } from "../../UiIcon";
+import { generateId } from "@/lib/ids";
 
 interface ExpenseExportButtonsProps {
   filters: ExpenseFilters;
@@ -102,9 +103,7 @@ export const ExpenseExportButtons: React.FC<ExpenseExportButtonsProps> = ({ filt
     setError(null);
 
     try {
-      const idempotencyKey = typeof crypto !== "undefined" && crypto.randomUUID
-        ? crypto.randomUUID()
-        : `sheets-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const idempotencyKey = generateId("sheets");
 
       const res = await fetch("/api/expenses/export/google-sheets", {
         method: "POST",

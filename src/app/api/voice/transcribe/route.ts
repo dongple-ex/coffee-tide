@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { requireSupabaseUser } from "@/lib/supabase/server";
+import {
+  generateGeminiContent,
+  geminiResponseText,
+  isGeminiConfigured,
+  type GeminiGenerateResponse,
+} from "@/lib/ai/gemini";
 
 export interface MeetingTranscriptSegment {
   speaker: string;
@@ -27,18 +33,8 @@ const MAX_AUDIO_DURATION_SECONDS = 10 * 60;
 
 export async function POST(req: NextRequest) {
   // 1. 인증 확인
-  const supabase = await createServerSupabaseClient();
-  if (!supabase) {
-    return NextResponse.json({ error: "Supabase service unavailable" }, { status: 503 });
-  }
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 });
-  }
+  const auth = await requireSupabaseUser("로그인이 필요합니다.");
+  if (!auth.ok) return auth.response;
 
   try {
     const formData = await req.formData();
@@ -74,8 +70,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
+    if (!isGeminiConfigured()) {
       return NextResponse.json(
         { error: "AI 전사 서비스를 현재 사용할 수 없습니다." },
         { status: 503 }
@@ -91,32 +86,29 @@ export async function POST(req: NextRequest) {
         ? "이 회의 오디오를 한국어로 정확하게 전사(음성 인식)해 주세요. 참석자들의 발언을 자연스럽게 텍스트로 풀어주되, 화자를 확실히 알 수 없을 땐 추측하지 말고 'A', 'B', 'C' 또는 'uncertain'으로 표시하세요. 반드시 JSON 배열 형태로 응답하세요. 각 요소는 { \"speaker\": string, \"text\": string } 형태여야 합니다. 부가적인 설명 없이 JSON 배열만 출력하세요."
         : "이 음성을 한국어로 정확하게 전사(STT)해 주세요. 말한 문장 그대로 텍스트만 출력하세요.";
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              { text: promptText },
-              {
-                inline_data: {
-                  mime_type: mimeType,
-                  data: base64Audio,
+    // 공용 진입점 사용 — 헤더 인증·429 쿼터 쿨다운을 gemini.ts가 일괄 관리
+    let geminiData: GeminiGenerateResponse;
+    try {
+      geminiData = await generateGeminiContent(
+        {
+          contents: [
+            {
+              parts: [
+                { text: promptText },
+                {
+                  inline_data: {
+                    mime_type: mimeType,
+                    data: base64Audio,
+                  },
                 },
-              },
-            ],
-          },
-        ],
-        generationConfig: mode === "meeting" ? {
-          responseMimeType: "application/json"
-        } : undefined,
-      }),
-    });
-
-    if (!res.ok) {
+              ],
+            },
+          ],
+          generationConfig: mode === "meeting" ? { responseMimeType: "application/json" } : undefined,
+        },
+        { model: "gemini-2.5-flash" }
+      );
+    } catch {
       // 보안: 내부 API 키나 원문 오류 내용을 외부에 노출하지 않음
       return NextResponse.json(
         { error: "음성 인식 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요." },
@@ -124,9 +116,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const geminiData = await res.json();
-    const transcriptText =
-      geminiData.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+    const transcriptText = geminiResponseText(geminiData).trim();
 
     if (!transcriptText) {
       return NextResponse.json({ error: "음성에서 텍스트를 확인하지 못했습니다." }, { status: 422 });

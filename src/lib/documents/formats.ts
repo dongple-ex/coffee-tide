@@ -34,8 +34,6 @@ export const SUPPORTED_DOCUMENT_DISPLAY =
 
 export const MAX_DOCUMENT_UPLOAD_BYTES = 2 * 1024 * 1024;
 
-export type SupportedDocumentExtension = (typeof SUPPORTED_DOCUMENT_EXTENSIONS)[number];
-
 export function documentExtension(fileName: string): string {
   const dot = fileName.lastIndexOf(".");
   return dot >= 0 ? fileName.slice(dot).toLowerCase() : "";

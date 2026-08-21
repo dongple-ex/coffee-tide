@@ -22,15 +22,6 @@ import { mergeItemChanges } from "@/lib/sync/merge";
 
 export type SyncStatus = "idle" | "syncing" | "synced" | "error" | "guest" | "offline";
 
-export interface SyncHookState {
-  syncStatus: SyncStatus;
-  provider: "supabase" | "guest";
-  lastSyncedAt?: string;
-  pendingCount: number;
-  errorMessage?: string;
-  conflicts: SyncConflict[];
-}
-
 const EMPTY_FLUSH_RESULT: FlushResult = {
   sentCount: 0,
   appliedCount: 0,

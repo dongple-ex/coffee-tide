@@ -1,23 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { requireSupabaseUser } from "@/lib/supabase/server";
 import { readSessionWithIntegrations } from "@/lib/auth/integrationStore";
 import { mapExpenseEntryFromDb } from "@/lib/data/mappers";
 import { calculateExpenseAnalysis } from "@/lib/expenses/analysis";
 import type { ExpenseEntry } from "@/lib/data/contracts";
 
 export async function POST(req: NextRequest) {
-  const supabase = await createServerSupabaseClient();
-  if (!supabase) {
-    return NextResponse.json({ error: "Supabase service unavailable" }, { status: 503 });
-  }
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 });
-  }
+  const auth = await requireSupabaseUser("로그인이 필요합니다.");
+  if (!auth.ok) return auth.response;
+  const { supabase, user } = auth;
 
   const session = await readSessionWithIntegrations();
   if (!session?.googleToken && !session?.googleRefreshToken) {

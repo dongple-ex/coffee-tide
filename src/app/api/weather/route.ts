@@ -1,19 +1,16 @@
 import { NextResponse } from "next/server";
 import { getDataGoKrServiceKey, getOpenWeatherApiKey } from "@/lib/env";
+import { createTtlCache } from "@/lib/cache/memoryCache";
 
-interface WeatherCacheEntry {
-  timestamp: number;
-  data: {
-    temp: number;
-    description: string;
-    main: string;
-    city: string;
-  };
+interface WeatherData {
+  temp: number;
+  description: string;
+  main: string;
+  city: string;
 }
 
-// 좌표(소수점 2자리) 기반 서버 인메모리 캐시 (20분 유효)
-const weatherCache = new Map<string, WeatherCacheEntry>();
-const CACHE_TTL_MS = 20 * 60 * 1000;
+// 좌표(소수점 2자리) 기반 서버 인메모리 캐시 (20분 유효, 상한 초과 시 오래된 항목 축출)
+const weatherCache = createTtlCache<WeatherData>(20 * 60 * 1000, 200);
 
 /**
  * WGS84 위경도를 기상청 격자 좌표(NX, NY)로 변환하는 LCC 공식
@@ -292,11 +289,10 @@ export async function GET(request: Request) {
   const lat = Number(parsedLat.toFixed(2));
   const lon = Number(parsedLon.toFixed(2));
   const cacheKey = `${lat},${lon}`;
-  const now = Date.now();
 
   const cached = weatherCache.get(cacheKey);
-  if (cached && now - cached.timestamp < CACHE_TTL_MS) {
-    return NextResponse.json({ success: true, weather: cached.data, cached: true });
+  if (cached) {
+    return NextResponse.json({ success: true, weather: cached, cached: true });
   }
 
   const portalKey = getDataGoKrServiceKey();
@@ -313,7 +309,7 @@ export async function GET(request: Request) {
   if (portalKey) {
     try {
       const kmaData = await fetchKmaWeather(lat, lon, portalKey);
-      weatherCache.set(cacheKey, { timestamp: now, data: kmaData });
+      weatherCache.set(cacheKey, kmaData);
       return NextResponse.json({ success: true, weather: kmaData, source: "kma", cached: false });
     } catch (kmaErr) {
       console.warn("[Weather API] KMA Weather API call failed:", kmaErr);
@@ -324,7 +320,7 @@ export async function GET(request: Request) {
   if (owmKey) {
     try {
       const owmData = await fetchOpenWeatherMap(lat, lon, owmKey);
-      weatherCache.set(cacheKey, { timestamp: now, data: owmData });
+      weatherCache.set(cacheKey, owmData);
       return NextResponse.json({ success: true, weather: owmData, source: "openweathermap", cached: false });
     } catch (owmErr) {
       console.warn("[Weather API] OpenWeatherMap call failed:", owmErr);

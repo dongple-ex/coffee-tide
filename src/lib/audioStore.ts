@@ -38,22 +38,6 @@ export async function saveAudioChunk(record: ChunkRecord): Promise<void> {
   });
 }
 
-export async function getAudioChunks(meetingId: string): Promise<ChunkRecord[]> {
-  const db = await openAudioStore();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, "readonly");
-    const store = tx.objectStore(STORE_NAME);
-    const index = store.index("meetingId");
-    const req = index.getAll(meetingId);
-    req.onsuccess = () => {
-      const records = req.result as ChunkRecord[];
-      records.sort((a, b) => a.chunkIndex - b.chunkIndex);
-      resolve(records);
-    };
-    req.onerror = () => reject(req.error);
-  });
-}
-
 export async function updateChunkStatus(id: string, status: ChunkRecord["status"], transcription?: string): Promise<void> {
   const db = await openAudioStore();
   return new Promise((resolve, reject) => {

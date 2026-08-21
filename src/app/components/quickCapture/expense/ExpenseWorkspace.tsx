@@ -9,6 +9,8 @@ import { ExpenseExportButtons } from "./ExpenseExportButtons";
 import { ExpenseList } from "./ExpenseList";
 import { ReceiptPicker } from "./ReceiptPicker";
 import { UiIcon } from "../../UiIcon";
+import { toLocalDateTimeInput } from "./expenseTypes";
+import { generateId } from "@/lib/ids";
 
 interface ExpenseDraftState {
   itemId: string;
@@ -39,17 +41,8 @@ interface ExpenseWorkspaceProps {
   onRequestVoice?: () => void;
 }
 
-function toLocalDateTimeInput(value?: string): string {
-  if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
-}
-
 function createExpenseItemId(): string {
-  return typeof crypto !== "undefined" && crypto.randomUUID
-    ? crypto.randomUUID()
-    : `expense-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  return generateId("expense");
 }
 
 export const ExpenseWorkspace: React.FC<ExpenseWorkspaceProps> = ({

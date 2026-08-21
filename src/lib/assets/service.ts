@@ -1,5 +1,6 @@
 import type { ContentAsset } from "../data/contracts";
 import { validateContentAsset } from "../data/validation";
+import { generateId } from "../ids";
 
 export interface CreateAssetInput {
   itemId: string;
@@ -17,7 +18,7 @@ export function buildContentAsset(
   userId?: string
 ): ContentAsset {
   const asset: ContentAsset = {
-    id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : "asset-" + Math.random().toString(36).substring(2, 12),
+    id: generateId("asset"),
     userId,
     itemId: input.itemId,
     kind: input.kind,

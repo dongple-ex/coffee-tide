@@ -1,5 +1,6 @@
 import type { AiArtifact, AiArtifactType } from "../data/contracts";
 import { validateAiArtifact } from "../data/validation";
+import { generateId } from "../ids";
 
 export interface CreateAiArtifactInput {
   itemId: string;
@@ -18,7 +19,7 @@ export function buildAiArtifact(
   userId?: string
 ): AiArtifact {
   const artifact: AiArtifact = {
-    id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : "art-" + Math.random().toString(36).substring(2, 12),
+    id: generateId("art"),
     userId,
     itemId: input.itemId,
     artifactType: input.artifactType,

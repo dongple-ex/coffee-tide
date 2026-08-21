@@ -5,6 +5,7 @@ import styles from "../QuickCapture.module.css";
 import CafeWait from "../../cafeWait";
 
 import { ActionItem, SaveTasksResult } from "./meetingTasks";
+import { generateId } from "@/lib/ids";
 
 export interface SpeakerMapping {
   label: string; // "A", "B", "C"
@@ -95,7 +96,7 @@ export const MeetingAnalysisSheet: React.FC<MeetingAnalysisSheetProps> = ({
       // 초기 선택 상태 및 고유 clientId 1회 부여
       res.actionItems = (res.actionItems || []).map(a => ({
         ...a,
-        clientId: a.clientId || (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `item-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`),
+        clientId: a.clientId || generateId("item"),
         selected: true,
         saved: false,
       }));

@@ -7,7 +7,10 @@ import { youtubeAiErrorStatus } from "@/lib/youtube/aiError";
 export async function POST(req: NextRequest) {
   try {
     if (isYouTubeRequestRateLimited(req, "youtube-analyze", 6)) {
-      return NextResponse.json({ success: false, error: "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요." }, { status: 429 });
+      return NextResponse.json(
+        { success: false, error: "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요." },
+        { status: 429, headers: { "Retry-After": "60" } }
+      );
     }
     const body: unknown = await req.json();
     if (!body || typeof body !== "object" || Array.isArray(body)) {

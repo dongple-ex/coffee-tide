@@ -6,7 +6,9 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 
 export { SESSION_COOKIE, SESSION_EXPIRY_COOKIE, OAUTH_STATE_COOKIE } from "./cookieNames";
-export const SESSION_MAX_AGE_SEC = 7 * 24 * 3600; // 7일 (백로그 B2: 롤링 연장은 후속)
+// 7일. 롤링 연장(B2)은 /api/mails 응답의 writeSessionForCurrentUser → writeSession이
+// 쿠키 maxAge를 매번 새로 부여하는 방식으로 동작한다 (별도 touch 함수 없음).
+export const SESSION_MAX_AGE_SEC = 7 * 24 * 3600;
 
 export interface SessionData {
   userEmail: string;

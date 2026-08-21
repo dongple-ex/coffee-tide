@@ -6,6 +6,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import dynamic from "next/dynamic";
 import { AutomationRule, ProcessedData } from "@/lib/automation/rules";
 import {
   BROWSER_ID_PREFIX,
@@ -64,8 +65,6 @@ import { useModalA11y } from "./hooks/useModalA11y";
 import { HeaderControls, Theme } from "./components/HeaderControls";
 import { UiIcon } from "./components/UiIcon";
 import { QuickAddBar } from "./components/QuickAddBar";
-import { SettingsModal } from "./components/SettingsModal";
-import { SyncConflictModal } from "./components/SyncConflictModal";
 import CafeWait from "./components/cafeWait";
 import { TaskItemCard } from "./components/TaskItemCard";
 import { CopilotComposer } from "./components/copilot/CopilotComposer";
@@ -76,15 +75,20 @@ import { CloudWriteApprovalCard } from "./components/copilot/CloudWriteApprovalC
 import { buildQaPairs, CopilotMessage } from "@/lib/copilotPairs";
 import IcedAmericano from "./components/icedAmericano";
 import { WelcomeCard, WeatherData } from "./components/WelcomeCard";
-import { CommuteCard } from "./components/CommuteCard";
-import { TimerWidget } from "./components/TimerWidget";
-import { CalculatorWidget } from "./components/CalculatorWidget";
-import { ShortcutsWidget } from "./components/ShortcutsWidget";
 import { WeatherWidget } from "./components/WeatherWidget";
-import { FinanceWidget } from "./components/FinanceWidget";
-import { CustomNewsWidget, CustomWidgetConfig } from "./components/CustomNewsWidget";
-import { YouTubeBundleWidget } from "./components/youtube/YouTubeBundleWidget";
+import type { CustomWidgetConfig } from "./components/CustomNewsWidget";
 import { ContextualRecStrip } from "./components/youtube/ContextualRecStrip";
+
+// 초기 화면에 렌더링되지 않는 모달·위젯 패널은 지연 로딩으로 초기 번들에서 제외
+const SettingsModal = dynamic(() => import("./components/SettingsModal").then((m) => m.SettingsModal), { ssr: false });
+const SyncConflictModal = dynamic(() => import("./components/SyncConflictModal").then((m) => m.SyncConflictModal), { ssr: false });
+const CommuteCard = dynamic(() => import("./components/CommuteCard").then((m) => m.CommuteCard), { ssr: false });
+const TimerWidget = dynamic(() => import("./components/TimerWidget").then((m) => m.TimerWidget), { ssr: false });
+const CalculatorWidget = dynamic(() => import("./components/CalculatorWidget").then((m) => m.CalculatorWidget), { ssr: false });
+const ShortcutsWidget = dynamic(() => import("./components/ShortcutsWidget").then((m) => m.ShortcutsWidget), { ssr: false });
+const FinanceWidget = dynamic(() => import("./components/FinanceWidget").then((m) => m.FinanceWidget), { ssr: false });
+const CustomNewsWidget = dynamic(() => import("./components/CustomNewsWidget").then((m) => m.CustomNewsWidget), { ssr: false });
+const YouTubeBundleWidget = dynamic(() => import("./components/youtube/YouTubeBundleWidget").then((m) => m.YouTubeBundleWidget), { ssr: false });
 import { loadYouTubeContinuitySession, clearYouTubeContinuitySession, computeUserScope } from "@/lib/youtube/continuity";
 import type { CustomSitePreview } from "@/lib/news/types";
 import { CommuteConfig, CommuteStop } from "@/lib/types/commute";
@@ -322,6 +326,8 @@ export default function Home() {
     dismissConflict,
   } = useCloudSync();
   const cloudHydratedRef = useRef(false);
+  // 하이드레이션 요청의 단일 비행 보장 (StrictMode 이중 실행·리렌더 재발사 방지)
+  const cloudHydrationStartedRef = useRef(false);
   const [followupHours, setFollowupHours] = useState(() => loadLS<number>(LS_FOLLOWUP, 24));
   const [viewWindow, setViewWindow] = useState<ViewWindowSetting>(() =>
     normalizeViewWindow(loadLS<unknown>(LS_VIEW_WINDOW, "auto"))
@@ -1416,62 +1422,87 @@ export default function Home() {
     void fetchMails();
   }, [fetchMails]);
 
+  // 하이드레이션 응답 적용 시점에 최신 로컬 상태를 읽기 위한 스냅숏 — 이펙트를 상태에
+  // 의존시키지 않으므로, 하이드레이션 진행 중 상태가 바뀌어도 요청이 재발사되지 않는다.
+  const cloudLocalStateRef = useRef({ manualItems, customWidgets, rules, dismissed, workNotes, subTasksMap });
   useEffect(() => {
-    if (phase !== "ready" || cloudHydratedRef.current) return;
+    cloudLocalStateRef.current = { manualItems, customWidgets, rules, dismissed, workNotes, subTasksMap };
+  }, [manualItems, customWidgets, rules, dismissed, workNotes, subTasksMap]);
+
+  useEffect(() => {
+    if (phase !== "ready" || cloudHydratedRef.current || cloudHydrationStartedRef.current) return;
+    cloudHydrationStartedRef.current = true;
     let cancelled = false;
 
-    const localItemsWithDetails = manualItems.map((item) => ({
-      ...item,
-      workNote: item.workNote ?? workNotes[item.id],
-      subTasks: item.subTasks ?? subTasksMap[item.id],
-    }));
+    // 단일 비행(single-flight) 하이드레이션: 요청이 나는 동안 로컬 편집이 있었으면 그 응답은
+    // 버리고 최신 스냅숏으로 한 번 더 요청한다. 종전의 의존성 재발화 방식과 결과("마지막 완료
+    // 응답만 적용, 진행 중 편집은 유실되지 않음")는 같고, 키 입력마다 요청을 새로 발사하지 않는다.
+    const attempt = () => {
+      const snapshot = cloudLocalStateRef.current;
+      const localItemsWithDetails = snapshot.manualItems.map((item) => ({
+        ...item,
+        workNote: item.workNote ?? snapshot.workNotes[item.id],
+        subTasks: item.subTasks ?? snapshot.subTasksMap[item.id],
+      }));
 
-    void fetchUserData({
-      items: localItemsWithDetails,
-      widgets: customWidgets,
-      rules,
-      dismissedIds: dismissed,
-    }).then((cloudState) => {
-      if (cancelled) return;
-      if (cloudState) {
-        setManualItems(cloudState.items);
-        setCustomWidgets(cloudState.widgets);
-        setRules(cloudState.rules);
-        setDismissed(cloudState.dismissedIds);
-        const restoredWorkNotes = { ...workNotes };
-        const restoredSubTasks = { ...subTasksMap };
-        for (const item of cloudState.items) {
-          if (item.workNote) restoredWorkNotes[item.id] = item.workNote;
-          if (item.subTasks?.length) restoredSubTasks[item.id] = item.subTasks;
+      void fetchUserData({
+        items: localItemsWithDetails,
+        widgets: snapshot.customWidgets,
+        rules: snapshot.rules,
+        dismissedIds: snapshot.dismissed,
+      }).then((cloudState) => {
+        if (cancelled) return;
+        const latest = cloudLocalStateRef.current;
+        const changedDuringFlight =
+          latest.manualItems !== snapshot.manualItems ||
+          latest.customWidgets !== snapshot.customWidgets ||
+          latest.rules !== snapshot.rules ||
+          latest.dismissed !== snapshot.dismissed ||
+          latest.workNotes !== snapshot.workNotes ||
+          latest.subTasksMap !== snapshot.subTasksMap;
+        if (changedDuringFlight) {
+          attempt();
+          return;
         }
-        setWorkNotes(restoredWorkNotes);
-        setSubTasksMap(restoredSubTasks);
-        saveLS(LS_MANUAL, cloudState.items);
-        saveLS(LS_CUSTOM_WIDGETS, cloudState.widgets);
-        saveLS(LS_RULES, cloudState.rules);
-        saveLS(LS_DISMISSED, cloudState.dismissedIds);
-        saveLS(LS_WORK_NOTES, restoredWorkNotes);
-        saveLS(LS_SUB_TASKS, restoredSubTasks);
-      } else {
-        syncUserData({ items: manualItems, widgets: customWidgets, rules, dismissedIds: dismissed });
-      }
-      cloudHydratedRef.current = true;
-    });
+        if (cloudState) {
+          setManualItems(cloudState.items);
+          setCustomWidgets(cloudState.widgets);
+          setRules(cloudState.rules);
+          setDismissed(cloudState.dismissedIds);
+          const restoredWorkNotes = { ...snapshot.workNotes };
+          const restoredSubTasks = { ...snapshot.subTasksMap };
+          for (const item of cloudState.items) {
+            if (item.workNote) restoredWorkNotes[item.id] = item.workNote;
+            if (item.subTasks?.length) restoredSubTasks[item.id] = item.subTasks;
+          }
+          setWorkNotes(restoredWorkNotes);
+          setSubTasksMap(restoredSubTasks);
+          saveLS(LS_MANUAL, cloudState.items);
+          saveLS(LS_CUSTOM_WIDGETS, cloudState.widgets);
+          saveLS(LS_RULES, cloudState.rules);
+          saveLS(LS_DISMISSED, cloudState.dismissedIds);
+          saveLS(LS_WORK_NOTES, restoredWorkNotes);
+          saveLS(LS_SUB_TASKS, restoredSubTasks);
+        } else {
+          syncUserData({
+            items: snapshot.manualItems,
+            widgets: snapshot.customWidgets,
+            rules: snapshot.rules,
+            dismissedIds: snapshot.dismissed,
+          });
+        }
+        cloudHydratedRef.current = true;
+      });
+    };
+
+    attempt();
 
     return () => {
       cancelled = true;
+      // 완료 전에 이펙트가 정리되면(로그아웃 등) 다음 ready 진입 시 다시 시도할 수 있게 되돌린다
+      if (!cloudHydratedRef.current) cloudHydrationStartedRef.current = false;
     };
-  }, [
-    phase,
-    fetchUserData,
-    syncUserData,
-    manualItems,
-    customWidgets,
-    rules,
-    dismissed,
-    workNotes,
-    subTasksMap,
-  ]);
+  }, [phase, fetchUserData, syncUserData]);
 
   useEffect(() => {
     if (phase !== "ready" || !cloudHydratedRef.current) return;
@@ -1788,18 +1819,25 @@ export default function Home() {
     }
   }, [workflowItems, followupHours, notifPerm]);
 
-  const todoItems = workflowItems.filter(
-    (i) => TODO_CATS.has(i.category ?? "") && i.status !== "completed"
-  );
-  const restItems = workflowItems.filter(
-    (i) => !TODO_CATS.has(i.category ?? "") || i.status === "completed"
-  );
-  const llmItems = workflowItems.filter((i) => i.source === "llm");
-  const activeCount = workflowItems.filter((i) => i.status !== "completed").length;
-  const urgentCount = workflowItems.filter(
-    (i) => i.category === "urgent" && i.status !== "completed"
-  ).length;
-  const doneCount = manualItems.filter((i) => isWorkflowTask(i) && i.status === "completed").length;
+  // 파생 목록·카운트는 원본 목록이 바뀔 때만 재계산 — 무관한 입력 상태 변경 시 전체 스캔 방지
+  const { todoItems, restItems, llmItems, activeCount, urgentCount, doneCount } = useMemo(() => {
+    const todo = workflowItems.filter(
+      (i) => TODO_CATS.has(i.category ?? "") && i.status !== "completed"
+    );
+    const rest = workflowItems.filter(
+      (i) => !TODO_CATS.has(i.category ?? "") || i.status === "completed"
+    );
+    return {
+      todoItems: todo,
+      restItems: rest,
+      llmItems: workflowItems.filter((i) => i.source === "llm"),
+      activeCount: workflowItems.filter((i) => i.status !== "completed").length,
+      urgentCount: workflowItems.filter(
+        (i) => i.category === "urgent" && i.status !== "completed"
+      ).length,
+      doneCount: manualItems.filter((i) => isWorkflowTask(i) && i.status === "completed").length,
+    };
+  }, [workflowItems, manualItems]);
 
   // ── G1: 수동 입력 / 붙여넣기 ────────────────
   function registerManualTask(item: UnifiedData) {
@@ -3639,6 +3677,7 @@ export default function Home() {
             } catch {}
             setAuthUserEmail(undefined);
             cloudHydratedRef.current = false;
+            cloudHydrationStartedRef.current = false;
             setPhase("landing");
           }}
           accountEmail={authUserEmail}
@@ -3650,6 +3689,7 @@ export default function Home() {
             await createBrowserSupabaseClient().auth.signOut({ scope: "local" }).catch(() => undefined);
             setAuthUserEmail(undefined);
             cloudHydratedRef.current = false;
+            cloudHydrationStartedRef.current = false;
             window.location.replace("/");
           }}
           rules={rules}
@@ -3778,21 +3818,23 @@ export default function Home() {
 
       {toast && <div className={styles.toast}>{toast}</div>}
 
-      <SyncConflictModal
-        conflict={syncConflicts[0] ?? null}
-        onClose={() => {
-          const conflict = syncConflicts[0];
-          if (conflict) dismissConflict(conflict.itemId);
-          showToast("동기화 충돌은 다음 동기화 때 다시 안내할게요.");
-        }}
-        onResolve={(choice, conflict) => {
-          void resolveConflict(choice, conflict).then((items) => {
-            const unifiedItems = items as UnifiedData[];
-            setManualItems(unifiedItems);
-            saveLS(LS_MANUAL, unifiedItems);
-          });
-        }}
-      />
+      {syncConflicts.length > 0 && (
+        <SyncConflictModal
+          conflict={syncConflicts[0] ?? null}
+          onClose={() => {
+            const conflict = syncConflicts[0];
+            if (conflict) dismissConflict(conflict.itemId);
+            showToast("동기화 충돌은 다음 동기화 때 다시 안내할게요.");
+          }}
+          onResolve={(choice, conflict) => {
+            void resolveConflict(choice, conflict).then((items) => {
+              const unifiedItems = items as UnifiedData[];
+              setManualItems(unifiedItems);
+              saveLS(LS_MANUAL, unifiedItems);
+            });
+          }}
+        />
+      )}
 
       {/* 🌐 사이트 추가 모달 */}
       {showAddCustomModal && (

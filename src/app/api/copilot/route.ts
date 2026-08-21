@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { askCopilot, extractCalendarEventDraft } from "@/lib/ai/gemini";
 import { buildSparkAutonomousBriefing } from "@/lib/ai/fallbackEngine";
 import { CopilotUserConfig } from "@/lib/ai/harness";
-import { readSession, unauthorized } from "@/lib/auth/cookies";
+import { unauthorized } from "@/lib/auth/cookies";
 import { diagnoseConnections } from "@/lib/auth/connectionDiagnostics";
 import {
   readSessionWithIntegrations,
@@ -10,8 +10,7 @@ import {
 } from "@/lib/auth/integrationStore";
 import { UnifiedData } from "@/lib/types/unified";
 import { getRecentSparkUnifiedItems } from "@/lib/adapters/sparkSync";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { resolveIdentity, type SignedInIdentity } from "@/lib/auth/identity";
 import { isCalendarCreateRequest } from "@/lib/calendar/types";
 import { extractRegistrationIntent } from "@/lib/ai/intents";
 import { executeCloudTool, listCloudTools } from "@/lib/cloudTools/registry";
@@ -24,22 +23,7 @@ function mergeById(items: UnifiedData[]): UnifiedData[] {
   return [...new Map(items.map((item) => [item.id, item])).values()];
 }
 
-interface CopilotIdentity {
-  id: string;
-  supabase?: SupabaseClient;
-}
-
-async function getCopilotIdentity(): Promise<CopilotIdentity | null> {
-  const supabase = await createServerSupabaseClient();
-  if (supabase) {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) return { id: user.id, supabase };
-  }
-  const session = await readSession();
-  return session ? { id: session.userEmail } : null;
-}
-
-async function autonomousSparkResponse(identity: CopilotIdentity) {
+async function autonomousSparkResponse(identity: SignedInIdentity) {
   const sparkItems = await getRecentSparkUnifiedItems(identity.id, identity.supabase);
   const answer = buildSparkAutonomousBriefing(sparkItems);
   return {
@@ -51,7 +35,7 @@ async function autonomousSparkResponse(identity: CopilotIdentity) {
 
 /** 질문 없이도 활성화된 클라이언트가 최신 Spark 브리핑을 안전하게 조회한다. */
 export async function GET(request: NextRequest) {
-  const identity = await getCopilotIdentity();
+  const identity = await resolveIdentity();
   if (!identity) return unauthorized();
   if (request.nextUrl.searchParams.get("includeSpark") !== "1") {
     return NextResponse.json({ answer: null, spark_autonomous: false, spark_item_count: 0 });
@@ -60,7 +44,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const identity = await getCopilotIdentity();
+  const identity = await resolveIdentity();
   if (!identity) return unauthorized();
 
   const body = (await request.json().catch(() => ({}))) as {

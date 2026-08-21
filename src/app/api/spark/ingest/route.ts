@@ -1,8 +1,9 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
-import { readSession, unauthorized } from "@/lib/auth/cookies";
+import { unauthorized } from "@/lib/auth/cookies";
+import { resolveIdentity } from "@/lib/auth/identity";
 import { getSparkBriefings, addSparkBriefing } from "@/lib/adapters/sparkSync";
-import { createAdminSupabaseClient, createServerSupabaseClient } from "@/lib/supabase/server";
+import { createAdminSupabaseClient } from "@/lib/supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 type SparkCategory = "urgent" | "approval_required" | "meeting" | "action_required" | "reference";
@@ -34,16 +35,6 @@ function hasValidBearer(request: Request, expectedSecret: string): boolean {
   return expected.length === actual.length && timingSafeEqual(expected, actual);
 }
 
-async function getSignedInIdentity(): Promise<{ id: string; client?: SupabaseClient } | null> {
-  const supabase = await createServerSupabaseClient();
-  if (supabase) {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) return { id: user.id, client: supabase };
-  }
-  const session = await readSession();
-  return session ? { id: session.userEmail } : null;
-}
-
 async function resolveSparkUserId(admin: SupabaseClient, requestedUser: string): Promise<string | null> {
   const query = admin.from("user_profiles").select("id");
   const result = UUID_PATTERN.test(requestedUser)
@@ -54,17 +45,17 @@ async function resolveSparkUserId(admin: SupabaseClient, requestedUser: string):
 }
 
 export async function GET() {
-  const identity = await getSignedInIdentity();
+  const identity = await resolveIdentity();
   if (!identity) return unauthorized();
 
-  const items = await getSparkBriefings(identity.id, identity.client);
+  const items = await getSparkBriefings(identity.id, identity.supabase);
   return NextResponse.json({ success: true, items });
 }
 
 export async function POST(request: Request) {
   try {
     const configuredSecret = process.env.SPARK_INGEST_SECRET;
-    const identity = await getSignedInIdentity();
+    const identity = await resolveIdentity();
     const isExternalRequest = Boolean(configuredSecret);
 
     if (configuredSecret) {

@@ -1,5 +1,6 @@
 import type { ExpenseEntry, WorkspaceItem } from "../data/contracts";
 import { validateExpenseEntry } from "../data/validation";
+import { generateId } from "../ids";
 
 export interface CreateExpenseInput {
   itemId?: string;
@@ -52,7 +53,7 @@ export function buildExpenseItems(
   input: CreateExpenseInput,
   userId?: string
 ): { workspaceItem: WorkspaceItem; expenseEntry: ExpenseEntry } {
-  const itemId = input.itemId || (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : "exp-" + Math.random().toString(36).substring(2, 12));
+  const itemId = input.itemId || generateId("exp");
   const nowIso = new Date().toISOString();
   const occurredAt = input.occurredAt || nowIso;
   const currency = (input.currency || "KRW").toUpperCase();

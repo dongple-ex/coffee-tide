@@ -1,12 +1,25 @@
 "use client";
 
 import React, { useState } from "react";
+import dynamic from "next/dynamic";
 import type { UnifiedData } from "@/lib/types/unified";
 import { UiIcon } from "./UiIcon";
-import { VoiceCaptureSheet } from "./quickCapture/VoiceCaptureSheet";
-import { ExpenseCapture } from "./quickCapture/ExpenseCapture";
-import { MeetingAnalysisSheet, MeetingAnalysisContext, MeetingAnalysisResult } from "./quickCapture/meeting/MeetingAnalysisSheet";
+import type { MeetingAnalysisContext, MeetingAnalysisResult } from "./quickCapture/meeting/MeetingAnalysisSheet";
 import { saveMeetingTasks, ActionItem, SaveTasksResult } from "./quickCapture/meeting/meetingTasks";
+
+// 캡처 시트들은 처음 사용할 때에만 로드되도록 지연 로딩 처리 (초기 번들 축소)
+const VoiceCaptureSheet = dynamic(
+  () => import("./quickCapture/VoiceCaptureSheet").then((m) => m.VoiceCaptureSheet),
+  { ssr: false }
+);
+const ExpenseCapture = dynamic(
+  () => import("./quickCapture/ExpenseCapture").then((m) => m.ExpenseCapture),
+  { ssr: false }
+);
+const MeetingAnalysisSheet = dynamic(
+  () => import("./quickCapture/meeting/MeetingAnalysisSheet").then((m) => m.MeetingAnalysisSheet),
+  { ssr: false }
+);
 import CafeWait from "./cafeWait";
 import styles from "../page.module.css";
 import captureStyles from "./quickCapture/QuickCapture.module.css";
@@ -59,6 +72,19 @@ export function QuickAddBar({
   const [isMeetingAnalyzing, setIsMeetingAnalyzing] = useState(false);
   const [voiceExpenseText, setVoiceExpenseText] = useState("");
   const [voiceExpenseVersion, setVoiceExpenseVersion] = useState(0);
+  // 시트는 첫 오픈 시점에 마운트하고 이후에는 유지 — 닫아도 내부 상태(분석 결과 등)가 보존되도록 언마운트하지 않음
+  const [voiceSheetMounted, setVoiceSheetMounted] = useState(false);
+  const [meetingSheetMounted, setMeetingSheetMounted] = useState(false);
+
+  const openVoiceSheet = () => {
+    setVoiceSheetMounted(true);
+    setIsVoiceOpen(true);
+  };
+
+  const openMeetingAnalysis = () => {
+    setMeetingSheetMounted(true);
+    setIsMeetingAnalysisOpen(true);
+  };
 
   const handleAnalyzeMeeting = async (context: MeetingAnalysisContext) => {
     setIsMeetingAnalyzing(true);
@@ -176,7 +202,7 @@ export function QuickAddBar({
           <button
             type="button"
             className={`${styles.btn} ${styles.cardTitleBtn} ${styles.voiceInputButton}`}
-            onClick={() => setIsVoiceOpen(true)}
+            onClick={openVoiceSheet}
             style={{ minHeight: 44, minWidth: 44 }}
             title="음성으로 업무 입력하기"
             aria-label="음성으로 업무 입력하기"
@@ -200,7 +226,7 @@ export function QuickAddBar({
           isLoading={pasteBusy}
           initialText={voiceExpenseText}
           onInitialTextConsumed={() => setVoiceExpenseText("")}
-          onRequestVoice={() => setIsVoiceOpen(true)}
+          onRequestVoice={openVoiceSheet}
         />
       )}
 
@@ -225,7 +251,7 @@ export function QuickAddBar({
             <button
               type="button"
               className={`${styles.btn} ${styles.voiceInputButton}`}
-              onClick={() => setIsVoiceOpen(true)}
+              onClick={openVoiceSheet}
               style={{ minHeight: 44, minWidth: 44, width: 44, padding: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
               title="음성으로 메모·회의록 입력하기"
               aria-label="음성으로 메모·회의록 입력하기"
@@ -244,7 +270,7 @@ export function QuickAddBar({
               type="button"
               className={`${styles.btn} ${styles.btnPrimary}`}
               disabled={!pasteText.trim()}
-              onClick={() => setIsMeetingAnalysisOpen(true)}
+              onClick={openMeetingAnalysis}
               style={{ minHeight: 44, flex: 1, width: "100%" }}
             >
               AI로 회의록 정리
@@ -253,23 +279,27 @@ export function QuickAddBar({
         </div>
       )}
 
-      <VoiceCaptureSheet
-        isOpen={isVoiceOpen}
-        onClose={() => setIsVoiceOpen(false)}
-        onTranscript={handleVoiceTranscript}
-        onStoredVoiceItem={onStoredVoiceItem}
-        targetMode={activeMode}
-      />
+      {voiceSheetMounted && (
+        <VoiceCaptureSheet
+          isOpen={isVoiceOpen}
+          onClose={() => setIsVoiceOpen(false)}
+          onTranscript={handleVoiceTranscript}
+          onStoredVoiceItem={onStoredVoiceItem}
+          targetMode={activeMode}
+        />
+      )}
 
-      <MeetingAnalysisSheet
-        isOpen={isMeetingAnalysisOpen}
-        onClose={() => setIsMeetingAnalysisOpen(false)}
-        transcript={pasteText}
-        onAnalyze={handleAnalyzeMeeting}
-        onSaveToDrive={handleSaveToDrive}
-        onSaveTasks={handleSaveTasks}
-        isAnalyzing={isMeetingAnalyzing}
-      />
+      {meetingSheetMounted && (
+        <MeetingAnalysisSheet
+          isOpen={isMeetingAnalysisOpen}
+          onClose={() => setIsMeetingAnalysisOpen(false)}
+          transcript={pasteText}
+          onAnalyze={handleAnalyzeMeeting}
+          onSaveToDrive={handleSaveToDrive}
+          onSaveTasks={handleSaveTasks}
+          isAnalyzing={isMeetingAnalyzing}
+        />
+      )}
     </div>
   );
 }

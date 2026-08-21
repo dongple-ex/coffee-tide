@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { requireSupabaseUser } from "@/lib/supabase/server";
 import { persistRefreshedIntegration, readSessionWithIntegrations } from "@/lib/auth/integrationStore";
 import { refreshChannel, refreshGoogleIfExpiring } from "@/lib/auth/refresh";
 import { mapContentAssetFromDb, mapExpenseEntryFromDb, mapUnifiedItemFromDb } from "@/lib/data/mappers";
@@ -29,18 +29,9 @@ function cleanIdempotencyCache() {
 export async function POST(req: NextRequest) {
   cleanIdempotencyCache();
 
-  const supabase = await createServerSupabaseClient();
-  if (!supabase) {
-    return NextResponse.json({ error: "Supabase service unavailable" }, { status: 503 });
-  }
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 });
-  }
+  const auth = await requireSupabaseUser("로그인이 필요합니다.");
+  if (!auth.ok) return auth.response;
+  const { supabase, user } = auth;
 
   const rawSession = await readSessionWithIntegrations();
   if (!rawSession?.googleToken && !rawSession?.googleRefreshToken) {

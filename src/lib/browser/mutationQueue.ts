@@ -16,12 +16,10 @@ import {
   idbSaveMutation,
   idbSetMeta,
 } from "./workspaceDb";
+import { generateId } from "../ids";
 
 function generateUUID(): string {
-  if (typeof crypto !== "undefined" && crypto.randomUUID) {
-    return crypto.randomUUID();
-  }
-  return "mut-" + Math.random().toString(36).substring(2, 15);
+  return generateId("mut");
 }
 
 export async function getOrCreateDeviceId(): Promise<string> {

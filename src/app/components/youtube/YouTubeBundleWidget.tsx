@@ -12,8 +12,11 @@ import {
   YOUTUBE_BUNDLES_CHANGED_EVENT,
 } from "@/lib/localStore";
 import { loadYouTubeContinuitySession } from "@/lib/youtube/continuity";
-import { SmartPlayerModal } from "./SmartPlayerModal";
+import dynamic from "next/dynamic";
 import { UiIcon } from "../UiIcon";
+
+// 영상 선택 후에만 열리는 대형 플레이어 모달 — 초기 번들에서 제외
+const SmartPlayerModal = dynamic(() => import("./SmartPlayerModal").then((m) => m.SmartPlayerModal), { ssr: false });
 import styles from "./youTubeBundleWidget.module.css";
 
 interface YouTubeBundleWidgetProps {

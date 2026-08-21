@@ -1,11 +1,14 @@
 "use client";
 
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import React, { useEffect, useState } from "react";
 import { ContextualRecommendation, YouTubeVideo } from "@/lib/types/youtube";
 import { loadYouTubeContinuitySession } from "@/lib/youtube/continuity";
-import { SmartPlayerModal } from "./SmartPlayerModal";
 import { UiIcon } from "../UiIcon";
+
+// 영상 선택 후에만 열리는 대형 플레이어 모달 — 초기 번들에서 제외
+const SmartPlayerModal = dynamic(() => import("./SmartPlayerModal").then((m) => m.SmartPlayerModal), { ssr: false });
 import styles from "./contextualRecStrip.module.css";
 
 const LS_REC_DISMISSED_DATE = "ct_rec_dismissed_date";

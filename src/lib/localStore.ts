@@ -21,7 +21,6 @@ export const LS_WORK_NOTES = "ct_work_notes";
 export const LS_SUB_TASKS = "ct_sub_tasks";
 export const LS_YOUTUBE_BUNDLES = "ct_youtube_bundles";
 export const LS_YOUTUBE_ACTIVE_BUNDLE = "ct_youtube_active_bundle";
-export const LS_YOUTUBE_REC_KEYWORDS = "ct_youtube_rec_keywords";
 export const LS_YOUTUBE_HISTORY = "ct_youtube_history";
 export const LS_YOUTUBE_CONTINUITY = "ct_youtube_continuity_v1";
 export const LS_COMPACT_MODE = "ct_compact_mode";

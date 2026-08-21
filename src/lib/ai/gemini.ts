@@ -1,9 +1,9 @@
 // Gemini 연동 — doc/spec/phase3-ai-flow.md 프롬프트 규격 + 백로그 C1 비용 설계.
-// C1: ① 콘텐츠 해시 캐시(신규·변경 항목만 전송) ② 429 시 10분 쿨다운 ③ DISABLE_AI_CLASSIFY 킬스위치.
+// C1: 429 시 1분 쿨다운 동안 로컬 FallbackEngine으로 대체. 분류(classifyTasks)는
+// 쿼터 보호를 위해 로컬 규칙 엔진 전용으로 운영한다 (AI 분류 경로·킬스위치는 폐기됨).
 // G4: Copilot에 현재 날짜/타임존 주입, 날짜 추정 금지, 출처 표기 강제.
 
-import { createHash } from "node:crypto";
-import { UnifiedCategory, UnifiedData } from "../types/unified";
+import { UnifiedData } from "../types/unified";
 import { AutomationRule } from "../automation/rules";
 import {
   CalendarEventDraft,
@@ -26,16 +26,11 @@ import {
   normalizeCloudDraftPayload,
   type CloudDraftPayload,
 } from "../cloudTools/drafts";
+import { errorMessage } from "../errors";
 
 const MODEL = "gemini-flash-latest";
 const COOLDOWN_MS = 1 * 60 * 1000; // 1분 쿨다운 (구글 429 Retry 시간 기준)
-const PROMPT_VERSION = "v2";
 
-// 서버 메모리 캐시 (C1 알려진 한계: 프로세스 재시작 시 소멸)
-const classifyCache = new Map<
-  string,
-  { category: UnifiedCategory; actionDirective: string; delegatable?: boolean }
->();
 let quotaCooldownUntil = 0;
 
 /** 사용자가 연결/데이터 새로고침 버튼을 누를 때 백엔드 쿨다운 즉시 리셋 */
@@ -49,16 +44,6 @@ function apiKey(): string | undefined {
 
 export function cloudToolAgentDisabled(): boolean {
   return process.env.DISABLE_CLOUD_TOOL_AGENT === "true";
-}
-
-export function classifyDisabled(): boolean {
-  return process.env.DISABLE_AI_CLASSIFY === "true";
-}
-
-function contentHash(item: UnifiedData): string {
-  return createHash("sha1")
-    .update(`${PROMPT_VERSION}|${item.id}|${item.title}|${item.content}`)
-    .digest("hex");
 }
 
 /** LLM 응답에서 JSON만 정제 추출 (doc/spec/phase3-validation-log.md §1.2) */
@@ -95,21 +80,31 @@ interface GeminiContent {
   [key: string]: unknown;
 }
 
-interface GeminiGenerateResponse {
+export interface GeminiGenerateResponse {
   candidates?: Array<{ content?: GeminiContent }>;
 }
 
-async function generateGemini(
+export interface GeminiCallOptions {
+  /** 기본 모델(MODEL) 대신 사용할 모델 ID */
+  model?: string;
+  ignoreCooldown?: boolean;
+  signal?: AbortSignal;
+}
+
+/**
+ * Gemini generateContent 공용 진입점 — 엔드포인트·헤더 인증·429 쿼터 쿨다운을
+ * 한 곳에서 관리한다. 라우트에서 fetch를 직접 만들지 말고 반드시 이 함수를 사용할 것.
+ */
+export async function generateGeminiContent(
   body: Record<string, unknown>,
-  ignoreCooldown = false,
-  signal?: AbortSignal
+  { model = MODEL, ignoreCooldown = false, signal }: GeminiCallOptions = {}
 ): Promise<GeminiGenerateResponse> {
   const key = apiKey();
   if (!key) throw new Error("GEMINI_API_KEY not set");
   if (!ignoreCooldown && Date.now() < quotaCooldownUntil) throw new Error("quota cooldown active");
 
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`,
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-goog-api-key": key },
@@ -119,18 +114,30 @@ async function generateGemini(
   );
   if (res.status === 429) {
     quotaCooldownUntil = Date.now() + COOLDOWN_MS;
-    console.warn("[coffeeTide] Gemini 쿼터 초과 — 10분간 로컬 FallbackEngine으로 대체");
+    console.warn("[coffeeTide] Gemini 쿼터 초과 — 1분간 로컬 FallbackEngine으로 대체");
     throw new Error("quota exceeded");
   }
   if (!res.ok) throw new Error(`Gemini ${res.status}: ${await res.text()}`);
-  
+
   // 성공 시 쿨다운 즉시 해제
   quotaCooldownUntil = 0;
-  
+
   return (await res.json()) as GeminiGenerateResponse;
 }
 
-function responseText(response: GeminiGenerateResponse): string {
+async function generateGemini(
+  body: Record<string, unknown>,
+  ignoreCooldown = false,
+  signal?: AbortSignal
+): Promise<GeminiGenerateResponse> {
+  return generateGeminiContent(body, { ignoreCooldown, signal });
+}
+
+export function isGeminiConfigured(): boolean {
+  return Boolean(apiKey());
+}
+
+export function geminiResponseText(response: GeminiGenerateResponse): string {
   return (
     response.candidates?.[0]?.content?.parts?.map((part) => part.text ?? "").join("") ?? ""
   );
@@ -150,35 +157,8 @@ async function callGemini(
     ignoreCooldown,
     signal
   );
-  return responseText(response);
+  return geminiResponseText(response);
 }
-
-export const CLASSIFY_SYSTEM = `역할: 수신된 업무 데이터를 분석하여 알맞은 카테고리로 분류하고, 로컬 LLM 도구(Claude Code 등)로 넘길 만한 '위임 가능' 여부를 판별합니다.
-
-분류 규칙:
-1. urgent: 서버 다운, 긴급 점검, 금일 즉시 마감 등 즉각적인 조치 및 비상 대응이 필요한 건.
-2. approval_required: 결재 승인, 최종 컨펌, 서명 요청이 포함된 건.
-3. meeting: 회의 참석, 일정 조율, 세미나 안내 건.
-4. action_required: 피드백 회신, 주간 보고서 제출 등 오늘 내로 액션이 필요한 일반 업무 건.
-5. reference: 단순 주간 동향, 업계 보고서, 기술 블로그 요약 등 보관용 정보 건.
-6. ignore: 광고성 뉴스레터, 시스템 정기 모니터링 성공 알림 등 무시해도 좋은 건.
-
-위임 가능(delegatable) 판별 기준:
-- 초안/보고서 작성, 문서 요약, 코드 리팩토링/분석 등 AI 도구가 보조하기에 적합한 업무면 true, 단순 미팅 참석/수동 서명 등은 false.
-
-출력 형식: 반드시 아래 구조의 순수 JSON 배열 형태로만 응답해야 합니다. 추가 설명은 일절 생략하세요.
-[
-  { "id": "데이터고유ID", "category": "분류값", "actionDirective": "무엇을 해야 하는지 1줄 요약", "delegatable": true_또는_false }
-]`;
-
-export const VALID_CATEGORIES: UnifiedCategory[] = [
-  "urgent",
-  "approval_required",
-  "meeting",
-  "action_required",
-  "reference",
-  "ignore",
-];
 
 /**
  * 통합 분류 — 캐시 미스 항목만 Gemini로 전송. 실패 시 로컬 FallbackEngine.
@@ -187,11 +167,8 @@ export const VALID_CATEGORIES: UnifiedCategory[] = [
 export async function classifyTasks(
   items: UnifiedData[]
 ): Promise<{ items: UnifiedData[]; aiUsed: boolean }> {
-  // 1. 캐시 및 로컬 규칙 엔진(FallbackEngine)으로 1차 즉시 분류 (쿼터 낭비 0건 보장)
+  // 로컬 규칙 엔진(FallbackEngine)으로 즉시 분류 (쿼터 낭비 0건 보장)
   const classifiedWithLocal = items.map((item) => {
-    const cached = classifyCache.get(contentHash(item));
-    if (cached) return { ...item, ...cached };
-    
     // 이미 분류된 것은 유지, 없는 것은 초고속 로컬 규칙 엔진으로 1차 분류
     if (item.category && item.actionDirective) return item;
     const local = classifyOne(item.title, item.content);
@@ -302,7 +279,7 @@ async function askCopilotWithCloudTools(options: {
   const modelContent = first.candidates?.[0]?.content;
   const requestedCalls = functionCalls(modelContent);
   if (requestedCalls.length === 0) {
-    const answer = responseText(first);
+    const answer = geminiResponseText(first);
     if (!answer.trim()) throw new Error("empty answer");
     return { answer, aiUsed: true };
   }
@@ -379,7 +356,7 @@ async function askCopilotWithCloudTools(options: {
         ...(cloudToolDraft ? { cloudToolDraft } : {}),
       };
     }
-    const answer = responseText(finalResponse);
+    const answer = geminiResponseText(finalResponse);
     if (!answer.trim()) throw new Error("empty tool summary");
     return {
       answer,
@@ -723,10 +700,6 @@ export async function extractTasks(
   }
 }
 
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error ?? "");
-}
-
 /** 이미 사용자에게 보여줄 만큼 다듬어진 에러인지 (그대로 다시 throw) */
 const USER_FACING_ERROR = /AI 호출 한도|AI 모델을 찾을 수 없|API 키 권한|API 호출 오류|응답 시간이 초과/;
 
@@ -746,11 +719,12 @@ export async function analyzeYoutube(url: string): Promise<string> {
   const query = "이 영상을 분석해 줘.";
 
   try {
+    // API 키는 URL 쿼리 대신 헤더로 전달 (로그·프록시 노출 방지)
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${key}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-goog-api-key": key },
         body: JSON.stringify({
           systemInstruction: { parts: [{ text: system }] },
           contents: [{
@@ -838,11 +812,12 @@ export async function chatYoutube(url: string, messages: { role: "user" | "model
   });
 
   try {
+    // API 키는 URL 쿼리 대신 헤더로 전달 (로그·프록시 노출 방지)
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${key}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-goog-api-key": key },
         body: JSON.stringify({
           systemInstruction: { parts: [{ text: systemInstruction }] },
           contents,

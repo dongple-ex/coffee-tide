@@ -20,6 +20,7 @@ import { WeatherSection } from "./settings/WeatherSection";
 import { LocalToolsSection } from "./settings/LocalToolsSection";
 import { DataStorageSection } from "./settings/DataStorageSection";
 import { WeatherData } from "./WelcomeCard";
+import { APP_VERSION } from "@/lib/appVersion";
 import styles from "../page.module.css";
 
 export interface SettingsModalProps {
@@ -389,6 +390,12 @@ export function SettingsModal({
                 <path d="M3.34 19a10 10 0 1 1 17.32 0" />
               </svg>
               설정
+              <span
+                style={{ marginLeft: 8, fontSize: "0.72rem", fontWeight: 600, opacity: 0.55 }}
+                aria-label={`coffeeTide 버전 ${APP_VERSION}`}
+              >
+                {APP_VERSION}
+              </span>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <button

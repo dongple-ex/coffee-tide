@@ -50,7 +50,7 @@
 - **처리**: `src/lib/auth/session.ts`의 `getEncryptionKey()`에서 `NODE_ENV === 'production'`일 때 키 미설정이면 명시적 예외(throw) 발생 적용 완료.
 
 ### ~~B2~~. 세션 7일 고정 만료 — ✅ 구현 (2026-07-22)
-- **처리**: `touchSession`(`src/lib/auth/cookies.ts`)을 `/api/mails` 응답에서 호출해 활동 시 만료를 +7일 롤링 연장. 30초 폴링이 도는 동안 계속 갱신되므로 활성 사용자는 7일 경계에서 강제 로그아웃되지 않는다.
+- **처리**: `/api/mails` 응답 마지막의 `writeSessionForCurrentUser` → `writeSession`(`src/lib/auth/cookies.ts`)이 쿠키 `maxAge`를 매번 새로 부여해 활동 시 만료를 +7일 롤링 연장. 30초 폴링이 도는 동안 계속 갱신되므로 활성 사용자는 7일 경계에서 강제 로그아웃되지 않는다. (`touchSession` 래퍼는 같은 일을 하는 중복이라 2026-08-22 제거.)
 - 아래는 설계 기록.
 - **문제**: `tp_session_expiry`가 발급 시점 +7일 고정. refresh token이 유효해도 7일 후 강제 재로그인.
 - **위치**: `src/app/api/auth/*`(쿠키 maxAge/expiry 설정), `src/proxy.ts`(만료 판독).

@@ -30,7 +30,7 @@ coffeeTide는 여러 채널의 업무 데이터를 하나의 대시보드로 통
 
 - **세션**: `tp_session` (AES-256-GCM 암호화, HttpOnly) + `tp_session_expiry`(평문 보조, proxy 만료 판독용). `src/lib/auth/session.ts`.
   - **B1 반영**: 프로덕션에서 `SESSION_ENCRYPTION_SECRET` 미설정이면 throw(기동 거부). 개발용 fallback만 허용(경고 로그).
-  - 만료 7일 + **활동 시 롤링 연장** (B2 반영). `touchSession`(`src/lib/auth/cookies.ts`)을 `/api/mails` 응답에서 호출 — 30초 폴링이 도는 동안 만료가 계속 밀린다.
+  - 만료 7일 + **활동 시 롤링 연장** (B2 반영). `/api/mails` 응답 마지막의 `writeSessionForCurrentUser` → `writeSession`(`src/lib/auth/cookies.ts`)이 쿠키 `maxAge`를 매번 새로 부여 — 30초 폴링이 도는 동안 만료가 계속 밀린다. (과거 문서의 `touchSession`은 같은 일을 하던 중복 래퍼였고 2026-08-22 제거됨.)
 - **인증 가드**: `src/proxy.ts`. `PUBLIC_PATHS`(/, signin, OAuth 시작/콜백) 외 요청에 세션 요구. API는 401, 페이지는 `/` 리다이렉트.
 - **로그인 흐름**:
   - Google: 랜딩의 Google Identity Services 공식 버튼 → nonce가 포함된 Google ID 토큰 → `supabase.auth.signInWithIdToken()` → `/api/auth/bootstrap`에서 사용자 프로필·CoffeeTide 세션 생성. Supabase OAuth 도메인으로 화면을 리다이렉트하지 않는다.
@@ -146,7 +146,7 @@ coffeeTide는 여러 채널의 업무 데이터를 하나의 대시보드로 통
 
 ## 5. AI & 자동화
 
-- **분류 (현재 소스 기준)**: `src/lib/ai/gemini.ts`의 `classifyTasks()`는 현재 Gemini를 호출하지 않고 `FallbackEngine.classifyOne()` 규칙으로만 분류하며 항상 `aiUsed:false`를 반환한다. 콘텐츠 해시 캐시는 조회 코드만 있고 결과 저장 코드가 없으며, `classifyDisabled()`도 분류 흐름에서 사용되지 않는다. 따라서 Gemini 분류·`delegatable` 판별·캐시·킬스위치는 구현 상태가 아니라 복구/재설계 대상이다. 상세는 [`08-local-ai-enhancement-plan.md`](./08-local-ai-enhancement-plan.md) 참조.
+- **분류 (현재 소스 기준)**: `src/lib/ai/gemini.ts`의 `classifyTasks()`는 Gemini를 호출하지 않고 `FallbackEngine.classifyOne()` 규칙으로만 분류하며 항상 `aiUsed:false`를 반환한다. 동작하지 않던 잔재(조회 전용 콘텐츠 해시 캐시, 미호출 `classifyDisabled()` 킬스위치, `DISABLE_AI_CLASSIFY` 환경 변수)는 2026-08-22 정리로 제거했다. Gemini 분류·`delegatable` 판별은 구현 상태가 아니라 재설계 대상이다. 상세는 [`08-local-ai-enhancement-plan.md`](./08-local-ai-enhancement-plan.md) 참조.
 - **웰컴 그리팅 (phase7)**: `src/app/components/WelcomeCard.tsx` — 시간대(오전/오후/저녁) 테마 + 날씨 문구를 **템플릿 기반**으로 생성(LLM 미사용, 비용 0). 위치 권한은 **설정 모달에서 옵트인**(I5) — 마운트 시 자동 요청하지 않는다. 3단계 폴백: 날씨+시간대 → (위치 거부/조회 실패 시) 시간대만 → (그리팅 실패 시) 미표시·브리핑 정상. 30초 후 한 줄로 자동 접히되, 사용자가 먼저 조작했으면 개입하지 않는다(K11).
 - **Copilot / AI 바리스타 (G4 반영)**: 기준일·타임존을 시스템 프롬프트에 주입, "날짜 추정 금지 + 출처 표기" 강제. 응답은 `MarkdownLite`로 카드/섹션 렌더링(G6). 질문·답변은 아코디언으로 묶이며(`src/lib/copilotPairs.ts`의 `buildQaPairs`) 접힌 상태에서 답이 도착하면 ✨ 배지가 깜빡인다.
 - **슬래시 커맨드**: `/clear`(대화 초기화) · `/status`(업무 현황) · `/handoff`(퇴근 보존) · `/reorder`(남은 업무 AI 재배치) · `/tools`(Cloud Tool 목록) · `/tool finance|tasks`(읽기 전용 서버 도구 실행) · `/help`. 입력창에 `/`를 치면 자동완성 목록이 뜬다.
@@ -171,7 +171,6 @@ coffeeTide는 여러 채널의 업무 데이터를 하나의 대시보드로 통
 | `MOCK_MODE` | `true`면 데이터 어댑터를 Mock으로 전환. AI 호출 자체는 이 값이 아니라 `GEMINI_API_KEY`와 각 함수의 폴백 조건으로 결정됨 |
 | `SESSION_ENCRYPTION_SECRET` | 세션 쿠키 AES-256-GCM 키 (32바이트 base64) — **프로덕션 필수** |
 | `GEMINI_API_KEY` | Gemini API 키. 미설정 시 로컬 FallbackEngine |
-| `DISABLE_AI_CLASSIFY` | `true`면 AI 분류 킬스위치 (백로그 C1) |
 | `DISABLE_CLOUD_TOOL_AGENT` | `true`면 자연어 Cloud Tool 자동 선택만 비활성. 명시적 `/tool` 명령은 유지 |
 | `NEXT_PUBLIC_SITE_URL` | 운영 사이트 기본 URL (`https://coffee-tide.dongple.kr`, 미설정 시 자동 감지) — 모든 OAuth 콜백 URI 자동 생성 기준점 |
 | `NEXT_PUBLIC_MS_CLIENT_ID` / `MS_CLIENT_SECRET` / `MS_TENANT_ID` | Microsoft Entra ID (Outlook 연동 3종, 콜백은 `NEXT_PUBLIC_SITE_URL` 기준 자동 생성) |

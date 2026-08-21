@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { requireSupabaseUser } from "@/lib/supabase/server";
 import { mapContentAssetFromDb, mapExpenseEntryFromDb, mapUnifiedItemFromDb } from "@/lib/data/mappers";
 import { generateExpensesCsv, mapExpenseRecordToExportRow } from "@/lib/expenses/export";
 import type { ContentAsset, ExpenseEntry, WorkspaceItem } from "@/lib/data/contracts";
@@ -7,18 +7,9 @@ import type { ContentAsset, ExpenseEntry, WorkspaceItem } from "@/lib/data/contr
 const MAX_EXPORT_RECORDS = 10000;
 
 export async function GET(req: NextRequest) {
-  const supabase = await createServerSupabaseClient();
-  if (!supabase) {
-    return NextResponse.json({ error: "Supabase service unavailable" }, { status: 503 });
-  }
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireSupabaseUser();
+  if (!auth.ok) return auth.response;
+  const { supabase, user } = auth;
 
   const { searchParams } = new URL(req.url);
   const format = searchParams.get("format");

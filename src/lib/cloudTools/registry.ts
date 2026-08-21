@@ -69,11 +69,6 @@ export function listCloudTools(): PublicCloudToolDefinition[] {
   return definitions.map(publicDefinition);
 }
 
-export function cloudTool(toolId: string): PublicCloudToolDefinition | null {
-  const definition = registry.get(toolId);
-  return definition ? publicDefinition(definition) : null;
-}
-
 function validIdempotencyKey(value: unknown): value is string {
   return typeof value === "string" && /^[a-zA-Z0-9_-]{16,100}$/.test(value);
 }
