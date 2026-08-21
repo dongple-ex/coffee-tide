@@ -13,6 +13,7 @@ import { getRecentSparkUnifiedItems } from "@/lib/adapters/sparkSync";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isCalendarCreateRequest } from "@/lib/calendar/types";
+import { extractRegistrationIntent } from "@/lib/ai/intents";
 import { executeCloudTool, listCloudTools } from "@/lib/cloudTools/registry";
 import { searchKnowledge } from "@/lib/knowledge/search";
 import { filterItemsByExecutionPolicy } from "@/lib/knowledge/policy";
@@ -191,6 +192,36 @@ export async function POST(request: NextRequest) {
       calendar_draft: extraction.draft,
       ai_fallback: !extraction.aiUsed,
     });
+  }
+
+  const regIntent = extractRegistrationIntent(question);
+  if (regIntent) {
+    if (regIntent.type === "clarification") {
+      return NextResponse.json({
+        answer: regIntent.message,
+        registration_intent: true,
+      });
+    }
+    if (regIntent.type === "widget") {
+      return NextResponse.json({
+        answer: `🌐 **'${regIntent.name}'** (${regIntent.url}) 사이트를 **[휴식·도구] 위젯 칩**으로 등록했습니다. 상단 칩을 눌러 최신 브리핑을 확인해 보세요.`,
+        registration_intent: true,
+        custom_widget: {
+          name: regIntent.name,
+          url: regIntent.url,
+        },
+      });
+    }
+    if (regIntent.type === "shortcut") {
+      return NextResponse.json({
+        answer: `⭐ **'${regIntent.keyword}'** ➔ **[${regIntent.target}]** 바로가기 레시피를 등록했습니다. 앞으로 \`@${regIntent.keyword}\` 또는 \`${regIntent.keyword}\`를 입력하면 바로 실행돼요.`,
+        registration_intent: true,
+        app_shortcut: {
+          keyword: regIntent.keyword,
+          target: regIntent.target,
+        },
+      });
+    }
   }
 
   const sparkItems = body.includeSpark

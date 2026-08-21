@@ -163,6 +163,15 @@ const DEFAULT_APP_SHORTCUTS: AppShortcut[] = [
   },
 ];
 
+const DEFAULT_CUSTOM_WIDGETS: CustomWidgetConfig[] = [
+  {
+    id: "preset-yozm-it",
+    name: "요즘IT",
+    url: "https://yozm.wishket.com/",
+    createdAt: "2026-08-21T00:00:00.000Z",
+  },
+];
+
 export interface DynamicCafeContext {
   taskCount?: number;
   urgentCount?: number;
@@ -744,7 +753,7 @@ export default function Home() {
   }, [userScope]);
 
   const [customWidgets, setCustomWidgets] = useState<CustomWidgetConfig[]>(() =>
-    loadLS<CustomWidgetConfig[]>(LS_CUSTOM_WIDGETS, [])
+    loadLS<CustomWidgetConfig[]>(LS_CUSTOM_WIDGETS, DEFAULT_CUSTOM_WIDGETS)
   );
   const [showAddCustomModal, setShowAddCustomModal] = useState(false);
   const [newWidgetName, setNewWidgetName] = useState("");
@@ -1095,104 +1104,6 @@ export default function Home() {
       setActiveWidget((prev) => (prev === widgetId ? null : widgetId));
     }
   }, [toggleFinanceWidget]);
-
-  const [dragHoverWidgetId, setDragHoverWidgetId] = useState<string | null>(null);
-  const widgetListRef = useRef<HTMLDivElement>(null);
-  const isWidgetDragging = useRef(false);
-  const widgetStartX = useRef(0);
-  const widgetScrollLeft = useRef(0);
-  const dragDistance = useRef(0);
-  const lastHoveredWidgetId = useRef<string | null>(null);
-
-  const findWidgetIdAtPoint = (clientX: number, clientY: number): string | null => {
-    if (typeof document === "undefined") return null;
-    const el = document.elementFromPoint(clientX, clientY);
-    const chip = el?.closest("[data-widget-id]") as HTMLElement | null;
-    return chip?.dataset.widgetId ?? null;
-  };
-
-  const handleWidgetMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!widgetListRef.current) return;
-    isWidgetDragging.current = true;
-    dragDistance.current = 0;
-    widgetStartX.current = e.pageX - widgetListRef.current.offsetLeft;
-    widgetScrollLeft.current = widgetListRef.current.scrollLeft;
-    const hoveredId = findWidgetIdAtPoint(e.clientX, e.clientY);
-    lastHoveredWidgetId.current = hoveredId;
-    setDragHoverWidgetId(hoveredId);
-  };
-
-  const handleWidgetMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!isWidgetDragging.current || !widgetListRef.current) return;
-    const x = e.pageX - widgetListRef.current.offsetLeft;
-    const walk = (x - widgetStartX.current) * 1.5;
-    dragDistance.current = Math.abs(x - widgetStartX.current);
-    widgetListRef.current.scrollLeft = widgetScrollLeft.current - walk;
-
-    const hoveredId = findWidgetIdAtPoint(e.clientX, e.clientY);
-    if (hoveredId !== lastHoveredWidgetId.current) {
-      lastHoveredWidgetId.current = hoveredId;
-      setDragHoverWidgetId(hoveredId);
-    }
-  };
-
-  const handleWidgetMouseUp = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (isWidgetDragging.current) {
-      const hoveredId = findWidgetIdAtPoint(e.clientX, e.clientY) || lastHoveredWidgetId.current;
-      if (hoveredId && dragDistance.current > 8) {
-        handleSelectWidget(hoveredId);
-      }
-    }
-    isWidgetDragging.current = false;
-    lastHoveredWidgetId.current = null;
-    setDragHoverWidgetId(null);
-  };
-
-  const handleWidgetMouseLeave = () => {
-    isWidgetDragging.current = false;
-    lastHoveredWidgetId.current = null;
-    setDragHoverWidgetId(null);
-  };
-
-  const handleWidgetTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
-    if (!widgetListRef.current || e.touches.length === 0) return;
-    isWidgetDragging.current = true;
-    dragDistance.current = 0;
-    const touch = e.touches[0];
-    widgetStartX.current = touch.pageX - widgetListRef.current.offsetLeft;
-    widgetScrollLeft.current = widgetListRef.current.scrollLeft;
-    const hoveredId = findWidgetIdAtPoint(touch.clientX, touch.clientY);
-    lastHoveredWidgetId.current = hoveredId;
-    setDragHoverWidgetId(hoveredId);
-  };
-
-  const handleWidgetTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
-    if (!isWidgetDragging.current || !widgetListRef.current || e.touches.length === 0) return;
-    const touch = e.touches[0];
-    const x = touch.pageX - widgetListRef.current.offsetLeft;
-    const walk = (x - widgetStartX.current) * 1.5;
-    dragDistance.current = Math.abs(x - widgetStartX.current);
-    widgetListRef.current.scrollLeft = widgetScrollLeft.current - walk;
-
-    const hoveredId = findWidgetIdAtPoint(touch.clientX, touch.clientY);
-    if (hoveredId !== lastHoveredWidgetId.current) {
-      lastHoveredWidgetId.current = hoveredId;
-      setDragHoverWidgetId(hoveredId);
-    }
-  };
-
-  const handleWidgetTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
-    if (isWidgetDragging.current) {
-      const touch = e.changedTouches[0];
-      const hoveredId = (touch ? findWidgetIdAtPoint(touch.clientX, touch.clientY) : null) || lastHoveredWidgetId.current;
-      if (hoveredId && dragDistance.current > 8) {
-        handleSelectWidget(hoveredId);
-      }
-    }
-    isWidgetDragging.current = false;
-    lastHoveredWidgetId.current = null;
-    setDragHoverWidgetId(null);
-  };
 
   const enableWeatherLocation = useCallback(() => {
     if (typeof window === "undefined" || !("geolocation" in navigator)) {
@@ -2217,6 +2128,8 @@ export default function Home() {
         cloud_tool_draft?: CloudDraftPayload;
         connections?: ConnectionState;
         connection_errors?: MailsResponse["errors"];
+        custom_widget?: { name: string; url: string };
+        app_shortcut?: { keyword: string; target: string };
       };
       if (json.connections) {
         setConnections(json.connections);
@@ -2237,6 +2150,34 @@ export default function Home() {
       if (json.cloud_tool_draft) {
         setCloudToolDraft(json.cloud_tool_draft);
         setCloudWriteApproval(null);
+      }
+      if (json.custom_widget) {
+        const newW: CustomWidgetConfig = {
+          id: `cw-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          name: json.custom_widget.name,
+          url: json.custom_widget.url,
+          createdAt: new Date().toISOString(),
+        };
+        setCustomWidgets((prev) => {
+          const next = [...prev.filter((w) => w.url !== newW.url && w.name !== newW.name), newW];
+          saveLS(LS_CUSTOM_WIDGETS, next);
+          return next;
+        });
+        showToast(`'${newW.name}' 사이트가 [휴식·도구] 위젯으로 등록되었습니다.`);
+      }
+      if (json.app_shortcut) {
+        const newS: AppShortcut = {
+          id: `sc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          keyword: json.app_shortcut.keyword,
+          target: json.app_shortcut.target,
+          enabled: true,
+        };
+        setAppShortcuts((prev) => {
+          const next = [...prev.filter((s) => s.keyword !== newS.keyword), newS];
+          saveLS(LS_APP_SHORTCUTS, next);
+          return next;
+        });
+        showToast(`'${newS.keyword}' 바로가기 레시피가 등록되었습니다.`);
       }
       setCopilotMessages((prev) => [
         ...prev,
@@ -3067,21 +3008,11 @@ export default function Home() {
             </div>
             <div
               className={`${styles.widgetList} ${isWidgetDrawerExpanded ? styles.widgetListExpanded : ""}`}
-              ref={widgetListRef}
-              onMouseDown={handleWidgetMouseDown}
-              onMouseLeave={handleWidgetMouseLeave}
-              onMouseUp={handleWidgetMouseUp}
-              onMouseMove={handleWidgetMouseMove}
-              onTouchStart={handleWidgetTouchStart}
-              onTouchMove={handleWidgetTouchMove}
-              onTouchEnd={handleWidgetTouchEnd}
             >
               <button
                 type="button"
                 data-widget-id="weather"
-                className={`${styles.widgetChip} ${activeWidget === "weather" ? styles.widgetChipActive : ""} ${
-                  dragHoverWidgetId === "weather" ? styles.widgetChipDragHover : ""
-                }`}
+                className={`${styles.widgetChip} ${activeWidget === "weather" ? styles.widgetChipActive : ""}`}
                 onClick={() => handleSelectWidget("weather")}
                 title="실시간 날씨 정보 및 브리핑 열기/닫기"
               >
@@ -3091,9 +3022,7 @@ export default function Home() {
               <button
                 type="button"
                 data-widget-id="finance"
-                className={`${styles.widgetChip} ${activeWidget === "finance" ? styles.widgetChipActive : ""} ${
-                  dragHoverWidgetId === "finance" ? styles.widgetChipDragHover : ""
-                }`}
+                className={`${styles.widgetChip} ${activeWidget === "finance" ? styles.widgetChipActive : ""}`}
                 onClick={() => handleSelectWidget("finance")}
                 title="공식 환율 및 한국은행 기준금리 열기/닫기"
               >
@@ -3104,9 +3033,7 @@ export default function Home() {
                 <button
                   type="button"
                   data-widget-id="commute"
-                  className={`${styles.widgetChip} ${activeWidget === "commute" ? styles.widgetChipActive : ""} ${
-                    dragHoverWidgetId === "commute" ? styles.widgetChipDragHover : ""
-                  }`}
+                  className={`${styles.widgetChip} ${activeWidget === "commute" ? styles.widgetChipActive : ""}`}
                   onClick={() => handleSelectWidget("commute")}
                   title="출퇴근 길찾기 위젯 열기/닫기"
                 >
@@ -3117,9 +3044,7 @@ export default function Home() {
               <button
                 type="button"
                 data-widget-id="timer"
-                className={`${styles.widgetChip} ${activeWidget === "timer" ? styles.widgetChipActive : ""} ${
-                  dragHoverWidgetId === "timer" ? styles.widgetChipDragHover : ""
-                }`}
+                className={`${styles.widgetChip} ${activeWidget === "timer" ? styles.widgetChipActive : ""}`}
                 onClick={() => handleSelectWidget("timer")}
                 title="집중 몰입 타이머 열기/닫기"
               >
@@ -3129,9 +3054,7 @@ export default function Home() {
               <button
                 type="button"
                 data-widget-id="calc"
-                className={`${styles.widgetChip} ${activeWidget === "calc" ? styles.widgetChipActive : ""} ${
-                  dragHoverWidgetId === "calc" ? styles.widgetChipDragHover : ""
-                }`}
+                className={`${styles.widgetChip} ${activeWidget === "calc" ? styles.widgetChipActive : ""}`}
                 onClick={() => handleSelectWidget("calc")}
                 title="빠른 수치 계산기 열기/닫기"
               >
@@ -3141,9 +3064,7 @@ export default function Home() {
               <button
                 type="button"
                 data-widget-id="shortcuts"
-                className={`${styles.widgetChip} ${activeWidget === "shortcuts" ? styles.widgetChipActive : ""} ${
-                  dragHoverWidgetId === "shortcuts" ? styles.widgetChipDragHover : ""
-                }`}
+                className={`${styles.widgetChip} ${activeWidget === "shortcuts" ? styles.widgetChipActive : ""}`}
                 onClick={() => handleSelectWidget("shortcuts")}
                 title="앱/레시피 바로가기 즐겨찾기 열기/닫기"
               >
@@ -3153,9 +3074,7 @@ export default function Home() {
               <button
                 type="button"
                 data-widget-id="youtube"
-                className={`${styles.widgetChip} ${activeWidget === "youtube" ? styles.widgetChipActive : ""} ${
-                  dragHoverWidgetId === "youtube" ? styles.widgetChipDragHover : ""
-                }`}
+                className={`${styles.widgetChip} ${activeWidget === "youtube" ? styles.widgetChipActive : ""}`}
                 onClick={() => handleSelectWidget("youtube")}
                 title="테마별 유튜브 스마트 번들 피드 열기/닫기"
               >
@@ -3168,9 +3087,7 @@ export default function Home() {
                   key={w.id}
                   type="button"
                   data-widget-id={w.id}
-                  className={`${styles.widgetChip} ${activeWidget === w.id ? styles.widgetChipActive : ""} ${
-                    dragHoverWidgetId === w.id ? styles.widgetChipDragHover : ""
-                  }`}
+                  className={`${styles.widgetChip} ${activeWidget === w.id ? styles.widgetChipActive : ""}`}
                   onClick={() => handleSelectWidget(w.id)}
                   title={`${w.name} 최신 글 핵심 브리핑 보기`}
                 >
@@ -3182,7 +3099,7 @@ export default function Home() {
               <button
                 type="button"
                 data-widget-id="add-custom"
-                className={`${styles.widgetChip} ${dragHoverWidgetId === "add-custom" ? styles.widgetChipDragHover : ""}`}
+                className={styles.widgetChip}
                 onClick={() => handleSelectWidget("add-custom")}
                 title="새로운 뉴스/블로그 사이트 URL을 등록하여 나만의 위젯 칩 추가"
                 style={{ borderStyle: "dashed" }}

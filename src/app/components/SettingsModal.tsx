@@ -191,6 +191,17 @@ export function SettingsModal({
     return isSettingsTab(tab) ? tab : null;
   }, []);
 
+  const focusSettingsTab = useCallback((tab: SettingsTab) => {
+    document.getElementById(`settings-tab-${tab}`)?.focus({ preventScroll: true });
+  }, []);
+
+  const isPointInsideSettingsTabBar = useCallback((clientX: number, clientY: number) => {
+    const rect = settingsTabBarRef.current?.getBoundingClientRect();
+    return Boolean(
+      rect && clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom
+    );
+  }, []);
+
   const resetSettingsTabGesture = useCallback(() => {
     settingsTabGestureRef.current = {
       pointerId: null,
@@ -230,14 +241,16 @@ export function SettingsModal({
           e.currentTarget.setPointerCapture(e.pointerId);
         } catch {}
       }
-      const hoveredTab = findSettingsTabAtPoint(e.clientX, e.clientY);
+      const pointedTab = findSettingsTabAtPoint(e.clientX, e.clientY);
+      const hoveredTab = pointedTab ?? (isPointInsideSettingsTabBar(e.clientX, e.clientY) ? gesture.hoveredTab : null);
       if (hoveredTab !== gesture.hoveredTab) {
         gesture.hoveredTab = hoveredTab;
         setDragHoverTab(hoveredTab);
+        if (hoveredTab) focusSettingsTab(hoveredTab);
       }
       if (e.cancelable) e.preventDefault();
     },
-    [findSettingsTabAtPoint]
+    [findSettingsTabAtPoint, focusSettingsTab, isPointInsideSettingsTabBar]
   );
 
   const handleSettingsTabPointerUp = useCallback(
@@ -246,7 +259,8 @@ export function SettingsModal({
       if (gesture.pointerId !== e.pointerId) return;
 
       if (gesture.dragging) {
-        const hoveredTab = findSettingsTabAtPoint(e.clientX, e.clientY) ?? gesture.hoveredTab;
+        const pointedTab = findSettingsTabAtPoint(e.clientX, e.clientY);
+        const hoveredTab = pointedTab ?? (isPointInsideSettingsTabBar(e.clientX, e.clientY) ? gesture.hoveredTab : null);
         if (hoveredTab) {
           suppressSettingsTabClickRef.current = true;
           if (suppressSettingsTabClickTimerRef.current) clearTimeout(suppressSettingsTabClickTimerRef.current);
@@ -254,6 +268,7 @@ export function SettingsModal({
             suppressSettingsTabClickRef.current = false;
           }, 0);
           selectSettingsTab(hoveredTab);
+          focusSettingsTab(hoveredTab);
         }
         if (e.cancelable) e.preventDefault();
       }
@@ -263,7 +278,7 @@ export function SettingsModal({
       }
       resetSettingsTabGesture();
     },
-    [findSettingsTabAtPoint, resetSettingsTabGesture, selectSettingsTab]
+    [findSettingsTabAtPoint, focusSettingsTab, isPointInsideSettingsTabBar, resetSettingsTabGesture, selectSettingsTab]
   );
 
   const handleSettingsTabClickCapture = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
