@@ -24,7 +24,38 @@ export const LS_YOUTUBE_ACTIVE_BUNDLE = "ct_youtube_active_bundle";
 export const LS_YOUTUBE_HISTORY = "ct_youtube_history";
 export const LS_YOUTUBE_CONTINUITY = "ct_youtube_continuity_v1";
 export const LS_COMPACT_MODE = "ct_compact_mode";
+export const LS_COMMUTE_TIMETABLES = "ct_commute_timetables";
 export const YOUTUBE_BUNDLES_CHANGED_EVENT = "ct:youtube-bundles-changed";
+
+import type { CommuteTimetable } from "./types/commute";
+
+export const DEFAULT_COMMUTE_TIMETABLES: CommuteTimetable[] = [
+  {
+    id: "tt_sindorim_suwon_express",
+    title: "1호선 신도림역 하행 급행 (수원·천안·신창 방면)",
+    description: "신도림역 환승 시 급행 출발 시간표",
+    rawText: `18시 | 18:08 (천안), 18:28 (신창), 18:52 (신창)
+19시 | 19:12 (천안), 19:32 (신창), 19:54 (천안)
+20시 | 20:15 (신창), 20:39 (천안)
+21시 | 21:05 (신창), 21:30 (천안), 21:55 (천안)
+22시 | 22:25 (천안)`,
+    entries: [
+      { time: "18:08", destination: "천안", minutes: 1088 },
+      { time: "18:28", destination: "신창", minutes: 1108 },
+      { time: "18:52", destination: "신창", minutes: 1132 },
+      { time: "19:12", destination: "천안", minutes: 1152 },
+      { time: "19:32", destination: "신창", minutes: 1172 },
+      { time: "19:54", destination: "천안", minutes: 1194 },
+      { time: "20:15", destination: "신창", minutes: 1215 },
+      { time: "20:39", destination: "천안", minutes: 1239 },
+      { time: "21:05", destination: "신창", minutes: 1265 },
+      { time: "21:30", destination: "천안", minutes: 1290 },
+      { time: "21:55", destination: "천안", minutes: 1315 },
+      { time: "22:25", destination: "천안", minutes: 1345 },
+    ],
+    enabled: true,
+  },
+];
 
 // 구 프로젝트명(TimePilot) 시절 tp_ 키 → ct_ 키 1회성 마이그레이션 맵 (판독 시 이관)
 const LEGACY_LS_KEYS: Record<string, string> = {

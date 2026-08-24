@@ -211,3 +211,260 @@
   color: var(--text);
   margin-bottom: 12px;
 }
+
+/* 고정 시간표 & 급행 알리미 컨테이너 */
+.timetableSection {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.timetableHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.timetableTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.timetableActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.miniBtn {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-dim);
+  font-size: 0.72rem;
+  padding: 3px 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s ease;
+}
+
+.miniBtn:hover {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* 다음 급행 열차 카운트다운 배너 */
+.nextDepartureBanner {
+  background: linear-gradient(135deg, rgba(43, 91, 238, 0.15), rgba(124, 58, 237, 0.12));
+  border: 1px solid rgba(43, 91, 238, 0.35);
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.nextDepartureLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nextDepartureLabel {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.nextDepartureTime {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.nextDepartureDest {
+  font-size: 0.82rem;
+  color: var(--text-dim);
+  font-weight: 600;
+  margin-left: 4px;
+}
+
+.nextDepartureBadge {
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  box-shadow: 0 2px 8px rgba(43, 91, 238, 0.4);
+}
+
+.subsequentText {
+  font-size: 0.74rem;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+/* 시간표 테이블 뷰 */
+.timetableTableWrapper {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.timetableTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.timetableTable th {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-dim);
+  text-align: left;
+  padding: 7px 10px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--border);
+}
+
+.timetableTable td {
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  vertical-align: middle;
+}
+
+.timetableTable tr:last-child td {
+  border-bottom: none;
+}
+
+.hourCol {
+  width: 55px;
+  font-weight: 700;
+  color: var(--text-dim);
+}
+
+.hourActive {
+  color: var(--accent);
+  font-weight: 800;
+}
+
+.entriesRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.entryChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 2px 7px;
+  font-size: 0.76rem;
+  color: var(--text);
+  transition: all 0.15s;
+}
+
+.entryChipNext {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 700;
+  box-shadow: 0 0 8px rgba(43, 91, 238, 0.25);
+}
+
+.entryChipPassed {
+  opacity: 0.45;
+  text-decoration: line-through;
+}
+
+.entryDest {
+  color: var(--text-dim);
+  font-size: 0.7rem;
+}
+
+.entryChipNext .entryDest {
+  color: var(--accent);
+}
+
+/* 시간표 텍스트 편집기 폼 */
+.editorContainer {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.editorInput {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 0.8rem;
+  padding: 6px 8px;
+}
+
+.editorTextarea {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 0.78rem;
+  font-family: monospace;
+  padding: 6px 8px;
+  resize: vertical;
+  min-height: 100px;
+}
+
+.editorBtnRow {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.saveBtn {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  padding: 5px 12px;
+  cursor: pointer;
+}
+
+.saveBtn:hover {
+  filter: brightness(1.1);
+}
+
+.cancelBtn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  border-radius: 6px;
+  font-size: 0.76rem;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+

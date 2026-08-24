@@ -20,6 +20,30 @@ export interface CommuteConfig {
   // 좌표 지정 시 함께 찾아 둔 근접 정류소 (TAGO 실시간 도착정보 조회용)
   homeStop?: CommuteStop;
   workStop?: CommuteStop;
+  // 사용자가 고정 등록한 시간표 목록
+  timetables?: CommuteTimetable[];
+}
+
+/** 고정 시간표 1개 시각 항목 (예: 18:08 천안행) */
+export interface TimetableEntry {
+  /** "18:08" */
+  time: string;
+  /** "천안", "신창", "수원" 등 행선지 */
+  destination?: string;
+  /** 특이사항 (예: "급행", "직통", "통근버스") */
+  note?: string;
+  /** 자정 이후 기준 분 (정렬 및 계산용: 18 * 60 + 8 = 1088) */
+  minutes: number;
+}
+
+/** 사용자 정의 고정 시간표 세트 (예: 1호선 신도림역 하행 급행) */
+export interface CommuteTimetable {
+  id: string;
+  title: string;
+  description?: string;
+  entries: TimetableEntry[];
+  rawText?: string;
+  enabled?: boolean;
 }
 
 /** 정류소 실시간 도착예정 1건 */
