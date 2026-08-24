@@ -3,7 +3,7 @@
 import React, { RefObject, useCallback, useEffect, useRef, useState } from "react";
 import { AutomationRule } from "@/lib/automation/rules";
 import { AppShortcut } from "@/lib/types/appShortcut";
-import { CommuteConfig } from "@/lib/types/commute";
+import { CommuteConfig, CommuteTimetable } from "@/lib/types/commute";
 import { ConnectionState } from "@/lib/types/unified";
 import { BrowserFolderInfo, BrowserFolderKind } from "@/lib/browser/localFolders";
 import { CopilotUserConfig } from "@/lib/ai/harness";
@@ -52,6 +52,8 @@ export interface SettingsModalProps {
   onDisableWeatherLocation: () => void;
   commuteConfig: CommuteConfig;
   onChangeCommuteConfig: (next: CommuteConfig) => void;
+  commuteTimetables: CommuteTimetable[];
+  onChangeCommuteTimetables: (next: CommuteTimetable[]) => void;
   onCaptureCommuteCoords: (type: "home" | "work") => void;
   appShortcuts: AppShortcut[];
   onChangeAppShortcuts: (next: AppShortcut[]) => void;
@@ -126,6 +128,8 @@ export function SettingsModal({
   onDisableWeatherLocation,
   commuteConfig,
   onChangeCommuteConfig,
+  commuteTimetables,
+  onChangeCommuteTimetables,
   onCaptureCommuteCoords,
   appShortcuts,
   onChangeAppShortcuts,
@@ -551,6 +555,8 @@ export function SettingsModal({
             <CommuteSection
               config={commuteConfig}
               onChange={onChangeCommuteConfig}
+              timetables={commuteTimetables}
+              onChangeTimetables={onChangeCommuteTimetables}
               onCaptureCoords={onCaptureCommuteCoords}
             />
           </div>

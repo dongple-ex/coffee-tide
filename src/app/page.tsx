@@ -47,6 +47,7 @@ import {
   LS_BRIEF_TIME,
   LS_BROWSER_CAT,
   LS_COMMUTE_CONFIG,
+  LS_COMMUTE_TIMETABLES,
   LS_DISMISSED,
   LS_FETCH_LIMIT,
   LS_FOLLOWUP,
@@ -60,6 +61,7 @@ import {
   LS_WEATHER_COORDS,
   LS_WEATHER_ENABLED,
   LS_WORK_NOTES,
+  DEFAULT_COMMUTE_TIMETABLES,
 } from "@/lib/localStore";
 import { useModalA11y } from "./hooks/useModalA11y";
 import { HeaderControls, Theme } from "./components/HeaderControls";
@@ -91,7 +93,7 @@ const CustomNewsWidget = dynamic(() => import("./components/CustomNewsWidget").t
 const YouTubeBundleWidget = dynamic(() => import("./components/youtube/YouTubeBundleWidget").then((m) => m.YouTubeBundleWidget), { ssr: false });
 import { loadYouTubeContinuitySession, clearYouTubeContinuitySession, computeUserScope } from "@/lib/youtube/continuity";
 import type { CustomSitePreview } from "@/lib/news/types";
-import { CommuteConfig, CommuteStop } from "@/lib/types/commute";
+import { CommuteConfig, CommuteStop, CommuteTimetable } from "@/lib/types/commute";
 import { AppShortcut } from "@/lib/types/appShortcut";
 import type { FinanceApiResponse, FinanceSnapshot } from "@/lib/types/finance";
 import {
@@ -750,6 +752,9 @@ export default function Home() {
       workStation: "수원역",
       transportType: "public",
     })
+  );
+  const [commuteTimetables, setCommuteTimetables] = useState<CommuteTimetable[]>(() =>
+    loadLS<CommuteTimetable[]>(LS_COMMUTE_TIMETABLES, DEFAULT_COMMUTE_TIMETABLES)
   );
   const [activeWidget, setActiveWidget] = useState<string | null>(() => {
     const session = loadYouTubeContinuitySession();
@@ -3235,6 +3240,7 @@ export default function Home() {
                   workCoords={commuteConfig.workCoords}
                   homeStop={commuteConfig.homeStop}
                   workStop={commuteConfig.workStop}
+                  timetables={commuteTimetables}
                   onOpenSettings={() => setShowConn(true)}
                 />
               </div>
@@ -3717,6 +3723,11 @@ export default function Home() {
           onChangeCommuteConfig={(next) => {
             setCommuteConfig(next);
             saveLS(LS_COMMUTE_CONFIG, next);
+          }}
+          commuteTimetables={commuteTimetables}
+          onChangeCommuteTimetables={(next) => {
+            setCommuteTimetables(next);
+            saveLS(LS_COMMUTE_TIMETABLES, next);
           }}
           onCaptureCommuteCoords={captureCommuteCoords}
           appShortcuts={appShortcuts}

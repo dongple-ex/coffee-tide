@@ -3,8 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { CommuteInfo, CommuteStop, CommuteTimetable } from "@/lib/types/commute";
 import { buildMapLinks, LatLng } from "@/lib/mapLinks";
-import { parseTimetableText, getNextDepartures, groupEntriesByHour } from "@/lib/commute/timetableParser";
-import { loadLS, saveLS, LS_COMMUTE_TIMETABLES, DEFAULT_COMMUTE_TIMETABLES } from "@/lib/localStore";
+import { getNextDepartures, groupEntriesByHour } from "@/lib/commute/timetableParser";
 import { KakaoMapIcon, NaverMapIcon } from "./brandIcons";
 import { UiIcon } from "./UiIcon";
 import styles from "./commuteCard.module.css";
@@ -19,6 +18,8 @@ interface CommuteCardProps {
   /** 설정에서 찾아 둔 근접 정류소 — 실시간 도착정보 조회에 쓴다 */
   homeStop?: CommuteStop;
   workStop?: CommuteStop;
+  /** 설정의 출퇴근 길찾기 브리핑에서 저장한 고정 시간표 */
+  timetables?: CommuteTimetable[];
   onOpenSettings?: () => void;
 }
 
@@ -39,6 +40,7 @@ export function CommuteCard({
   workCoords,
   homeStop,
   workStop,
+  timetables = [],
   onOpenSettings,
 }: CommuteCardProps) {
   const [commute, setCommute] = useState<CommuteInfo | null>(null);
@@ -46,15 +48,8 @@ export function CommuteCard({
   const [refreshing, setRefreshing] = useState(false);
   const [noticeText, setNoticeText] = useState("");
 
-  // 고정 시간표 목록 및 편집 상태
-  const [timetables, setTimetables] = useState<CommuteTimetable[]>(() =>
-    loadLS<CommuteTimetable[]>(LS_COMMUTE_TIMETABLES, DEFAULT_COMMUTE_TIMETABLES)
-  );
-  const [activeTimetableIndex, setActiveTimetableIndex] = useState(0);
+  // 편집은 설정의 출퇴근 길찾기 브리핑에서 담당하고, 카드는 표시 상태만 가진다.
   const [isTimetableExpanded, setIsTimetableExpanded] = useState(true);
-  const [isEditingTimetable, setIsEditingTimetable] = useState(false);
-  const [editTitle, setEditTitle] = useState("");
-  const [editText, setEditText] = useState("");
   const [nowMinutes, setNowMinutes] = useState<number>(() => {
     const now = new Date();
     return now.getHours() * 60 + now.getMinutes();
@@ -70,7 +65,7 @@ export function CommuteCard({
     return () => window.clearInterval(interval);
   }, []);
 
-  const currentTimetable = timetables[activeTimetableIndex] || timetables[0];
+  const currentTimetable = timetables[0];
 
   const nextDeparture = useMemo(() => {
     if (!currentTimetable?.entries?.length) return null;
@@ -81,47 +76,6 @@ export function CommuteCard({
     if (!currentTimetable?.entries?.length) return [];
     return groupEntriesByHour(currentTimetable.entries);
   }, [currentTimetable]);
-
-  const handleStartEdit = useCallback(() => {
-    if (currentTimetable) {
-      setEditTitle(currentTimetable.title);
-      setEditText(currentTimetable.rawText || currentTimetable.entries.map((e) => `${e.time} ${e.destination ? `(${e.destination})` : ""}`).join(", "));
-      setIsEditingTimetable(true);
-    }
-  }, [currentTimetable]);
-
-  const handleSaveEdit = useCallback(() => {
-    const parsedEntries = parseTimetableText(editText);
-    if (!parsedEntries.length) {
-      setNoticeText("시간표 형식을 확인해 주세요. (예: 18:08 (천안), 18:28 (신창))");
-      setTimeout(() => setNoticeText(""), 4000);
-      return;
-    }
-
-    const updated: CommuteTimetable = {
-      ...currentTimetable,
-      title: editTitle.trim() || currentTimetable.title,
-      rawText: editText,
-      entries: parsedEntries,
-    };
-
-    const nextTimetables = [...timetables];
-    nextTimetables[activeTimetableIndex] = updated;
-    setTimetables(nextTimetables);
-    saveLS(LS_COMMUTE_TIMETABLES, nextTimetables);
-    setIsEditingTimetable(false);
-    setNoticeText("고정 시간표가 저장되었습니다.");
-    setTimeout(() => setNoticeText(""), 3000);
-  }, [editText, editTitle, currentTimetable, timetables, activeTimetableIndex]);
-
-  const handleResetPreset = useCallback(() => {
-    setTimetables(DEFAULT_COMMUTE_TIMETABLES);
-    saveLS(LS_COMMUTE_TIMETABLES, DEFAULT_COMMUTE_TIMETABLES);
-    setActiveTimetableIndex(0);
-    setIsEditingTimetable(false);
-    setNoticeText("기본 급행 시간표로 초기화되었습니다.");
-    setTimeout(() => setNoticeText(""), 3000);
-  }, []);
 
   // 출근이면 집에서, 퇴근이면 회사에서 출발한다 — 정류소도 같은 방향으로 고른다.
   // 서버 응답의 mode를 기다리지 않고 클라이언트 시간으로 먼저 정해야 요청 파라미터를 만들 수 있다.
@@ -330,14 +284,6 @@ export function CommuteCard({
               <button
                 type="button"
                 className={styles.miniBtn}
-                onClick={handleStartEdit}
-                title="시간표 직접 수정"
-              >
-                ✏️ 수정
-              </button>
-              <button
-                type="button"
-                className={styles.miniBtn}
                 onClick={() => setIsTimetableExpanded((prev) => !prev)}
                 title={isTimetableExpanded ? "시간표 접기" : "시간표 펼치기"}
               >
@@ -381,55 +327,7 @@ export function CommuteCard({
             </div>
           )}
 
-          {/* 시간표 인라인 편집기 */}
-          {isEditingTimetable ? (
-            <div className={styles.editorContainer}>
-              <div style={{ fontSize: "0.75rem", color: "var(--text-dim)" }}>
-                시간표 제목
-              </div>
-              <input
-                type="text"
-                className={styles.editorInput}
-                value={editTitle}
-                onChange={(e) => setEditTitle(e.target.value)}
-                placeholder="시간표 이름"
-              />
-              <div style={{ fontSize: "0.75rem", color: "var(--text-dim)" }}>
-                시간표 내용 (예: 18:08 (천안), 18:28 (신창) 또는 18시 | 18:08 (천안)...)
-              </div>
-              <textarea
-                className={styles.editorTextarea}
-                value={editText}
-                onChange={(e) => setEditText(e.target.value)}
-                placeholder="18시 | 18:08 (천안), 18:28 (신창), 18:52 (신창)..."
-                rows={5}
-              />
-              <div className={styles.editorBtnRow}>
-                <button
-                  type="button"
-                  className={styles.miniBtn}
-                  onClick={handleResetPreset}
-                  style={{ marginRight: "auto" }}
-                >
-                  기본값 복원
-                </button>
-                <button
-                  type="button"
-                  className={styles.cancelBtn}
-                  onClick={() => setIsEditingTimetable(false)}
-                >
-                  취소
-                </button>
-                <button
-                  type="button"
-                  className={styles.saveBtn}
-                  onClick={handleSaveEdit}
-                >
-                  저장
-                </button>
-              </div>
-            </div>
-          ) : isTimetableExpanded ? (
+          {isTimetableExpanded ? (
             /* 스크린샷 포맷 시간대별 테이블 뷰 */
             <div className={styles.timetableTableWrapper}>
               <table className={styles.timetableTable}>
