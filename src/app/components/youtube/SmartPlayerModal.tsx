@@ -99,6 +99,7 @@ export function SmartPlayerModal({
   const onCloseRef = useRef(onClose);
   const mountedRef = useRef(true);
   const isMiniRef = useRef(false);
+  const audioOnlyRef = useRef(false);
   const modeMountedRef = useRef(false);
 
   // 재생 모드 및 상태 확장
@@ -109,6 +110,10 @@ export function SmartPlayerModal({
   const [pipWindow, setPipWindow] = useState<Window | null>(null);
   const pipWindowRef = useRef<Window | null>(null);
   const [isAudioCollapsed, setIsAudioCollapsed] = useState(false);
+
+  useEffect(() => {
+    audioOnlyRef.current = audioOnly;
+  }, [audioOnly]);
 
   // 복원 세션인 경우 직전 재생 여부(wasPlaying / playerState)에 따라 자동재생 결정, 신규는 항상 자동재생
   const isRestoredSession = Boolean(
@@ -604,7 +609,11 @@ export function SmartPlayerModal({
         const rates = [0.75, 1.0, 1.25, 1.5, 2.0];
         const prev = [...rates].reverse().find((r) => r < playbackRate) || rates[0];
         changePlaybackRate(prev);
-      } else if (event.key === "Tab" && modalContainerRef.current && (!isMiniRef.current || !isMobileViewportRef.current)) {
+      } else if (
+        event.key === "Tab" &&
+        modalContainerRef.current &&
+        (!isMiniRef.current || (!isMobileViewportRef.current && !audioOnlyRef.current))
+      ) {
         const focusable = Array.from(
           modalContainerRef.current.querySelectorAll<HTMLElement>(
             'button:not([disabled]), input:not([disabled]), iframe, [href], [tabindex]:not([tabindex="-1"])'
@@ -632,13 +641,13 @@ export function SmartPlayerModal({
   }, [handleExplicitClose, togglePlayPause, skipSeconds, toggleMute, handleToggleDocumentPiP, changePlaybackRate, playbackRate]);
 
   useEffect(() => {
-    if (isMini && isMobileViewport) return;
+    if (isMini && (isMobileViewport || audioOnly)) return;
     const previousBodyOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = previousBodyOverflow;
     };
-  }, [isMini, isMobileViewport]);
+  }, [audioOnly, isMini, isMobileViewport]);
 
   useEffect(() => {
     if (!video) return;
@@ -781,6 +790,7 @@ export function SmartPlayerModal({
   };
 
   const isMobileFloating = isMini && isMobileViewport;
+  const isNonModalFloating = isMini && (isMobileViewport || audioOnly);
 
   if (!isClientMounted || typeof document === "undefined") {
     return null;
@@ -788,7 +798,7 @@ export function SmartPlayerModal({
 
   return createPortal(
     <>
-      {isMini && !isMobileFloating && !isPiPActive && !isAudioButtonCollapsed && (
+      {isMini && !isMobileFloating && !audioOnly && !isPiPActive && !isAudioButtonCollapsed && (
         <div className={styles.focusBackdrop} aria-hidden="true" />
       )}
       <div
@@ -803,8 +813,8 @@ export function SmartPlayerModal({
             isPiPActive ? styles.pipSourceContainer : ""
           }`}
           onClick={(event) => event.stopPropagation()}
-          role={isAudioButtonCollapsed ? undefined : isMobileFloating ? "region" : "dialog"}
-          aria-modal={isAudioButtonCollapsed || isMobileFloating ? undefined : true}
+          role={isAudioButtonCollapsed ? undefined : isNonModalFloating ? "region" : "dialog"}
+          aria-modal={isAudioButtonCollapsed || isNonModalFloating ? undefined : true}
           aria-hidden={isAudioButtonCollapsed ? "true" : undefined}
           aria-labelledby={isAudioButtonCollapsed ? undefined : isMini ? miniTitleId : titleId}
           tabIndex={isAudioButtonCollapsed ? undefined : -1}

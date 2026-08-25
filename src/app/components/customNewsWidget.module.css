@@ -3,10 +3,12 @@
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 16px 20px;
+  width: 100%;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  max-width: 520px;
+  max-width: none;
 }
 
 .header {
@@ -209,6 +211,7 @@
 }
 
 .articleItem {
+  min-width: 0;
   background: rgba(0, 0, 0, 0.15);
   border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: 10px;
@@ -218,6 +221,21 @@
   gap: 4px;
   cursor: pointer;
   transition: all 0.15s ease;
+}
+
+@media (min-width: 901px) {
+  .articleList {
+    display: block;
+    column-count: 2;
+    column-gap: 12px;
+    padding-right: 0;
+  }
+
+  .articleItem {
+    width: 100%;
+    margin-bottom: 10px;
+    break-inside: avoid;
+  }
 }
 
 .articleItem:hover {

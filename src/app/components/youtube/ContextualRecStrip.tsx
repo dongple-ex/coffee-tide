@@ -42,6 +42,9 @@ export function ContextualRecStrip({ onNotify, userScope }: ContextualRecStripPr
   const [initialDraft, setInitialDraft] = useState<string>(
     () => continuitySession?.chatDraft ?? ""
   );
+  const [initialIsMini, setInitialIsMini] = useState<boolean | undefined>(
+    () => continuitySession?.isMini
+  );
   const [isDismissed, setIsDismissed] = useState<boolean>(true); // 기본 true로 두고 마운트 시 체크
 
   useEffect(() => {
@@ -79,6 +82,7 @@ export function ContextualRecStrip({ onNotify, userScope }: ContextualRecStripPr
   const handleSelectVideo = (video: YouTubeVideo) => {
     setInitialSeekTime(0);
     setInitialDraft("");
+    setInitialIsMini(false);
     setSelectedVideo(video);
   };
 
@@ -144,7 +148,7 @@ export function ContextualRecStrip({ onNotify, userScope }: ContextualRecStripPr
           owner="contextual"
           initialSeekTime={initialSeekTime}
           initialChatDraft={initialDraft}
-          initialIsMini={continuitySession?.isMini}
+          initialIsMini={initialIsMini}
           initialPlayerState={continuitySession?.playerState}
           initialWasPlaying={continuitySession?.wasPlayingOnHide}
           userScope={userScope}
@@ -152,6 +156,7 @@ export function ContextualRecStrip({ onNotify, userScope }: ContextualRecStripPr
             setSelectedVideo(null);
             setInitialSeekTime(0);
             setInitialDraft("");
+            setInitialIsMini(false);
           }}
           onNotify={onNotify}
         />

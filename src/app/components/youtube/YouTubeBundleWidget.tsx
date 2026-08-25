@@ -51,6 +51,9 @@ export function YouTubeBundleWidget({ onNotify, userScope }: YouTubeBundleWidget
   const [initialDraft, setInitialDraft] = useState<string>(
     () => continuitySession?.chatDraft ?? ""
   );
+  const [initialIsMini, setInitialIsMini] = useState<boolean | undefined>(
+    () => continuitySession?.isMini
+  );
   const requestSequence = useRef(0);
   const activeRequest = useRef<AbortController | null>(null);
   const tabRefs = useRef(new Map<string, HTMLButtonElement>());
@@ -309,6 +312,7 @@ export function YouTubeBundleWidget({ onNotify, userScope }: YouTubeBundleWidget
               onClick={() => {
                 setInitialSeekTime(0);
                 setInitialDraft("");
+                setInitialIsMini(false);
                 setSelectedVideo(video);
               }}
               title={`${video.title} - 스마트 플레이어로 시청`}
@@ -344,7 +348,7 @@ export function YouTubeBundleWidget({ onNotify, userScope }: YouTubeBundleWidget
           owner="bundle"
           initialSeekTime={initialSeekTime}
           initialChatDraft={initialDraft}
-          initialIsMini={continuitySession?.isMini}
+          initialIsMini={initialIsMini}
           initialPlayerState={continuitySession?.playerState}
           initialWasPlaying={continuitySession?.wasPlayingOnHide}
           activeWidgetId="youtube"
@@ -353,6 +357,7 @@ export function YouTubeBundleWidget({ onNotify, userScope }: YouTubeBundleWidget
             setSelectedVideo(null);
             setInitialSeekTime(0);
             setInitialDraft("");
+            setInitialIsMini(false);
           }}
           onNotify={onNotify}
         />
