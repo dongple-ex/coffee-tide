@@ -1952,9 +1952,82 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 0;
-  margin: 0 0 12px;
-  border-bottom: 1px solid var(--border);
+  padding: 12px 0 6px;
+  margin: 0;
+  border-bottom: none;
+}
+
+.appVersionBadge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  background: color-mix(in srgb, var(--border) 60%, transparent);
+  padding: 2px 6px;
+  border-radius: 6px;
+  letter-spacing: 0.02em;
+}
+
+.stickyModalAccountRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 10px;
+  margin: 4px 0 10px;
+  background: color-mix(in srgb, var(--bg, #f4eee3) 70%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.stickyModalAccountInfo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+
+.stickyModalAccountInfo .userEmail {
+  max-width: 260px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.settingsTabBarNavWrapper {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 2px;
+}
+
+.settingsTabNavBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 36px;
+  background: var(--bg, #f4eee3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-dim);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.settingsTabNavBtn:hover {
+  background: var(--card-hover, #ebe2d3);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.settingsTabNavBtn:active {
+  transform: scale(0.95);
 }
 
 @keyframes connPanelIn {
@@ -1971,46 +2044,33 @@
 /* 설정 모달 탭 내비게이션 */
 .settingsTabBar {
   display: flex;
-  gap: 6px;
-  padding: 4px;
+  gap: 4px;
+  padding: 3px;
   background: var(--bg, #f4eee3);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 10px;
   margin-bottom: 0;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, var(--accent) 48%, transparent) transparent;
-  touch-action: none;
+  scrollbar-width: none;
+  touch-action: pan-x;
   user-select: none;
   overscroll-behavior-x: contain;
-  cursor: grab;
-}
-
-.settingsTabBar:active {
-  cursor: grabbing;
+  scroll-behavior: smooth;
+  flex: 1;
 }
 
 .settingsTabBar::-webkit-scrollbar {
-  height: 4px;
-}
-
-.settingsTabBar::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.settingsTabBar::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--accent) 48%, transparent);
-  border-radius: 999px;
+  display: none;
 }
 
 .settingsTabBtn {
   flex: 1;
   min-width: fit-content;
-  padding: 9px 14px;
-  border-radius: 9px;
+  padding: 8px 12px;
+  border-radius: 8px;
   border: none;
-  font-size: 0.84rem;
+  font-size: 0.82rem;
   font-weight: 600;
   color: var(--text-muted);
   background: transparent;
@@ -2018,7 +2078,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 5px;
   white-space: nowrap;
   transition: all 0.16s ease;
 }
@@ -2027,6 +2087,17 @@
 .settingsTabBtn:focus {
   color: var(--text);
   background: var(--card-hover, rgba(255, 255, 255, 0.06));
+}
+
+.settingsTabBtn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.settingsTabBtnActive {
+  background: var(--card, #fff);
+  color: var(--accent, #9e5b22);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
 }
 
 .settingsTabBtn:focus-visible {

@@ -8,7 +8,6 @@ import { ConnectionState } from "@/lib/types/unified";
 import { BrowserFolderInfo, BrowserFolderKind } from "@/lib/browser/localFolders";
 import { CopilotUserConfig } from "@/lib/ai/harness";
 import type { DataStorageStatus } from "@/lib/types/storage";
-import { hasCrossedTabDragThreshold } from "@/lib/ui/workspaceTabs";
 import { CopilotCustomSection } from "./settings/CopilotCustomSection";
 import { AutomationRulesSection } from "./settings/AutomationRulesSection";
 import { ConnectionsSection } from "./settings/ConnectionsSection";
@@ -105,10 +104,6 @@ const SETTINGS_TABS: Array<{ id: SettingsTab; label: string; icon: string }> = [
   { id: "general", label: "일반·도구", icon: "⚙️" },
 ];
 
-function isSettingsTab(value: string | null | undefined): value is SettingsTab {
-  return SETTINGS_TABS.some((tab) => tab.id === value);
-}
-
 export function SettingsModal({
   connPanelRef,
   onClose,
@@ -180,23 +175,24 @@ export function SettingsModal({
   onPickFolder,
 }: SettingsModalProps) {
   const [activeTab, setActiveTab] = useState<SettingsTab>("connections");
-  const [dragHoverTab, setDragHoverTab] = useState<SettingsTab | null>(null);
   const settingsTabBarRef = useRef<HTMLDivElement>(null);
-  const settingsTabGestureRef = useRef<{
-    pointerId: number | null;
-    startX: number;
-    startY: number;
-    startScrollLeft: number;
-    dragging: boolean;
-    hoveredTab: SettingsTab | null;
-  }>({ pointerId: null, startX: 0, startY: 0, startScrollLeft: 0, dragging: false, hoveredTab: null });
-  const suppressSettingsTabClickRef = useRef(false);
-  const suppressSettingsTabClickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [accountDeleteBusy, setAccountDeleteBusy] = useState(false);
 
   const selectSettingsTab = useCallback((tab: SettingsTab) => {
     setActiveTab(tab);
   }, []);
+
+  const handlePrevTab = useCallback(() => {
+    const currentIndex = SETTINGS_TABS.findIndex((tab) => tab.id === activeTab);
+    const nextIndex = (currentIndex - 1 + SETTINGS_TABS.length) % SETTINGS_TABS.length;
+    selectSettingsTab(SETTINGS_TABS[nextIndex].id);
+  }, [activeTab, selectSettingsTab]);
+
+  const handleNextTab = useCallback(() => {
+    const currentIndex = SETTINGS_TABS.findIndex((tab) => tab.id === activeTab);
+    const nextIndex = (currentIndex + 1) % SETTINGS_TABS.length;
+    selectSettingsTab(SETTINGS_TABS[nextIndex].id);
+  }, [activeTab, selectSettingsTab]);
 
   useEffect(() => {
     const tabBar = settingsTabBarRef.current;
@@ -206,122 +202,6 @@ export function SettingsModal({
     const centeredLeft = activeButton.offsetLeft - (tabBar.clientWidth - activeButton.offsetWidth) / 2;
     tabBar.scrollTo({ left: Math.max(0, centeredLeft), behavior: "smooth" });
   }, [activeTab]);
-
-  const findSettingsTabAtPoint = useCallback((clientX: number, clientY: number): SettingsTab | null => {
-    if (typeof document === "undefined") return null;
-    const tabButton = document.elementFromPoint(clientX, clientY)?.closest<HTMLElement>("[data-settings-tab]");
-    if (!tabButton || !settingsTabBarRef.current?.contains(tabButton)) return null;
-    const tab = tabButton.dataset.settingsTab;
-    return isSettingsTab(tab) ? tab : null;
-  }, []);
-
-  const focusSettingsTab = useCallback((tab: SettingsTab) => {
-    document.getElementById(`settings-tab-${tab}`)?.focus({ preventScroll: true });
-  }, []);
-
-  const isPointInsideSettingsTabBar = useCallback((clientX: number, clientY: number) => {
-    const rect = settingsTabBarRef.current?.getBoundingClientRect();
-    return Boolean(
-      rect && clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom
-    );
-  }, []);
-
-  const resetSettingsTabGesture = useCallback(() => {
-    settingsTabGestureRef.current = {
-      pointerId: null,
-      startX: 0,
-      startY: 0,
-      startScrollLeft: 0,
-      dragging: false,
-      hoveredTab: null,
-    };
-    setDragHoverTab(null);
-  }, []);
-
-  const handleSettingsTabPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    if (!e.isPrimary || (e.pointerType === "mouse" && e.button !== 0)) return;
-    settingsTabGestureRef.current = {
-      pointerId: e.pointerId,
-      startX: e.clientX,
-      startY: e.clientY,
-      startScrollLeft: settingsTabBarRef.current?.scrollLeft ?? 0,
-      dragging: false,
-      hoveredTab: null,
-    };
-  }, []);
-
-  const handleSettingsTabPointerMove = useCallback(
-    (e: React.PointerEvent<HTMLDivElement>) => {
-      const gesture = settingsTabGestureRef.current;
-      if (gesture.pointerId !== e.pointerId) return;
-      if (
-        !gesture.dragging &&
-        !hasCrossedTabDragThreshold(gesture.startX, gesture.startY, e.clientX, e.clientY)
-      ) {
-        return;
-      }
-
-      if (!gesture.dragging) {
-        gesture.dragging = true;
-        try {
-          e.currentTarget.setPointerCapture(e.pointerId);
-        } catch {}
-      }
-
-      if (settingsTabBarRef.current) {
-        settingsTabBarRef.current.scrollLeft = gesture.startScrollLeft - (e.clientX - gesture.startX);
-      }
-
-      const pointedTab = findSettingsTabAtPoint(e.clientX, e.clientY);
-      const hoveredTab = pointedTab ?? (isPointInsideSettingsTabBar(e.clientX, e.clientY) ? gesture.hoveredTab : null);
-      if (hoveredTab !== gesture.hoveredTab) {
-        gesture.hoveredTab = hoveredTab;
-        setDragHoverTab(hoveredTab);
-        if (hoveredTab) focusSettingsTab(hoveredTab);
-      }
-      if (e.cancelable) e.preventDefault();
-    },
-    [findSettingsTabAtPoint, focusSettingsTab, isPointInsideSettingsTabBar]
-  );
-
-  const handleSettingsTabPointerUp = useCallback(
-    (e: React.PointerEvent<HTMLDivElement>) => {
-      const gesture = settingsTabGestureRef.current;
-      if (gesture.pointerId !== e.pointerId) return;
-
-      if (gesture.dragging) {
-        const pointedTab = findSettingsTabAtPoint(e.clientX, e.clientY);
-        const hoveredTab = pointedTab ?? (isPointInsideSettingsTabBar(e.clientX, e.clientY) ? gesture.hoveredTab : null);
-        if (hoveredTab) {
-          suppressSettingsTabClickRef.current = true;
-          if (suppressSettingsTabClickTimerRef.current) clearTimeout(suppressSettingsTabClickTimerRef.current);
-          suppressSettingsTabClickTimerRef.current = setTimeout(() => {
-            suppressSettingsTabClickRef.current = false;
-          }, 0);
-          selectSettingsTab(hoveredTab);
-          focusSettingsTab(hoveredTab);
-        }
-        if (e.cancelable) e.preventDefault();
-      }
-
-      if (e.currentTarget.hasPointerCapture(e.pointerId)) {
-        e.currentTarget.releasePointerCapture(e.pointerId);
-      }
-      resetSettingsTabGesture();
-    },
-    [findSettingsTabAtPoint, focusSettingsTab, isPointInsideSettingsTabBar, resetSettingsTabGesture, selectSettingsTab]
-  );
-
-  const handleSettingsTabClickCapture = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (!suppressSettingsTabClickRef.current) return;
-    suppressSettingsTabClickRef.current = false;
-    if (suppressSettingsTabClickTimerRef.current) {
-      clearTimeout(suppressSettingsTabClickTimerRef.current);
-      suppressSettingsTabClickTimerRef.current = null;
-    }
-    e.preventDefault();
-    e.stopPropagation();
-  }, []);
 
   const handleSettingsTabWheel = useCallback((e: React.WheelEvent<HTMLDivElement>) => {
     const tabBar = settingsTabBarRef.current;
@@ -351,12 +231,6 @@ export function SettingsModal({
     },
     [activeTab, selectSettingsTab]
   );
-
-  useEffect(() => {
-    return () => {
-      if (suppressSettingsTabClickTimerRef.current) clearTimeout(suppressSettingsTabClickTimerRef.current);
-    };
-  }, []);
 
   async function confirmAccountDeletion() {
     if (!accountEmail || accountDeleteBusy) return;
@@ -397,8 +271,9 @@ export function SettingsModal({
         aria-label="설정"
       >
         <div className={styles.settingsStickyShell}>
+          {/* 1단: 설정 타이틀 & 버전 & 닫기 버튼 */}
           <div className={styles.stickyModalHeader}>
-            <div className={styles.cardTitle} style={{ margin: 0, display: "flex", alignItems: "center" }}>
+            <div className={styles.cardTitle} style={{ margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
               <svg
                 width="20"
                 height="20"
@@ -408,86 +283,100 @@ export function SettingsModal({
                 strokeWidth="2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                style={{ marginRight: 6 }}
               >
                 <path d="m12 14 4-4" />
                 <path d="M3.34 19a10 10 0 1 1 17.32 0" />
               </svg>
-              설정
+              <span>설정</span>
               <span
-                style={{ marginLeft: 8, fontSize: "0.72rem", fontWeight: 600, opacity: 0.55 }}
+                className={styles.appVersionBadge}
                 aria-label={`coffeeTide 버전 ${APP_VERSION}`}
               >
                 {APP_VERSION}
               </span>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <span
-                className={styles.userEmail}
-                style={{
-                  maxWidth: 200,
-                  fontSize: "0.78rem",
-                  color: "var(--text-dim)",
-                  fontWeight: 500,
-                }}
-                title={displayEmail}
-              >
-                {displayEmail}
-              </span>
-              <button
-                className={`${styles.btn} ${styles.btnDanger}`}
-                style={{ padding: "4px 10px", fontSize: "0.78rem" }}
-                onClick={onSignout}
-              >
-                로그아웃 (접속 종료)
-              </button>
-              <button
-                className={styles.iconBtn}
-                onClick={onClose}
-                aria-label="설정 닫기"
-                style={{ fontSize: "1.1rem", padding: "4px 8px" }}
-              >
-                ✕
-              </button>
-            </div>
+            <button
+              className={styles.iconBtn}
+              onClick={onClose}
+              aria-label="설정 닫기"
+              style={{ fontSize: "1.1rem", padding: "4px 8px" }}
+            >
+              ✕
+            </button>
           </div>
 
-          {/* 📑 상단 4대 카테고리 탭 바 */}
-          <div
-            ref={settingsTabBarRef}
-            className={styles.settingsTabBar}
-            role="tablist"
-            aria-label="설정 카테고리"
-            onPointerDown={handleSettingsTabPointerDown}
-            onPointerMove={handleSettingsTabPointerMove}
-            onPointerUp={handleSettingsTabPointerUp}
-            onPointerCancel={resetSettingsTabGesture}
-            onLostPointerCapture={resetSettingsTabGesture}
-            onClickCapture={handleSettingsTabClickCapture}
-            onKeyDown={handleSettingsTabKeyDown}
-            onWheel={handleSettingsTabWheel}
-          >
-            {SETTINGS_TABS.map((tab) => (
-              <button
-                key={tab.id}
-                id={`settings-tab-${tab.id}`}
-                type="button"
-                role="tab"
-                aria-selected={activeTab === tab.id}
-                aria-controls={`settings-panel-${tab.id}`}
-                tabIndex={activeTab === tab.id ? 0 : -1}
-                data-settings-tab={tab.id}
-                className={`${styles.settingsTabBtn} ${activeTab === tab.id ? styles.settingsTabBtnActive : ""} ${
-                  dragHoverTab === tab.id ? styles.settingsTabBtnDragHover : ""
-                }`}
-                onClick={() => selectSettingsTab(tab.id)}
-                onMouseEnter={(e) => e.currentTarget.focus()}
-                onPointerEnter={(e) => e.currentTarget.focus()}
-              >
-                <span>{tab.icon}</span>
-                <span>{tab.label}</span>
-              </button>
-            ))}
+          {/* 2단: 계정 정보 & 로그아웃 바 */}
+          <div className={styles.stickyModalAccountRow}>
+            <div className={styles.stickyModalAccountInfo}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7 }}>
+                <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
+                <circle cx="12" cy="7" r="4"/>
+              </svg>
+              <span className={styles.userEmail} title={displayEmail}>
+                {displayEmail}
+              </span>
+            </div>
+            <button
+              className={`${styles.btn} ${styles.btnDanger}`}
+              style={{ padding: "3px 8px", fontSize: "0.75rem" }}
+              onClick={onSignout}
+            >
+              로그아웃 (접속 종료)
+            </button>
+          </div>
+
+          {/* 📑 3단: 좌우 화살표가 있는 탭 바 내비게이션 */}
+          <div className={styles.settingsTabBarNavWrapper}>
+            <button
+              type="button"
+              className={styles.settingsTabNavBtn}
+              onClick={handlePrevTab}
+              aria-label="이전 설정 탭"
+              title="이전 설정 탭 (←)"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m15 18-6-6 6-6"/>
+              </svg>
+            </button>
+
+            <div
+              ref={settingsTabBarRef}
+              className={styles.settingsTabBar}
+              role="tablist"
+              aria-label="설정 카테고리"
+              onKeyDown={handleSettingsTabKeyDown}
+              onWheel={handleSettingsTabWheel}
+            >
+              {SETTINGS_TABS.map((tab) => (
+                <button
+                  key={tab.id}
+                  id={`settings-tab-${tab.id}`}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeTab === tab.id}
+                  aria-controls={`settings-panel-${tab.id}`}
+                  tabIndex={activeTab === tab.id ? 0 : -1}
+                  data-settings-tab={tab.id}
+                  className={`${styles.settingsTabBtn} ${activeTab === tab.id ? styles.settingsTabBtnActive : ""}`}
+                  onClick={() => selectSettingsTab(tab.id)}
+                >
+                  <span>{tab.icon}</span>
+                  <span>{tab.label}</span>
+                </button>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              className={styles.settingsTabNavBtn}
+              onClick={handleNextTab}
+              aria-label="다음 설정 탭"
+              title="다음 설정 탭 (→)"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m9 18 6-6-6-6"/>
+              </svg>
+            </button>
           </div>
         </div>
 
