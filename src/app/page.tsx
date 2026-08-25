@@ -2799,42 +2799,9 @@ export default function Home() {
       data-compact-tab={activeCompactTab}
     >
       <HeaderControls
-        userEmail={authUserEmail || connections?.googleEmail || connections?.outlookEmail || undefined}
-        connections={connections ?? undefined}
-        theme={theme}
-        onThemeChange={(nextTheme) => {
-          setTheme(nextTheme);
-          saveLS(LS_THEME, nextTheme);
-        }}
         onLogoutHandoff={() => void handleLogoutHandoff()}
         showConn={showConn}
         onToggleConn={() => setShowConn((v) => !v)}
-        followupHours={followupHours}
-        onFollowupHoursChange={(hours) => {
-          setFollowupHours(hours);
-          saveLS(LS_FOLLOWUP, hours);
-        }}
-        viewWindow={viewWindow}
-        onViewWindowChange={(val) => {
-          setViewWindow(val);
-          saveLS(LS_VIEW_WINDOW, val);
-        }}
-        fetchLimit={fetchLimit}
-        onFetchLimitChange={(limit) => {
-          setFetchLimit(limit);
-          saveLS(LS_FETCH_LIMIT, limit);
-          void fetchMails(true, limit);
-        }}
-        notifPerm={notifPerm}
-        onRequestNotifPerm={async () => {
-          const res = await requestNotificationPermission();
-          setNotifPerm(res);
-          if (res === "granted") {
-            showToast("브라우저 데스크톱 알림이 활성화되었습니다.");
-          } else {
-            showToast("알림 권한이 거부되어 있습니다. 브라우저 설정에서 허용해 주세요.");
-          }
-        }}
       />
 
       {handoffRestoredInfo && (
@@ -3687,6 +3654,27 @@ export default function Home() {
             setPhase("landing");
           }}
           accountEmail={authUserEmail}
+          theme={theme}
+          onChangeTheme={(nextTheme) => {
+            setTheme(nextTheme);
+            saveLS(LS_THEME, nextTheme);
+          }}
+          followupHours={followupHours}
+          onChangeFollowupHours={(hours) => {
+            setFollowupHours(hours);
+            saveLS(LS_FOLLOWUP, hours);
+          }}
+          viewWindow={viewWindow}
+          onChangeViewWindow={(val) => {
+            setViewWindow(val);
+            saveLS(LS_VIEW_WINDOW, val);
+          }}
+          fetchLimit={fetchLimit}
+          onChangeFetchLimit={(limit) => {
+            setFetchLimit(limit);
+            saveLS(LS_FETCH_LIMIT, limit);
+            void fetchMails(true, limit);
+          }}
           onDeleteAccount={async () => {
             clearYouTubeContinuitySession();
             const response = await fetch("/api/account", { method: "DELETE" });

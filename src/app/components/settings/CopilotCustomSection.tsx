@@ -7,9 +7,16 @@ import styles from "../../page.module.css";
 interface Props {
   config: CopilotUserConfig;
   onChangeConfig: (next: CopilotUserConfig) => void;
+  followupHours?: number;
+  onChangeFollowupHours?: (hours: number) => void;
 }
 
-export function CopilotCustomSection({ config, onChangeConfig }: Props) {
+export function CopilotCustomSection({
+  config,
+  onChangeConfig,
+  followupHours = 24,
+  onChangeFollowupHours,
+}: Props) {
   const handleChangeName = (e: React.ChangeEvent<HTMLInputElement>) => {
     onChangeConfig({ ...config, baristaName: e.target.value });
   };
@@ -54,6 +61,28 @@ export function CopilotCustomSection({ config, onChangeConfig }: Props) {
             maxLength={30}
           />
         </div>
+
+        {onChangeFollowupHours && (
+          <div>
+            <label style={{ fontSize: "0.85rem", fontWeight: 600, display: "block", marginBottom: "4px" }}>
+              팔로업 에스컬레이션 기준
+            </label>
+            <select
+              className={styles.input}
+              value={followupHours}
+              onChange={(e) => onChangeFollowupHours(Number(e.target.value))}
+              style={{ width: "100%", marginBottom: "4px" }}
+              aria-label="팔로업 에스컬레이션 기준 시간"
+            >
+              <option value={12}>12시간 미응답 시 강조</option>
+              <option value={24}>24시간 미응답 시 강조 (기본)</option>
+              <option value={48}>48시간 미응답 시 강조</option>
+            </select>
+            <div style={{ fontSize: "0.76rem", color: "var(--text-dim)", lineHeight: "1.4" }}>
+              지정한 시간 동안 회신이나 처리가 없는 메일·일정을 AI 바리스타가 주의 항목으로 우선 브리핑합니다.
+            </div>
+          </div>
+        )}
 
         <div>
           <label style={{ fontSize: "0.85rem", fontWeight: 600, display: "block", marginBottom: "4px" }}>

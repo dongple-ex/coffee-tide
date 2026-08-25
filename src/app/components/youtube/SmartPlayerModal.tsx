@@ -836,17 +836,19 @@ export function SmartPlayerModal({
                 <UiIcon name="headphones" size={16} />
               </button>
 
-              {/* OS Document PiP 모드 */}
-              <button
-                type="button"
-                className={`${styles.headerActionBtn} ${isPiPActive ? styles.headerActionBtnActive : ""}`}
-                onClick={() => void handleToggleDocumentPiP()}
-                data-coffeetide-audio-focus-control="true"
-                data-tooltip="OS 항상 위 PiP 창"
-                aria-label="OS 항상 위 PiP 창"
-              >
-                <UiIcon name="pip" size={16} />
-              </button>
+              {/* OS 항상-위 창은 오디오 집중 모드에서만 제공한다. */}
+              {audioOnly && (
+                <button
+                  type="button"
+                  className={`${styles.headerActionBtn} ${isPiPActive ? styles.headerActionBtnActive : ""}`}
+                  onClick={() => void handleToggleDocumentPiP()}
+                  data-coffeetide-audio-focus-control="true"
+                  data-tooltip="OS 항상 위 PiP 창"
+                  aria-label="OS 항상 위 PiP 창"
+                >
+                  <UiIcon name="pip" size={16} />
+                </button>
+              )}
 
               {/* 인앱 미니 모드 */}
               {isMini ? (

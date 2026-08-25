@@ -21,6 +21,8 @@ import { LocalToolsSection } from "./settings/LocalToolsSection";
 import { DataStorageSection } from "./settings/DataStorageSection";
 import { WeatherData } from "./WelcomeCard";
 import { APP_VERSION } from "@/lib/appVersion";
+import { ViewWindowSetting, WINDOW_TIERS_DAYS } from "@/lib/collectWindow";
+import type { Theme } from "./HeaderControls";
 import styles from "../page.module.css";
 
 export interface SettingsModalProps {
@@ -29,6 +31,14 @@ export interface SettingsModalProps {
   onSignout: () => void;
   accountEmail?: string;
   onDeleteAccount: () => Promise<void>;
+  theme?: Theme;
+  onChangeTheme?: (theme: Theme) => void;
+  followupHours?: number;
+  onChangeFollowupHours?: (hours: number) => void;
+  viewWindow?: ViewWindowSetting;
+  onChangeViewWindow?: (val: ViewWindowSetting) => void;
+  fetchLimit?: number;
+  onChangeFetchLimit?: (limit: number) => void;
   copilotConfig: CopilotUserConfig;
   onChangeCopilotConfig: (next: CopilotUserConfig) => void;
   rules: AutomationRule[];
@@ -105,6 +115,14 @@ export function SettingsModal({
   onSignout,
   accountEmail,
   onDeleteAccount,
+  theme = "dark",
+  onChangeTheme,
+  followupHours = 24,
+  onChangeFollowupHours,
+  viewWindow = "auto",
+  onChangeViewWindow,
+  fetchLimit = 20,
+  onChangeFetchLimit,
   copilotConfig,
   onChangeCopilotConfig,
   rules,
@@ -365,6 +383,8 @@ export function SettingsModal({
     rawLocalStorageEnabled: rawEnabled,
   };
 
+  const displayEmail = accountEmail || connections?.googleEmail || connections?.outlookEmail || "게스트";
+
   return (
     <div className={`${styles.overlay} ${styles.overlayTop}`} onClick={onClose}>
       <div
@@ -402,6 +422,18 @@ export function SettingsModal({
               </span>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span
+                className={styles.userEmail}
+                style={{
+                  maxWidth: 200,
+                  fontSize: "0.78rem",
+                  color: "var(--text-dim)",
+                  fontWeight: 500,
+                }}
+                title={displayEmail}
+              >
+                {displayEmail}
+              </span>
               <button
                 className={`${styles.btn} ${styles.btnDanger}`}
                 style={{ padding: "4px 10px", fontSize: "0.78rem" }}
@@ -517,6 +549,8 @@ export function SettingsModal({
             <CopilotCustomSection
               config={copilotConfig}
               onChangeConfig={onChangeCopilotConfig}
+              followupHours={followupHours}
+              onChangeFollowupHours={onChangeFollowupHours}
             />
 
             <AutomationRulesSection
@@ -571,6 +605,28 @@ export function SettingsModal({
                 화면 보기
               </div>
               <div className={styles.settingToggleList}>
+                {onChangeTheme && (
+                  <div style={{ marginBottom: 14 }}>
+                    <label style={{ fontSize: "0.82rem", fontWeight: 600, display: "block", marginBottom: 6 }}>
+                      테마 색상
+                    </label>
+                    <select
+                      className={styles.input}
+                      value={theme}
+                      onChange={(e) => onChangeTheme(e.target.value as Theme)}
+                      style={{ width: "100%" }}
+                      aria-label="테마 색상 선택"
+                    >
+                      <option value="dark">다크</option>
+                      <option value="light">라이트</option>
+                      <option value="notebook">커피타이드 (기본)</option>
+                      <option value="coffee">에스프레소</option>
+                      <option value="mega">메가커피</option>
+                      <option value="kustom">커스텀커피</option>
+                    </select>
+                  </div>
+                )}
+
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 4 }}>
                   <button
                     type="button"
@@ -616,6 +672,52 @@ export function SettingsModal({
                   • <b>축소(컴팩트) 뷰</b>: 같은 내용을 더 높은 밀도로 표시합니다. 업무·AI·휴식 도구 탭은 두 모드에서 동일하게 유지됩니다.<br />
                   • <i>(미설정 시 모바일 기기는 축소 뷰, PC 환경은 일반 뷰로 자동 시작됩니다.)</i>
                 </div>
+
+                {(onChangeViewWindow || onChangeFetchLimit) && (
+                  <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid var(--border)", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                    {onChangeViewWindow && (
+                      <div>
+                        <label style={{ fontSize: "0.8rem", fontWeight: 600, display: "block", marginBottom: 4 }}>
+                          항목 표시 기간
+                        </label>
+                        <select
+                          className={styles.input}
+                          value={String(viewWindow)}
+                          onChange={(e) =>
+                            onChangeViewWindow(e.target.value === "auto" ? "auto" : Number(e.target.value))
+                          }
+                          style={{ width: "100%" }}
+                          aria-label="외부 항목 표시 기간"
+                        >
+                          <option value="auto">자동</option>
+                          {WINDOW_TIERS_DAYS.map((d) => (
+                            <option key={d} value={d}>
+                              최근 {d}일
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                    {onChangeFetchLimit && (
+                      <div>
+                        <label style={{ fontSize: "0.8rem", fontWeight: 600, display: "block", marginBottom: 4 }}>
+                          채널별 수집 건수
+                        </label>
+                        <select
+                          className={styles.input}
+                          value={fetchLimit}
+                          onChange={(e) => onChangeFetchLimit(Number(e.target.value))}
+                          style={{ width: "100%" }}
+                          aria-label="채널별 수집 건수 상한"
+                        >
+                          <option value={10}>10건</option>
+                          <option value={20}>20건</option>
+                          <option value={50}>50건</option>
+                        </select>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
