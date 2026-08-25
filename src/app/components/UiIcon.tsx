@@ -21,6 +21,7 @@ export type UiIconName =
   | "clipboard"
   | "refresh"
   | "expand"
+  | "minimize"
   | "popup"
   | "close"
   | "link"
@@ -65,6 +66,7 @@ export function UiIcon({ name, size = 18, ...props }: UiIconProps) {
     clipboard: <><rect x="5" y="4" width="14" height="17" rx="2" /><path d="M9 4V2h6v2M9 10h6M9 14h6" /></>,
     refresh: <><path d="M20 7v5h-5" /><path d="M4 17v-5h5" /><path d="M6.1 8a7 7 0 0 1 11.6-2L20 8M4 16l2.3 2a7 7 0 0 0 11.6-2" /></>,
     expand: <><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5" /><path d="m3 8 5-5M21 8l-5-5M3 16l5 5M21 16l-5 5" /></>,
+    minimize: <path d="M5 18h14" />,
     popup: <><rect x="3" y="6" width="13" height="14" rx="2" /><path d="M9 4h12v12M14 4h7v7" /></>,
     close: <path d="m6 6 12 12M18 6 6 18" />,
     link: <><path d="M10 13a5 5 0 0 0 7.1.1l2-2a5 5 0 0 0-7.1-7.1l-1.1 1.1" /><path d="M14 11a5 5 0 0 0-7.1-.1l-2 2A5 5 0 0 0 12 20l1.1-1.1" /></>,

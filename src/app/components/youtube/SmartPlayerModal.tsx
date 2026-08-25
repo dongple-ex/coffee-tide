@@ -50,14 +50,8 @@ interface DocumentPictureInPicture {
 }
 
 declare global {
-  interface CoffeeTideAudioFocusHandler {
-    toggle: () => void;
-    isVisible: () => boolean;
-  }
-
   interface Window {
     documentPictureInPicture?: DocumentPictureInPicture;
-    __coffeeTideAudioFocusHandlers?: Set<CoffeeTideAudioFocusHandler>;
   }
 }
 
@@ -114,6 +108,7 @@ export function SmartPlayerModal({
   const [isPiPActive, setIsPiPActive] = useState<boolean>(false);
   const [pipWindow, setPipWindow] = useState<Window | null>(null);
   const pipWindowRef = useRef<Window | null>(null);
+  const [isAudioCollapsed, setIsAudioCollapsed] = useState(false);
 
   // 복원 세션인 경우 직전 재생 여부(wasPlaying / playerState)에 따라 자동재생 결정, 신규는 항상 자동재생
   const isRestoredSession = Boolean(
@@ -139,6 +134,20 @@ export function SmartPlayerModal({
 
   const titleId = useId();
   const miniTitleId = useId();
+  const audioFocusInstanceId = useId();
+
+  useEffect(() => {
+    const handleExpandAudioBar = (event: Event) => {
+      const detail = (event as CustomEvent<{ instanceId?: string }>).detail;
+      if (detail?.instanceId === audioFocusInstanceId) {
+        setIsAudioCollapsed(false);
+      }
+    };
+
+    window.addEventListener("coffeetide:audio-player-expand", handleExpandAudioBar);
+    return () => window.removeEventListener("coffeetide:audio-player-expand", handleExpandAudioBar);
+  }, [audioFocusInstanceId]);
+
   const ytVideoId = extractYoutubeVideoId(video);
   const needsDetails = Boolean(
     video && (!video.summary || !video.chapters || video.chapters.length === 0)
@@ -412,35 +421,6 @@ export function SmartPlayerModal({
       // Ignore MediaSession error
     }
   }, [video, togglePlayPause, skipSeconds, seekTo]);
-
-  useEffect(() => {
-    const handler: CoffeeTideAudioFocusHandler = {
-      toggle: () => void handleToggleDocumentPiP(),
-      isVisible: () => Boolean(modalContainerRef.current && modalContainerRef.current.offsetParent !== null),
-    };
-    const handlers = window.__coffeeTideAudioFocusHandlers ?? new Set<CoffeeTideAudioFocusHandler>();
-    window.__coffeeTideAudioFocusHandlers = handlers;
-    handlers.add(handler);
-    return () => {
-      handlers.delete(handler);
-      if (handlers.size === 0) {
-        delete window.__coffeeTideAudioFocusHandlers;
-        delete document.documentElement.dataset.audioPlayerActive;
-        delete document.documentElement.dataset.audioPlayerDetached;
-        window.dispatchEvent(new CustomEvent("coffeetide:audio-player-state", {
-          detail: { active: false, detached: false },
-        }));
-      }
-    };
-  }, [handleToggleDocumentPiP]);
-
-  useEffect(() => {
-    document.documentElement.dataset.audioPlayerActive = "true";
-    document.documentElement.dataset.audioPlayerDetached = isPiPActive ? "true" : "false";
-    window.dispatchEvent(new CustomEvent("coffeetide:audio-player-state", {
-      detail: { active: true, detached: isPiPActive },
-    }));
-  }, [isPiPActive]);
 
   useEffect(() => {
     return () => {
@@ -722,6 +702,33 @@ export function SmartPlayerModal({
     };
   }, [video, ytVideoId, needsDetails]);
 
+  const isAudioButtonCollapsed = isMini && audioOnly && isAudioCollapsed;
+  const audioFocusTitle = video?.title?.trim() || "재생 중인 오디오";
+
+  useEffect(() => {
+    window.dispatchEvent(
+      new CustomEvent("coffeetide:audio-player-collapsed-change", {
+        detail: {
+          instanceId: audioFocusInstanceId,
+          collapsed: isAudioButtonCollapsed,
+          title: audioFocusTitle,
+          isPlaying: playerState === "playing",
+        },
+      })
+    );
+  }, [audioFocusInstanceId, audioFocusTitle, isAudioButtonCollapsed, playerState]);
+
+  useEffect(
+    () => () => {
+      window.dispatchEvent(
+        new CustomEvent("coffeetide:audio-player-collapsed-change", {
+          detail: { instanceId: audioFocusInstanceId, collapsed: false },
+        })
+      );
+    },
+    [audioFocusInstanceId]
+  );
+
   if (!video) return null;
 
   // AI 채팅 전송
@@ -781,7 +788,9 @@ export function SmartPlayerModal({
 
   return createPortal(
     <>
-      {isMini && !isMobileFloating && !isPiPActive && <div className={styles.focusBackdrop} aria-hidden="true" />}
+      {isMini && !isMobileFloating && !isPiPActive && !isAudioButtonCollapsed && (
+        <div className={styles.focusBackdrop} aria-hidden="true" />
+      )}
       <div
         className={isMini ? styles.miniLayer : styles.modalBackdrop}
         onClick={isMini ? undefined : handleExplicitClose}
@@ -790,12 +799,15 @@ export function SmartPlayerModal({
           ref={modalContainerRef}
           className={`${isMini ? styles.miniContainer : styles.modalContent} ${
             isMini && audioOnly ? styles.miniAudioContainer : ""
-          } ${isPiPActive ? styles.pipSourceContainer : ""}`}
+          } ${isAudioButtonCollapsed ? styles.miniAudioCollapsedContainer : ""} ${
+            isPiPActive ? styles.pipSourceContainer : ""
+          }`}
           onClick={(event) => event.stopPropagation()}
-          role={isMobileFloating ? "region" : "dialog"}
-          aria-modal={isMobileFloating ? undefined : true}
-          aria-labelledby={isMini ? miniTitleId : titleId}
-          tabIndex={-1}
+          role={isAudioButtonCollapsed ? undefined : isMobileFloating ? "region" : "dialog"}
+          aria-modal={isAudioButtonCollapsed || isMobileFloating ? undefined : true}
+          aria-hidden={isAudioButtonCollapsed ? "true" : undefined}
+          aria-labelledby={isAudioButtonCollapsed ? undefined : isMini ? miniTitleId : titleId}
+          tabIndex={isAudioButtonCollapsed ? undefined : -1}
         >
           {!(isMini && audioOnly) && <div className={isMini ? styles.miniHeader : styles.modalHeader}>
             {isMini ? (
@@ -827,6 +839,7 @@ export function SmartPlayerModal({
                 type="button"
                 className={`${styles.headerActionBtn} ${audioOnly ? styles.headerActionBtnActive : ""}`}
                 onClick={() => {
+                  setIsAudioCollapsed(false);
                   setAudioOnly((prev) => !prev);
                   onNotify?.(!audioOnly ? "🎧 오디오 전용 집중 모드로 전환되었습니다." : "🎬 비디오 모드로 전환되었습니다.");
                 }}
@@ -936,7 +949,9 @@ export function SmartPlayerModal({
               }`}
             >
               {audioOnly ? (
-                <div className={styles.audioModeCard}>
+                isAudioButtonCollapsed ? (
+                  null
+                ) : <div className={styles.audioModeCard}>
                   <div className={styles.audioModeLead} aria-hidden="true">
                     <UiIcon name="headphones" size={14} />
                   </div>
@@ -978,6 +993,7 @@ export function SmartPlayerModal({
                     type="button"
                     className={styles.audioModeAction}
                     onClick={() => {
+                      setIsAudioCollapsed(false);
                       setAudioOnly(false);
                       onNotify?.("🎬 비디오 모드로 전환되었습니다.");
                     }}
@@ -986,6 +1002,17 @@ export function SmartPlayerModal({
                   >
                     <UiIcon name="video" size={15} />
                   </button>
+                  {isMini && (
+                    <button
+                      type="button"
+                      className={styles.audioModeAction}
+                      onClick={() => setIsAudioCollapsed(true)}
+                      aria-label="오디오 조작 막대 최소화"
+                      title="최소화"
+                    >
+                      <UiIcon name="minimize" size={15} />
+                    </button>
+                  )}
                   {isMini && (
                     <button
                       ref={closeButtonRef}

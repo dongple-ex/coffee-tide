@@ -15,6 +15,18 @@ export const RESPONSE_NEEDED = new Set(["urgent", "approval_required", "action_r
 /** "오늘의 행동 지침" 섹션에 노출할 카테고리 */
 export const TODO_CATS = new Set(["urgent", "approval_required", "action_required", "meeting"]);
 
+export type WorkflowSection = "todo" | "rest";
+
+/**
+ * 완료 처리로 카드가 다른 섹션으로 이동하지 않도록 섹션은 카테고리로만 정한다.
+ * 상태 변경은 같은 카드 자리에서 스타일과 액션만 갱신한다.
+ */
+export function getWorkflowSection(
+  item: Pick<UnifiedData, "category" | "status">
+): WorkflowSection {
+  return TODO_CATS.has(item.category ?? "") ? "todo" : "rest";
+}
+
 export function buildMergedView(
   manualItems: UnifiedData[],
   serverMails: UnifiedData[],

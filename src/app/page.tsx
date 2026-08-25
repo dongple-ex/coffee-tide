@@ -39,7 +39,7 @@ import {
   normalizeViewWindow,
   ViewWindowSetting,
 } from "@/lib/collectWindow";
-import { buildMergedView, TODO_CATS } from "@/lib/mergeView";
+import { buildMergedView, getWorkflowSection } from "@/lib/mergeView";
 import {
   loadLS,
   saveLS,
@@ -397,21 +397,39 @@ export default function Home() {
   const [todoTabSignal, setTodoTabSignal] = useState(false);
   const [sparkTabSignal, setSparkTabSignal] = useState(false);
   const [widgetTabSignal, setWidgetTabSignal] = useState(false);
-  const [audioFocusPlayer, setAudioFocusPlayer] = useState({ active: false, detached: false });
+  const [collapsedAudioPlayers, setCollapsedAudioPlayers] = useState<
+    { instanceId: string; title: string; isPlaying: boolean }[]
+  >([]);
+  const activeCollapsedAudioPlayer = collapsedAudioPlayers[collapsedAudioPlayers.length - 1];
   const todoTabSignalTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSignaledSparkBriefing = useRef<string | null>(null);
 
   useEffect(() => {
-    const syncAudioPlayerState = (event?: Event) => {
-      const detail = (event as CustomEvent<{ active?: boolean; detached?: boolean }> | undefined)?.detail;
-      setAudioFocusPlayer({
-        active: detail?.active ?? document.documentElement.dataset.audioPlayerActive === "true",
-        detached: detail?.detached ?? document.documentElement.dataset.audioPlayerDetached === "true",
+    const handleCollapsedAudioPlayerChange = (event: Event) => {
+      const detail = (
+        event as CustomEvent<{
+          instanceId?: string;
+          collapsed?: boolean;
+          title?: string;
+          isPlaying?: boolean;
+        }>
+      ).detail;
+      if (!detail?.instanceId) return;
+      const instanceId = detail.instanceId;
+      const title = detail.title?.trim() || "재생 중인 오디오";
+      const isPlaying = detail.isPlaying === true;
+
+      setCollapsedAudioPlayers((current) => {
+        const withoutCurrent = current.filter((player) => player.instanceId !== instanceId);
+        return detail.collapsed
+          ? [...withoutCurrent, { instanceId, title, isPlaying }]
+          : withoutCurrent;
       });
     };
-    syncAudioPlayerState();
-    window.addEventListener("coffeetide:audio-player-state", syncAudioPlayerState);
-    return () => window.removeEventListener("coffeetide:audio-player-state", syncAudioPlayerState);
+
+    window.addEventListener("coffeetide:audio-player-collapsed-change", handleCollapsedAudioPlayerChange);
+    return () =>
+      window.removeEventListener("coffeetide:audio-player-collapsed-change", handleCollapsedAudioPlayerChange);
   }, []);
 
   const [expandedQaKeys, setExpandedQaKeys] = useState<Set<string>>(new Set());
@@ -1826,12 +1844,8 @@ export default function Home() {
 
   // 파생 목록·카운트는 원본 목록이 바뀔 때만 재계산 — 무관한 입력 상태 변경 시 전체 스캔 방지
   const { todoItems, restItems, llmItems, activeCount, urgentCount, doneCount } = useMemo(() => {
-    const todo = workflowItems.filter(
-      (i) => TODO_CATS.has(i.category ?? "") && i.status !== "completed"
-    );
-    const rest = workflowItems.filter(
-      (i) => !TODO_CATS.has(i.category ?? "") || i.status === "completed"
-    );
+    const todo = workflowItems.filter((i) => getWorkflowSection(i) === "todo");
+    const rest = workflowItems.filter((i) => getWorkflowSection(i) === "rest");
     return {
       todoItems: todo,
       restItems: rest,
@@ -2994,24 +3008,29 @@ export default function Home() {
             {activeWidget && <span className={styles.compactTabDot} title="열린 도구가 있음" />}
           </button>
           </nav>
-          {audioFocusPlayer.active && (
+          {activeCollapsedAudioPlayer && (
             <button
               type="button"
-              className={`${styles.compactAudioFocusBtn} ${
-                audioFocusPlayer.detached ? styles.compactAudioFocusBtnActive : ""
-              }`}
+              className={styles.compactAudioFocusBtn}
               onClick={() => {
-                const handlers = window.__coffeeTideAudioFocusHandlers;
-                if (!handlers) return;
-                const entries = [...handlers];
-                const target = entries.reverse().find((entry) => entry.isVisible()) ?? entries[entries.length - 1];
-                target?.toggle();
+                window.dispatchEvent(
+                  new CustomEvent("coffeetide:audio-player-expand", {
+                    detail: { instanceId: activeCollapsedAudioPlayer.instanceId },
+                  })
+                );
               }}
-              aria-label={audioFocusPlayer.detached ? "오디오 막대에서 CoffeeTide로 돌아가기" : "오디오 막대만 항상 위에 남기기"}
-              title={audioFocusPlayer.detached ? "CoffeeTide로 돌아가기" : "오디오 막대만 남기기"}
+              aria-label="오디오 조작 막대 펼치기"
             >
-              <UiIcon name={audioFocusPlayer.detached ? "expand" : "headphones"} size={18} />
-              <span className={styles.compactAudioFocusPulse} aria-hidden="true" />
+              <UiIcon name="headphones" size={18} />
+              <span
+                className={`${styles.compactAudioFocusPulse} ${
+                  activeCollapsedAudioPlayer.isPlaying ? styles.compactAudioFocusPulsePlaying : ""
+                }`}
+                aria-hidden="true"
+              />
+              <span className={styles.compactAudioFocusTitle} role="tooltip">
+                {activeCollapsedAudioPlayer.title}
+              </span>
             </button>
           )}
         </div>
@@ -3212,11 +3231,16 @@ export default function Home() {
                 />
               </div>
             )}
-            {activeWidget === "timer" && (
-              <div className={styles.widgetPanel}>
-                <TimerWidget onCompleteToast={notifyFromWidget} />
-              </div>
-            )}
+            <div className={styles.widgetPanel} hidden={activeWidget !== "timer"}>
+              <TimerWidget
+                onCompleteToast={notifyFromWidget}
+                isExpanded={activeCompactTab === "widgets" && activeWidget === "timer"}
+                onRequestExpand={() => {
+                  setActiveWidget("timer");
+                  openWorkspaceTab("widgets");
+                }}
+              />
+            </div>
             {activeWidget === "calc" && (
               <div className={styles.widgetPanel}>
                 <CalculatorWidget />

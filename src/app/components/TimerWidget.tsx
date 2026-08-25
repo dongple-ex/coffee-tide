@@ -1,17 +1,25 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import styles from "./timerWidget.module.css";
 import { UiIcon } from "./UiIcon";
 
 interface TimerWidgetProps {
   onCompleteToast?: (msg: string) => void;
+  isExpanded?: boolean;
+  onRequestExpand?: () => void;
 }
 
-export function TimerWidget({ onCompleteToast }: TimerWidgetProps) {
+export function TimerWidget({
+  onCompleteToast,
+  isExpanded = true,
+  onRequestExpand,
+}: TimerWidgetProps) {
   const [totalSeconds, setTotalSeconds] = useState(25 * 60); // 기본 25분 (포모도로)
   const [secondsLeft, setSecondsLeft] = useState(25 * 60);
   const [isRunning, setIsRunning] = useState(false);
+  const [hasStarted, setHasStarted] = useState(false);
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -22,6 +30,7 @@ export function TimerWidget({ onCompleteToast }: TimerWidgetProps) {
           if (prev <= 1) {
             clearInterval(timerRef.current!);
             setIsRunning(false);
+            setHasStarted(false);
             onCompleteToast?.("집중 타이머가 완료되었습니다. 수고하셨어요.");
             return 0;
           }
@@ -40,6 +49,7 @@ export function TimerWidget({ onCompleteToast }: TimerWidgetProps) {
   const selectPreset = (minutes: number) => {
     const sec = minutes * 60;
     setIsRunning(false);
+    setHasStarted(false);
     setTotalSeconds(sec);
     setSecondsLeft(sec);
   };
@@ -48,11 +58,13 @@ export function TimerWidget({ onCompleteToast }: TimerWidgetProps) {
     if (secondsLeft === 0) {
       setSecondsLeft(totalSeconds);
     }
+    setHasStarted(true);
     setIsRunning((prev) => !prev);
   };
 
   const resetTimer = () => {
     setIsRunning(false);
+    setHasStarted(false);
     setSecondsLeft(totalSeconds);
   };
 
@@ -63,49 +75,96 @@ export function TimerWidget({ onCompleteToast }: TimerWidgetProps) {
   };
 
   const progressPercent = totalSeconds > 0 ? ((totalSeconds - secondsLeft) / totalSeconds) * 100 : 0;
+  const formattedTime = formatTime(secondsLeft);
+  const showMiniTimer = hasStarted && secondsLeft > 0 && !isExpanded;
 
   return (
-    <div className={styles.container}>
-      <div className={styles.header}>
-        <div className={styles.title}>
-          <UiIcon name="timer" size={18} />
-          <span>집중 몰입 타이머</span>
+    <>
+      <div className={styles.container}>
+        <div className={styles.header}>
+          <div className={styles.title}>
+            <UiIcon name="timer" size={18} />
+            <span>집중 몰입 타이머</span>
+          </div>
+          <div className={styles.presetList}>
+            <button type="button" className={styles.presetChip} onClick={() => selectPreset(5)}>
+              5분
+            </button>
+            <button type="button" className={styles.presetChip} onClick={() => selectPreset(10)}>
+              10분
+            </button>
+            <button type="button" className={styles.presetChip} onClick={() => selectPreset(25)}>
+              25분(포모도로)
+            </button>
+            <button type="button" className={styles.presetChip} onClick={() => selectPreset(60)}>
+              60분
+            </button>
+          </div>
         </div>
-        <div className={styles.presetList}>
-          <button type="button" className={styles.presetChip} onClick={() => selectPreset(5)}>
-            5분
-          </button>
-          <button type="button" className={styles.presetChip} onClick={() => selectPreset(10)}>
-            10분
-          </button>
-          <button type="button" className={styles.presetChip} onClick={() => selectPreset(25)}>
-            25분(포모도로)
-          </button>
-          <button type="button" className={styles.presetChip} onClick={() => selectPreset(60)}>
-            60분
-          </button>
+
+        <div className={styles.timerBody}>
+          <div className={styles.timeDisplay}>{formattedTime}</div>
+          <div className={styles.controls}>
+            <button
+              type="button"
+              className={`${styles.btn} ${styles.btnPrimary}`}
+              onClick={toggleRun}
+            >
+              {isRunning ? "일시정지" : secondsLeft === 0 ? "재시작" : "시작"}
+            </button>
+            <button type="button" className={styles.btn} onClick={resetTimer}>
+              리셋
+            </button>
+          </div>
+        </div>
+
+        <div className={styles.progressTrack}>
+          <div className={styles.progressBar} style={{ width: `${progressPercent}%` }} />
         </div>
       </div>
 
-      <div className={styles.timerBody}>
-        <div className={styles.timeDisplay}>{formatTime(secondsLeft)}</div>
-        <div className={styles.controls}>
-          <button
-            type="button"
-            className={`${styles.btn} ${styles.btnPrimary}`}
-            onClick={toggleRun}
-          >
-            {isRunning ? "일시정지" : secondsLeft === 0 ? "재시작" : "시작"}
-          </button>
-          <button type="button" className={styles.btn} onClick={resetTimer}>
-            리셋
-          </button>
-        </div>
-      </div>
-
-      <div className={styles.progressTrack}>
-        <div className={styles.progressBar} style={{ width: `${progressPercent}%` }} />
-      </div>
-    </div>
+      {showMiniTimer && typeof document !== "undefined" && createPortal(
+        <div className={styles.miniTimerLayer}>
+          <aside className={styles.miniTimerBar} aria-label="집중 몰입 타이머">
+            <button
+              type="button"
+              className={styles.miniTimerInfo}
+              onClick={onRequestExpand}
+              aria-label={`타이머 화면 열기, ${formattedTime} 남음`}
+            >
+              <span className={styles.miniTimerIcon} aria-hidden="true">
+                <UiIcon name="timer" size={16} />
+              </span>
+              <span className={styles.miniTimerState}>{isRunning ? "집중 중" : "일시정지"}</span>
+              <span className={styles.miniTimerTime} role="timer" aria-label={`${formattedTime} 남음`}>
+                {formattedTime}
+              </span>
+            </button>
+            <button
+              type="button"
+              className={styles.miniTimerAction}
+              onClick={toggleRun}
+              aria-label={isRunning ? "타이머 일시정지" : "타이머 다시 시작"}
+              title={isRunning ? "일시정지" : "다시 시작"}
+            >
+              <UiIcon name={isRunning ? "pause" : "play"} size={15} />
+            </button>
+            <button
+              type="button"
+              className={styles.miniTimerAction}
+              onClick={onRequestExpand}
+              aria-label="타이머 화면 열기"
+              title="타이머 화면 열기"
+            >
+              <UiIcon name="expand" size={15} />
+            </button>
+            <div className={styles.miniTimerProgress} aria-hidden="true">
+              <div style={{ width: `${progressPercent}%` }} />
+            </div>
+          </aside>
+        </div>,
+        document.body
+      )}
+    </>
   );
 }
