@@ -50,7 +50,7 @@ export function HeaderControls({
       <div className={styles.headerRow}>
         <div className={styles.headerGroupLeft}>
           <div className={styles.logo}>
-            <IcedAmericano size={26} /> coffee<span>Tide</span>
+            <IcedAmericano size={30} textMode="lid" /> coffee<span>Tide</span>
           </div>
         </div>
 

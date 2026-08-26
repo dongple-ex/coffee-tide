@@ -132,7 +132,7 @@ export async function GET(request: NextRequest) {
     userEmail: session.userEmail,
     connections,
     errors: Object.keys(errors).length > 0 ? errors : undefined,
-    ai_error: merged.length > 0 && !aiUsed ? true : undefined,
+    ai_error: errors.llm ? true : undefined,
   });
   let preserveIntegrations = false;
   for (const provider of refreshedProviders) {
