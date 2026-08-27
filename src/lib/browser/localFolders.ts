@@ -10,6 +10,11 @@ import {
   SUPPORTED_DOCUMENT_EXTENSIONS,
 } from "@/lib/documents/formats";
 import { documentPlainText, parseDocumentFile } from "@/lib/documents/parser";
+import {
+  formatObsidianTaskLine,
+  insertUnderHeading,
+  type ObsidianTaskOptions,
+} from "@/lib/adapters/obsidianFormat";
 
 export type BrowserFolderKind = "obsidian" | "local_doc" | "llm";
 
@@ -443,16 +448,45 @@ export async function completeBrowserObsidianTask(id: string): Promise<void> {
   await writable.close();
 }
 
-/** 빠른 캡처 — 수집함 노트에 체크박스 항목 append */
-export async function captureBrowserObsidian(title: string, content?: string): Promise<string> {
+/** 빠른 캡처 — 수집함 또는 데일리노트에 Tasks/Dataview 포맷으로 항목 append/insert */
+export async function captureBrowserObsidian(
+  title: string,
+  content?: string,
+  options?: ObsidianTaskOptions
+): Promise<string> {
   const vault = await obsidianVault();
   await ensureWritePermission(vault.handle);
-  const fileHandle = await vault.handle.getFileHandle(CAPTURE_NOTE, { create: true });
+
+  const isDaily = options?.targetNote === "daily";
+  const dateKey = new Date().toISOString().slice(0, 10);
+  let noteRelPath = CAPTURE_NOTE;
+
+  let fileHandle: FileSystemFileHandle;
+  if (isDaily) {
+    const dailyFolder = options?.dailyFolder?.trim();
+    let parentDir = vault.handle;
+    if (dailyFolder) {
+      const parts = dailyFolder.split(/[/\\\\]/).filter(Boolean);
+      for (const part of parts) {
+        parentDir = await parentDir.getDirectoryHandle(part, { create: true });
+      }
+    }
+    fileHandle = await parentDir.getFileHandle(`${dateKey}.md`, { create: true });
+    noteRelPath = dailyFolder ? `${dailyFolder}/${dateKey}.md` : `${dateKey}.md`;
+  } else {
+    fileHandle = await vault.handle.getFileHandle(CAPTURE_NOTE, { create: true });
+  }
+
   let existing = await (await fileHandle.getFile()).text();
-  if (!existing.trim()) existing = "# coffeeTide 수집함\n";
-  const line = `- [ ] ${title}${content ? ` — ${excerpt(content, 120)}` : ""}`;
+  if (!existing.trim()) {
+    existing = isDaily ? `# ${dateKey}\n` : "# coffeeTide 수집함\n";
+  }
+
+  const line = formatObsidianTaskLine(title, content, options);
+  const updated = insertUnderHeading(existing, line, options?.heading);
+
   const writable = await (fileHandle as unknown as WritableFileHandle).createWritable();
-  await writable.write(`${existing.trimEnd()}\n${line}\n`);
+  await writable.write(updated);
   await writable.close();
-  return CAPTURE_NOTE;
+  return noteRelPath;
 }

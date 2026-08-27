@@ -15,6 +15,13 @@ export async function POST(request: NextRequest) {
     target?: "notion" | "obsidian";
     title?: string;
     content?: string;
+    targetNote?: "inbox" | "daily";
+    dailyFolder?: string;
+    heading?: string;
+    dueDate?: string;
+    priority?: "high" | "medium" | "low";
+    tags?: string[];
+    source?: string;
   };
   if (!body.target || !body.title?.trim()) {
     return NextResponse.json({ error: "target과 title이 필요합니다" }, { status: 400 });
@@ -40,7 +47,16 @@ export async function POST(request: NextRequest) {
     }
     const note = await new ObsidianAdapter(session.obsidianVaultPath).captureTask(
       body.title.trim(),
-      body.content
+      body.content,
+      {
+        targetNote: body.targetNote,
+        dailyFolder: body.dailyFolder,
+        heading: body.heading,
+        dueDate: body.dueDate,
+        priority: body.priority,
+        tags: body.tags,
+        source: body.source,
+      }
     );
     return NextResponse.json({ success: true, message: `Obsidian '${note}'에 적어뒀어요` });
   } catch (err) {

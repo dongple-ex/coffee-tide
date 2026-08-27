@@ -1,4 +1,4 @@
-// Obsidian 어댑터 — 볼트에서 미완료 체크박스 추출, 빠른 캡처(수집함 append),
+// Obsidian 어댑터 — 볼트에서 미완료 체크박스 추출, 빠른 캡처(수집함/데일리노트),
 // 완료 write-back(체크 처리), LLM 일일 다이제스트 미러링 (phase6 §8, Q4=자동).
 
 import { promises as fs } from "node:fs";
@@ -6,6 +6,13 @@ import path from "node:path";
 import { UnifiedData } from "../types/unified";
 import { walkFiles } from "./fsScan";
 import { excerpt, fromBase64Url, toBase64Url } from "./textUtils";
+import {
+  formatObsidianTaskLine,
+  insertUnderHeading,
+  type ObsidianTaskOptions,
+} from "./obsidianFormat";
+
+export { type ObsidianTaskOptions, formatObsidianTaskLine, insertUnderHeading } from "./obsidianFormat";
 
 const CAPTURE_NOTE = "coffeeTide_수집함.md";
 const LLM_DIGEST_DIR = "coffeeTide_LLM";
@@ -29,10 +36,12 @@ export class ObsidianAdapter {
       for (let i = 0; i < lines.length && items.length < limit; i++) {
         const match = lines[i].match(/^\s*[-*]\s*\[ \]\s*(.+)$/);
         if (!match) continue;
+        const taskText = match[1].trim();
+
         items.push({
           id: `obs-${toBase64Url(`${file.relPath}|${i}`)}`,
           source: "obsidian",
-          title: match[1].trim(),
+          title: taskText,
           content: `노트 '${file.relPath.replace(/\.md$/, "")}'의 미완료 항목`,
           created_at: file.mtime.toISOString(),
           author: { name: "Obsidian Vault" },
@@ -67,22 +76,40 @@ export class ObsidianAdapter {
     await fs.writeFile(fullPath, lines.join("\n"), "utf8");
   }
 
-  /** 빠른 캡처 — 수집함 노트에 체크박스 항목 append (백로그 F3: 데일리노트 옵션은 후속) */
-  async captureTask(title: string, content?: string): Promise<string> {
-    const notePath = path.join(this.vaultPath, CAPTURE_NOTE);
+  /** 빠른 캡처 — 수집함 또는 데일리노트에 Tasks/Dataview 포맷으로 항목 append/insert */
+  async captureTask(
+    title: string,
+    content?: string,
+    options?: ObsidianTaskOptions
+  ): Promise<string> {
+    const isDaily = options?.targetNote === "daily";
+    const dateKey = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+
+    let noteRelPath = CAPTURE_NOTE;
+    if (isDaily) {
+      const dailyDir = options?.dailyFolder?.trim() || "";
+      noteRelPath = dailyDir ? path.join(dailyDir, `${dateKey}.md`) : `${dateKey}.md`;
+    }
+
+    const noteFullPath = path.join(this.vaultPath, noteRelPath);
+    await fs.mkdir(path.dirname(noteFullPath), { recursive: true });
+
     let existing = "";
     try {
-      existing = await fs.readFile(notePath, "utf8");
+      existing = await fs.readFile(noteFullPath, "utf8");
     } catch {
-      existing = `# coffeeTide 수집함\n`;
+      existing = isDaily ? `# ${dateKey}\n` : `# coffeeTide 수집함\n`;
     }
-    const line = `- [ ] ${title}${content ? ` — ${excerpt(content, 120)}` : ""}`;
-    await fs.writeFile(notePath, `${existing.trimEnd()}\n${line}\n`, "utf8");
-    return CAPTURE_NOTE;
+
+    const line = formatObsidianTaskLine(title, content, options);
+    const updated = insertUnderHeading(existing, line, options?.heading);
+    await fs.writeFile(noteFullPath, updated, "utf8");
+
+    return noteRelPath;
   }
 
   /**
-   * LLM 일일 다이제스트 upsert — phase6 §8. 내용이 동일하면 미기록(idempotent).
+   * LLM 일일 다이제스트 upsert — phase6 §8. Frontmatter 및 Tasks 규격 적용.
    */
   static async writeLlmDigest(
     vaultPath: string,
@@ -94,7 +121,17 @@ export class ObsidianAdapter {
     await fs.mkdir(dir, { recursive: true });
     const notePath = path.join(dir, `${dateKey}.md`);
 
+    const frontmatter =
+      `---\n` +
+      `date: ${dateKey}\n` +
+      `tags:\n` +
+      `  - coffeeTide\n` +
+      `  - coffeeTide/llm-digest\n` +
+      `item_count: ${items.length}\n` +
+      `---\n\n`;
+
     const body =
+      frontmatter +
       `# ${dateKey} LLM 작업 다이제스트\n\n` +
       items
         .map(
