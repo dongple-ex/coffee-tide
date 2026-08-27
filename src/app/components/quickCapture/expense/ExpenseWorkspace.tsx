@@ -201,6 +201,19 @@ export const ExpenseWorkspace: React.FC<ExpenseWorkspaceProps> = ({
     }
   };
 
+  // 직접 추가 핸들러 (자연어 분석 없이 즉시 입력 양식 열기)
+  const handleDirectAdd = () => {
+    onInitialTextConsumed?.();
+    setDraft({
+      itemId: createExpenseItemId(),
+      amount: "",
+      currency: "KRW",
+      occurredAt: new Date().toISOString(),
+      sourceText: inputText.trim(),
+    });
+    setStatusMessage(null);
+  };
+
   return (
     <div className={styles.workspace}>
       {/* 1. 상단 빠른 입력 영역 */}
@@ -231,6 +244,17 @@ export const ExpenseWorkspace: React.FC<ExpenseWorkspaceProps> = ({
                   <UiIcon name="microphone" size={20} />
                 </button>
               )}
+              <button
+                type="button"
+                onClick={handleDirectAdd}
+                disabled={disabled || propLoading || isParsing}
+                className={styles.secondaryButton}
+                style={{ whiteSpace: "nowrap" }}
+                title="양식으로 직접 추가"
+              >
+                <UiIcon name="plus" size={16} />
+                직접 추가
+              </button>
               <button
                 type="submit"
                 disabled={!inputText.trim() || disabled || propLoading || isParsing}
