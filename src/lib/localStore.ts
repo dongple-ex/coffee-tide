@@ -25,6 +25,7 @@ export const LS_YOUTUBE_HISTORY = "ct_youtube_history";
 export const LS_YOUTUBE_CONTINUITY = "ct_youtube_continuity_v1";
 export const LS_COMPACT_MODE = "ct_compact_mode";
 export const LS_COMMUTE_TIMETABLES = "ct_commute_timetables";
+export const LS_CANVAS_ENABLED = "ct_exp_canvas_enabled";
 export const YOUTUBE_BUNDLES_CHANGED_EVENT = "ct:youtube-bundles-changed";
 
 import type { CommuteTimetable } from "./types/commute";

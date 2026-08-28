@@ -27,6 +27,8 @@ import {
   type CloudDraftPayload,
 } from "../cloudTools/drafts";
 import { errorMessage } from "../errors";
+import type { CanvasAiAction, CanvasExtractedTask } from "../canvas/types";
+import { generateId } from "../ids";
 
 const MODEL = "gemini-flash-latest";
 const COOLDOWN_MS = 1 * 60 * 1000; // 1분 쿨다운 (구글 429 Retry 시간 기준)
@@ -143,7 +145,7 @@ export function geminiResponseText(response: GeminiGenerateResponse): string {
   );
 }
 
-async function callGemini(
+export async function callGemini(
   systemInstruction: string,
   userText: string,
   ignoreCooldown = false,
@@ -853,4 +855,109 @@ export async function chatYoutube(url: string, messages: { role: "user" | "model
     throw new Error(message || "비공개이거나 접근할 수 없는 영상입니다. (또는 AI 호출 한도 초과)");
   }
 }
+
+/**
+ * AI Canvas 문서 변환 및 다듬기 처리기
+ */
+export async function transformCanvasDocumentGemini(params: {
+  content: string;
+  action: CanvasAiAction;
+  customPrompt?: string;
+  docTitle?: string;
+  docType?: string;
+  personaName?: string;
+}): Promise<{ content: string; extractedTasks?: CanvasExtractedTask[]; aiUsed: boolean }> {
+  const { content, action, customPrompt, docTitle, docType, personaName } = params;
+
+  if (!apiKey()) {
+    // 로컬 폴백 모드
+    if (action === "extract_tasks") {
+      const lines = content
+        .split("\n")
+        .map((l) => l.trim().replace(/^[-*•\d.]+\s*/, ""))
+        .filter((l) => l.length > 2 && !l.startsWith("#"));
+      const extractedTasks: CanvasExtractedTask[] = lines.slice(0, 8).map((title) => ({
+        id: generateId("ctask"),
+        title,
+        category: "action_required",
+        estimatedMinutes: 30,
+        selected: true,
+      }));
+      return { content, extractedTasks, aiUsed: false };
+    }
+    return { content: `[로컬 폴백 엔진] ${content}`, aiUsed: false };
+  }
+
+  let promptInstruction = "";
+  let isExtractTasks = false;
+
+  switch (action) {
+    case "shorten":
+      promptInstruction =
+        "문서의 핵심 사실과 필수 요점은 모두 유지하면서, 군더더기 수식어를 덜어내고 30~50% 압축하여 간결하게 재작성하세요.";
+      break;
+    case "expand":
+      promptInstruction =
+        "각 항목에 대한 구체적인 배경 맥락, 실행 세부사항, 주의할 점을 풍부하게 보강하여 완성도 높은 마크다운 문서로 확장하세요.";
+      break;
+    case "tone_karina":
+      promptInstruction =
+        "카리나 페르소나 스타일로 재작성하세요: 센스 있고 에너지 넘치는 활기찬 어조, 이모지 적극 활용, 격려와 응원이 담긴 든든한 비서 말투.";
+      break;
+    case "tone_kim":
+      promptInstruction =
+        "김부장 페르소나 스타일로 재작성하세요: 정중하고 격식 있는 신뢰감 넘치는 비즈니스 문체 (~하십시오, ~바랍니다), 명확한 보고 체계.";
+      break;
+    case "tone_ontime":
+      promptInstruction =
+        "칼퇴봇 페르소나 스타일로 재작성하세요: 사족을 완전히 배제하고 빠른 퇴근을 돕는 초간결 개조식, [우선순위], [필수 액션 아이템], [블로커/주의사항]으로 구조화.";
+      break;
+    case "fix_grammar":
+      promptInstruction =
+        "오탈자, 띄어쓰기, 어색한 번역투 문맥, 비문을 완벽한 표준 한국어 문맥에 맞게 깔끔하게 교정하세요.";
+      break;
+    case "to_table":
+      promptInstruction =
+        "본문의 핵심 정보와 비교 데이터를 읽기 쉬운 Markdown Table(마크다운 표) 포맷으로 변환하세요.";
+      break;
+    case "extract_tasks":
+      isExtractTasks = true;
+      promptInstruction =
+        '본문에서 지금 당장 실행해야 하는 액션 아이템(할 일 목록)들을 추출하여 JSON 포맷으로 반환하세요. 형식: [{"title": "...", "category": "urgent"|"action_required"|"reference"|"approval_required"|"meeting", "estimatedMinutes": 30}]';
+      break;
+    case "custom":
+    default:
+      promptInstruction = customPrompt || "사용자 지침에 따라 문서를 다듬어주세요.";
+      break;
+  }
+
+  const system = `당신은 프로페셔널 문서 작성 및 편집을 돕는 최고 수준의 AI 캔버스 어시스턴트(${personaName || "AI 바리스타"})입니다.
+문서 제목: ${docTitle || "무제 문서"}
+문서 종류: ${docType || "문서"}
+지시사항: ${promptInstruction}
+
+[출력 규칙]
+1. 불필요한 메타 설명("수정본입니다", "다음은 ~입니다") 없이, 완성된 결과 마크다운 본문만 순수하게 출력하세요.
+2. ${isExtractTasks ? "반드시 순수 JSON 배열만 출력하세요." : "가독성 높은 마크다운 형식으로 작성하세요."}`;
+
+  try {
+    const raw = await callGemini(system, content, true);
+    if (isExtractTasks) {
+      const parsed = parseJsonLoose<Array<{ title: string; category?: string; estimatedMinutes?: number }>>(raw) || [];
+      const extractedTasks: CanvasExtractedTask[] = parsed.map((item) => ({
+        id: generateId("ctask"),
+        title: item.title || "할 일",
+        category: (item.category as CanvasExtractedTask["category"]) || "action_required",
+        estimatedMinutes: item.estimatedMinutes || 30,
+        selected: true,
+      }));
+      return { content, extractedTasks, aiUsed: true };
+    }
+    return { content: raw.trim(), aiUsed: true };
+  } catch (err) {
+    console.warn("[Warning] Gemini Canvas Transform failed. Falling back.", err);
+    return { content, aiUsed: false };
+  }
+}
+
 

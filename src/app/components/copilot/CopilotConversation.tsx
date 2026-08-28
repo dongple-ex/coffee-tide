@@ -3,6 +3,7 @@
 import React, { RefObject } from "react";
 import { buildQaPairs, CopilotMessage } from "@/lib/copilotPairs";
 import CafeWait from "../cafeWait";
+import IcedAmericano from "../icedAmericano";
 import MarkdownLite from "../markdownLite";
 import { EvidencePanel } from "./EvidencePanel";
 import { UiIcon } from "../UiIcon";
@@ -28,6 +29,8 @@ interface Props {
   unreadKeys: Set<string>;
   onToggleExpand: (pairId: string) => void;
   onCompleteItem: (id: string) => void;
+  onOpenInCanvas?: (content: string, title?: string) => void;
+  canvasEnabled?: boolean;
 }
 
 export function CopilotConversation({
@@ -44,6 +47,8 @@ export function CopilotConversation({
   unreadKeys,
   onToggleExpand,
   onCompleteItem,
+  onOpenInCanvas,
+  canvasEnabled = true,
 }: Props) {
   const pairs = buildQaPairs(messages);
 
@@ -89,6 +94,20 @@ export function CopilotConversation({
                     <span>{pair.userText}</span>
                   </div>
                   <div className={styles.headerRightControls}>
+                    {pair.aiText && canvasEnabled && onOpenInCanvas && (
+                      <button
+                        type="button"
+                        className={styles.openInCanvasBtn}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onOpenInCanvas(pair.aiText!, pair.userText);
+                        }}
+                        title="이 답변을 AI 캔버스에서 열고 실시간 편집/다듬기"
+                        aria-label="AI 캔버스에서 열기"
+                      >
+                        🖌️ 캔버스
+                      </button>
+                    )}
                     {isUnread && <span className={styles.blinkingBadge}>답변 완료</span>}
                     <button
                       type="button"
@@ -117,7 +136,19 @@ export function CopilotConversation({
                 </div>
               )}
               {isExpanded && pair.aiText && (
-                <div className={styles.chatAnswerScroll}>
+                <div className={`${styles.chatAnswerScroll} ${styles.chatAnswerScrollUnfold}`}>
+                  <div className={styles.coffeeServedBanner}>
+                    <div className={styles.coffeeServedIconGroup}>
+                      <span className={styles.coffeeServedBell}>🛎️</span>
+                      <IcedAmericano size={22} textMode="none" />
+                    </div>
+                    <div className={styles.coffeeServedText}>
+                      <span className={styles.coffeeServedTitle}>
+                        주문하신 <b>{baristaName} 특제 브리핑</b> 나왔습니다!
+                      </span>
+                      <span className={styles.coffeeServedSub}>정성껏 추출한 답변을 확인해 보세요.</span>
+                    </div>
+                  </div>
                   <MarkdownLite text={pair.aiText} />
                   <EvidencePanel evidences={pair.evidences} onCompleteItem={onCompleteItem} />
                 </div>
@@ -127,8 +158,14 @@ export function CopilotConversation({
         })
       )}
       {busy && (
-        <div className={styles.msgHint}>
-          <CafeWait steps={waitSteps} interval={1200} />
+        <div className={styles.msgHint} style={{ padding: "16px 8px" }}>
+          <CafeWait
+            steps={waitSteps}
+            interval={1200}
+            withBarista={true}
+            baristaSize={76}
+            personaName={baristaName}
+          />
         </div>
       )}
     </div>

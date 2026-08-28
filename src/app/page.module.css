@@ -1557,6 +1557,112 @@
   line-height: 1.6;
 }
 
+/* 촥 펼쳐지는 극적인 서빙 애니메이션 */
+.chatAnswerScrollUnfold {
+  animation: unfoldMenuScroll 0.42s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transform-origin: top center;
+}
+
+@keyframes unfoldMenuScroll {
+  0% {
+    opacity: 0;
+    transform: translateY(-14px) scaleY(0.75);
+    filter: blur(4px);
+  }
+  60% {
+    opacity: 0.95;
+    transform: translateY(2px) scaleY(1.02);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scaleY(1);
+  }
+}
+
+/* 🛎️ 주문하신 메뉴 나왔습니다! 서빙 배너 */
+.coffeeServedBanner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 18%, var(--card)) 0%, color-mix(in srgb, var(--accent) 8%, var(--bg)) 100%);
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  border-radius: 12px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  animation: servedBannerPop 0.35s ease-out;
+}
+
+@keyframes servedBannerPop {
+  0% {
+    transform: scale(0.92);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.coffeeServedIconGroup {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.coffeeServedBell {
+  font-size: 1.25rem;
+  display: inline-block;
+  animation: bellRing 2.4s ease-in-out infinite;
+  transform-origin: top center;
+}
+
+@keyframes bellRing {
+  0%, 65%, 100% {
+    transform: rotate(0deg);
+  }
+  70% {
+    transform: rotate(14deg);
+  }
+  75% {
+    transform: rotate(-14deg);
+  }
+  80% {
+    transform: rotate(10deg);
+  }
+  85% {
+    transform: rotate(-8deg);
+  }
+  90% {
+    transform: rotate(4deg);
+  }
+}
+
+.coffeeServedText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.coffeeServedTitle {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: -0.2px;
+}
+
+.coffeeServedTitle b {
+  color: var(--text);
+}
+
+.coffeeServedSub {
+  font-size: 0.74rem;
+  color: var(--text-dim);
+}
+
 .chatAnswerScroll::-webkit-scrollbar {
   width: 5px;
 }
@@ -3430,4 +3536,728 @@
   border: 1px solid var(--border);
   margin-bottom: 6px;
 }
+
+/* 🖌️ AI Canvas Workspace */
+.canvasContainer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 520px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  position: relative;
+}
+
+.canvasHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: color-mix(in srgb, var(--accent) 4%, var(--card));
+  border-bottom: 1px solid var(--border);
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.canvasHeaderLeft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 260px;
+}
+
+.canvasIconBadge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: var(--accent-dim, rgba(158, 91, 34, 0.12));
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.canvasTitleInput {
+  flex: 1;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 4px 8px;
+  outline: none;
+  transition: all 0.15s ease;
+}
+
+.canvasTitleInput:focus {
+  border-color: var(--accent);
+  background: var(--bg);
+}
+
+.canvasTypeSelect {
+  font-size: 0.78rem;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.canvasHeaderRight {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.canaryBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+}
+
+.canaryBadgeActive {
+  background: rgba(34, 197, 94, 0.12);
+  border-color: rgba(34, 197, 94, 0.35);
+  color: #16a34a;
+}
+
+.canaryBadgeCloud {
+  background: color-mix(in srgb, var(--accent) 8%, var(--card));
+  border-color: color-mix(in srgb, var(--accent) 25%, transparent);
+  color: var(--accent);
+}
+
+.canaryDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.canvasUndoGroup {
+  display: flex;
+  align-items: center;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.canvasToolBtn {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.canvasUndoGroup .canvasToolBtn {
+  border: none;
+  border-radius: 0;
+  padding: 4px 7px;
+}
+
+.canvasToolBtn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 10%, var(--card));
+  color: var(--accent);
+}
+
+.canvasToolBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.canvasModeGroup {
+  display: flex;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.canvasModeBtn {
+  background: transparent;
+  border: none;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 4px;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.canvasModeBtnActive {
+  background: var(--card);
+  color: var(--accent);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.canvasCloseBtn {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  font-size: 1rem;
+  font-weight: 700;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.canvasCloseBtn:hover {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+}
+
+.canvasStatsBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 14px;
+  font-size: 0.74rem;
+  color: var(--text-dim);
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.canvasAiStatusTag {
+  margin-left: auto;
+  font-weight: 700;
+  color: var(--accent);
+  animation: pulseStatus 1.5s infinite ease-in-out;
+}
+
+@keyframes pulseStatus {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+.canvasWorkspaceBody {
+  display: flex;
+  flex: 1;
+  min-height: 380px;
+  max-height: calc(100vh - 320px);
+  overflow: hidden;
+  background: var(--card);
+}
+
+.canvasEditorPane,
+.canvasPreviewPane {
+  flex: 1;
+  height: 100%;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.canvasPaneSplit:first-child {
+  border-right: 1px solid var(--border);
+}
+
+.canvasTextarea {
+  width: 100%;
+  height: 100%;
+  min-height: 340px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  resize: none;
+  outline: none;
+}
+
+.canvasEmptyPreview {
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  text-align: center;
+  margin-top: 60px;
+}
+
+.canvasAiFooter {
+  padding: 10px 14px;
+  background: color-mix(in srgb, var(--accent) 3%, var(--card));
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.canvasAiActionGroup {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.canvasAiActionLabel {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--accent);
+  white-space: nowrap;
+  margin-right: 2px;
+}
+
+.canvasAiChip {
+  font-size: 0.76rem;
+  font-weight: 600;
+  padding: 4px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.canvasAiChip:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--card));
+  color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.canvasAiChipHighlight {
+  background: var(--accent-dim, rgba(158, 91, 34, 0.12));
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.canvasPromptForm {
+  display: flex;
+  gap: 8px;
+}
+
+.canvasPromptInput {
+  flex: 1;
+  font-size: 0.82rem;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  outline: none;
+}
+
+.canvasPromptInput:focus {
+  border-color: var(--accent);
+}
+
+.canvasPromptSubmitBtn {
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+}
+
+.canvasPromptSubmitBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 캔버스 할 일 추출 모달 */
+.canvasModalBackdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 16px;
+}
+
+.canvasModalCard {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  max-width: 520px;
+  width: 100%;
+  padding: 18px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+  animation: settingsPanelFadeIn 0.18s ease-out;
+}
+
+.canvasModalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.canvasModalHeader h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.canvasModalCloseBtn {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.canvasTaskList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 240px;
+  overflow-y: auto;
+  margin-bottom: 16px;
+}
+
+.canvasTaskItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  cursor: pointer;
+}
+
+.canvasTaskContent {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.canvasTaskTitle {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.canvasTaskMeta {
+  font-size: 0.74rem;
+  color: var(--text-dim);
+}
+
+.canvasModalFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* 대화 답변 카드 내 '캔버스에서 열기' 버튼 */
+.openInCanvasBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--accent-dim, rgba(158, 91, 34, 0.08));
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius: 6px;
+  padding: 3px 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  margin-left: 6px;
+}
+
+.openInCanvasBtn:hover {
+  background: color-mix(in srgb, var(--accent) 18%, var(--card));
+  border-color: var(--accent);
+}
+
+/* ==========================================================================
+   🎨 HTML in Canvas (WICG drawElementImage) 3D 인터랙티브 뷰 스타일
+   ========================================================================== */
+
+.htmlInCanvasContainer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  background: radial-gradient(circle at 50% 30%, color-mix(in srgb, var(--accent) 6%, var(--bg)), var(--bg));
+  position: relative;
+  overflow: hidden;
+}
+
+.htmlInCanvasToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  background: color-mix(in srgb, var(--card) 85%, transparent);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border);
+  z-index: 10;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.htmlInCanvasBadgeGroup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.htmlInCanvasControls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.htmlInCanvasViewport {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  perspective: 1200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 24px;
+}
+
+.htmlInCanvasBackdropCanvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.6;
+}
+
+.htmlInCanvas3DCard {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 760px;
+  max-height: calc(90vh - 160px);
+  overflow-y: auto;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+
+.htmlInCanvasFloating {
+  animation: htmlInCanvasFloat 6s ease-in-out infinite;
+}
+
+@keyframes htmlInCanvasFloat {
+  0% {
+    transform: perspective(1000px) rotateX(2deg) rotateY(-3deg) translateY(0px);
+  }
+  50% {
+    transform: perspective(1000px) rotateX(-2deg) rotateY(3deg) translateY(-8px);
+  }
+  100% {
+    transform: perspective(1000px) rotateX(2deg) rotateY(-3deg) translateY(0px);
+  }
+}
+
+.htmlInCanvasGlare {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: 16px;
+  z-index: 5;
+}
+
+.htmlInCanvasCardHeader {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: color-mix(in srgb, var(--card) 95%, var(--accent));
+}
+
+.htmlInCanvasTitle {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin: 0;
+  color: var(--text);
+}
+
+.htmlInCanvasCardBody {
+  padding: 24px 28px;
+  font-size: 0.94rem;
+  line-height: 1.65;
+  color: var(--text);
+}
+
+.htmlInCanvasMinimapWrapper {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 10;
+  background: rgba(18, 22, 30, 0.88);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+
+.htmlInCanvasMinimapHeader {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #94a3b8;
+  padding: 4px 8px;
+  background: rgba(0, 0, 0, 0.2);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.htmlInCanvasMinimapCanvas {
+  display: block;
+}
+
+/* ==========================================================================
+   ☕ 바리스타 막간 토크 (Idle Companion Card) 스타일
+   ========================================================================== */
+
+.baristaIdleCard {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 1000;
+  width: calc(100vw - 32px);
+  max-width: 360px;
+  background: color-mix(in srgb, var(--card) 92%, #1a1612);
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+  border-radius: 16px;
+  padding: 14px 16px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35), 0 0 20px color-mix(in srgb, var(--accent) 20%, transparent);
+  backdrop-filter: blur(14px);
+  animation: baristaSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes baristaSlideIn {
+  0% {
+    opacity: 0;
+    transform: translateY(24px) scale(0.92);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.baristaIdleHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  padding-bottom: 6px;
+}
+
+.baristaIdleTitle {
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: -0.2px;
+}
+
+.baristaIdleCloseBtn {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+}
+
+.baristaIdleCloseBtn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text);
+}
+
+.baristaIdleBody {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.baristaIdleAvatar {
+  flex-shrink: 0;
+}
+
+.baristaIdleText {
+  flex: 1;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.baristaIdleActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.baristaIdleActionBtn {
+  font-size: 0.76rem;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--card) 80%, transparent);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.baristaIdleActionBtn:hover {
+  background: color-mix(in srgb, var(--card) 60%, var(--accent));
+  border-color: var(--accent);
+}
+
+.baristaIdleActionPrimary {
+  background: var(--accent);
+  color: #ffffff;
+  border-color: var(--accent);
+}
+
+.baristaIdleActionPrimary:hover {
+  filter: brightness(1.1);
+}
+
+
+
 

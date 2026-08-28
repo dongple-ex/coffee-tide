@@ -3,14 +3,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { BaristaBrewing } from "./barista/BaristaBrewing";
 import styles from "./cafeWait.module.css";
 
 export default function CafeWait({
   steps,
   interval = 1400,
+  withBarista = false,
+  baristaSize = 64,
+  personaName,
+  presetId,
 }: {
   steps: string[];
   interval?: number;
+  withBarista?: boolean;
+  baristaSize?: number;
+  personaName?: string;
+  presetId?: string;
 }) {
   const [idx, setIdx] = useState(0);
 
@@ -22,9 +31,20 @@ export default function CafeWait({
   }, [steps, interval]);
 
   return (
-    <span className={styles.wait} role="status" aria-live="polite">
-      <span className={styles.dots} aria-hidden="true"><i /><i /><i /></span>
-      <span>{steps[Math.min(idx, steps.length - 1)]}</span>
-    </span>
+    <div className={styles.waitWrapper} role="status" aria-live="polite">
+      {withBarista && (
+        <BaristaBrewing
+          size={baristaSize}
+          isBrewing={true}
+          showBubbleOnHover={false}
+          personaName={personaName}
+          presetId={presetId}
+        />
+      )}
+      <span className={styles.wait}>
+        <span className={styles.dots} aria-hidden="true"><i /><i /><i /></span>
+        <span>{steps[Math.min(idx, steps.length - 1)]}</span>
+      </span>
+    </div>
   );
 }

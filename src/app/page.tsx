@@ -84,6 +84,9 @@ import { ContextualRecStrip } from "./components/youtube/ContextualRecStrip";
 // 초기 화면에 렌더링되지 않는 모달·위젯 패널은 지연 로딩으로 초기 번들에서 제외
 const SettingsModal = dynamic(() => import("./components/SettingsModal").then((m) => m.SettingsModal), { ssr: false });
 const SyncConflictModal = dynamic(() => import("./components/SyncConflictModal").then((m) => m.SyncConflictModal), { ssr: false });
+const AiCanvasPanel = dynamic(() => import("./components/canvas/AiCanvasPanel").then((m) => m.AiCanvasPanel), { ssr: false });
+const BaristaIdleCompanion = dynamic(() => import("./components/barista/BaristaIdleCompanion").then((m) => m.BaristaIdleCompanion), { ssr: false });
+const CafeBaristaScene = dynamic(() => import("./components/barista/CafeBaristaScene").then((m) => m.CafeBaristaScene), { ssr: false });
 const CommuteCard = dynamic(() => import("./components/CommuteCard").then((m) => m.CommuteCard), { ssr: false });
 const TimerWidget = dynamic(() => import("./components/TimerWidget").then((m) => m.TimerWidget), { ssr: false });
 const CalculatorWidget = dynamic(() => import("./components/CalculatorWidget").then((m) => m.CalculatorWidget), { ssr: false });
@@ -91,6 +94,9 @@ const ShortcutsWidget = dynamic(() => import("./components/ShortcutsWidget").the
 const FinanceWidget = dynamic(() => import("./components/FinanceWidget").then((m) => m.FinanceWidget), { ssr: false });
 const CustomNewsWidget = dynamic(() => import("./components/CustomNewsWidget").then((m) => m.CustomNewsWidget), { ssr: false });
 const YouTubeBundleWidget = dynamic(() => import("./components/youtube/YouTubeBundleWidget").then((m) => m.YouTubeBundleWidget), { ssr: false });
+import type { CanvasDocument, CanvasDocType, CanvasExtractedTask } from "@/lib/canvas/types";
+import { loadCanvasDocsFromLS, saveCanvasDocsToLS } from "@/lib/ai/canvasAi";
+import { generateId } from "@/lib/ids";
 import { loadYouTubeContinuitySession, clearYouTubeContinuitySession, computeUserScope } from "@/lib/youtube/continuity";
 import type { CustomSitePreview } from "@/lib/news/types";
 import { CommuteConfig, CommuteStop, CommuteTimetable } from "@/lib/types/commute";
@@ -125,6 +131,7 @@ const LS_DRIVE_BACKUP_ENABLED = "ct_drive_backup_enabled";
 const LS_SPARK_ENABLED = "ct_spark_enabled";
 const LS_CUSTOM_WIDGETS = "ct_custom_widgets";
 const LS_COPILOT_CONFIG = "ct_copilot_config";
+const LS_CANVAS_ENABLED = "ct_exp_canvas_enabled";
 const GOOGLE_IDENTITY_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? "";
 
 const POLL_MS = 30_000;
@@ -365,6 +372,7 @@ export default function Home() {
   const [cloudWriteBusy, setCloudWriteBusy] = useState(false);
   const [calendarReconnectRequired, setCalendarReconnectRequired] = useState(false);
   const [sparkEnabled, setSparkEnabled] = useState<boolean>(() => loadLS<boolean>(LS_SPARK_ENABLED, false));
+  const [canvasEnabled, setCanvasEnabled] = useState<boolean>(() => loadLS<boolean>(LS_CANVAS_ENABLED, true));
   const [sparkBriefing, setSparkBriefing] = useState<string | null>(null);
   const [sparkBriefingLoading, setSparkBriefingLoading] = useState(false);
   const [welcomeCardCollapsed, setWelcomeCardCollapsed] = useState(
@@ -434,6 +442,34 @@ export default function Home() {
 
   const [expandedQaKeys, setExpandedQaKeys] = useState<Set<string>>(new Set());
   const [unreadQaKeys, setUnreadQaKeys] = useState<Set<string>>(new Set());
+
+  // 🖌️ AI Canvas 상태
+  const [isCanvasOpen, setIsCanvasOpen] = useState(false);
+  const [canvasDocs, setCanvasDocs] = useState<CanvasDocument[]>([]);
+  const [activeCanvasDoc, setActiveCanvasDoc] = useState<CanvasDocument | null>(null);
+
+  // 로컬 스토리지에서 캔버스 문서 로딩
+  useEffect(() => {
+    const { docs, activeId } = loadCanvasDocsFromLS();
+    if (docs.length > 0) {
+      setCanvasDocs(docs);
+      const matched = docs.find((d) => d.id === activeId) || docs[0];
+      setActiveCanvasDoc(matched);
+    }
+  }, []);
+
+  // 캔버스 문서 업데이트 및 로컬 저장
+  const handleUpdateCanvasDoc = useCallback((updatedDoc: CanvasDocument) => {
+    setActiveCanvasDoc(updatedDoc);
+    setCanvasDocs((prev) => {
+      const exists = prev.some((d) => d.id === updatedDoc.id);
+      const next = exists
+        ? prev.map((d) => (d.id === updatedDoc.id ? updatedDoc : d))
+        : [updatedDoc, ...prev];
+      saveCanvasDocsToLS(next, updatedDoc.id);
+      return next;
+    });
+  }, []);
 
   const openWorkspaceTab = useCallback((tab: WorkspaceTab) => {
     activeCompactTabRef.current = tab;
@@ -1080,6 +1116,82 @@ export default function Home() {
       if (activeCompactTab !== "widgets") setWidgetTabSignal(true);
     },
     [activeCompactTab, showToast]
+  );
+
+  // 대화 답변이나 외부 액션에서 캔버스 열기
+  const handleOpenInCanvas = useCallback(
+    (content: string, title?: string, type: CanvasDocType = "doc") => {
+      const newDoc: CanvasDocument = {
+        id: generateId("cdoc"),
+        title: title ? `[브리핑] ${title.slice(0, 24)}` : "AI 브리핑 문서",
+        type,
+        content,
+        updatedAt: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+        sourceQuestion: title,
+        history: [content],
+        historyIndex: 0,
+      };
+      setActiveCanvasDoc(newDoc);
+      setCanvasDocs((prev) => {
+        const next = [newDoc, ...prev];
+        saveCanvasDocsToLS(next, newDoc.id);
+        return next;
+      });
+      setIsCanvasOpen(true);
+      showToast("AI 캔버스 작업 공간을 열었습니다.");
+    },
+    [showToast]
+  );
+
+  // 상단 헤더 토글 버튼
+  const handleToggleCanvas = useCallback(() => {
+    if (!isCanvasOpen) {
+      if (!activeCanvasDoc) {
+        const defaultDoc: CanvasDocument = {
+          id: generateId("cdoc"),
+          title: "새 캔버스 문서",
+          type: "doc",
+          content: `# 새 캔버스 문서\n\nAI 바리스타와 함께 아이디어를 작성하거나, AI 빠른 다듬기(어조 변경/요약/표 변환/할 일 추출)를 실행해 보세요!`,
+          updatedAt: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+          history: [],
+          historyIndex: 0,
+        };
+        setActiveCanvasDoc(defaultDoc);
+        setCanvasDocs([defaultDoc]);
+        saveCanvasDocsToLS([defaultDoc], defaultDoc.id);
+      }
+      setIsCanvasOpen(true);
+    } else {
+      setIsCanvasOpen(false);
+    }
+  }, [activeCanvasDoc, isCanvasOpen]);
+
+  // 캔버스에서 추출된 할 일들을 메인 '오늘의 행동 지침'에 추가
+  const handleRegisterCanvasTasks = useCallback(
+    (tasks: CanvasExtractedTask[]) => {
+      const nowIso = new Date().toISOString();
+      const newItems: UnifiedData[] = tasks.map((t) => ({
+        id: generateId("ctask_item"),
+        source: "manual",
+        sourceApp: "AI 캔버스",
+        title: t.title,
+        content: `AI 캔버스 문서(${activeCanvasDoc?.title || "문서"})에서 추출된 실행 과제 (예상 ${t.estimatedMinutes || 30}분)`,
+        url: "#",
+        category: t.category,
+        status: "pending",
+        created_at: nowIso,
+        author: {
+          name: copilotConfig.baristaName || "AI 바리스타",
+          email: "canvas@coffeetide.local",
+        },
+      }));
+
+      setManualItems((prev) => [...newItems, ...prev]);
+      showToast(`캔버스에서 추출된 할 일 ${newItems.length}건을 '오늘의 행동 지침'에 등록했습니다.`);
+    },
+    [activeCanvasDoc?.title, copilotConfig.baristaName, showToast]
   );
 
   useEffect(() => {
@@ -2816,6 +2928,9 @@ export default function Home() {
         onLogoutHandoff={() => void handleLogoutHandoff()}
         showConn={showConn}
         onToggleConn={() => setShowConn((v) => !v)}
+        onToggleCanvas={handleToggleCanvas}
+        isCanvasOpen={isCanvasOpen}
+        canvasEnabled={canvasEnabled}
       />
 
       {handoffRestoredInfo && (
@@ -3585,6 +3700,8 @@ export default function Home() {
               onToggleCollapsed={setWelcomeCardCollapsed}
               taskCount={workflowItems.filter((i) => i.status !== "completed" && i.status !== "dismissed").length}
               urgentCount={workflowItems.filter((i) => i.category === "urgent" && i.status !== "completed" && i.status !== "dismissed").length}
+              personaName={copilotConfig.baristaName || "AI 바리스타"}
+              presetId={copilotConfig.presetId}
             />
             <CopilotConversation
               bodyRef={copilotBodyRef}
@@ -3600,6 +3717,8 @@ export default function Home() {
               unreadKeys={unreadQaKeys}
               onToggleExpand={toggleQaPair}
               onCompleteItem={(id) => setLocalStatus(id, "completed")}
+              onOpenInCanvas={handleOpenInCanvas}
+              canvasEnabled={canvasEnabled}
             />
             {calendarDraft && (
               <CalendarDraftCard
@@ -3790,6 +3909,13 @@ export default function Home() {
             }
             showToast(checked ? "Gemini Spark 24시간 클라우드 수신이 켜졌습니다." : "Gemini Spark 수신이 꺼졌습니다.");
           }}
+          canvasEnabled={canvasEnabled}
+          onChangeCanvasEnabled={(checked) => {
+            setCanvasEnabled(checked);
+            saveLS(LS_CANVAS_ENABLED, checked);
+            if (!checked) setIsCanvasOpen(false);
+            showToast(checked ? "실험실 기능: AI 캔버스 작업 공간이 켜졌습니다." : "AI 캔버스 작업 공간이 꺼졌습니다.");
+          }}
           storageStatus={{
             cloudProvider: (cloudProvider as "supabase" | "upstash" | "guest") || "guest",
             syncState: syncStatus,
@@ -3979,6 +4105,42 @@ export default function Home() {
           </div>
         </div>
       )}
+
+      {/* 🖌️ AI 캔버스 작업 공간 모달 / 오버레이 */}
+      {canvasEnabled && isCanvasOpen && activeCanvasDoc && (
+        <div
+          className={styles.canvasModalBackdrop}
+          style={{ zIndex: 900, background: "rgba(0, 0, 0, 0.65)", padding: "20px 16px" }}
+          onClick={() => setIsCanvasOpen(false)}
+        >
+          <div
+            style={{ width: "100%", maxWidth: 1160, height: "90vh", display: "flex", flexDirection: "column" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <AiCanvasPanel
+              document={activeCanvasDoc}
+              onChangeDocument={handleUpdateCanvasDoc}
+              onClose={() => setIsCanvasOpen(false)}
+              onRegisterTasks={handleRegisterCanvasTasks}
+              personaName={copilotConfig.baristaName || "AI 바리스타"}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* ☕ 아무 일도 안 하고 있을 때 등장하는 바리스타 막간 토크 컴패니언 */}
+      <BaristaIdleCompanion
+        presetId={copilotConfig.presetId}
+        baristaName={copilotConfig.baristaName || "AI 바리스타"}
+        onOpenCopilot={() => {
+          if (compactMode) openWorkspaceTab("copilot");
+          setTimeout(() => {
+            const composer = document.querySelector<HTMLInputElement>("input[placeholder*='바리스타']");
+            composer?.focus();
+          }, 200);
+        }}
+        enabled={true}
+      />
     </main>
   );
 }

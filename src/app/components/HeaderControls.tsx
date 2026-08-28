@@ -11,6 +11,9 @@ export interface HeaderControlsProps {
   onLogoutHandoff: () => void;
   showConn: boolean;
   onToggleConn: () => void;
+  onToggleCanvas?: () => void;
+  isCanvasOpen?: boolean;
+  canvasEnabled?: boolean;
 }
 
 interface BeforeInstallPromptEvent extends Event {
@@ -23,6 +26,9 @@ export function HeaderControls({
   onLogoutHandoff,
   showConn,
   onToggleConn,
+  onToggleCanvas,
+  isCanvasOpen,
+  canvasEnabled = true,
 }: HeaderControlsProps) {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
 
@@ -64,6 +70,17 @@ export function HeaderControls({
               title="독립된 창과 백그라운드 푸시 알림을 지원하는 크롬 앱(PWA) 설치"
             >
               앱 설치
+            </button>
+          )}
+          {canvasEnabled && onToggleCanvas && (
+            <button
+              className={`${styles.connMenuBtn} ${isCanvasOpen ? styles.settingsTabBtnActive : ""}`}
+              onClick={onToggleCanvas}
+              title="AI 캔버스 작업 공간 열기/닫기"
+              aria-label="AI 캔버스 열기/닫기"
+            >
+              <UiIcon name="assistant" size={14} />
+              캔버스
             </button>
           )}
           <button

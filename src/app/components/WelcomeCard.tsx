@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import { BaristaBrewing } from "./barista/BaristaBrewing";
 import styles from "./welcomeCard.module.css";
 
 export interface WeatherData {
@@ -17,6 +18,8 @@ interface WelcomeCardProps {
   onToggleCollapsed?: (collapsed: boolean) => void;
   taskCount?: number;
   urgentCount?: number;
+  personaName?: string;
+  presetId?: string;
 }
 
 function getTimeState(): "morning" | "afternoon" | "evening" {
@@ -41,6 +44,8 @@ export function WelcomeCard({
   onToggleCollapsed,
   taskCount = 0,
   urgentCount = 0,
+  personaName = "AI 바리스타",
+  presetId = "karina",
 }: WelcomeCardProps) {
   const [internalCollapsed, setInternalCollapsed] = useState(false);
   // 1분마다 리렌더를 유발하는 시계 틱. 시간대·날짜 값 자체는 렌더 중에 파생한다
@@ -191,8 +196,21 @@ export function WelcomeCard({
       </div>
 
       <div className={styles.cardBody}>
-        <h2 className={styles.greetingTitle}>{nudge.title}</h2>
-        <p className={styles.greetingSub}>{nudge.subText}</p>
+        <div className={styles.cardBodyContent}>
+          <div className={styles.cardBodyText}>
+            <h2 className={styles.greetingTitle}>{nudge.title}</h2>
+            <p className={styles.greetingSub}>{nudge.subText}</p>
+          </div>
+          <div className={styles.baristaAvatarWrapper}>
+            <BaristaBrewing
+              size={compact ? 56 : 72}
+              isBrewing={true}
+              showBubbleOnHover={true}
+              personaName={personaName}
+              presetId={presetId}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );

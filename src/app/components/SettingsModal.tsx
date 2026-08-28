@@ -76,6 +76,8 @@ export interface SettingsModalProps {
   onChangeDriveBackupEnabled: (enabled: boolean) => void;
   sparkEnabled: boolean;
   onChangeSparkEnabled: (enabled: boolean) => void;
+  canvasEnabled?: boolean;
+  onChangeCanvasEnabled?: (enabled: boolean) => void;
   storageStatus?: DataStorageStatus;
   onRetrySync?: () => void;
   connections: ConnectionState | null;
@@ -158,6 +160,8 @@ export function SettingsModal({
   onChangeDriveBackupEnabled,
   sparkEnabled,
   onChangeSparkEnabled,
+  canvasEnabled = true,
+  onChangeCanvasEnabled,
   storageStatus,
   onRetrySync,
   connections,
@@ -442,6 +446,29 @@ export function SettingsModal({
               ruleBusy={ruleBusy}
               onAddRule={onAddRule}
             />
+
+            {/* 🧪 실험실 기능 (Experimental Labs) */}
+            <div className={styles.card} style={{ marginTop: 16 }}>
+              <div className={styles.cardTitle} style={{ fontSize: "0.9rem", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+                <span>🧪 실험실 기능 (Experimental Labs)</span>
+              </div>
+              <div className={styles.settingToggleList}>
+                <label className={styles.settingToggleItem}>
+                  <div className={styles.settingToggleCopy}>
+                    <span className={styles.settingToggleTitle}>🖌️ AI 캔버스 작업 공간 (Chrome Canary 온디바이스 AI)</span>
+                    <div className={styles.settingToggleDesc}>
+                      대화 내용을 실시간 마크다운 문서로 분할 편집하고, Chrome Canary의 온디바이스 Gemini Nano 또는 클라우드 AI로 문서를 다듬거나 할 일을 자동 추출합니다.
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={canvasEnabled}
+                    onChange={(e) => onChangeCanvasEnabled?.(e.target.checked)}
+                    aria-label="AI 캔버스 실험실 기능 활성화"
+                  />
+                </label>
+              </div>
+            </div>
           </div>
         )}
 
