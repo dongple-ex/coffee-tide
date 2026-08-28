@@ -127,18 +127,19 @@
   min-height: 90px;
   padding: 10px 14px;
   border-radius: 10px;
-  background: var(--bg-input, rgba(18, 18, 20, 0.8));
-  border: 1px solid var(--border-color, rgba(63, 63, 70, 0.6));
-  color: var(--text-main, #f4f4f5);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
   font-size: 0.85rem;
   resize: vertical;
   outline: none;
   font-family: inherit;
+  transition: border-color 0.15s ease;
 }
 
 .textArea:focus {
-  border-color: var(--primary-color, #6366f1);
-  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+  border-color: var(--accent);
+  box-shadow: none;
 }
 
 .submitButton {
@@ -288,13 +289,14 @@
 }
 
 .modalContent {
-  background: var(--bg-card-solid, #18181b);
-  border: 1px solid var(--border-color, rgba(63, 63, 70, 0.8));
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--border);
   border-radius: 18px;
   padding: 20px;
   max-width: 440px;
   width: 100%;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
 }
 
 @media (max-width: 640px) {

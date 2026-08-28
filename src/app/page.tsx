@@ -3532,6 +3532,18 @@ export default function Home() {
             <div className={`${styles.cardTitle} ${styles.copilotCardTitle}`}>
               <span className={`${styles.copilotTitleLabel} ${styles.sectionTitleLabel}`}><UiIcon name="assistant" size={17} />AI 바리스타</span>
               <div className={styles.copilotStatus} aria-label="현재 업무 상태">
+                {!isAnyConnected && (
+                  <button
+                    type="button"
+                    className={styles.unlinkedChip}
+                    onClick={() => setShowConn(true)}
+                    title="외부 서비스가 연동되지 않았습니다. 클릭하여 설정에서 연동하세요."
+                    aria-label="외부 서비스 미연동 상태, 설정 열기"
+                  >
+                    <span className={styles.unlinkedDot} />
+                    미연동
+                  </button>
+                )}
                 <span className={styles.statChip}>
                   대기 <b>{activeCount}</b>
                 </span>

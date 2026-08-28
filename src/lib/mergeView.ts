@@ -36,9 +36,17 @@ export function buildMergedView(
   nowTimestamp?: number,
   viewWindow: ViewWindowSetting = "auto"
 ): ViewItem[] {
-  const manualIds = new Set(manualItems.map((i) => i.id));
+  const manualMap = new Map(manualItems.map((i) => [i.id, i]));
   const dismissedIds = new Set(dismissed);
-  const all = [...manualItems, ...serverMails.filter((m) => !manualIds.has(m.id))];
+
+  // 외부 항목이 manualItems에 의해 상태/속성이 덮어써진 경우(local override),
+  // 원래 있던 외부 항목의 위치(순서)를 그대로 유지하면서 내용만 덮어쓴다.
+  const serverIds = new Set(serverMails.map((s) => s.id));
+  const pureManual = manualItems.filter((i) => !serverIds.has(i.id));
+  const pureManualIds = new Set(pureManual.map((i) => i.id));
+  const mergedServer = serverMails.map((s) => manualMap.get(s.id) ?? s);
+
+  const all = [...pureManual, ...mergedServer];
   const visible = all.filter((i) => !dismissedIds.has(i.id));
   const processed = applyRules(visible, rules);
 
@@ -56,11 +64,11 @@ export function buildMergedView(
   // 자동 선택, 숫자면 그 일수로 고정. 수동 항목·핀 고정·팔로업 초과 항목은 창과
   // 무관하게 유지한다 — 창이 좁아진다고 방치 업무(에스컬레이션 대상)가 화면에서
   // 사라지면 팔로업 기능이 무력화된다.
-  const external = withOverdue.filter((i) => !manualIds.has(i.id));
+  const external = withOverdue.filter((i) => !pureManualIds.has(i.id));
   const windowDays = viewWindow === "auto" ? pickWindowDays(external, now) : viewWindow;
   const kept = withOverdue.filter(
     (i) =>
-      manualIds.has(i.id) ||
+      pureManualIds.has(i.id) ||
       i.pinned ||
       i.overdue > 0 ||
       isWithinDays(i.created_at, windowDays, now)

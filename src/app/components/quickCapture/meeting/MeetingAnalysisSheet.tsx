@@ -174,14 +174,14 @@ export const MeetingAnalysisSheet: React.FC<MeetingAnalysisSheetProps> = ({
     <div className={styles.modalOverlay}>
       <div className={styles.modalContent} style={{ maxWidth: 600, padding: 24, maxHeight: "90vh", overflowY: "auto" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-          <h3 style={{ fontSize: "1.1rem", fontWeight: 700, margin: 0 }}>
+          <h3 style={{ fontSize: "1.1rem", fontWeight: 700, margin: 0, color: "var(--text)" }}>
             {step === 1 ? "회의록 정리 (맥락 입력)" : step === 2 ? "분석 직전 확인" : "AI 분석 결과 검토"}
           </h3>
           <button
             type="button"
             onClick={onClose}
             disabled={isAnalyzing || isSaving}
-            style={{ background: "transparent", border: "none", color: "#a1a1aa", fontSize: "1.2rem", cursor: "pointer" }}
+            style={{ background: "transparent", border: "none", color: "var(--text-dim)", fontSize: "1.2rem", cursor: "pointer", padding: "4px 8px" }}
           >
             ✕
           </button>
@@ -190,35 +190,37 @@ export const MeetingAnalysisSheet: React.FC<MeetingAnalysisSheetProps> = ({
         {step === 1 && (
           <div style={{ display: "flex", flexDirection: "column", gap: 16, textAlign: "left" }}>
             <div>
-              <label style={{ display: "block", fontSize: "0.85rem", color: "#a1a1aa", marginBottom: 6 }}>회의 주제 (필수)</label>
+              <label style={{ display: "block", fontSize: "0.85rem", color: "var(--text-dim)", marginBottom: 6, fontWeight: 600 }}>회의 주제 (필수)</label>
               <input
                 type="text"
-                className={styles.input}
+                className={styles.textInput}
                 value={topic}
                 onChange={(e) => setTopic(e.target.value)}
                 placeholder="예: Q3 마케팅 캠페인 기획 회의"
+                style={{ width: "100%" }}
               />
             </div>
 
             <div>
-              <label style={{ display: "block", fontSize: "0.85rem", color: "#a1a1aa", marginBottom: 6 }}>회의 목적 (선택)</label>
+              <label style={{ display: "block", fontSize: "0.85rem", color: "var(--text-dim)", marginBottom: 6, fontWeight: 600 }}>회의 목적 (선택)</label>
               <input
                 type="text"
-                className={styles.input}
+                className={styles.textInput}
                 value={purpose}
                 onChange={(e) => setPurpose(e.target.value)}
                 placeholder="예: 예산안 확정 및 매체 믹스 결정"
+                style={{ width: "100%" }}
               />
             </div>
 
             <div>
-              <label style={{ display: "block", fontSize: "0.85rem", color: "#a1a1aa", marginBottom: 6 }}>화자 보정 (선택)</label>
+              <label style={{ display: "block", fontSize: "0.85rem", color: "var(--text-dim)", marginBottom: 6, fontWeight: 600 }}>화자 보정 (선택)</label>
               {speakers.map((sp, idx) => (
                 <div key={sp.label} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                  <span style={{ fontSize: "0.85rem", color: "#71717a", width: 40 }}>화자 {sp.label}</span>
+                  <span style={{ fontSize: "0.85rem", color: "var(--text-dim)", width: 48, fontWeight: 600, flexShrink: 0 }}>화자 {sp.label}</span>
                   <input
                     type="text"
-                    className={styles.input}
+                    className={styles.textInput}
                     value={sp.displayName}
                     onChange={(e) => handleSpeakerChange(idx, e.target.value)}
                     placeholder="실제 이름 입력 (예: 홍길동)"
@@ -229,20 +231,20 @@ export const MeetingAnalysisSheet: React.FC<MeetingAnalysisSheetProps> = ({
               <button
                 type="button"
                 onClick={handleAddSpeaker}
-                style={{ background: "transparent", border: "none", color: "#6366f1", fontSize: "0.85rem", cursor: "pointer", padding: 0 }}
+                style={{ background: "transparent", border: "none", color: "var(--accent)", fontSize: "0.85rem", fontWeight: 600, cursor: "pointer", padding: "4px 0" }}
               >
                 + 화자 추가
               </button>
             </div>
 
             <div>
-              <label style={{ display: "block", fontSize: "0.85rem", color: "#a1a1aa", marginBottom: 6 }}>참고자료</label>
+              <label style={{ display: "block", fontSize: "0.85rem", color: "var(--text-dim)", marginBottom: 6, fontWeight: 600 }}>참고자료</label>
               <textarea
-                className={styles.textarea}
+                className={styles.textArea}
                 value={references.join("\n\n")}
                 onChange={(e) => setReferences(e.target.value.split("\n\n").filter(Boolean))}
                 placeholder="참고할 회의 자료 텍스트를 붙여넣으세요 (Google Drive 파일 선택 연동 예정)"
-                style={{ minHeight: 80 }}
+                style={{ minHeight: 90 }}
               />
             </div>
 
@@ -262,20 +264,20 @@ export const MeetingAnalysisSheet: React.FC<MeetingAnalysisSheetProps> = ({
 
         {step === 2 && (
           <div style={{ display: "flex", flexDirection: "column", gap: 16, textAlign: "left" }}>
-            <div style={{ background: "var(--card-hover, rgba(255,255,255,0.03))", padding: 16, borderRadius: 8, border: "1px solid var(--border)" }}>
-              <h4 style={{ margin: "0 0 12px 0", fontSize: "0.9rem" }}>전송 데이터 및 저장 위치 확인</h4>
-              <ul style={{ margin: 0, paddingLeft: 20, fontSize: "0.85rem", color: "#a1a1aa", lineHeight: 1.6 }}>
-                <li><strong>회의 주제:</strong> {topic}</li>
-                <li><strong>전사 텍스트:</strong> {transcript.length}자</li>
-                <li><strong>참고자료:</strong> {references.length}건</li>
+            <div style={{ background: "var(--card-hover, var(--bg))", padding: 16, borderRadius: 12, border: "1px solid var(--border)" }}>
+              <h4 style={{ margin: "0 0 12px 0", fontSize: "0.9rem", color: "var(--text)" }}>전송 데이터 및 저장 위치 확인</h4>
+              <ul style={{ margin: 0, paddingLeft: 20, fontSize: "0.85rem", color: "var(--text-dim)", lineHeight: 1.6 }}>
+                <li><strong style={{ color: "var(--text)" }}>회의 주제:</strong> {topic}</li>
+                <li><strong style={{ color: "var(--text)" }}>전사 텍스트:</strong> {transcript.length}자</li>
+                <li><strong style={{ color: "var(--text)" }}>참고자료:</strong> {references.length}건</li>
               </ul>
 
               <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 10 }}>
-                <label style={{ display: "flex", alignItems: "flex-start", gap: 8, cursor: "pointer", fontSize: "0.85rem" }}>
+                <label style={{ display: "flex", alignItems: "flex-start", gap: 8, cursor: "pointer", fontSize: "0.85rem", color: "var(--text)" }}>
                   <input type="checkbox" checked={consentGemini} onChange={e => setConsentGemini(e.target.checked)} style={{ marginTop: 3 }} />
                   <span>[필수] 구글 Gemini API로 전사 및 참고자료를 전송하여 회의록을 분석하는 것에 동의합니다.</span>
                 </label>
-                <label style={{ display: "flex", alignItems: "flex-start", gap: 8, cursor: "pointer", fontSize: "0.85rem" }}>
+                <label style={{ display: "flex", alignItems: "flex-start", gap: 8, cursor: "pointer", fontSize: "0.85rem", color: "var(--text)" }}>
                   <input type="checkbox" checked={consentDrive} onChange={e => setConsentDrive(e.target.checked)} style={{ marginTop: 3 }} />
                   <span>[필수] 분석된 회의록 원본과 오디오는 CoffeeTide 서버가 아닌 내 개인 Google Drive에만 저장되는 것을 이해합니다.</span>
                 </label>
@@ -307,20 +309,20 @@ export const MeetingAnalysisSheet: React.FC<MeetingAnalysisSheetProps> = ({
 
         {step === 3 && result && (
           <div style={{ display: "flex", flexDirection: "column", gap: 16, textAlign: "left" }}>
-            <div style={{ padding: 12, border: "1px solid var(--border)", borderRadius: 8, background: "rgba(0,0,0,0.2)" }}>
-              <h4 style={{ margin: "0 0 8px 0", fontSize: "0.95rem" }}>개요</h4>
-              <p style={{ margin: 0, fontSize: "0.85rem", color: "#d4d4d8", lineHeight: 1.5 }}>
+            <div style={{ padding: 14, border: "1px solid var(--border)", borderRadius: 12, background: "var(--card-hover, var(--bg))" }}>
+              <h4 style={{ margin: "0 0 8px 0", fontSize: "0.95rem", color: "var(--text)" }}>개요</h4>
+              <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--text-dim)", lineHeight: 1.5 }}>
                 {result.overview}
               </p>
             </div>
 
             {result.decisions && result.decisions.length > 0 && (
-              <div style={{ padding: 12, border: "1px solid var(--border)", borderRadius: 8 }}>
-                <h4 style={{ margin: "0 0 8px 0", fontSize: "0.95rem" }}>결정사항</h4>
-                <ul style={{ margin: 0, paddingLeft: 20, fontSize: "0.85rem", color: "#d4d4d8" }}>
+              <div style={{ padding: 14, border: "1px solid var(--border)", borderRadius: 12, background: "var(--card-hover, var(--bg))" }}>
+                <h4 style={{ margin: "0 0 8px 0", fontSize: "0.95rem", color: "var(--text)" }}>결정사항</h4>
+                <ul style={{ margin: 0, paddingLeft: 20, fontSize: "0.85rem", color: "var(--text-dim)" }}>
                   {result.decisions.map((d, i) => (
                     <li key={i} style={{ marginBottom: 4 }}>
-                      <strong>{d.decision}</strong> <span style={{ color: "#a1a1aa" }}>- {d.reason}</span>
+                      <strong style={{ color: "var(--text)" }}>{d.decision}</strong> <span style={{ color: "var(--text-dim)" }}>- {d.reason}</span>
                     </li>
                   ))}
                 </ul>
@@ -328,8 +330,8 @@ export const MeetingAnalysisSheet: React.FC<MeetingAnalysisSheetProps> = ({
             )}
 
             {result.actionItems && result.actionItems.length > 0 && (
-              <div style={{ padding: 12, border: "1px solid var(--border)", borderRadius: 8 }}>
-                <h4 style={{ margin: "0 0 8px 0", fontSize: "0.95rem" }}>할 일 후보 (등록할 항목 선택)</h4>
+              <div style={{ padding: 14, border: "1px solid var(--border)", borderRadius: 12, background: "var(--card-hover, var(--bg))" }}>
+                <h4 style={{ margin: "0 0 8px 0", fontSize: "0.95rem", color: "var(--text)" }}>할 일 후보 (등록할 항목 선택)</h4>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {result.actionItems.map((a, i) => (
                     <div key={a.clientId || i} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -340,7 +342,7 @@ export const MeetingAnalysisSheet: React.FC<MeetingAnalysisSheetProps> = ({
                           gap: 8,
                           cursor: a.saved ? "default" : "pointer",
                           fontSize: "0.85rem",
-                          color: a.saved ? "#71717a" : "#d4d4d8",
+                          color: a.saved ? "var(--text-dim)" : "var(--text)",
                         }}
                       >
                         <input
@@ -360,14 +362,14 @@ export const MeetingAnalysisSheet: React.FC<MeetingAnalysisSheetProps> = ({
                             <strong>{a.task}</strong> (담당: {a.assignee || "미지정"}, 기한: {a.dueDate || "미지정"})
                           </span>
                           {a.saved && (
-                            <span style={{ marginLeft: 8, fontSize: "0.75rem", color: "#22c55e", fontWeight: 600 }}>
+                            <span style={{ marginLeft: 8, fontSize: "0.75rem", color: "var(--ok, #22c55e)", fontWeight: 600 }}>
                               ✓ 등록 완료
                             </span>
                           )}
                         </div>
                       </label>
                       {a.error && !a.saved && (
-                        <div style={{ marginLeft: 24, fontSize: "0.78rem", color: "#ef4444" }}>
+                        <div style={{ marginLeft: 24, fontSize: "0.78rem", color: "var(--danger, #ef4444)" }}>
                           저장 실패: {a.error}
                         </div>
                       )}
@@ -380,11 +382,11 @@ export const MeetingAnalysisSheet: React.FC<MeetingAnalysisSheetProps> = ({
             {saveError && (
               <div
                 style={{
-                  color: "#ef4444",
+                  color: "var(--danger, #ef4444)",
                   fontSize: "0.85rem",
                   background: "rgba(239, 68, 68, 0.1)",
                   padding: "8px 12px",
-                  borderRadius: 6,
+                  borderRadius: 8,
                   border: "1px solid rgba(239, 68, 68, 0.2)",
                   lineHeight: 1.4,
                 }}

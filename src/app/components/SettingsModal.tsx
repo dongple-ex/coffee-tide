@@ -22,6 +22,7 @@ import { WeatherData } from "./WelcomeCard";
 import { APP_VERSION } from "@/lib/appVersion";
 import { ViewWindowSetting, WINDOW_TIERS_DAYS } from "@/lib/collectWindow";
 import type { Theme } from "./HeaderControls";
+import { UiIcon } from "./UiIcon";
 import styles from "../page.module.css";
 
 export interface SettingsModalProps {
@@ -93,15 +94,17 @@ export interface SettingsModalProps {
   onDisconnectBrowserFolder: (key: string) => void;
   onRegrantBrowserFolders: () => void;
   onPickFolder: () => Promise<string | null>;
+  initialTab?: SettingsTab;
 }
 
-type SettingsTab = "connections" | "ai" | "lifestyle" | "general";
+type SettingsTab = "general" | "connections" | "ai" | "lifestyle" | "tools";
 
 const SETTINGS_TABS: Array<{ id: SettingsTab; label: string; icon: string }> = [
+  { id: "general", label: "일반", icon: "⚙️" },
   { id: "connections", label: "서비스 연동", icon: "🔌" },
   { id: "ai", label: "AI·자동화", icon: "🤖" },
   { id: "lifestyle", label: "알림·일상", icon: "🌤️" },
-  { id: "general", label: "일반·도구", icon: "⚙️" },
+  { id: "tools", label: "휴식·도구", icon: "🧩" },
 ];
 
 export function SettingsModal({
@@ -173,8 +176,9 @@ export function SettingsModal({
   onDisconnectBrowserFolder,
   onRegrantBrowserFolders,
   onPickFolder,
+  initialTab = "general",
 }: SettingsModalProps) {
-  const [activeTab, setActiveTab] = useState<SettingsTab>("connections");
+  const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab);
   const settingsTabBarRef = useRef<HTMLDivElement>(null);
   const [accountDeleteBusy, setAccountDeleteBusy] = useState(false);
 
@@ -274,19 +278,7 @@ export function SettingsModal({
           {/* 1단: 설정 타이틀 & 버전 & 닫기 버튼 */}
           <div className={styles.stickyModalHeader}>
             <div className={styles.cardTitle} style={{ margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
-              <svg
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="m12 14 4-4" />
-                <path d="M3.34 19a10 10 0 1 1 17.32 0" />
-              </svg>
+              <UiIcon name="settings" size={20} />
               <span>설정</span>
               <span
                 className={styles.appVersionBadge}
@@ -485,7 +477,7 @@ export function SettingsModal({
           </div>
         )}
 
-        {/* ⚙️ 4. 일반 & 도구 탭 */}
+        {/* ⚙️ 1. 일반 탭 */}
         {activeTab === "general" && (
           <div id="settings-panel-general" role="tabpanel" aria-labelledby="settings-tab-general" className={styles.settingsTabPanel}>
             {/* 🖥️ 화면 뷰 모드 설정 */}
@@ -610,16 +602,6 @@ export function SettingsModal({
               </div>
             </div>
 
-            <ShortcutsSection
-              shortcuts={appShortcuts}
-              onChange={onChangeAppShortcuts}
-              onNotify={onNotify}
-            />
-
-            <YouTubeBundleSection onNotify={onNotify} />
-
-            <LocalToolsSection onNotify={onNotify} />
-
             <div className={styles.accountManagementCard}>
               <div>
                 <div className={styles.cardTitle} style={{ marginBottom: 6 }}>
@@ -640,6 +622,21 @@ export function SettingsModal({
                 </button>
               )}
             </div>
+          </div>
+        )}
+
+        {/* 🧩 5. 휴식·도구 탭 */}
+        {activeTab === "tools" && (
+          <div id="settings-panel-tools" role="tabpanel" aria-labelledby="settings-tab-tools" className={styles.settingsTabPanel}>
+            <ShortcutsSection
+              shortcuts={appShortcuts}
+              onChange={onChangeAppShortcuts}
+              onNotify={onNotify}
+            />
+
+            <YouTubeBundleSection onNotify={onNotify} />
+
+            <LocalToolsSection onNotify={onNotify} />
           </div>
         )}
       </div>

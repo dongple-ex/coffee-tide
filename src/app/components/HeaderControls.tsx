@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import IcedAmericano from "./icedAmericano";
+import { UiIcon } from "./UiIcon";
 import styles from "../page.module.css";
 
 export type Theme = "dark" | "light" | "coffee" | "notebook" | "mega" | "kustom";
@@ -72,19 +73,7 @@ export function HeaderControls({
             aria-haspopup="dialog"
             aria-label="설정 열기/닫기"
           >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="m12 14 4-4" />
-              <path d="M3.34 19a10 10 0 1 1 17.32 0" />
-            </svg>
+            <UiIcon name="settings" size={14} />
             설정
           </button>
           <button className={styles.logoutBtnSmall} onClick={onLogoutHandoff}>

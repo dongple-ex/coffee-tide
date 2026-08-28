@@ -177,6 +177,37 @@
   white-space: nowrap;
 }
 
+.unlinkedChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: var(--warn, #d97706);
+  font-size: 0.74rem;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 3px 9px;
+  border-radius: 999px;
+  transition: all 0.15s ease;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.unlinkedChip:hover {
+  background: rgba(245, 158, 11, 0.22);
+  border-color: rgba(245, 158, 11, 0.55);
+}
+
+.unlinkedDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--warn, #f59e0b);
+  display: inline-block;
+  flex-shrink: 0;
+}
+
 .copilotStatus .refreshBtn {
   width: 26px;
   height: 26px;
