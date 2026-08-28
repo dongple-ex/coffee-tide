@@ -912,6 +912,10 @@ export async function transformCanvasDocumentGemini(params: {
       promptInstruction =
         "칼퇴봇 페르소나 스타일로 재작성하세요: 사족을 완전히 배제하고 빠른 퇴근을 돕는 초간결 개조식, [우선순위], [필수 액션 아이템], [블로커/주의사항]으로 구조화.";
       break;
+    case "tone_chaerin":
+      promptInstruction =
+        "칼찌장인 채린이 페르소나 스타일로 재작성하세요: 시니컬하면서도 자신감 넘치는 당돌한 개구쟁이 톤, 촌철살인으로 핵심과 블로커를 정곡 찌르듯 짚어주지만 은근히 사용자를 챙겨주는 위트 있는 문체.";
+      break;
     case "fix_grammar":
       promptInstruction =
         "오탈자, 띄어쓰기, 어색한 번역투 문맥, 비문을 완벽한 표준 한국어 문맥에 맞게 깔끔하게 교정하세요.";

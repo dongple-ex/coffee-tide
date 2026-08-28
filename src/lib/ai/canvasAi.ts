@@ -1,4 +1,4 @@
-﻿import type {
+import type {
   CanvasAiAction,
   CanvasDocument,
   CanvasExtractedTask,
@@ -48,6 +48,9 @@ export async function transformCanvasContentClient(params: {
           break;
         case "tone_ontime":
           promptInstruction = "칼퇴봇 스타일(사족 없는 초간결 개조식, [우선순위], [필수 액션], [블로커])로 재작성하세요.";
+          break;
+        case "tone_chaerin":
+          promptInstruction = "칼찌장인 채린이 스타일(시니컬하면서도 자신감 넘치는 개구쟁이 톤, 촌철살인 핵심 지적과 위트 있는 반전 매력)로 재작성하세요.";
           break;
         case "fix_grammar":
           promptInstruction = "오탈자, 띄어쓰기, 어색한 문맥을 표준 한국어에 맞게 정밀 교정하세요.";

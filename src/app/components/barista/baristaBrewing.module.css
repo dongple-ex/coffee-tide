@@ -246,6 +246,18 @@
   z-index: 10;
 }
 
+.baristaParallaxWrap {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  will-change: transform;
+  pointer-events: none;
+}
+
 .barista3dActor {
   width: 100%;
   height: 100%;
@@ -294,7 +306,7 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: center 15%;
+  object-position: center;
   display: block;
 }
 

@@ -114,6 +114,12 @@ export function formatIdleTalkForPersona(
         content: `[유휴 상태 감지]\n${item.emoji} ${item.text}\n적절한 리프레시는 정시 퇴근 효율을 높입니다.`,
       };
 
+    case "chaerin":
+      return {
+        title: `🃏 ${baristaName}의 도발(?) 톡`,
+        content: `멍때리고 있을 시간 있나? ㅋㅋㅋ\n${item.emoji} "${item.text}"\n훗, 머리 식혔으면 어서 다음 거 치우러 가자고!`,
+      };
+
     case "barista":
     case "custom":
     default:

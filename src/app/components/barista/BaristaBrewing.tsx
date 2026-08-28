@@ -25,6 +25,13 @@ const BREW_MESSAGES = [
   "🛎️ 주문하신 부드러운 카푸치노 나왔습니다! ☁️ 여유롭고 깔끔한 하루 보내세요.",
 ];
 
+const BREW_MESSAGES_CHAERIN = [
+  "🛎️ 주문하신 달콤상큼 복숭아아이스티 나왔거든? 🍑 시원하게 당 충전하고 기운 차려!",
+  "🛎️ 톡 쏘는 청량한 레모네이드 한 잔! 🍋 정신이 번쩍 들지? 훗~",
+  "🛎️ 진하고 달콤한 시원한 아이스초코 완성! 🍫 이거 마시고 더 힘내보든가!",
+  "🛎️ 시원한 과일프라페 대령이요! 🍧 내가 특별히 맛있게 만들었지!",
+];
+
 export function BaristaBrewing({
   size = 80,
   isBrewing = true,
@@ -40,28 +47,46 @@ export function BaristaBrewing({
   const [isHovered, setIsHovered] = useState(false);
   const [bubbleMessage, setBubbleMessage] = useState<string | null>(null);
 
-  const isMale =
-    gender === "male" ||
-    presetId === "secretary" ||
-    presetId === "pm" ||
-    (personaName && (personaName.includes("부장") || personaName.includes("봇") || personaName.includes("남")));
+  const isChaerin = Boolean(
+    presetId === "chaerin" ||
+      (personaName && (personaName.includes("채린") || personaName.includes("채스터") || personaName.includes("칼찌")))
+  );
 
-  const imageSrc = isMale
+  const isRobot = Boolean(
+    !isChaerin &&
+      (presetId === "pm" ||
+        (personaName && (personaName.includes("칼퇴") || personaName.includes("봇") || personaName.includes("로봇"))))
+  );
+
+  const isMale = Boolean(
+    !isChaerin &&
+      !isRobot &&
+      (gender === "male" ||
+        presetId === "secretary" ||
+        (personaName && (personaName.includes("부장") || personaName.includes("남"))))
+  );
+
+  const imageSrc = isChaerin
+    ? "/barista/barista_chaerin_3d.png"
+    : isRobot
+    ? "/barista/barista_robot_3d.png"
+    : isMale
     ? isBrewing
       ? "/barista/barista_male_3d_brewing.jpg"
       : "/barista/barista_male_3d_serving.jpg"
     : isBrewing
-      ? "/barista/barista_3d_brewing.jpg"
-      : "/barista/barista_3d_serving.jpg";
+    ? "/barista/barista_3d_brewing.jpg"
+    : "/barista/barista_3d_serving.jpg";
 
   const handleClick = () => {
-    const randomMsg = BREW_MESSAGES[Math.floor(Math.random() * BREW_MESSAGES.length)];
+    const pool = isChaerin ? BREW_MESSAGES_CHAERIN : BREW_MESSAGES;
+    const randomMsg = pool[Math.floor(Math.random() * pool.length)];
     setBubbleMessage(randomMsg);
     setTimeout(() => setBubbleMessage(null), 3500);
     onClick?.();
   };
 
-  const currentBubble = bubbleMessage || (isHovered && showBubbleOnHover ? `${personaName}가 커피를 내리는 중이에요 ☕` : statusText);
+  const currentBubble = bubbleMessage || (isHovered && showBubbleOnHover ? `${personaName}가 ${isChaerin ? "시원한 아이스 음료를" : "커피를"} 내리는 중이에요 ${isChaerin ? "🍧" : "☕"}` : statusText);
 
   return (
     <div
@@ -71,8 +96,8 @@ export function BaristaBrewing({
       onMouseLeave={() => setIsHovered(false)}
       onClick={handleClick}
       role="img"
-      aria-label={`${personaName} 커피 브루잉 3D 애니메이션`}
-      title="클릭하면 바리스타가 스페셜 커피를 내려드려요!"
+      aria-label={`${personaName} ${isChaerin ? "아이스 음료" : "커피"} 브루잉 3D 애니메이션`}
+      title={`클릭하면 바리스타가 ${isChaerin ? "스페셜 아이스 음료를" : "스페셜 커피를"} 만들어드려요!`}
     >
       {currentBubble && (
         <div className={styles.baristaSpeechBubble} role="status">
@@ -86,6 +111,7 @@ export function BaristaBrewing({
           imageSrc={imageSrc}
           isBrewing={isBrewing}
           personaName={personaName}
+          hideSteam={isChaerin}
           onClick={handleClick}
         />
       ) : (

@@ -92,7 +92,6 @@ export function BaristaIdleCompanion({
     >
       <div className={styles.baristaIdleHeader}>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <span style={{ fontSize: "1.1rem" }}>🛎️</span>
           <span className={styles.baristaIdleTitle}>{formatted.title}</span>
         </div>
         <button

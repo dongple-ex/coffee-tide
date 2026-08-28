@@ -27,5 +27,10 @@ describe("Barista Idle Talks Module", () => {
     const ontimeTalk = formatIdleTalkForPersona(item, "pm", "칼퇴봇");
     expect(ontimeTalk.title).toContain("칼퇴봇");
     expect(ontimeTalk.content).toContain("[유휴 상태 감지]");
+
+    // Chaerin (chaerin)
+    const chaerinTalk = formatIdleTalkForPersona(item, "chaerin", "칼찌장인 채린이");
+    expect(chaerinTalk.title).toContain("채린이");
+    expect(chaerinTalk.content).toContain("멍때리고 있을 시간 있나");
   });
 });

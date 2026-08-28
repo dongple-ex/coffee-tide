@@ -392,6 +392,14 @@ export function AiCanvasPanel({
           <button
             type="button"
             className={styles.canvasAiChip}
+            onClick={() => handleRunAiAction("tone_chaerin" as any)}
+            disabled={aiBusy || !document.content.trim()}
+          >
+            🃏 채린이 톤
+          </button>
+          <button
+            type="button"
+            className={styles.canvasAiChip}
             onClick={() => handleRunAiAction("fix_grammar")}
             disabled={aiBusy || !document.content.trim()}
           >

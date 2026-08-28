@@ -62,6 +62,8 @@ export function CopilotCustomSection({
       ? "안녕하십니까. 오늘 진행할 주요 업무와 일정 브리핑 보고드립니다."
       : currentName === "칼퇴봇" || config.tone === "concise"
       ? "사족 빼고 결론만 갑니다. 오늘 칼퇴를 위한 핵심 브리핑입니다."
+      : currentName === "칼찌장인 채린이" || config.presetId === "chaerin"
+      ? "훗, 내가 없으면 일이 안 돌아가지? 오늘 해야 할 거 딱 정리해 줄게 🃏"
       : config.tone === "custom" && config.customToneText
       ? `(${config.customToneText}) 오늘 업무 브리핑을 시작하겠습니다.`
       : "커피 한 잔과 함께 편안하게 오늘 하루를 시작해 보세요 ☕";
@@ -73,6 +75,8 @@ export function CopilotCustomSection({
       ? "금일 14시 예정된 주요 회의 자료 검토가 최우선 과제입니다. 일정에 차질 없도록 확인 바랍니다."
       : currentName === "칼퇴봇" || config.tone === "concise"
       ? "• [칼퇴 필수 1] 오전 긴급 결재 2건 처리\n• [칼퇴 필수 2] 오후 2시 회의 30분 전 자료 최종 점검\n• [블로커] 미회신 메일 1건 빠른 확인 요망"
+      : currentName === "칼찌장인 채린이" || config.presetId === "chaerin"
+      ? "어휴, 이것도 아직 안 끝냈어? 결재 2건부터 후딱 치우고 오자고. 나머진 내가 봐둘 테니까! 🖤"
       : config.tone === "custom" && config.customToneText
       ? `사용자 지정 어조("${config.customToneText}")에 맞추어 맞춤형으로 브리핑합니다.`
       : "긴급한 메일 1건이 도착해 있어요. 따뜻한 커피 한 잔 드시면서 차근차근 확인해 드릴게요~";

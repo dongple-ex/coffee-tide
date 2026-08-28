@@ -18,6 +18,7 @@ export type CanvasAiAction =
   | "tone_karina"
   | "tone_kim"
   | "tone_ontime"
+  | "tone_chaerin"
   | "fix_grammar"
   | "to_table"
   | "extract_tasks"

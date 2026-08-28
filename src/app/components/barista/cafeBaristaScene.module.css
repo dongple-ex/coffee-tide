@@ -210,13 +210,13 @@
   justify-content: center;
 }
 
-/* 🪑 원목 카운터 테이블 3D 상판 */
+/* 🪑 원목 카운터 테이블 3D 상판 (인터랙티브 바) */
 .counterTable {
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
-  height: 38px;
+  height: 42px;
   background: linear-gradient(180deg, #6b432a 0%, #4a2d1a 60%, #2f190c 100%);
   border-radius: 10px;
   border-top: 3px solid #8d5b38;
@@ -225,13 +225,63 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 16px;
+  padding: 0 14px;
+}
+
+/* 🛎️ 카운터 골든 호출 벨 버튼 */
+.counterBellBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 50%, #92400e 100%);
+  border: 1.5px solid #fbbf24;
+  color: #ffffff;
+  padding: 4px 10px;
+  border-radius: 16px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(217, 119, 6, 0.45), inset 0 1px 2px rgba(255, 255, 255, 0.35);
+  transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.counterBellBtn:hover {
+  transform: translateY(-2px) scale(1.06);
+  box-shadow: 0 6px 16px rgba(245, 158, 11, 0.65), 0 0 10px rgba(251, 191, 36, 0.4);
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+}
+
+.counterBellBtn:active {
+  transform: translateY(1px) scale(0.96);
+  box-shadow: 0 2px 6px rgba(217, 119, 6, 0.4);
+}
+
+.counterBellIcon {
+  font-size: 0.92rem;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+}
+
+.counterBellLabel {
+  letter-spacing: -0.2px;
+  white-space: nowrap;
+}
+
+.counterPropsGroup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .counterProp {
-  font-size: 1.1rem;
+  font-size: 1.15rem;
   opacity: 0.9;
+  cursor: pointer;
+  transition: transform 0.18s ease;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
+}
+
+.counterProp:hover {
+  transform: scale(1.25) translateY(-2px);
 }
 
 /* 👩‍🍳 카운터 뒤에 서 있는 3D 바리스타 */
@@ -249,9 +299,8 @@
 
 /* ♨️ 카운터 커피잔에서 피어오르는 실감형 스팀 */
 .stageCoffeeCup {
-  position: absolute;
-  bottom: 30px;
-  right: 32px;
+  position: relative;
+  bottom: 12px;
   z-index: 6;
   display: flex;
   flex-direction: column;
@@ -261,15 +310,15 @@
 }
 
 .stageCoffeeCup:hover {
-  transform: scale(1.1) rotate(4deg);
+  transform: scale(1.15) rotate(4deg);
 }
 
 .stageSteamPlume {
-  width: 14px;
-  height: 32px;
+  width: 12px;
+  height: 26px;
   background: radial-gradient(ellipse at 50% 100%, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0.25) 50%, transparent 80%);
   border-radius: 50%;
-  filter: blur(3px);
+  filter: blur(2.5px);
   animation: stageSteamRise 2.4s ease-out infinite;
   transform-origin: bottom center;
 }
@@ -283,11 +332,238 @@
     opacity: 0.9;
   }
   70% {
-    transform: translateY(-20px) scale(1.4) rotate(8deg);
+    transform: translateY(-16px) scale(1.4) rotate(8deg);
     opacity: 0.5;
   }
   100% {
-    transform: translateY(-38px) scale(2) rotate(-10deg);
+    transform: translateY(-30px) scale(2) rotate(-10deg);
+    opacity: 0;
+  }
+}
+
+/* ✨ 아이스 음료 전용 반짝이는 섬광(Glint Sparkle) 이펙트 */
+.stageIceGlintGroup {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 32px;
+  height: 32px;
+  pointer-events: none;
+}
+
+.stageGlintStar {
+  position: absolute;
+  font-size: 0.95rem;
+  color: #a5f3fc;
+  text-shadow: 0 0 8px rgba(103, 232, 249, 0.9), 0 0 16px rgba(192, 132, 252, 0.7);
+  animation: glintTwinkle 2.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  opacity: 0;
+}
+
+@keyframes glintTwinkle {
+  0%, 100% {
+    transform: scale(0.2) rotate(0deg);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.3) rotate(45deg);
+    opacity: 1;
+    filter: brightness(1.4);
+  }
+}
+
+/* ⚔️ 칼찌장인 채린이 벨 울리기 액션 컷인 (Cut-in) 스타일 */
+.chaerinCutinOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: var(--radius-xl, 20px);
+  pointer-events: none;
+  animation: cutinOverlayFade 1.6s ease-in-out forwards;
+}
+
+.cutinSpeedlines {
+  position: absolute;
+  inset: -50%;
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(244, 114, 182, 0.18) 0px,
+    rgba(244, 114, 182, 0.18) 6px,
+    transparent 6px,
+    transparent 18px,
+    rgba(56, 189, 248, 0.18) 18px,
+    rgba(56, 189, 248, 0.18) 24px,
+    transparent 24px,
+    transparent 36px
+  );
+  animation: cutinSpeedlinesMove 0.4s linear infinite;
+}
+
+.cutinBanner {
+  position: relative;
+  width: 110%;
+  height: 140px;
+  background: linear-gradient(
+    135deg,
+    rgba(15, 23, 42, 0.94) 0%,
+    rgba(49, 10, 80, 0.92) 50%,
+    rgba(15, 23, 42, 0.96) 100%
+  );
+  border-top: 2.5px solid #f472b6;
+  border-bottom: 2.5px solid #38bdf8;
+  box-shadow: 0 0 35px rgba(217, 70, 239, 0.5), inset 0 0 25px rgba(56, 189, 248, 0.3);
+  transform: skewX(-14deg) scaleY(0);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8%;
+  animation: cutinBannerPop 1.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.cutinTextGroup {
+  transform: skewX(14deg);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  z-index: 2;
+}
+
+.cutinBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: linear-gradient(90deg, #ec4899, #8b5cf6);
+  color: #ffffff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  width: fit-content;
+  letter-spacing: 0.08em;
+  box-shadow: 0 0 12px rgba(236, 72, 153, 0.8);
+}
+
+.cutinTitle {
+  font-size: 1.55rem;
+  font-weight: 900;
+  color: #ffffff;
+  letter-spacing: -0.02em;
+  text-shadow: 0 0 12px rgba(244, 114, 182, 0.9), 0 0 24px rgba(56, 189, 248, 0.8);
+}
+
+.cutinSubtitle {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #a5f3fc;
+  text-shadow: 0 0 8px rgba(103, 232, 249, 0.6);
+}
+
+.cutinImageWrap {
+  transform: skewX(14deg);
+  width: 140px;
+  height: 140px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: cutinImageSlash 1.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.cutinImage {
+  width: 130px;
+  height: 130px;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 3px solid #f472b6;
+  box-shadow: 0 0 20px rgba(244, 114, 182, 0.9), 0 0 35px rgba(56, 189, 248, 0.8);
+  filter: contrast(1.15) brightness(1.08);
+}
+
+.cutinFlash {
+  position: absolute;
+  inset: 0;
+  background: #ffffff;
+  opacity: 0;
+  pointer-events: none;
+  animation: cutinFlashEffect 0.35s ease-out forwards;
+}
+
+@keyframes cutinOverlayFade {
+  0% {
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes cutinSpeedlinesMove {
+  0% {
+    transform: translate(0, 0);
+  }
+  100% {
+    transform: translate(24px, 24px);
+  }
+}
+
+@keyframes cutinBannerPop {
+  0% {
+    transform: skewX(-14deg) scaleY(0);
+  }
+  12% {
+    transform: skewX(-14deg) scaleY(1.1);
+  }
+  20% {
+    transform: skewX(-14deg) scaleY(1);
+  }
+  82% {
+    transform: skewX(-14deg) scaleY(1);
+    opacity: 1;
+  }
+  100% {
+    transform: skewX(-14deg) scaleY(0);
+    opacity: 0;
+  }
+}
+
+@keyframes cutinImageSlash {
+  0% {
+    transform: skewX(14deg) translateX(80px) scale(0.6) rotate(-15deg);
+    opacity: 0;
+  }
+  18% {
+    transform: skewX(14deg) translateX(-10px) scale(1.15) rotate(5deg);
+    opacity: 1;
+  }
+  28% {
+    transform: skewX(14deg) translateX(0) scale(1) rotate(0deg);
+  }
+  82% {
+    transform: skewX(14deg) translateX(0) scale(1) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: skewX(14deg) translateX(-60px) scale(0.7) rotate(15deg);
+    opacity: 0;
+  }
+}
+
+@keyframes cutinFlashEffect {
+  0% {
+    opacity: 0.85;
+  }
+  100% {
     opacity: 0;
   }
 }
