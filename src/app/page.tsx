@@ -2983,7 +2983,7 @@ export default function Home() {
             <span
               className={unreadQaKeys.size > 0 || sparkTabSignal ? styles.compactTabLabelSignal : undefined}
             >
-              AI 바리스타
+              {copilotConfig.baristaName || "AI 바리스타"}
             </span>
             {unreadQaKeys.size + (sparkTabSignal ? 1 : 0) > 0 && (
               <span className={styles.compactTabBadge}>{unreadQaKeys.size + (sparkTabSignal ? 1 : 0)}</span>
@@ -3530,7 +3530,7 @@ export default function Home() {
           {/* G3/G6: Copilot — 무연동에서도 활성, MarkdownLite 렌더링 */}
           <section className={`${styles.card} ${styles.colCopilot} ${styles.areaCopilot}`}>
             <div className={`${styles.cardTitle} ${styles.copilotCardTitle}`}>
-              <span className={`${styles.copilotTitleLabel} ${styles.sectionTitleLabel}`}><UiIcon name="assistant" size={17} />AI 바리스타</span>
+              <span className={`${styles.copilotTitleLabel} ${styles.sectionTitleLabel}`}><UiIcon name="assistant" size={17} />{copilotConfig.baristaName || "AI 바리스타"}</span>
               <div className={styles.copilotStatus} aria-label="현재 업무 상태">
                 {!isAnyConnected && (
                   <button
@@ -3595,6 +3595,7 @@ export default function Home() {
               sparkLoading={sparkBriefingLoading}
               sparkBriefing={sparkEnabled ? sparkBriefing : null}
               hasItems={merged.length > 0}
+              baristaName={copilotConfig.baristaName || "AI 바리스타"}
               expandedKeys={expandedQaKeys}
               unreadKeys={unreadQaKeys}
               onToggleExpand={toggleQaPair}
@@ -3652,6 +3653,7 @@ export default function Home() {
               onSubmit={() => void askCopilot()}
               onFocus={() => setWelcomeCardCollapsed(true)}
               busy={copilotBusy}
+              baristaName={copilotConfig.baristaName || "AI 바리스타"}
               onRunSlashCommand={(cmd) => {
                 if (!handleSlashCommand(cmd)) void askCopilot(cmd);
               }}

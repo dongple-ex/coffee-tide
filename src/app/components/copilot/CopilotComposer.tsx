@@ -65,6 +65,8 @@ interface Props {
   saveToDrive: boolean;
   onToggleSaveToDrive: () => void;
   googleConnected: boolean;
+  baristaName?: string;
+  placeholder?: string;
 }
 
 export function CopilotComposer({
@@ -85,6 +87,8 @@ export function CopilotComposer({
   saveToDrive,
   onToggleSaveToDrive,
   googleConnected,
+  baristaName = "AI 바리스타",
+  placeholder,
 }: Props) {
   const trimmed = value.trim();
   const slashMatches = trimmed.startsWith("/")
@@ -199,13 +203,13 @@ export function CopilotComposer({
 
       <input
         className={styles.input}
-        placeholder="오늘 뭐 해야 해? · 내일 3시 회의 일정 등록해줘"
+        placeholder={placeholder || `${baristaName}에게 물어보기 (예: "오늘 뭐 해야 해?")`}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onFocus={onFocus}
         onKeyDown={(e) => e.key === "Enter" && onSubmit()}
         disabled={busy}
-        aria-label="AI 바리스타 질문 입력"
+        aria-label={`${baristaName} 질문 입력`}
       />
 
       <button

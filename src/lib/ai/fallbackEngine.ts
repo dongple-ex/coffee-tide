@@ -3,6 +3,7 @@
 
 import { CATEGORY_LABELS, SOURCE_LABELS, UnifiedCategory, UnifiedData } from "../types/unified";
 import { AutomationRule } from "../automation/rules";
+import type { CopilotUserConfig } from "./harness";
 
 export function classifyOne(title: string, content: string): {
   category: UnifiedCategory;
@@ -63,8 +64,10 @@ export function buildSparkAutonomousBriefing(items: UnifiedData[]): string | nul
 export function copilotBriefing(
   items: UnifiedData[],
   dateLabel: string,
-  question?: string
+  question?: string,
+  config?: CopilotUserConfig
 ): string {
+  const baristaName = config?.baristaName || "AI 바리스타";
   const active = items.filter((i) => i.status !== "completed" && i.status !== "dismissed");
   const q = question?.trim() || "";
   const sparkBriefing = buildSparkAutonomousBriefing(items);
@@ -79,7 +82,7 @@ export function copilotBriefing(
 
     if (matched.length > 0) {
       const lines: string[] = [];
-      lines.push(`## 💬 질문 답변: "${q}"`);
+      lines.push(`## 💬 ${baristaName} 답변: "${q}"`);
       lines.push("");
       lines.push(`요청하신 내용과 관련된 **${matched.length}건의 정보**를 찾았습니다:`);
       lines.push("");
@@ -89,7 +92,7 @@ export function copilotBriefing(
         if (i.actionDirective) lines.push(`   - 💡 권장 행동: ${i.actionDirective}`);
       });
       lines.push("");
-      lines.push(`> ☕ 참고: 로컬 인텔리전스 엔진이 수신된 업무 데이터를 바탕으로 정리했습니다.`);
+      lines.push(`> ☕ 참고: ${baristaName} 로컬 인텔리전스 엔진이 수신된 업무 데이터를 바탕으로 정리했습니다.`);
       return sparkBriefing ? `${sparkBriefing}\n\n${lines.join("\n")}` : lines.join("\n");
     }
   }
@@ -102,7 +105,7 @@ export function copilotBriefing(
   const meetings = byCat("meeting");
 
   const lines: string[] = [];
-  lines.push(`## 오늘의 브리핑 (기준일: ${dateLabel})`);
+  lines.push(`## ${baristaName}의 오늘 브리핑 (기준일: ${dateLabel})`);
   lines.push("");
 
   if (sparkBriefing) {

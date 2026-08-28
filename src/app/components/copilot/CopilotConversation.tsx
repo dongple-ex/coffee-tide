@@ -22,6 +22,8 @@ interface Props {
   sparkBriefing?: string | null;
   /** 표시할 업무가 하나도 없을 때 안내 문구를 보강한다 */
   hasItems: boolean;
+  /** AI 호칭/페르소나 이름 */
+  baristaName?: string;
   expandedKeys: Set<string>;
   unreadKeys: Set<string>;
   onToggleExpand: (pairId: string) => void;
@@ -37,6 +39,7 @@ export function CopilotConversation({
   sparkLoading,
   sparkBriefing,
   hasItems,
+  baristaName = "AI 바리스타",
   expandedKeys,
   unreadKeys,
   onToggleExpand,
@@ -62,7 +65,7 @@ export function CopilotConversation({
       )}
       {pairs.length === 0 ? (
         <div className={styles.msgHint}>
-          “오늘 뭐 해야 해?”라고 편하게 물어보세요.
+          “오늘 뭐 해야 해?”라고 {baristaName}에게 편하게 물어보세요.
           {!hasItems &&
             " 아직 아는 업무가 없어서 브리핑이 좀 심심할 거예요 — 위에서 몇 개만 알려주세요!"}
         </div>

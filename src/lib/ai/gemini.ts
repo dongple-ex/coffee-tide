@@ -397,7 +397,7 @@ export async function askCopilot(
   });
 
   if (!apiKey()) {
-    return { answer: copilotBriefing(classifyAll(items), dateLabel, question), aiUsed: false };
+    return { answer: copilotBriefing(classifyAll(items), dateLabel, question, config), aiUsed: false };
   }
 
   const system = buildCopilotSystemInstruction(dateLabel, timezone, config);
@@ -431,7 +431,7 @@ export async function askCopilot(
     return { answer, aiUsed: true };
   } catch (err) {
     console.warn("[Warning] Gemini API unavailable. Falling back to local briefing.", err);
-    return { answer: copilotBriefing(items, dateLabel, question), aiUsed: false };
+    return { answer: copilotBriefing(items, dateLabel, question, config), aiUsed: false };
   }
 }
 
