@@ -50,6 +50,8 @@ export function AiCanvasPanel({
   onTogglePopout,
 }: Props) {
   const [viewMode, setViewMode] = useState<ViewMode>("split");
+  /** 사용자가 토글하는 분할 뷰 레이아웃 방향 (true = 상하, false = 좌우 나란히) */
+  const [splitStacked, setSplitStacked] = useState(stacked);
   const [canaryStatus, setCanaryStatus] = useState<ChromeCanaryAiStatus | null>(null);
   const [aiBusy, setAiBusy] = useState(false);
   const [customPrompt, setCustomPrompt] = useState("");
@@ -246,10 +248,16 @@ export function AiCanvasPanel({
             <button
               type="button"
               className={`${styles.canvasModeBtn} ${viewMode === "split" ? styles.canvasModeBtnActive : ""}`}
-              onClick={() => setViewMode("split")}
-              title={stacked ? "위아래로 나눠 보기 (분할)" : "나란히 보기 (분할)"}
+              onClick={() => {
+                if (viewMode === "split") {
+                  setSplitStacked((prev) => !prev);
+                } else {
+                  setViewMode("split");
+                }
+              }}
+              title={splitStacked ? "상하 분할 보기 (클릭하면 나란히로 전환)" : "나란히 보기 (클릭하면 상하로 전환)"}
             >
-              {stacked ? "위아래" : "나란히"}
+              {splitStacked ? "상하" : "나란히"}
             </button>
             <button
               type="button"
@@ -330,11 +338,11 @@ export function AiCanvasPanel({
       </div>
 
       {/* 메인 에디터 및 미리보기 영역 */}
-      <div className={`${styles.canvasWorkspaceBody} ${stacked ? styles.canvasWorkspaceBodyStacked : ""}`}>
+      <div className={`${styles.canvasWorkspaceBody} ${splitStacked ? styles.canvasWorkspaceBodyStacked : ""}`}>
         {(viewMode === "edit" || viewMode === "split") && (
           <div
             className={`${styles.canvasEditorPane} ${
-              viewMode === "split" ? (stacked ? styles.canvasPaneSplitStacked : styles.canvasPaneSplit) : ""
+              viewMode === "split" ? (splitStacked ? styles.canvasPaneSplitStacked : styles.canvasPaneSplit) : ""
             }`}
           >
             <textarea
@@ -352,7 +360,7 @@ export function AiCanvasPanel({
         {(viewMode === "preview" || viewMode === "split") && (
           <div
             className={`${styles.canvasPreviewPane} ${
-              viewMode === "split" ? (stacked ? styles.canvasPaneSplitStacked : styles.canvasPaneSplit) : ""
+              viewMode === "split" ? (splitStacked ? styles.canvasPaneSplitStacked : styles.canvasPaneSplit) : ""
             }`}
             aria-label="캔버스 실시간 마크다운 미리보기"
           >

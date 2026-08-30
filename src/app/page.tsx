@@ -4160,7 +4160,7 @@ export default function Home() {
                 onRegisterTasks={handleRegisterCanvasTasks}
                 personaName={copilotConfig.baristaName || "AI 바리스타"}
                 stacked={compactMode}
-                onTogglePopout={compactMode ? undefined : () => setCanvasPopout(true)}
+                onTogglePopout={() => setCanvasPopout(true)}
               />
             </div>
           </div>
