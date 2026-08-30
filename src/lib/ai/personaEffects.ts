@@ -5,7 +5,7 @@
 // 그 탓에 이름을 바꾸면 컴포넌트마다 효과가 어긋났고, 실질적인 효과도 채린이 여부 하나로만 갈렸다.
 // 이 모듈이 판별과 효과를 모두 책임지므로 세 컴포넌트는 결과만 받아 쓰면 된다.
 
-export type PersonaKind = "karina" | "barista" | "secretary" | "pm" | "chaerin";
+export type PersonaKind = "karina" | "barista" | "secretary" | "pm" | "chaerin" | "ropan";
 
 /** 파티클을 그리는 방식 */
 export type ParticleShape =
@@ -130,6 +130,13 @@ const CHAERIN_MENU: PersonaMenuItem[] = [
   { id: "lemonade", name: "레모네이드", icon: "🍋", note: "상큼 톡 쏘는 에너지 충전 레모네이드" },
   { id: "iced_choco", name: "아이스초코", icon: "🍫", note: "달콤하고 시원하게 감싸주는 진한 아이스초코" },
   { id: "fruit_frappe", name: "과일프라페", icon: "🍧", note: "시원하고 달콤한 과일 듬뿍 프라페" },
+];
+
+const ROPAN_MENU: PersonaMenuItem[] = [
+  { id: "royal_black_tea", name: "황실 홍차", icon: "☕", note: "고풍스러운 황실 정원의 홍차 ('솔직히 티백 우린 거임 ㅋㅋ')" },
+  { id: "macaron_frappe", name: "마카롱 프라페", icon: "🍧", note: "영애들을 위한 우아하고 달콤한 프라페 ('시럽 폭탄인 건 안 비밀')" },
+  { id: "magic_potion_ade", name: "마력 포션 에이드", icon: "🧊", note: "마력을 보충해 주는 신비로운 에이드 ('그냥 레몬에이드인데 이름 좀 그럴듯하게 지어봄')" },
+  { id: "duke_espresso", name: "공작의 에스프레소", icon: "⚡", note: "냉혈 공작도 반한 진한 에스프레소 ('사실 너무 써서 나도 못 마심...')" },
 ];
 
 const PERSONA_EFFECTS: Record<PersonaKind, PersonaEffect> = {
@@ -386,6 +393,58 @@ const PERSONA_EFFECTS: Record<PersonaKind, PersonaEffect> = {
       durationMs: 1600,
     },
   },
+
+  // 🥀 만찢녀 (로판) — 고풍스러운 겉모습과 친근한 속마음의 반전
+  ropan: {
+    kind: "ropan",
+    accent: "#d946ef",
+    avatarIdle: "/barista/ropan_webtoon_idle.jpg",
+    avatarBrewing: "/barista/ropan_webtoon_brewing.jpg",
+    ambient: {
+      shape: "star",
+      colors: ["#fbcfe8", "#f5d0fe", "#e879f9", "#ffffff", "#c084fc"],
+      spawnIntervalMs: 140,
+      spreadX: 0.35,
+      spreadY: 0.2,
+      riseSpeed: [-0.6, -0.3],
+      sizeRange: [3, 5],
+      growth: 0,
+      fade: 0.012,
+      gravity: -0.005,
+      spin: [-0.03, 0.03],
+    },
+    burst: {
+      shape: "crystal",
+      colors: ["#fbcfe8", "#f5d0fe", "#e879f9", "#ffffff", "#c084fc"],
+      count: 24,
+      speed: [1.6, 4.0],
+      sizeRange: [4, 7.5],
+      gravity: 0.06,
+      fade: 0.02,
+      spin: [-0.15, 0.15],
+    },
+    cupDecoration: "glint",
+    glintChars: ["✨", "✦", "✧"],
+    glintColor: "#f5d0fe",
+    menu: ROPAN_MENU,
+    brewBubbles: [
+      "🛎️ 영애, 주문하신 황실 홍차를 준비해 올리겠습니다. ☕ (아싸, 오늘 첫 주문! 실수하지 말자!)",
+      "🛎️ 귀족 영애들의 티파티에 어울리는 마카롱 프라페 대령했습니다. 🍧 (시럽 폭탄인 건 안 비밀 ㅋㅋ)",
+      "🛎️ 피로를 씻어줄 황실 특제 공작의 에스프레소입니다. ⚡ (원샷 때리고 빨리 집 가고 싶다...)",
+      "🛎️ 시원한 마력 충전 포션 에이드입니다. 🧊 (그냥 레몬에이드인데 이름 좀 그럴듯하게 지어봤어 ㅎㅎ)",
+    ],
+    hoverBubble: (name) => `${name}가 우아하게 티타임을 준비 중입니다 ☕`,
+    brewingMessage: (name, drink) => `✨ ${name}가 마법처럼 ${drink}를 우려내는 중입니다! ☕`,
+    servedMessage: (_name, drink) => `🛎️ 영애, 주문하신 ${drink} 대령했습니다. (맛있게 먹어라 얍!)`,
+    cutin: {
+      badge: "✨ ROMANCE FANTASY",
+      title: "영애를 위한 완벽한 한 잔",
+      subtitleTemplate: "{drink} 우아하게 제조 중 ☕",
+      colorA: "#d946ef",
+      colorB: "#8b5cf6",
+      durationMs: 1500,
+    },
+  },
 };
 
 /** presetId가 곧바로 페르소나 종류가 되는 경우의 대응표 */
@@ -395,10 +454,12 @@ const PRESET_TO_KIND: Record<string, PersonaKind> = {
   secretary: "secretary",
   pm: "pm",
   chaerin: "chaerin",
+  ropan: "ropan",
 };
 
 /** 이름만으로 페르소나를 추정해야 할 때 사용하는 키워드 (custom 프리셋 대응) */
 const NAME_HINTS: { kind: PersonaKind; keywords: string[] }[] = [
+  { kind: "ropan", keywords: ["로판", "영애", "만찢녀", "세리아", "공녀"] },
   { kind: "chaerin", keywords: ["채린", "채스터", "칼찌"] },
   { kind: "pm", keywords: ["칼퇴", "봇", "로봇"] },
   { kind: "secretary", keywords: ["부장", "차장", "과장"] },

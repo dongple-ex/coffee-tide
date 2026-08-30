@@ -120,6 +120,12 @@ export function formatIdleTalkForPersona(
         content: `멍때리고 있을 시간 있나? ㅋㅋㅋ\n${item.emoji} "${item.text}"\n훗, 머리 식혔으면 어서 다음 거 치우러 가자고!`,
       };
 
+    case "ropan":
+      return {
+        title: `🥀 ${baristaName}의 우아한(?) 톡`,
+        content: `영애, 잠시 휴식을 취하고 계시는군요.\n${item.emoji} "${item.text}"\n('휴, 나도 좀 쉬고 싶다... 같이 멍때릴까? ㅋㅋ')`,
+      };
+
     case "barista":
     case "custom":
     default:
