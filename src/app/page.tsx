@@ -85,6 +85,7 @@ import { ContextualRecStrip } from "./components/youtube/ContextualRecStrip";
 const SettingsModal = dynamic(() => import("./components/SettingsModal").then((m) => m.SettingsModal), { ssr: false });
 const SyncConflictModal = dynamic(() => import("./components/SyncConflictModal").then((m) => m.SyncConflictModal), { ssr: false });
 const AiCanvasPanel = dynamic(() => import("./components/canvas/AiCanvasPanel").then((m) => m.AiCanvasPanel), { ssr: false });
+const CanvasWindowPortal = dynamic(() => import("./components/canvas/CanvasWindowPortal").then((m) => m.CanvasWindowPortal), { ssr: false });
 const BaristaIdleCompanion = dynamic(() => import("./components/barista/BaristaIdleCompanion").then((m) => m.BaristaIdleCompanion), { ssr: false });
 const CafeBaristaScene = dynamic(() => import("./components/barista/CafeBaristaScene").then((m) => m.CafeBaristaScene), { ssr: false });
 const CommuteCard = dynamic(() => import("./components/CommuteCard").then((m) => m.CommuteCard), { ssr: false });
@@ -445,6 +446,9 @@ export default function Home() {
 
   // 🖌️ AI Canvas 상태
   const [isCanvasOpen, setIsCanvasOpen] = useState(false);
+  // 캔버스를 별도 창으로 띄울지 여부. PC에서는 기본으로 별도 창을 쓰고,
+  // 캔버스 헤더의 전환 버튼이나 팝업 차단에 따라 현재 창 안의 오버레이로 되돌린다.
+  const [canvasPopout, setCanvasPopout] = useState(true);
   const [canvasDocs, setCanvasDocs] = useState<CanvasDocument[]>([]);
   const [activeCanvasDoc, setActiveCanvasDoc] = useState<CanvasDocument | null>(null);
 
@@ -4106,16 +4110,18 @@ export default function Home() {
         </div>
       )}
 
-      {/* 🖌️ AI 캔버스 작업 공간 모달 / 오버레이 */}
-      {canvasEnabled && isCanvasOpen && activeCanvasDoc && (
-        <div
-          className={styles.canvasModalBackdrop}
-          style={{ zIndex: 900, background: "rgba(0, 0, 0, 0.65)", padding: "20px 16px" }}
-          onClick={() => setIsCanvasOpen(false)}
-        >
-          <div
-            style={{ width: "100%", maxWidth: 1160, height: "90vh", display: "flex", flexDirection: "column" }}
-            onClick={(e) => e.stopPropagation()}
+      {/* 🖌️ AI 캔버스 작업 공간 — PC(일반 뷰)는 별도 창, 모바일(축소 모드)은 상하 배치 오버레이 */}
+      {canvasEnabled && isCanvasOpen && activeCanvasDoc &&
+        (canvasPopout ? (
+          <CanvasWindowPortal
+            title={`${activeCanvasDoc.title || "AI 캔버스"} · coffee Tide 캔버스`}
+            onClose={() => setIsCanvasOpen(false)}
+            onBlocked={() => {
+              setCanvasPopout(false);
+              showToast(
+                "브라우저가 팝업을 차단해 캔버스를 현재 창 안에서 열었습니다. 팝업을 허용하신 뒤 헤더의 '새 창' 버튼을 누르시면 별도 창으로 띄울 수 있습니다."
+              );
+            }}
           >
             <AiCanvasPanel
               document={activeCanvasDoc}
@@ -4123,10 +4129,42 @@ export default function Home() {
               onClose={() => setIsCanvasOpen(false)}
               onRegisterTasks={handleRegisterCanvasTasks}
               personaName={copilotConfig.baristaName || "AI 바리스타"}
+              popout
+              onTogglePopout={() => setCanvasPopout(false)}
             />
+          </CanvasWindowPortal>
+        ) : (
+          <div
+            className={styles.canvasModalBackdrop}
+            style={{
+              zIndex: 900,
+              background: "rgba(0, 0, 0, 0.65)",
+              padding: compactMode ? "12px 8px" : "20px 16px",
+            }}
+            onClick={() => setIsCanvasOpen(false)}
+          >
+            <div
+              style={{
+                width: "100%",
+                maxWidth: compactMode ? "100%" : 1160,
+                height: compactMode ? "94vh" : "90vh",
+                display: "flex",
+                flexDirection: "column",
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <AiCanvasPanel
+                document={activeCanvasDoc}
+                onChangeDocument={handleUpdateCanvasDoc}
+                onClose={() => setIsCanvasOpen(false)}
+                onRegisterTasks={handleRegisterCanvasTasks}
+                personaName={copilotConfig.baristaName || "AI 바리스타"}
+                stacked={compactMode}
+                onTogglePopout={() => setCanvasPopout(true)}
+              />
+            </div>
           </div>
-        </div>
-      )}
+        ))}
 
       {/* ☕ 아무 일도 안 하고 있을 때 등장하는 바리스타 막간 토크 컴패니언 */}
       <BaristaIdleCompanion

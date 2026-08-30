@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { InteractiveBarista3D } from "./InteractiveBarista3D";
+import { getPersonaEffect, getPersonaAvatar } from "@/lib/ai/personaEffects";
 import styles from "./baristaBrewing.module.css";
 
 export interface BaristaBrewingProps {
@@ -16,21 +17,6 @@ export interface BaristaBrewingProps {
   gender?: "female" | "male";
   presetId?: string;
 }
-
-const BREW_MESSAGES = [
-  "🛎️ 주문하신 스페셜 드립 커피 나왔습니다! ☕ 오늘 하루도 파이팅하세요!",
-  "🛎️ 주문하신 시원한 아이스 아메리카노 나왔습니다! 🧊 머리가 맑아지는 한 잔!",
-  "🛎️ 주문하신 진한 에스프레소 나왔습니다! ⚡ 초집중 몰입 모드 ON!",
-  "🛎️ 주문하신 달콤한 바닐라 라떼 나왔습니다! 🍯 한 모금의 달콤한 휴식 되세요.",
-  "🛎️ 주문하신 부드러운 카푸치노 나왔습니다! ☁️ 여유롭고 깔끔한 하루 보내세요.",
-];
-
-const BREW_MESSAGES_CHAERIN = [
-  "🛎️ 주문하신 달콤상큼 복숭아아이스티 나왔거든? 🍑 시원하게 당 충전하고 기운 차려!",
-  "🛎️ 톡 쏘는 청량한 레모네이드 한 잔! 🍋 정신이 번쩍 들지? 훗~",
-  "🛎️ 진하고 달콤한 시원한 아이스초코 완성! 🍫 이거 마시고 더 힘내보든가!",
-  "🛎️ 시원한 과일프라페 대령이요! 🍧 내가 특별히 맛있게 만들었지!",
-];
 
 export function BaristaBrewing({
   size = 80,
@@ -47,46 +33,29 @@ export function BaristaBrewing({
   const [isHovered, setIsHovered] = useState(false);
   const [bubbleMessage, setBubbleMessage] = useState<string | null>(null);
 
-  const isChaerin = Boolean(
-    presetId === "chaerin" ||
-      (personaName && (personaName.includes("채린") || personaName.includes("채스터") || personaName.includes("칼찌")))
-  );
+  // 페르소나 판별과 효과 선택은 공용 모듈이 전담한다.
+  const effect = getPersonaEffect(presetId, personaName);
 
-  const isRobot = Boolean(
-    !isChaerin &&
-      (presetId === "pm" ||
-        (personaName && (personaName.includes("칼퇴") || personaName.includes("봇") || personaName.includes("로봇"))))
-  );
+  // gender를 명시적으로 지정한 경우에만 아바타 성별을 덮어쓴다.
+  const imageSrc =
+    gender === "male" && effect.kind !== "secretary"
+      ? isBrewing
+        ? "/barista/barista_male_3d_brewing.jpg"
+        : "/barista/barista_male_3d_serving.jpg"
+      : getPersonaAvatar(effect, isBrewing);
 
-  const isMale = Boolean(
-    !isChaerin &&
-      !isRobot &&
-      (gender === "male" ||
-        presetId === "secretary" ||
-        (personaName && (personaName.includes("부장") || personaName.includes("남"))))
-  );
-
-  const imageSrc = isChaerin
-    ? "/barista/barista_chaerin_3d.png"
-    : isRobot
-    ? "/barista/barista_robot_3d.png"
-    : isMale
-    ? isBrewing
-      ? "/barista/barista_male_3d_brewing.jpg"
-      : "/barista/barista_male_3d_serving.jpg"
-    : isBrewing
-    ? "/barista/barista_3d_brewing.jpg"
-    : "/barista/barista_3d_serving.jpg";
+  const isIced = effect.cupDecoration === "glint";
 
   const handleClick = () => {
-    const pool = isChaerin ? BREW_MESSAGES_CHAERIN : BREW_MESSAGES;
+    const pool = effect.brewBubbles;
     const randomMsg = pool[Math.floor(Math.random() * pool.length)];
     setBubbleMessage(randomMsg);
     setTimeout(() => setBubbleMessage(null), 3500);
     onClick?.();
   };
 
-  const currentBubble = bubbleMessage || (isHovered && showBubbleOnHover ? `${personaName}가 ${isChaerin ? "시원한 아이스 음료를" : "커피를"} 내리는 중이에요 ${isChaerin ? "🍧" : "☕"}` : statusText);
+  const currentBubble =
+    bubbleMessage || (isHovered && showBubbleOnHover ? effect.hoverBubble(personaName) : statusText);
 
   return (
     <div
@@ -96,8 +65,8 @@ export function BaristaBrewing({
       onMouseLeave={() => setIsHovered(false)}
       onClick={handleClick}
       role="img"
-      aria-label={`${personaName} ${isChaerin ? "아이스 음료" : "커피"} 브루잉 3D 애니메이션`}
-      title={`클릭하면 바리스타가 ${isChaerin ? "스페셜 아이스 음료를" : "스페셜 커피를"} 만들어드려요!`}
+      aria-label={`${personaName} ${isIced ? "아이스 음료" : "커피"} 브루잉 3D 애니메이션`}
+      title={`클릭하면 바리스타가 ${isIced ? "스페셜 아이스 음료를" : "스페셜 커피를"} 만들어드려요!`}
     >
       {currentBubble && (
         <div className={styles.baristaSpeechBubble} role="status">
@@ -111,7 +80,7 @@ export function BaristaBrewing({
           imageSrc={imageSrc}
           isBrewing={isBrewing}
           personaName={personaName}
-          hideSteam={isChaerin}
+          presetId={presetId}
           onClick={handleClick}
         />
       ) : (

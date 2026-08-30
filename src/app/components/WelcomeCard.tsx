@@ -208,6 +208,10 @@ export function WelcomeCard({
               showBubbleOnHover={true}
               personaName={personaName}
               presetId={presetId}
+              onClick={() => {
+                // 유휴 상태에서 저절로 뜨는 막간 토크 라운지를 아바타 클릭으로도 바로 부른다.
+                window.dispatchEvent(new CustomEvent("coffeetide:summon-barista"));
+              }}
             />
           </div>
         </div>

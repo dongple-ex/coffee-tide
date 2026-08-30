@@ -3711,23 +3711,51 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
-.canvasCloseBtn {
+.canvasWindowActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.canvasActionIconBtn {
   background: transparent;
-  border: none;
+  border: 1px solid var(--border);
   color: var(--text-dim);
-  font-size: 1rem;
-  font-weight: 700;
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   border-radius: 6px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.canvasActionIconBtn:hover {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.canvasCloseBtn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 1rem;
+  font-weight: 700;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
 }
 
 .canvasCloseBtn:hover {
   background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.35);
   color: #ef4444;
 }
 
@@ -3773,6 +3801,50 @@
 
 .canvasPaneSplit:first-child {
   border-right: 1px solid var(--border);
+}
+
+/* 별도 창(팝아웃)으로 띄웠을 때는 창 전체를 작업 공간으로 사용한다 */
+.canvasContainerPopout {
+  height: 100%;
+  min-height: 0;
+  flex: 1;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.canvasContainerPopout .canvasWorkspaceBody {
+  max-height: none;
+  min-height: 240px;
+}
+
+.canvasContainerPopout .canvasTextarea {
+  min-height: 0;
+}
+
+/* 모바일(축소) 모드에서는 편집기와 미리보기를 상하로 배치한다 */
+.canvasWorkspaceBodyStacked {
+  flex-direction: column;
+  min-height: 420px;
+}
+
+.canvasPaneSplitStacked {
+  flex: 1 1 50%;
+  min-height: 0;
+  height: auto;
+  padding: 12px;
+}
+
+.canvasPaneSplitStacked:first-child {
+  border-bottom: 1px solid var(--border);
+}
+
+.canvasWorkspaceBodyStacked .canvasTextarea {
+  min-height: 0;
+}
+
+.canvasWorkspaceBodyStacked .canvasEmptyPreview {
+  margin-top: 24px;
 }
 
 .canvasTextarea {

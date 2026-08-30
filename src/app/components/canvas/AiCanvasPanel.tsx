@@ -20,6 +20,12 @@ interface Props {
   onClose: () => void;
   onRegisterTasks?: (tasks: CanvasExtractedTask[]) => void;
   personaName?: string;
+  /** 편집기와 미리보기를 좌우가 아니라 상하로 배치한다 (모바일/축소 모드) */
+  stacked?: boolean;
+  /** 브라우저의 별도 창에서 단독으로 표시되는 상태 */
+  popout?: boolean;
+  /** 별도 창과 현재 창을 오가는 전환 (지원되지 않는 환경에서는 생략) */
+  onTogglePopout?: () => void;
 }
 
 type ViewMode = "edit" | "preview" | "split" | "3d";
@@ -39,6 +45,9 @@ export function AiCanvasPanel({
   onClose,
   onRegisterTasks,
   personaName = "AI 바리스타",
+  stacked = false,
+  popout = false,
+  onTogglePopout,
 }: Props) {
   const [viewMode, setViewMode] = useState<ViewMode>("split");
   const [canaryStatus, setCanaryStatus] = useState<ChromeCanaryAiStatus | null>(null);
@@ -155,7 +164,7 @@ export function AiCanvasPanel({
   };
 
   return (
-    <div className={styles.canvasContainer}>
+    <div className={`${styles.canvasContainer} ${popout ? styles.canvasContainerPopout : ""}`}>
       {/* 캔버스 상단 헤더 */}
       <header className={styles.canvasHeader}>
         <div className={styles.canvasHeaderLeft}>
@@ -238,9 +247,9 @@ export function AiCanvasPanel({
               type="button"
               className={`${styles.canvasModeBtn} ${viewMode === "split" ? styles.canvasModeBtnActive : ""}`}
               onClick={() => setViewMode("split")}
-              title="나란히 보기 (분할)"
+              title={stacked ? "위아래로 나눠 보기 (분할)" : "나란히 보기 (분할)"}
             >
-              나란히
+              {stacked ? "위아래" : "나란히"}
             </button>
             <button
               type="button"
@@ -279,15 +288,30 @@ export function AiCanvasPanel({
           >
             💾 저장
           </button>
-          <button
-            type="button"
-            className={styles.canvasCloseBtn}
-            onClick={onClose}
-            title="캔버스 닫기"
-            aria-label="캔버스 닫기"
-          >
-            ✕
-          </button>
+          <div className={styles.canvasWindowActions}>
+            {onTogglePopout && (
+              <button
+                type="button"
+                className={styles.canvasActionIconBtn}
+                onClick={onTogglePopout}
+                title={popout ? "원래 화면으로 되돌리기 (창 합치기)" : "별도 브라우저 창 팝업"}
+                aria-label={popout ? "원래 화면으로 되돌리기 (창 합치기)" : "별도 브라우저 창 팝업"}
+                data-tooltip={popout ? "창 합치기" : "별도 창 팝업"}
+              >
+                <UiIcon name="popup" size={16} />
+              </button>
+            )}
+            <button
+              type="button"
+              className={styles.canvasCloseBtn}
+              onClick={onClose}
+              title={popout ? "캔버스 창 닫기" : "캔버스 닫기"}
+              aria-label={popout ? "캔버스 창 닫기" : "캔버스 닫기"}
+              data-tooltip="캔버스 닫기"
+            >
+              <UiIcon name="close" size={16} />
+            </button>
+          </div>
         </div>
       </header>
 
@@ -306,9 +330,13 @@ export function AiCanvasPanel({
       </div>
 
       {/* 메인 에디터 및 미리보기 영역 */}
-      <div className={styles.canvasWorkspaceBody}>
+      <div className={`${styles.canvasWorkspaceBody} ${stacked ? styles.canvasWorkspaceBodyStacked : ""}`}>
         {(viewMode === "edit" || viewMode === "split") && (
-          <div className={`${styles.canvasEditorPane} ${viewMode === "split" ? styles.canvasPaneSplit : ""}`}>
+          <div
+            className={`${styles.canvasEditorPane} ${
+              viewMode === "split" ? (stacked ? styles.canvasPaneSplitStacked : styles.canvasPaneSplit) : ""
+            }`}
+          >
             <textarea
               ref={textareaRef}
               className={styles.canvasTextarea}
@@ -323,7 +351,9 @@ export function AiCanvasPanel({
 
         {(viewMode === "preview" || viewMode === "split") && (
           <div
-            className={`${styles.canvasPreviewPane} ${viewMode === "split" ? styles.canvasPaneSplit : ""}`}
+            className={`${styles.canvasPreviewPane} ${
+              viewMode === "split" ? (stacked ? styles.canvasPaneSplitStacked : styles.canvasPaneSplit) : ""
+            }`}
             aria-label="캔버스 실시간 마크다운 미리보기"
           >
             {document.content.trim() ? (

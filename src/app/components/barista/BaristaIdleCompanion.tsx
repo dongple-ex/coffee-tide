@@ -64,6 +64,21 @@ export function BaristaIdleCompanion({
     };
   }, [enabled, idleThresholdMs, isVisible, pickNextTalk]);
 
+  // 환영 카드의 바리스타를 클릭하면 유휴 시간을 기다리지 않고 곧바로 등장한다.
+  useEffect(() => {
+    if (!enabled) return;
+
+    const handleSummon = () => {
+      pickNextTalk();
+      setIsVisible(true);
+      isDismissedRecentlyRef.current = false;
+      lastActivityRef.current = Date.now();
+    };
+
+    window.addEventListener("coffeetide:summon-barista", handleSummon);
+    return () => window.removeEventListener("coffeetide:summon-barista", handleSummon);
+  }, [enabled, pickNextTalk]);
+
   const handleDismiss = () => {
     setIsVisible(false);
     isDismissedRecentlyRef.current = true;
@@ -105,10 +120,12 @@ export function BaristaIdleCompanion({
         </button>
       </div>
 
+      {/* 카드 헤더에 이미 제목이 있으므로 씬 안에서는 제목 줄을 그리지 않는다.
+          벨을 울리면 그 자리에 페르소나별 서빙 문구가 대신 표시된다. */}
       <CafeBaristaScene
         baristaName={baristaName}
         presetId={presetId}
-        title={formatted.title}
+        title={null}
         description={formatted.content}
         onOpenCopilot={handleChatClick}
         compact

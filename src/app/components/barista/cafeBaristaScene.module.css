@@ -35,12 +35,45 @@
   height: 160px;
 }
 
+/* 축소 모드는 씬 배경을 지우고 카드 위에 그대로 얹히므로,
+   어두운 카페 배경을 전제로 만든 밝은 글자색을 테마 색으로 되돌려야 읽을 수 있다. */
 .sceneContainerCompact .sceneTitle {
   font-size: 1.05rem;
+  background: none;
+  -webkit-background-clip: border-box;
+  background-clip: border-box;
+  -webkit-text-fill-color: currentColor;
+  color: var(--text);
 }
 
 .sceneContainerCompact .sceneDescription {
   font-size: 0.84rem;
+  color: var(--text);
+  opacity: 1;
+  white-space: pre-line;
+}
+
+.sceneContainerCompact .sceneHeaderBadge {
+  background: color-mix(in srgb, var(--persona-accent, #f59e0b) 14%, var(--card));
+  border-color: color-mix(in srgb, var(--persona-accent, #f59e0b) 45%, transparent);
+  color: color-mix(in srgb, var(--persona-accent, #f59e0b) 70%, var(--text));
+  font-size: 0.74rem;
+}
+
+.sceneContainerCompact .coffeeTypeSelector {
+  background: var(--bg);
+  border-color: var(--border);
+  flex-wrap: wrap;
+}
+
+.sceneContainerCompact .coffeeTypeBtn {
+  color: var(--text-dim);
+}
+
+.sceneContainerCompact .coffeeTypeBtnActive {
+  background: color-mix(in srgb, var(--persona-accent, #f59e0b) 18%, var(--card));
+  color: color-mix(in srgb, var(--persona-accent, #f59e0b) 72%, var(--text));
+  box-shadow: none;
 }
 
 /* 🌟 따뜻한 카페 펜던트 조명 빛 & 앰비언스 */
@@ -186,7 +219,7 @@
 }
 
 .coffeeTypeBtnActive {
-  background: rgba(255, 255, 255, 0.15);
+  background: color-mix(in srgb, var(--persona-accent, #f59e0b) 28%, transparent);
   color: #ffffff;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
 }
@@ -355,8 +388,9 @@
 .stageGlintStar {
   position: absolute;
   font-size: 0.95rem;
-  color: #a5f3fc;
-  text-shadow: 0 0 8px rgba(103, 232, 249, 0.9), 0 0 16px rgba(192, 132, 252, 0.7);
+  color: var(--persona-glint, #a5f3fc);
+  text-shadow: 0 0 8px color-mix(in srgb, var(--persona-glint, #67e8f9) 90%, transparent),
+    0 0 16px color-mix(in srgb, var(--persona-accent, #c084fc) 70%, transparent);
   animation: glintTwinkle 2.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
   opacity: 0;
 }
@@ -373,8 +407,9 @@
   }
 }
 
-/* ⚔️ 칼찌장인 채린이 벨 울리기 액션 컷인 (Cut-in) 스타일 */
-.chaerinCutinOverlay {
+/* ⚡ 페르소나별 벨 울리기 액션 컷인 (Cut-in) 스타일
+   배색은 --cutin-a / --cutin-b 변수로 페르소나마다 주입된다. */
+.personaCutinOverlay {
   position: absolute;
   inset: 0;
   z-index: 60;
@@ -392,12 +427,12 @@
   inset: -50%;
   background: repeating-linear-gradient(
     -45deg,
-    rgba(244, 114, 182, 0.18) 0px,
-    rgba(244, 114, 182, 0.18) 6px,
+    color-mix(in srgb, var(--cutin-a, #f472b6) 18%, transparent) 0px,
+    color-mix(in srgb, var(--cutin-a, #f472b6) 18%, transparent) 6px,
     transparent 6px,
     transparent 18px,
-    rgba(56, 189, 248, 0.18) 18px,
-    rgba(56, 189, 248, 0.18) 24px,
+    color-mix(in srgb, var(--cutin-b, #38bdf8) 18%, transparent) 18px,
+    color-mix(in srgb, var(--cutin-b, #38bdf8) 18%, transparent) 24px,
     transparent 24px,
     transparent 36px
   );
@@ -414,9 +449,10 @@
     rgba(49, 10, 80, 0.92) 50%,
     rgba(15, 23, 42, 0.96) 100%
   );
-  border-top: 2.5px solid #f472b6;
-  border-bottom: 2.5px solid #38bdf8;
-  box-shadow: 0 0 35px rgba(217, 70, 239, 0.5), inset 0 0 25px rgba(56, 189, 248, 0.3);
+  border-top: 2.5px solid var(--cutin-a, #f472b6);
+  border-bottom: 2.5px solid var(--cutin-b, #38bdf8);
+  box-shadow: 0 0 35px color-mix(in srgb, var(--cutin-a, #d946ef) 50%, transparent),
+    inset 0 0 25px color-mix(in srgb, var(--cutin-b, #38bdf8) 30%, transparent);
   transform: skewX(-14deg) scaleY(0);
   display: flex;
   align-items: center;
@@ -437,7 +473,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  background: linear-gradient(90deg, #ec4899, #8b5cf6);
+  background: linear-gradient(90deg, var(--cutin-a, #ec4899), var(--cutin-b, #8b5cf6));
   color: #ffffff;
   font-size: 0.72rem;
   font-weight: 800;
@@ -445,7 +481,7 @@
   border-radius: 9999px;
   width: fit-content;
   letter-spacing: 0.08em;
-  box-shadow: 0 0 12px rgba(236, 72, 153, 0.8);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--cutin-a, #ec4899) 80%, transparent);
 }
 
 .cutinTitle {
@@ -453,14 +489,15 @@
   font-weight: 900;
   color: #ffffff;
   letter-spacing: -0.02em;
-  text-shadow: 0 0 12px rgba(244, 114, 182, 0.9), 0 0 24px rgba(56, 189, 248, 0.8);
+  text-shadow: 0 0 12px color-mix(in srgb, var(--cutin-a, #f472b6) 90%, transparent),
+    0 0 24px color-mix(in srgb, var(--cutin-b, #38bdf8) 80%, transparent);
 }
 
 .cutinSubtitle {
   font-size: 0.92rem;
   font-weight: 700;
-  color: #a5f3fc;
-  text-shadow: 0 0 8px rgba(103, 232, 249, 0.6);
+  color: color-mix(in srgb, var(--cutin-b, #a5f3fc) 70%, #ffffff);
+  text-shadow: 0 0 8px color-mix(in srgb, var(--cutin-b, #67e8f9) 60%, transparent);
 }
 
 .cutinImageWrap {
@@ -479,8 +516,9 @@
   height: 130px;
   object-fit: cover;
   border-radius: 50%;
-  border: 3px solid #f472b6;
-  box-shadow: 0 0 20px rgba(244, 114, 182, 0.9), 0 0 35px rgba(56, 189, 248, 0.8);
+  border: 3px solid var(--cutin-a, #f472b6);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--cutin-a, #f472b6) 90%, transparent),
+    0 0 35px color-mix(in srgb, var(--cutin-b, #38bdf8) 80%, transparent);
   filter: contrast(1.15) brightness(1.08);
 }
 

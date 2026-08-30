@@ -1,20 +1,11 @@
 "use client";
 
 import React, { useRef, useEffect, useState, useCallback } from "react";
+import { getPersonaEffect, ParticleShape } from "@/lib/ai/personaEffects";
 import styles from "./baristaBrewing.module.css";
 
-interface SteamParticle {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  size: number;
-  alpha: number;
-  life: number;
-  maxLife: number;
-}
-
-interface SparkleParticle {
+/** 스팀, 별, 픽셀, 얼음 결정을 모두 담는 통합 파티클 */
+interface Particle {
   x: number;
   y: number;
   vx: number;
@@ -24,6 +15,10 @@ interface SparkleParticle {
   rotation: number;
   vRot: number;
   color: string;
+  shape: ParticleShape;
+  growth: number;
+  fade: number;
+  gravity: number;
 }
 
 interface InteractiveBarista3DProps {
@@ -31,8 +26,84 @@ interface InteractiveBarista3DProps {
   imageSrc: string;
   isBrewing: boolean;
   personaName?: string;
-  hideSteam?: boolean;
+  /** 페르소나 프리셋 ID. 효과 판별의 우선 기준이 된다 */
+  presetId?: string;
+  /** 파티클 연출 자체를 끄고 싶을 때 사용한다 */
+  disableParticles?: boolean;
   onClick?: () => void;
+}
+
+// 파티클 수치는 라운지 씬의 140px 아바타를 기준으로 정의되어 있다.
+// 환영 카드처럼 작은 아바타에서 그대로 쓰면 파티클이 몇 프레임 만에 화면 밖으로
+// 빠져나가 사실상 보이지 않으므로, 아바타 크기에 맞춰 이동량과 크기를 보정한다.
+const SPEC_BASE_SIZE = 140;
+
+/** 범위 안에서 무작위 값 하나를 고른다 */
+function randomIn([min, max]: [number, number]): number {
+  return min + Math.random() * (max - min);
+}
+
+function pickColor(colors: string[]): string {
+  return colors[Math.floor(Math.random() * colors.length)];
+}
+
+/** 파티클 하나를 모양에 맞게 그린다 */
+function drawParticle(ctx: CanvasRenderingContext2D, p: Particle) {
+  if (p.shape === "steam") {
+    // 따뜻한 음료의 김: 가장자리로 갈수록 옅어지는 원형 그라데이션
+    const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size);
+    grad.addColorStop(0, p.color);
+    grad.addColorStop(1, "transparent");
+
+    ctx.save();
+    ctx.globalAlpha = p.alpha;
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    return;
+  }
+
+  ctx.save();
+  ctx.translate(p.x, p.y);
+  ctx.rotate(p.rotation);
+  ctx.globalAlpha = p.alpha;
+  ctx.fillStyle = p.color;
+
+  if (p.shape === "star") {
+    // 4각 별: 뾰족한 꼭짓점 네 개가 교차하는 반짝임
+    ctx.shadowColor = p.color;
+    ctx.shadowBlur = p.size * 2.2;
+    ctx.beginPath();
+    for (let i = 0; i < 4; i++) {
+      ctx.rotate(Math.PI / 2);
+      ctx.lineTo(p.size, 0);
+      ctx.lineTo(p.size * 0.3, p.size * 0.3);
+    }
+    ctx.closePath();
+    ctx.fill();
+  } else if (p.shape === "pixel") {
+    // 전자 신호 픽셀: 발광하는 정사각형
+    ctx.shadowColor = p.color;
+    ctx.shadowBlur = p.size * 2.4;
+    ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+  } else {
+    // 얼음 결정: 위아래로 길쭉한 6각 마름모
+    ctx.shadowColor = p.color;
+    ctx.shadowBlur = p.size * 1.8;
+    ctx.beginPath();
+    ctx.moveTo(0, -p.size);
+    ctx.lineTo(p.size * 0.5, -p.size * 0.4);
+    ctx.lineTo(p.size * 0.5, p.size * 0.4);
+    ctx.lineTo(0, p.size);
+    ctx.lineTo(-p.size * 0.5, p.size * 0.4);
+    ctx.lineTo(-p.size * 0.5, -p.size * 0.4);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  ctx.restore();
 }
 
 export function InteractiveBarista3D({
@@ -40,11 +111,26 @@ export function InteractiveBarista3D({
   imageSrc,
   isBrewing,
   personaName = "AI 바리스타",
-  hideSteam = false,
+  presetId,
+  disableParticles = false,
   onClick,
 }: InteractiveBarista3DProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  const effect = getPersonaEffect(presetId, personaName);
+
+  // 이동량은 화면 비율 그대로 줄이고, 크기는 작은 아바타에서도 눈에 남도록 완만하게 줄인다.
+  const motionScale = size / SPEC_BASE_SIZE;
+  const sizeScale = 0.55 + 0.45 * motionScale;
+
+  // 애니메이션 루프가 매 프레임 최신 효과를 참조하도록 ref에 담아 둔다.
+  const effectRef = useRef(effect);
+  const scaleRef = useRef({ motionScale, sizeScale });
+  useEffect(() => {
+    effectRef.current = effect;
+    scaleRef.current = { motionScale, sizeScale };
+  }, [effect, motionScale, sizeScale]);
 
   // 3D 틸트 및 시선 패럴랙스 상태 (Spring lerp)
   const [tilt, setTilt] = useState({
@@ -81,8 +167,7 @@ export function InteractiveBarista3D({
     isInside: false,
   });
 
-  const steamParticlesRef = useRef<SteamParticle[]>([]);
-  const sparklesRef = useRef<SparkleParticle[]>([]);
+  const particlesRef = useRef<Particle[]>([]);
 
   // 전역 마우스 좌표 추적 (윈도우/카드 전체에서 바리스타를 쳐다보도록 시선 및 패럴랙스 계산)
   useEffect(() => {
@@ -119,13 +204,13 @@ export function InteractiveBarista3D({
       if (influence > 0.01) {
         // 3D 틸트 (최대 ±18도) 및 내부 시선 패럴랙스 슬라이딩 (최대 ±7~9px)
         targetTiltRef.current = {
-          rx: -ny * 16 * influence,
+          rx: -ny * 14 * influence,
           ry: nx * 18 * influence,
-          shiftX: nx * (size * 0.12) * influence,
-          shiftY: ny * (size * 0.10) * influence,
-          glareX: 50 + nx * 40,
-          glareY: 50 + ny * 40,
-          glareOpacity: isInside ? 0.6 : 0.2 + influence * 0.35,
+          shiftX: nx * 9 * influence,
+          shiftY: ny * 7 * influence,
+          glareX: 50 + nx * 45,
+          glareY: 50 + ny * 45,
+          glareOpacity: 0.22 + influence * 0.3,
         };
       } else {
         targetTiltRef.current = {
@@ -141,7 +226,7 @@ export function InteractiveBarista3D({
     };
 
     const handleGlobalMouseLeave = () => {
-      mousePosRef.current.isInside = false;
+      mousePosRef.current = { x: size / 2, y: size / 2, isInside: false };
       targetTiltRef.current = {
         rx: 0,
         ry: 0,
@@ -162,27 +247,33 @@ export function InteractiveBarista3D({
     };
   }, [size]);
 
-  // 클릭 시 스파클 폭죽 파티클 분출
+  // 클릭 시 페르소나별 파티클 폭죽 분출
   const handleCanvasClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       const rect = containerRef.current?.getBoundingClientRect();
       const clickX = rect ? e.clientX - rect.left : size / 2;
       const clickY = rect ? e.clientY - rect.top : size / 2;
 
-      const colors = ["#fbbf24", "#f59e0b", "#d97706", "#ffffff", "#fed7aa"];
-      for (let i = 0; i < 16; i++) {
-        const angle = (Math.PI * 2 * i) / 16 + (Math.random() - 0.5);
-        const speed = 1.5 + Math.random() * 2.8;
-        sparklesRef.current.push({
+      const burst = effectRef.current.burst;
+      const { motionScale: ms, sizeScale: ss } = scaleRef.current;
+
+      for (let i = 0; i < burst.count; i++) {
+        const angle = (Math.PI * 2 * i) / burst.count + (Math.random() - 0.5);
+        const speed = randomIn(burst.speed) * ms;
+        particlesRef.current.push({
           x: clickX,
           y: clickY,
           vx: Math.cos(angle) * speed,
-          vy: Math.sin(angle) * speed - 0.8,
-          size: 3 + Math.random() * 4,
+          vy: Math.sin(angle) * speed - 0.8 * ms,
+          size: Math.max(2, randomIn(burst.sizeRange) * ss),
           alpha: 1,
           rotation: Math.random() * Math.PI * 2,
-          vRot: (Math.random() - 0.5) * 0.25,
-          color: colors[Math.floor(Math.random() * colors.length)],
+          vRot: randomIn(burst.spin),
+          color: pickColor(burst.colors),
+          shape: burst.shape,
+          growth: 0,
+          fade: burst.fade,
+          gravity: burst.gravity * ms,
         });
       }
 
@@ -223,112 +314,59 @@ export function InteractiveBarista3D({
         glareOpacity: cur.glareOpacity,
       });
 
-      // 2. 실시간 파티클 방출 (스팀 또는 아이스 크리스탈 섬광)
-      const shouldHideSteam =
-        hideSteam ||
-        personaName.includes("채린") ||
-        personaName.includes("채스터") ||
-        personaName.includes("칼찌");
-
+      // 2. 페르소나별 상시 파티클 방출
+      const ambient = effectRef.current.ambient;
       const now = Date.now();
-      if (now - lastSpawn > 90) {
+
+      if (!disableParticles && now - lastSpawn > ambient.spawnIntervalMs) {
         lastSpawn = now;
         const originX = size * (isBrewing ? 0.48 : 0.5);
         const originY = size * (isBrewing ? 0.58 : 0.62);
 
-        if (!shouldHideSteam) {
-          // 따뜻한 커피: 부드러운 스팀 연기 방출
-          let windVx = (Math.random() - 0.5) * 0.4;
-          if (mousePosRef.current.isInside) {
-            const dx = originX - mousePosRef.current.x;
-            windVx += (dx > 0 ? 0.5 : -0.5) * Math.min(1, 40 / (Math.abs(dx) + 10));
-          }
-
-          steamParticlesRef.current.push({
-            x: originX + (Math.random() - 0.5) * 8,
-            y: originY,
-            vx: windVx,
-            vy: -0.6 - Math.random() * 0.7,
-            size: 4 + Math.random() * 3,
-            alpha: 0.75,
-            life: 0,
-            maxLife: 45 + Math.random() * 25,
-          });
-        } else {
-          // 아이스 음료 (채린이): 반짝이는 크리스탈 섬광(Sparkle) 파티클 방출
-          const glintColors = ["#67e8f9", "#ffffff", "#c084fc", "#f472b6", "#a5f3fc"];
-          sparklesRef.current.push({
-            x: originX + (Math.random() - 0.5) * (size * 0.5),
-            y: originY + (Math.random() - 0.5) * (size * 0.3),
-            vx: (Math.random() - 0.5) * 0.5,
-            vy: -0.35 - Math.random() * 0.45,
-            size: 2.2 + Math.random() * 3.2,
-            alpha: 0.95,
-            rotation: Math.random() * Math.PI * 2,
-            vRot: (Math.random() - 0.5) * 0.15,
-            color: glintColors[Math.floor(Math.random() * glintColors.length)],
-          });
+        // 김이 피어오르는 연출은 마우스가 가까이 가면 바람에 밀리듯 흔들린다.
+        let windVx = (Math.random() - 0.5) * 0.4;
+        if (ambient.shape === "steam" && mousePosRef.current.isInside) {
+          const dx = originX - mousePosRef.current.x;
+          windVx += (dx > 0 ? 0.5 : -0.5) * Math.min(1, 40 / (Math.abs(dx) + 10));
         }
+
+        const { motionScale: ms, sizeScale: ss } = scaleRef.current;
+
+        particlesRef.current.push({
+          x: originX + (Math.random() - 0.5) * size * ambient.spreadX,
+          y: originY + (Math.random() - 0.5) * size * ambient.spreadY,
+          vx: (ambient.shape === "steam" ? windVx : (Math.random() - 0.5) * 0.5) * ms,
+          vy: randomIn(ambient.riseSpeed) * ms,
+          size: Math.max(1.8, randomIn(ambient.sizeRange) * ss),
+          alpha: 1,
+          rotation: Math.random() * Math.PI * 2,
+          vRot: randomIn(ambient.spin),
+          color: pickColor(ambient.colors),
+          shape: ambient.shape,
+          growth: ambient.growth * ms,
+          fade: ambient.fade,
+          gravity: ambient.gravity * ms,
+        });
       }
 
-      // 3. Canvas 클리어 및 파티클 렌더링
+      // 3. Canvas 클리어 및 파티클 물리 갱신 후 드로우
       ctx.clearRect(0, 0, size, size);
 
-      // 스팀 파티클 업데이트 및 드로우
-      for (let i = steamParticlesRef.current.length - 1; i >= 0; i--) {
-        const p = steamParticlesRef.current[i];
-        p.life++;
+      for (let i = particlesRef.current.length - 1; i >= 0; i--) {
+        const p = particlesRef.current[i];
         p.x += p.vx;
         p.y += p.vy;
-        p.size += 0.18; // 위로 갈수록 퍼짐
-        p.alpha = Math.max(0, 0.75 * (1 - p.life / p.maxLife));
+        p.vy += p.gravity;
+        p.rotation += p.vRot;
+        p.size += p.growth;
+        p.alpha -= p.fade;
 
-        if (p.life >= p.maxLife) {
-          steamParticlesRef.current.splice(i, 1);
+        if (p.alpha <= 0 || p.size <= 0) {
+          particlesRef.current.splice(i, 1);
           continue;
         }
 
-        const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size);
-        grad.addColorStop(0, `rgba(255, 255, 255, ${p.alpha})`);
-        grad.addColorStop(0.5, `rgba(254, 243, 199, ${p.alpha * 0.6})`);
-        grad.addColorStop(1, "rgba(255, 255, 255, 0)");
-
-        ctx.fillStyle = grad;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      // 클릭 스파클 파티클 업데이트 및 드로우
-      for (let i = sparklesRef.current.length - 1; i >= 0; i--) {
-        const s = sparklesRef.current[i];
-        s.x += s.vx;
-        s.y += s.vy;
-        s.vy += 0.08; // 중력
-        s.rotation += s.vRot;
-        s.alpha -= 0.025;
-
-        if (s.alpha <= 0) {
-          sparklesRef.current.splice(i, 1);
-          continue;
-        }
-
-        ctx.save();
-        ctx.translate(s.x, s.y);
-        ctx.rotate(s.rotation);
-        ctx.fillStyle = s.color;
-        ctx.globalAlpha = s.alpha;
-
-        // 4각 별 모양 드로우
-        ctx.beginPath();
-        for (let j = 0; j < 4; j++) {
-          ctx.rotate(Math.PI / 2);
-          ctx.lineTo(s.size, 0);
-          ctx.lineTo(s.size * 0.3, s.size * 0.3);
-        }
-        ctx.closePath();
-        ctx.fill();
-        ctx.restore();
+        drawParticle(ctx, p);
       }
 
       animId = requestAnimationFrame(loop);
@@ -336,17 +374,20 @@ export function InteractiveBarista3D({
 
     animId = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(animId);
-  }, [size, isBrewing]);
+  }, [size, isBrewing, disableParticles]);
 
   return (
     <div
       ref={containerRef}
       className={styles.interactive3dContainer}
-      style={{
-        width: size,
-        height: size,
-        perspective: "600px",
-      }}
+      style={
+        {
+          width: size,
+          height: size,
+          perspective: "600px",
+          "--persona-accent": effect.accent,
+        } as React.CSSProperties
+      }
       onClick={handleCanvasClick}
       title={`${personaName} 3D 인터랙티브 바리스타 (마우스를 올리면 시선이 따라옵니다!)`}
     >
@@ -384,7 +425,7 @@ export function InteractiveBarista3D({
           }}
         />
 
-        {/* 실시간 60FPS 유체 스팀 & 스파클 파티클 캔버스 */}
+        {/* 실시간 60FPS 페르소나별 파티클 캔버스 */}
         <canvas
           ref={canvasRef}
           width={size}
