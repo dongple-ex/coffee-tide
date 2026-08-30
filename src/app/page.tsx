@@ -4112,10 +4112,10 @@ export default function Home() {
 
       {/* 🖌️ AI 캔버스 작업 공간 — PC(일반 뷰)는 별도 창, 모바일(축소 모드)은 상하 배치 오버레이 */}
       {canvasEnabled && isCanvasOpen && activeCanvasDoc &&
-        (canvasPopout ? (
+        (!compactMode && canvasPopout ? (
           <CanvasWindowPortal
             title={`${activeCanvasDoc.title || "AI 캔버스"} · coffee Tide 캔버스`}
-            onClose={() => setIsCanvasOpen(false)}
+            onClose={() => setCanvasPopout(false)}
             onBlocked={() => {
               setCanvasPopout(false);
               showToast(
@@ -4160,7 +4160,7 @@ export default function Home() {
                 onRegisterTasks={handleRegisterCanvasTasks}
                 personaName={copilotConfig.baristaName || "AI 바리스타"}
                 stacked={compactMode}
-                onTogglePopout={() => setCanvasPopout(true)}
+                onTogglePopout={compactMode ? undefined : () => setCanvasPopout(true)}
               />
             </div>
           </div>
