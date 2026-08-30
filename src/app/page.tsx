@@ -4112,7 +4112,7 @@ export default function Home() {
 
       {/* 🖌️ AI 캔버스 작업 공간 — PC(일반 뷰)는 별도 창, 모바일(축소 모드)은 상하 배치 오버레이 */}
       {canvasEnabled && isCanvasOpen && activeCanvasDoc &&
-        (!compactMode && canvasPopout ? (
+        (canvasPopout ? (
           <CanvasWindowPortal
             title={`${activeCanvasDoc.title || "AI 캔버스"} · coffee Tide 캔버스`}
             onClose={() => setCanvasPopout(false)}
