@@ -137,8 +137,8 @@ const PERSONA_EFFECTS: Record<PersonaKind, PersonaEffect> = {
   karina: {
     kind: "karina",
     accent: "#c084fc",
-    avatarIdle: "/barista/barista_3d_serving.jpg",
-    avatarBrewing: "/barista/barista_3d_brewing.jpg",
+    avatarIdle: "/barista/karina_webtoon_idle.jpg",
+    avatarBrewing: "/barista/karina_webtoon_brewing.jpg",
     ambient: {
       shape: "star",
       colors: ["#f0abfc", "#c4b5fd", "#ffffff", "#fbcfe8", "#a5b4fc"],

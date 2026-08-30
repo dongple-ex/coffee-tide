@@ -121,26 +121,6 @@ export function CafeBaristaScene({
           {(servedToast || title) && <h2 className={styles.sceneTitle}>{servedToast || title}</h2>}
 
           <p className={styles.sceneDescription}>{description}</p>
-
-          {/* ☕ 페르소나별 음료 메뉴 칩 바 */}
-          <div className={styles.coffeeTypeSelector}>
-            {effect.menu.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                className={`${styles.coffeeTypeBtn} ${
-                  selectedCoffee.id === item.id ? styles.coffeeTypeBtnActive : ""
-                }`}
-                onClick={() => {
-                  setSelectedCoffeeId(item.id);
-                  handleRingBell(item);
-                }}
-                title={item.note}
-              >
-                {item.icon} {item.name}
-              </button>
-            ))}
-          </div>
         </div>
 
         {/* ☕ 우측: 카운터 테이블 & 3D 바리스타 스테이지 */}
@@ -172,22 +152,25 @@ export function CafeBaristaScene({
                 <span className={styles.counterBellLabel}>벨 울리기</span>
               </button>
 
-              {/* 중앙 소품 */}
-              <div className={styles.counterPropsGroup}>
-                <span
-                  className={styles.counterProp}
-                  title="바닐라 시럽 🍯"
-                  onClick={() => setServedToast(`🍯 달콤한 바닐라 시럽을 듬뿍 추가했어요!`)}
-                >
-                  🍯
-                </span>
-                <span
-                  className={styles.counterProp}
-                  title="에스프레소 원두 🫘"
-                  onClick={() => setServedToast(`🫘 오늘 로스팅된 최상급 스페셜티 원두입니다!`)}
-                >
-                  🫘
-                </span>
+              {/* 중앙: 페르소나별 음료 메뉴 아이콘 칩 */}
+              <div className={styles.counterMenuChips}>
+                {effect.menu.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className={`${styles.counterMenuChip} ${
+                      selectedCoffee.id === item.id ? styles.counterMenuChipActive : ""
+                    }`}
+                    onClick={() => {
+                      setSelectedCoffeeId(item.id);
+                      handleRingBell(item);
+                    }}
+                    title={`${item.name} — ${item.note}`}
+                    aria-label={item.name}
+                  >
+                    {item.icon}
+                  </button>
+                ))}
               </div>
 
               {/* 우측: 페르소나별 장식이 얹힌 음료잔 */}

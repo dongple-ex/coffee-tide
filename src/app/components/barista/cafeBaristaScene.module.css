@@ -299,22 +299,40 @@
   white-space: nowrap;
 }
 
-.counterPropsGroup {
+/* ☕ 카운터 바 내 음료 메뉴 아이콘 칩 */
+.counterMenuChips {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 4px;
 }
 
-.counterProp {
-  font-size: 1.15rem;
-  opacity: 0.9;
+.counterMenuChip {
+  background: transparent;
+  border: 1.5px solid rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.65);
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  font-size: 0.92rem;
   cursor: pointer;
-  transition: transform 0.18s ease;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
 }
 
-.counterProp:hover {
-  transform: scale(1.25) translateY(-2px);
+.counterMenuChip:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(251, 191, 36, 0.5);
+  transform: scale(1.15) translateY(-2px);
+}
+
+.counterMenuChipActive {
+  background: color-mix(in srgb, var(--persona-accent, #f59e0b) 35%, transparent);
+  border-color: var(--persona-accent, #fbbf24);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.4);
+  transform: scale(1.1);
 }
 
 /* 👩‍🍳 카운터 뒤에 서 있는 3D 바리스타 */
