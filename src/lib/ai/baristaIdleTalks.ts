@@ -123,7 +123,7 @@ export function formatIdleTalkForPersona(
     case "ropan":
       return {
         title: `🥀 ${baristaName}의 우아한(?) 톡`,
-        content: `영애, 잠시 휴식을 취하고 계시는군요.\n${item.emoji} "${item.text}"\n('휴, 나도 좀 쉬고 싶다... 같이 멍때릴까? ㅋㅋ')`,
+        content: `공녀, 잠시 휴식을 취하고 계시는군요.\n${item.emoji} "${item.text}"\n('휴, 나도 좀 쉬고 싶다... 같이 멍때릴까? ㅋㅋ')`,
       };
 
     case "barista":
