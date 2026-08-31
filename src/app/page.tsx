@@ -3097,6 +3097,7 @@ export default function Home() {
               dragHoverWorkspaceTab === "copilot" ? styles.compactTabBtnDragHover : ""
             }`}
             onClick={() => openWorkspaceTab("copilot")}
+            style={{ position: "relative" }}
           >
             <UiIcon name="coffee" />
             <span
@@ -3107,6 +3108,18 @@ export default function Home() {
             {unreadQaKeys.size + (sparkTabSignal ? 1 : 0) > 0 && (
               <span className={styles.compactTabBadge}>{unreadQaKeys.size + (sparkTabSignal ? 1 : 0)}</span>
             )}
+            <BaristaIdleCompanion
+              presetId={copilotConfig.presetId}
+              baristaName={copilotConfig.baristaName || "AI 바리스타"}
+              onOpenCopilot={() => {
+                if (compactMode) openWorkspaceTab("copilot");
+                setTimeout(() => {
+                  const composer = document.querySelector<HTMLInputElement>("input[placeholder*='바리스타']");
+                  composer?.focus();
+                }, 200);
+              }}
+              enabled={true}
+            />
           </button>
           <button
             id="tab-widgets"
@@ -4166,19 +4179,6 @@ export default function Home() {
           </div>
         ))}
 
-      {/* ☕ 아무 일도 안 하고 있을 때 등장하는 바리스타 막간 토크 컴패니언 */}
-      <BaristaIdleCompanion
-        presetId={copilotConfig.presetId}
-        baristaName={copilotConfig.baristaName || "AI 바리스타"}
-        onOpenCopilot={() => {
-          if (compactMode) openWorkspaceTab("copilot");
-          setTimeout(() => {
-            const composer = document.querySelector<HTMLInputElement>("input[placeholder*='바리스타']");
-            composer?.focus();
-          }, 200);
-        }}
-        enabled={true}
-      />
     </main>
   );
 }
