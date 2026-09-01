@@ -1,5 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "env": {
+    "COMPANION_CONVERSATION_MODE": "on",
+    "DISABLE_COMPANION_CONVERSATION": "false"
+  },
   "crons": [
     {
       "path": "/api/briefing/daily",
