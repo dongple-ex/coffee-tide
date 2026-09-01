@@ -1881,13 +1881,27 @@
   cursor: pointer;
 }
 
+.settingToggleItem {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+}
+
 .settingToggleRow + .settingToggleRow {
   border-top: 1px dashed var(--border);
   padding-top: 9px;
 }
 
 .settingToggleCopy {
+  flex: 1;
   min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .settingToggleTitle {
@@ -1901,8 +1915,13 @@
   line-height: 1.45;
 }
 
-.settingToggleRow input[type="checkbox"] {
+.settingToggleRow input[type="checkbox"],
+.settingToggleItem input[type="checkbox"] {
   flex-shrink: 0;
+}
+
+.settingToggleItem input[type="checkbox"] {
+  margin-top: 2px;
 }
 
 .googleConnectionSettings {
@@ -3467,6 +3486,24 @@
 
 /* 📱 모바일 컴팩트 탭 모드 (768px 이하) */
 @media (max-width: 768px) {
+  .copilotCardTitle {
+    align-items: flex-start;
+    flex-direction: column;
+    overflow-x: visible;
+  }
+
+  .copilotStatus {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    margin-left: 0;
+  }
+
+  .settingToggleItem {
+    gap: 10px;
+    padding: 10px;
+  }
+
   .dashboardGrid,
   .pageCompact .dashboardGrid {
     display: flex;
