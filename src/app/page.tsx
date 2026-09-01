@@ -80,6 +80,7 @@ import { WelcomeCard, WeatherData } from "./components/WelcomeCard";
 import { WeatherWidget } from "./components/WeatherWidget";
 import type { CustomWidgetConfig } from "./components/CustomNewsWidget";
 import { ContextualRecStrip } from "./components/youtube/ContextualRecStrip";
+import type { ConversationTurnMode } from "@/lib/ai/conversation";
 
 // 초기 화면에 렌더링되지 않는 모달·위젯 패널은 지연 로딩으로 초기 번들에서 제외
 const SettingsModal = dynamic(() => import("./components/SettingsModal").then((m) => m.SettingsModal), { ssr: false });
@@ -133,6 +134,7 @@ const LS_SPARK_ENABLED = "ct_spark_enabled";
 const LS_CUSTOM_WIDGETS = "ct_custom_widgets";
 const LS_COPILOT_CONFIG = "ct_copilot_config";
 const LS_CANVAS_ENABLED = "ct_exp_canvas_enabled";
+const LS_CONVERSATION_ENABLED = "ct_exp_natural_conversation_enabled";
 const GOOGLE_IDENTITY_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? "";
 
 const POLL_MS = 30_000;
@@ -374,6 +376,10 @@ export default function Home() {
   const [calendarReconnectRequired, setCalendarReconnectRequired] = useState(false);
   const [sparkEnabled, setSparkEnabled] = useState<boolean>(() => loadLS<boolean>(LS_SPARK_ENABLED, false));
   const [canvasEnabled, setCanvasEnabled] = useState<boolean>(() => loadLS<boolean>(LS_CANVAS_ENABLED, true));
+  const [conversationEnabled, setConversationEnabled] = useState<boolean>(
+    () => loadLS<boolean>(LS_CONVERSATION_ENABLED, false)
+  );
+  const [conversationRuntimeActive, setConversationRuntimeActive] = useState<boolean | null>(null);
   const [sparkBriefing, setSparkBriefing] = useState<string | null>(null);
   const [sparkBriefingLoading, setSparkBriefingLoading] = useState(false);
   const [welcomeCardCollapsed, setWelcomeCardCollapsed] = useState(
@@ -2305,6 +2311,11 @@ export default function Home() {
             timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
             copilotConfig,
             includeSpark: sparkEnabled,
+            conversationEnabled,
+            history: copilotMessages.slice(-8).map((message) => ({
+              role: message.role === "ai" ? "assistant" : "user",
+              text: message.text,
+            })),
           }),
       });
       const json = (await res.json()) as {
@@ -2317,7 +2328,12 @@ export default function Home() {
         connection_errors?: MailsResponse["errors"];
         custom_widget?: { name: string; url: string };
         app_shortcut?: { keyword: string; target: string };
+        mode?: ConversationTurnMode;
+        conversation_feature_active?: boolean;
       };
+      if (typeof json.conversation_feature_active === "boolean") {
+        setConversationRuntimeActive(json.conversation_feature_active);
+      }
       if (json.connections) {
         setConnections(json.connections);
         setErrors((previous) => {
@@ -2373,6 +2389,7 @@ export default function Home() {
           text: json.answer ?? "응답이 지연되고 있습니다. 잠시 후 다시 물어봐 주세요.",
           fallback: json.ai_fallback,
           evidences: json.evidences,
+          mode: json.mode,
         },
       ]);
     } catch {
@@ -3664,6 +3681,27 @@ export default function Home() {
             <div className={`${styles.cardTitle} ${styles.copilotCardTitle}`}>
               <span className={`${styles.copilotTitleLabel} ${styles.sectionTitleLabel}`}><UiIcon name="assistant" size={17} />{copilotConfig.baristaName || "AI 바리스타"}</span>
               <div className={styles.copilotStatus} aria-label="현재 업무 상태">
+                <button
+                  type="button"
+                  className={`${styles.statChip} ${
+                    conversationEnabled && conversationRuntimeActive !== false
+                      ? styles.conversationStatusActive
+                      : styles.conversationStatusInactive
+                  }`}
+                  onClick={() => setShowConn(true)}
+                  title="설정의 실험실 기능에서 자연 대화를 켜거나 끌 수 있습니다."
+                  aria-label={`자연 대화 실험 ${
+                    !conversationEnabled
+                      ? "사용자 설정 비활성"
+                      : conversationRuntimeActive === false
+                        ? "서버 비활성"
+                        : "사용자 설정 활성"
+                  }, 설정 열기`}
+                >
+                  대화 <b>{
+                    !conversationEnabled ? "OFF" : conversationRuntimeActive === false ? "SERVER OFF" : "ON"
+                  }</b>
+                </button>
                 {!isAnyConnected && (
                   <button
                     type="button"
@@ -3932,6 +3970,17 @@ export default function Home() {
             saveLS(LS_CANVAS_ENABLED, checked);
             if (!checked) setIsCanvasOpen(false);
             showToast(checked ? "실험실 기능: AI 캔버스 작업 공간이 켜졌습니다." : "AI 캔버스 작업 공간이 꺼졌습니다.");
+          }}
+          conversationEnabled={conversationEnabled}
+          onChangeConversationEnabled={(checked) => {
+            setConversationEnabled(checked);
+            setConversationRuntimeActive(null);
+            saveLS(LS_CONVERSATION_ENABLED, checked);
+            showToast(
+              checked
+                ? "실험실 기능: 자연스러운 캐릭터 대화가 켜졌습니다."
+                : "자연 대화 실험이 꺼져 기존 업무 Copilot 방식으로 돌아갑니다."
+            );
           }}
           storageStatus={{
             cloudProvider: (cloudProvider as "supabase" | "upstash" | "guest") || "guest",

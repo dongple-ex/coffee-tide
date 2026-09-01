@@ -78,6 +78,8 @@ export interface SettingsModalProps {
   onChangeSparkEnabled: (enabled: boolean) => void;
   canvasEnabled?: boolean;
   onChangeCanvasEnabled?: (enabled: boolean) => void;
+  conversationEnabled?: boolean;
+  onChangeConversationEnabled?: (enabled: boolean) => void;
   storageStatus?: DataStorageStatus;
   onRetrySync?: () => void;
   connections: ConnectionState | null;
@@ -162,6 +164,8 @@ export function SettingsModal({
   onChangeSparkEnabled,
   canvasEnabled = true,
   onChangeCanvasEnabled,
+  conversationEnabled = false,
+  onChangeConversationEnabled,
   storageStatus,
   onRetrySync,
   connections,
@@ -453,6 +457,20 @@ export function SettingsModal({
                 <span>🧪 실험실 기능 (Experimental Labs)</span>
               </div>
               <div className={styles.settingToggleList}>
+                <label className={styles.settingToggleItem}>
+                  <div className={styles.settingToggleCopy}>
+                    <span className={styles.settingToggleTitle}>💬 자연스러운 캐릭터 대화</span>
+                    <div className={styles.settingToggleDesc}>
+                      인사·칭찬·농담·감정 표현에는 업무 데이터를 조회하지 않고 자연스럽게 대화합니다. 시험 기간에는 언제든 기존 업무 Copilot 방식으로 되돌릴 수 있으며, 서버 롤아웃이 닫혀 있으면 설정을 켜도 활성화되지 않습니다.
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={conversationEnabled}
+                    onChange={(e) => onChangeConversationEnabled?.(e.target.checked)}
+                    aria-label="자연스러운 캐릭터 대화 실험 활성화"
+                  />
+                </label>
                 <label className={styles.settingToggleItem}>
                   <div className={styles.settingToggleCopy}>
                     <span className={styles.settingToggleTitle}>🖌️ AI 캔버스 작업 공간 (Chrome Canary 온디바이스 AI)</span>

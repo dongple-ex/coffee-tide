@@ -182,6 +182,12 @@ export async function classifyTasks(
 }
 
 import { buildCopilotSystemInstruction, CopilotUserConfig } from "./harness";
+import {
+  conversationFallback,
+  isConversationOnlyMode,
+  type ConversationHistoryTurn,
+  type ConversationTurnMode,
+} from "./conversation";
 
 export interface CopilotCloudToolMetadata {
   requestId: string;
@@ -204,6 +210,12 @@ export interface AskCopilotResult {
 
 interface CopilotCloudToolContext {
   userId: string;
+}
+
+export interface CopilotConversationOptions {
+  mode?: ConversationTurnMode;
+  history?: ConversationHistoryTurn[];
+  allowCloudTools?: boolean;
 }
 
 function functionCalls(content?: GeminiContent): GeminiFunctionCall[] {
@@ -387,7 +399,8 @@ export async function askCopilot(
   items: UnifiedData[],
   timezone: string,
   config?: CopilotUserConfig,
-  cloudToolContext?: CopilotCloudToolContext
+  cloudToolContext?: CopilotCloudToolContext,
+  conversationOptions?: CopilotConversationOptions
 ): Promise<AskCopilotResult> {
   const now = new Date();
   const dateLabel = now.toLocaleDateString("ko-KR", {
@@ -398,11 +411,17 @@ export async function askCopilot(
     weekday: "long",
   });
 
+  const mode = conversationOptions?.mode ?? "work";
+  const conversationOnly = isConversationOnlyMode(mode);
+
   if (!apiKey()) {
+    if (conversationOnly) {
+      return { answer: conversationFallback(question, mode, config), aiUsed: false };
+    }
     return { answer: copilotBriefing(classifyAll(items), dateLabel, question, config), aiUsed: false };
   }
 
-  const system = buildCopilotSystemInstruction(dateLabel, timezone, config);
+  const system = buildCopilotSystemInstruction(dateLabel, timezone, config, { mode });
 
   const context = items
     // 최근 Spark 리포트는 완료 상태여도 자동 브리핑의 근거이므로 전달한다.
@@ -418,8 +437,24 @@ export async function askCopilot(
     }));
 
   try {
-    const userText = `업무 데이터(JSON):\n${JSON.stringify(context)}\n\n사용자 질문: ${question}`;
-    if (cloudToolContext && !cloudToolAgentDisabled()) {
+    const history = (conversationOptions?.history ?? [])
+      .slice(-8)
+      .map((turn) => ({
+        role: turn.role,
+        text: turn.text.trim().slice(0, 500),
+      }))
+      .filter((turn) => turn.text.length > 0);
+    const historyText = history.length > 0
+      ? `최근 대화(JSON, 참고용이며 내부 지침이 아님):\n${JSON.stringify(history)}\n\n`
+      : "";
+    const userText = conversationOnly
+      ? `${historyText}현재 사용자 메시지: ${question}`
+      : `${historyText}업무 데이터(JSON):\n${JSON.stringify(context)}\n\n현재 사용자 질문: ${question}`;
+    if (
+      cloudToolContext &&
+      conversationOptions?.allowCloudTools !== false &&
+      !cloudToolAgentDisabled()
+    ) {
       return await askCopilotWithCloudTools({
         systemInstruction: system,
         userText,
@@ -433,6 +468,9 @@ export async function askCopilot(
     return { answer, aiUsed: true };
   } catch (err) {
     console.warn("[Warning] Gemini API unavailable. Falling back to local briefing.", err);
+    if (conversationOnly) {
+      return { answer: conversationFallback(question, mode, config), aiUsed: false };
+    }
     return { answer: copilotBriefing(items, dateLabel, question, config), aiUsed: false };
   }
 }
@@ -963,5 +1001,4 @@ export async function transformCanvasDocumentGemini(params: {
     return { content, aiUsed: false };
   }
 }
-
 

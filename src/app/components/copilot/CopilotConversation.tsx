@@ -7,6 +7,7 @@ import IcedAmericano from "../icedAmericano";
 import MarkdownLite from "../markdownLite";
 import { EvidencePanel } from "./EvidencePanel";
 import { UiIcon } from "../UiIcon";
+import { isConversationOnlyMode } from "@/lib/ai/conversation";
 import styles from "../../page.module.css";
 
 interface Props {
@@ -78,15 +79,20 @@ export function CopilotConversation({
         pairs.map((pair) => {
           const isExpanded = expandedKeys.has(pair.id);
           const isUnread = unreadKeys.has(pair.id) && !isExpanded;
+          const isNaturalConversation = isConversationOnlyMode(pair.mode);
 
           return (
             <div
               key={pair.id}
-              className={`${styles.chatQaGroup} ${isUnread ? styles.chatQaGroupUnread : ""}`}
+              className={`${styles.chatQaGroup} ${
+                isNaturalConversation ? styles.chatQaGroupConversation : ""
+              } ${isUnread ? styles.chatQaGroupUnread : ""}`}
             >
               {pair.userText && (
                 <div
-                  className={`${styles.chatQuestionHeader} ${isUnread ? styles.headerBlinking : ""}`}
+                  className={`${styles.chatQuestionHeader} ${
+                    isNaturalConversation ? styles.chatQuestionHeaderConversation : ""
+                  } ${isUnread ? styles.headerBlinking : ""}`}
                   onClick={() => onToggleExpand(pair.id)}
                 >
                   <div className={styles.chatQuestionTitle}>
@@ -94,7 +100,7 @@ export function CopilotConversation({
                     <span>{pair.userText}</span>
                   </div>
                   <div className={styles.headerRightControls}>
-                    {pair.aiText && canvasEnabled && onOpenInCanvas && (
+                    {pair.aiText && !isNaturalConversation && canvasEnabled && onOpenInCanvas && (
                       <button
                         type="button"
                         className={styles.openInCanvasBtn}
@@ -136,21 +142,36 @@ export function CopilotConversation({
                 </div>
               )}
               {isExpanded && pair.aiText && (
-                <div className={`${styles.chatAnswerScroll} ${styles.chatAnswerScrollUnfold}`}>
-                  <div className={styles.coffeeServedBanner}>
-                    <div className={styles.coffeeServedIconGroup}>
-                      <span className={styles.coffeeServedBell}>🛎️</span>
-                      <IcedAmericano size={22} textMode="none" />
-                    </div>
-                    <div className={styles.coffeeServedText}>
-                      <span className={styles.coffeeServedTitle}>
-                        주문하신 <b>{baristaName} 특제 브리핑</b> 나왔습니다!
+                <div
+                  className={`${styles.chatAnswerScroll} ${styles.chatAnswerScrollUnfold} ${
+                    isNaturalConversation ? styles.chatAnswerConversation : ""
+                  }`}
+                >
+                  {isNaturalConversation ? (
+                    <div className={styles.conversationResponseHeader}>
+                      <span aria-hidden="true">💬</span>
+                      <span>
+                        {pair.mode === "repair" ? "대화 모드로 전환했어요" : `${baristaName}와 대화 중`}
                       </span>
-                      <span className={styles.coffeeServedSub}>정성껏 추출한 답변을 확인해 보세요.</span>
                     </div>
-                  </div>
+                  ) : (
+                    <div className={styles.coffeeServedBanner}>
+                      <div className={styles.coffeeServedIconGroup}>
+                        <span className={styles.coffeeServedBell}>🛎️</span>
+                        <IcedAmericano size={22} textMode="none" />
+                      </div>
+                      <div className={styles.coffeeServedText}>
+                        <span className={styles.coffeeServedTitle}>
+                          주문하신 <b>{baristaName} 특제 브리핑</b> 나왔습니다!
+                        </span>
+                        <span className={styles.coffeeServedSub}>정성껏 추출한 답변을 확인해 보세요.</span>
+                      </div>
+                    </div>
+                  )}
                   <MarkdownLite text={pair.aiText} />
-                  <EvidencePanel evidences={pair.evidences} onCompleteItem={onCompleteItem} />
+                  {!isNaturalConversation && (
+                    <EvidencePanel evidences={pair.evidences} onCompleteItem={onCompleteItem} />
+                  )}
                 </div>
               )}
             </div>

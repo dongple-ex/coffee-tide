@@ -1,11 +1,13 @@
 // AI 바리스타 대화 — 메시지 배열을 질문/답변 쌍으로 묶는다.
 import type { KnowledgeEvidence } from "./knowledge/contracts";
+import type { ConversationTurnMode } from "./ai/conversation";
 
 export interface CopilotMessage {
   role: "user" | "ai";
   text: string;
   fallback?: boolean;
   evidences?: KnowledgeEvidence[];
+  mode?: ConversationTurnMode;
 }
 
 export interface QaPair {
@@ -14,6 +16,7 @@ export interface QaPair {
   aiText?: string;
   fallback?: boolean;
   evidences?: KnowledgeEvidence[];
+  mode?: ConversationTurnMode;
 }
 
 export function buildQaPairs(messages: CopilotMessage[]): QaPair[] {
@@ -30,12 +33,14 @@ export function buildQaPairs(messages: CopilotMessage[]): QaPair[] {
       current.aiText = msg.text;
       current.fallback = msg.fallback;
       current.evidences = msg.evidences;
+      current.mode = msg.mode;
     } else {
       current = {
         id: `qa-ai-${idx}`,
         aiText: msg.text,
         fallback: msg.fallback,
         evidences: msg.evidences,
+        mode: msg.mode,
       };
       pairs.push(current);
     }

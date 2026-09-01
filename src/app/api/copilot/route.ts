@@ -18,6 +18,12 @@ import { searchKnowledge } from "@/lib/knowledge/search";
 import { filterItemsByExecutionPolicy } from "@/lib/knowledge/policy";
 import { mapItemRelationFromDb, mapUnifiedItemFromDb } from "@/lib/data/mappers";
 import type { ItemRelation, WorkspaceItem } from "@/lib/data/contracts";
+import {
+  routeConversation,
+  type ConversationExplicitMode,
+  type ConversationHistoryTurn,
+} from "@/lib/ai/conversation";
+import { getConversationFeatureAccess } from "@/lib/ai/conversationFeatureAccess";
 
 function mergeById(items: UnifiedData[]): UnifiedData[] {
   return [...new Map(items.map((item) => [item.id, item])).values()];
@@ -54,6 +60,9 @@ export async function POST(request: NextRequest) {
     copilotConfig?: CopilotUserConfig;
     includeSpark?: boolean;
     autonomousSparkBriefing?: boolean;
+    explicitMode?: ConversationExplicitMode;
+    history?: Array<{ role?: string; text?: string }>;
+    conversationEnabled?: boolean;
   };
 
   if (body.autonomousSparkBriefing) {
@@ -65,6 +74,15 @@ export async function POST(request: NextRequest) {
 
   const question = body.question?.trim() || "오늘 해야 할 일을 브리핑해줘";
   const clientItems = Array.isArray(body.items) ? body.items.slice(0, 80) : [];
+  const history: ConversationHistoryTurn[] = Array.isArray(body.history)
+    ? body.history
+        .slice(-8)
+        .flatMap((turn) => {
+          const text = typeof turn.text === "string" ? turn.text.trim().slice(0, 500) : "";
+          if (!text) return [];
+          return [{ role: turn.role === "user" ? "user" : "assistant", text } satisfies ConversationHistoryTurn];
+        })
+    : [];
 
   if (/^\/tools(?:\s|$)/i.test(question)) {
     const tools = listCloudTools();
@@ -208,6 +226,47 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  const candidateConversationRoute = routeConversation({
+    text: question,
+    explicitMode: body.explicitMode,
+  });
+  const conversationAccess = getConversationFeatureAccess({
+    userId: identity.id,
+    userEnabled: body.conversationEnabled === true,
+  });
+  const conversationRoute = conversationAccess.active
+    ? candidateConversationRoute
+    : {
+        mode: "work" as const,
+        confidence: "high" as const,
+        reason: "conversation_feature_inactive",
+        needsWorkContext: true,
+        allowCloudTools: true,
+      };
+
+  // 인사·잡담·감정 표현·대화 복구는 업무 신뢰 경계 밖에서 처리한다.
+  // Spark, 클라이언트 업무, 서버 지식 검색, Cloud Tool을 전혀 조회하거나 전달하지 않는다.
+  if (!conversationRoute.needsWorkContext) {
+    const { answer, aiUsed } = await askCopilot(
+      question,
+      [],
+      body.timezone || "Asia/Seoul",
+      body.copilotConfig,
+      undefined,
+      {
+        mode: conversationRoute.mode,
+        history,
+        allowCloudTools: false,
+      }
+    );
+    return NextResponse.json({
+      answer,
+      mode: conversationRoute.mode,
+      conversation_feature_active: true,
+      ai_fallback: !aiUsed,
+    });
+  }
+
   const sparkItems = body.includeSpark
     ? await getRecentSparkUnifiedItems(identity.id, identity.supabase)
     : [];
@@ -306,10 +365,17 @@ export async function POST(request: NextRequest) {
     allowedItems,
     body.timezone || "Asia/Seoul",
     body.copilotConfig,
-    { userId: identity.id }
+    { userId: identity.id },
+    {
+      mode: conversationRoute.mode,
+      history,
+      allowCloudTools: conversationRoute.allowCloudTools,
+    }
   );
   return NextResponse.json({
     answer,
+    mode: conversationRoute.mode,
+    conversation_feature_active: conversationAccess.active,
     ai_fallback: !aiUsed,
     evidences: evidences.length > 0 ? evidences : undefined,
     ...(cloudToolExecution ? { cloud_tool_execution: cloudToolExecution } : {}),

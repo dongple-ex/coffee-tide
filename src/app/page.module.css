@@ -177,6 +177,31 @@
   white-space: nowrap;
 }
 
+.conversationStatusActive,
+.conversationStatusInactive {
+  cursor: pointer;
+  font: inherit;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.conversationStatusActive {
+  background: color-mix(in srgb, #22c55e 12%, var(--card));
+  border-color: color-mix(in srgb, #22c55e 45%, var(--border));
+}
+
+.conversationStatusActive b {
+  color: #22c55e;
+}
+
+.conversationStatusInactive {
+  opacity: 0.72;
+}
+
+.conversationStatusActive:hover,
+.conversationStatusInactive:hover {
+  border-color: var(--accent);
+}
+
 .unlinkedChip {
   display: inline-flex;
   align-items: center;
@@ -1461,6 +1486,11 @@
   box-shadow: 0 0 12px rgba(99, 102, 241, 0.25);
 }
 
+.chatQaGroupConversation {
+  border-color: color-mix(in srgb, var(--accent) 24%, var(--border));
+  background: color-mix(in srgb, var(--accent) 3%, var(--card));
+}
+
 .chatQuestionHeader {
   display: flex;
   align-items: center;
@@ -1478,6 +1508,14 @@
 
 .chatQuestionHeader:hover {
   background: rgba(99, 102, 241, 0.14);
+}
+
+.chatQuestionHeaderConversation {
+  background: color-mix(in srgb, var(--accent) 6%, var(--card));
+}
+
+.chatQuestionHeaderConversation:hover {
+  background: color-mix(in srgb, var(--accent) 11%, var(--card));
 }
 
 .headerBlinking {
@@ -1555,6 +1593,21 @@
   background: var(--bg);
   font-size: 0.9rem;
   line-height: 1.6;
+}
+
+.chatAnswerConversation {
+  background: color-mix(in srgb, var(--accent) 2%, var(--bg));
+}
+
+.conversationResponseHeader {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 12px;
+  color: var(--text-dim);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: -0.1px;
 }
 
 /* 촥 펼쳐지는 극적인 서빙 애니메이션 */
