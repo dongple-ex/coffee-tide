@@ -111,7 +111,8 @@ export function CopilotConversation({
                         title="이 답변을 AI 캔버스에서 열고 실시간 편집/다듬기"
                         aria-label="AI 캔버스에서 열기"
                       >
-                        🖌️ 캔버스
+                        <span aria-hidden="true">🖌️</span>
+                        <span className={styles.openInCanvasLabel}>캔버스</span>
                       </button>
                     )}
                     {isUnread && <span className={styles.blinkingBadge}>답변 완료</span>}

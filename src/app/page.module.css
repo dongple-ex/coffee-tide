@@ -3338,6 +3338,39 @@
   animation: toolStatusPulse 2.2s ease-in-out infinite;
 }
 
+@media (max-width: 480px) {
+  .compactTabBar {
+    gap: 2px;
+    padding: 4px;
+  }
+
+  .compactTabBtn {
+    min-width: 0;
+    min-height: 42px;
+    gap: 3px;
+    padding: 0 4px;
+    font-size: 0.72rem;
+    line-height: 1;
+    letter-spacing: -0.025em;
+    white-space: nowrap;
+  }
+
+  .compactTabBtn > span {
+    white-space: nowrap;
+  }
+
+  .compactTabBtn svg {
+    width: 14px;
+    height: 14px;
+    flex: 0 0 auto;
+  }
+
+  .compactTabBadge {
+    padding: 1px 4px;
+    font-size: 0.62rem;
+  }
+}
+
 @keyframes toolStatusPulse {
   0%, 100% { opacity: 0.45; transform: scale(0.8); }
   50% { opacity: 1; transform: scale(1); }
@@ -4152,6 +4185,68 @@
 .openInCanvasBtn:hover {
   background: color-mix(in srgb, var(--accent) 18%, var(--card));
   border-color: var(--accent);
+}
+
+.openInCanvasLabel {
+  display: inline;
+}
+
+@media (max-width: 480px) {
+  .chatQuestionHeader {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 6px;
+    padding: 9px 10px;
+    font-size: 0.78rem;
+    line-height: 1.35;
+  }
+
+  .chatQuestionTitle {
+    gap: 5px;
+    width: 100%;
+    min-width: 0;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+
+  .chatQuestionTitle svg {
+    width: 13px;
+    height: 13px;
+    flex: 0 0 auto;
+  }
+
+  .headerRightControls {
+    order: -1;
+    align-self: flex-end;
+    gap: 4px;
+    flex: 0 0 auto;
+  }
+
+  .openInCanvasBtn {
+    gap: 2px;
+    margin-left: 0;
+    padding: 3px 5px;
+    border-radius: 5px;
+    font-size: 0.62rem;
+    line-height: 1.25;
+    white-space: nowrap;
+  }
+
+  .openInCanvasLabel {
+    display: none;
+  }
+
+  .blinkingBadge {
+    padding: 2px 6px;
+    font-size: 0.62rem;
+    line-height: 1.25;
+    white-space: nowrap;
+    box-shadow: 0 0 6px rgba(99, 102, 241, 0.55);
+  }
+
+  .chatQaToggleBtn {
+    padding: 2px;
+  }
 }
 
 /* ==========================================================================
