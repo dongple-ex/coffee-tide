@@ -18,6 +18,9 @@ import { searchKnowledge } from "@/lib/knowledge/search";
 import { filterItemsByExecutionPolicy } from "@/lib/knowledge/policy";
 import { mapItemRelationFromDb, mapUnifiedItemFromDb } from "@/lib/data/mappers";
 import type { ItemRelation, WorkspaceItem } from "@/lib/data/contracts";
+import { buildCompanionContextPackage, formatCompanionContextPrompt } from "@/lib/companion/promptContext";
+import { parseCompanionResponse } from "@/lib/companion/episodeSummarizer";
+import { getCompanionFeatureAccess, isCompanionGrowthActive } from "@/lib/companion/featureAccess";
 import {
   routeConversation,
   type ConversationExplicitMode,
@@ -259,8 +262,11 @@ export async function POST(request: NextRequest) {
         allowCloudTools: false,
       }
     );
+    const companionParsed = parseCompanionResponse(answer);
     return NextResponse.json({
-      answer,
+      answer: companionParsed.message || answer,
+      narration: companionParsed.narration,
+      suggestions: companionParsed.suggestions,
       mode: conversationRoute.mode,
       conversation_feature_active: true,
       ai_fallback: !aiUsed,
@@ -360,25 +366,49 @@ export async function POST(request: NextRequest) {
     evidences = [];
   }
 
-  const { answer, aiUsed, cloudToolExecution, cloudToolDraft } = await askCopilot(
-    question,
-    allowedItems,
-    body.timezone || "Asia/Seoul",
-    body.copilotConfig,
-    { userId: identity.id },
-    {
-      mode: conversationRoute.mode,
-      history,
-      allowCloudTools: conversationRoute.allowCloudTools,
+    const access = getCompanionFeatureAccess();
+    const companionActive = isCompanionGrowthActive(access);
+
+    // 컴패니언 기능 활성 시 안전한 프롬프트 컨텍스트 패키지 조립
+    let updatedConfig = body.copilotConfig;
+    if (companionActive && updatedConfig) {
+      const companionPkg = buildCompanionContextPackage({
+        personaId: updatedConfig.presetId || "karina",
+        currentMode: "momentum",
+      });
+      const companionPromptExtra = formatCompanionContextPrompt(companionPkg);
+      updatedConfig = {
+        ...updatedConfig,
+        customInstructions: updatedConfig.customInstructions
+          ? `${updatedConfig.customInstructions}\n\n${companionPromptExtra}`
+          : companionPromptExtra,
+      };
     }
-  );
-  return NextResponse.json({
-    answer,
-    mode: conversationRoute.mode,
-    conversation_feature_active: conversationAccess.active,
-    ai_fallback: !aiUsed,
-    evidences: evidences.length > 0 ? evidences : undefined,
-    ...(cloudToolExecution ? { cloud_tool_execution: cloudToolExecution } : {}),
-    ...(cloudToolDraft ? { cloud_tool_draft: cloudToolDraft } : {}),
-  });
+
+    const { answer, aiUsed, cloudToolExecution, cloudToolDraft } = await askCopilot(
+      question,
+      allowedItems,
+      body.timezone || "Asia/Seoul",
+      updatedConfig,
+      { userId: identity.id },
+      {
+        mode: conversationRoute.mode,
+        history,
+        allowCloudTools: conversationRoute.allowCloudTools,
+      }
+    );
+
+    const companionParsed = parseCompanionResponse(answer);
+
+    return NextResponse.json({
+      answer: companionParsed.message || answer,
+      narration: companionParsed.narration,
+      suggestions: companionParsed.suggestions,
+      mode: conversationRoute.mode,
+      conversation_feature_active: conversationAccess.active,
+      ai_fallback: !aiUsed,
+      evidences: evidences.length > 0 ? evidences : undefined,
+      ...(cloudToolExecution ? { cloud_tool_execution: cloudToolExecution } : {}),
+      ...(cloudToolDraft ? { cloud_tool_draft: cloudToolDraft } : {}),
+    });
 }

@@ -43,6 +43,8 @@ const RECOMMENDED_PROMPTS = [
   },
 ];
 
+import { getQuickReplies, QuickReplyChip } from "@/lib/ai/copilotQuickReplies";
+
 interface Props {
   value: string;
   onChange: (value: string) => void;
@@ -66,6 +68,10 @@ interface Props {
   onToggleSaveToDrive: () => void;
   googleConnected: boolean;
   baristaName?: string;
+  presetId?: string;
+  hasUrgentTasks?: boolean;
+  taskCount?: number;
+  onSelectQuickReply?: (query: string) => void;
   placeholder?: string;
 }
 
@@ -88,6 +94,10 @@ export function CopilotComposer({
   onToggleSaveToDrive,
   googleConnected,
   baristaName = "AI 바리스타",
+  presetId = "karina",
+  hasUrgentTasks = false,
+  taskCount = 0,
+  onSelectQuickReply,
   placeholder,
 }: Props) {
   const trimmed = value.trim();
@@ -95,8 +105,73 @@ export function CopilotComposer({
     ? SLASH_COMMANDS.filter((cmd) => cmd.name.startsWith(trimmed.toLowerCase()))
     : [];
 
+  const quickReplies = getQuickReplies({
+    presetId,
+    baristaName,
+    hasUrgentTasks,
+    taskCount,
+  });
+
   return (
-    <div className={styles.copilotForm} style={{ position: "relative" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "8px", width: "100%" }}>
+      {/* 💬 티키타카 추천 답변 & 원클릭 액션 칩 바 */}
+      {trimmed === "" && slashMatches.length === 0 && (
+        <div
+          style={{
+            display: "flex",
+            gap: "6px",
+            overflowX: "auto",
+            padding: "2px 4px 6px 4px",
+            scrollbarWidth: "none",
+            WebkitOverflowScrolling: "touch",
+          }}
+          aria-label="추천 대화 선택지"
+        >
+          {quickReplies.map((chip) => (
+            <button
+              key={chip.id}
+              type="button"
+              onClick={() => {
+                if (onSelectQuickReply) {
+                  onSelectQuickReply(chip.query);
+                } else {
+                  onChange(chip.query);
+                }
+              }}
+              disabled={busy}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "5px",
+                padding: "5px 10px",
+                borderRadius: "16px",
+                fontSize: "0.78rem",
+                fontWeight: 500,
+                backgroundColor: "rgba(255, 255, 255, 0.05)",
+                color: "var(--text, #eee)",
+                border: "1px solid rgba(255, 255, 255, 0.12)",
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+                transition: "all 0.2s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = "rgba(56, 189, 248, 0.15)";
+                e.currentTarget.style.borderColor = "var(--accent, #38bdf8)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.05)";
+                e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.12)";
+              }}
+              title={chip.query}
+            >
+              {chip.icon && <span>{chip.icon}</span>}
+              <span>{chip.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className={styles.copilotForm} style={{ position: "relative" }}>
       {slashMatches.length > 0 && (
         <div className={styles.commandMenu}>
           {slashMatches.map((cmd) => (
@@ -239,6 +314,7 @@ export function CopilotComposer({
           <path d="M20 4v7a4 4 0 0 1-4 4H4"></path>
         </svg>
       </button>
+      </div>
     </div>
   );
 }

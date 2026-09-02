@@ -1,8 +1,10 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { CopilotUserConfig, PERSONA_PRESETS, PersonaPreset } from "@/lib/ai/harness";
 import { UiIcon } from "../UiIcon";
+import { CompanionMemoryModal } from "@/app/components/companion/CompanionMemoryModal";
+import { CompanionGrowthCard } from "@/app/components/companion/CompanionGrowthCard";
 import styles from "../../page.module.css";
 
 interface Props {
@@ -12,12 +14,25 @@ interface Props {
   onChangeFollowupHours?: (hours: number) => void;
 }
 
+type FilterCategory = "all" | "office" | "fantasy" | "daily" | "animal" | "special";
+
+const CATEGORY_TABS: { id: FilterCategory; label: string; icon: string }[] = [
+  { id: "all", label: "전체 캐릭터", icon: "✨" },
+  { id: "office", label: "오피스 & 비서", icon: "💼" },
+  { id: "fantasy", label: "판타지 & 서브컬처", icon: "🪄" },
+  { id: "daily", label: "일상 & 츤데레", icon: "☕" },
+  { id: "animal", label: "귀여운 동물", icon: "🐾" },
+  { id: "special", label: "커스텀", icon: "✍️" },
+];
+
 export function CopilotCustomSection({
   config,
   onChangeConfig,
   followupHours = 24,
   onChangeFollowupHours,
 }: Props) {
+  const [activeCategory, setActiveCategory] = useState<FilterCategory>("all");
+  const [showMemoryModal, setShowMemoryModal] = useState(false);
   const currentName = config.baristaName ?? "AI 바리스타";
 
   const handleSelectPreset = (preset: PersonaPreset) => {
@@ -54,75 +69,119 @@ export function CopilotCustomSection({
     onChangeConfig({ ...config, includeTimeEstimate: e.target.checked });
   };
 
-  // 실시간 말투 미리보기 생성
-  const previewGreeting =
-    currentName === "카리나"
-      ? "안녕하세요! 오늘 일정과 중요 업무 싹 정리해 드릴게요 ✨"
-      : currentName === "김부장" || config.tone === "formal"
-      ? "안녕하십니까. 오늘 진행할 주요 업무와 일정 브리핑 보고드립니다."
-      : currentName === "칼퇴봇" || config.tone === "concise"
-      ? "사족 빼고 결론만 갑니다. 오늘 칼퇴를 위한 핵심 브리핑입니다."
-      : currentName === "칼찌장인 채린이" || config.presetId === "chaerin"
-      ? "훗, 내가 없으면 일이 안 돌아가지? 오늘 해야 할 거 딱 정리해 줄게 🃏"
-      : config.tone === "custom" && config.customToneText
-      ? `(${config.customToneText}) 오늘 업무 브리핑을 시작하겠습니다.`
-      : "커피 한 잔과 함께 편안하게 오늘 하루를 시작해 보세요 ☕";
+  const filteredPresets =
+    activeCategory === "all"
+      ? PERSONA_PRESETS
+      : PERSONA_PRESETS.filter((p) => p.category === activeCategory);
 
-  const previewResponse =
-    currentName === "카리나"
-      ? "오전 중으로 결재 요청 2건 먼저 확인하시는 게 좋아요! 제가 초안도 미리 챙겨둘게요 🚀"
-      : currentName === "김부장" || config.tone === "formal"
-      ? "금일 14시 예정된 주요 회의 자료 검토가 최우선 과제입니다. 일정에 차질 없도록 확인 바랍니다."
-      : currentName === "칼퇴봇" || config.tone === "concise"
-      ? "• [칼퇴 필수 1] 오전 긴급 결재 2건 처리\n• [칼퇴 필수 2] 오후 2시 회의 30분 전 자료 최종 점검\n• [블로커] 미회신 메일 1건 빠른 확인 요망"
-      : currentName === "칼찌장인 채린이" || config.presetId === "chaerin"
-      ? "어휴, 이것도 아직 안 끝냈어? 결재 2건부터 후딱 치우고 오자고. 나머진 내가 봐둘 테니까! 🖤"
-      : config.tone === "custom" && config.customToneText
-      ? `사용자 지정 어조("${config.customToneText}")에 맞추어 맞춤형으로 브리핑합니다.`
-      : "긴급한 메일 1건이 도착해 있어요. 따뜻한 커피 한 잔 드시면서 차근차근 확인해 드릴게요~";
+  const selectedPreset =
+    PERSONA_PRESETS.find((p) => p.id === config.presetId) ||
+    PERSONA_PRESETS.find((p) => p.baristaName === currentName) ||
+    PERSONA_PRESETS[0];
+
+  const previewGreeting = selectedPreset.previewGreeting;
+  const previewResponse = selectedPreset.previewResponse;
 
   return (
     <section className={styles.card} style={{ border: "none", padding: "10px 0" }}>
-      <div className={styles.cardTitle}>AI 바리스타 & 페르소나 설정</div>
-      <p style={{ fontSize: "0.85rem", color: "var(--text-dim, #666)", marginBottom: "14px", lineHeight: "1.4" }}>
-        안전한 기본 바운더리(날짜 추정 금지·출처 명시·보안 세이프가드) 내에서 말투와 브리핑 스타일을 자유롭게 맞춤 설정합니다.
-      </p>
+      <div className={styles.cardTitle} style={{ marginBottom: "12px" }}>
+        🎭 AI 캐릭터 & 페르소나 설정
+      </div>
 
-      {/* 🌟 원클릭 페르소나 프리셋 바 */}
+      {/* 🏷️ 카테고리 필터 탭 */}
+      <div style={{ display: "flex", gap: "6px", overflowX: "auto", paddingBottom: "8px", marginBottom: "12px" }}>
+        {CATEGORY_TABS.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => setActiveCategory(tab.id)}
+            style={{
+              padding: "6px 12px",
+              borderRadius: "20px",
+              fontSize: "0.8rem",
+              fontWeight: activeCategory === tab.id ? 700 : 500,
+              backgroundColor: activeCategory === tab.id ? "var(--accent, #38bdf8)" : "rgba(255, 255, 255, 0.06)",
+              color: activeCategory === tab.id ? "#000" : "var(--text, #eee)",
+              border: "1px solid " + (activeCategory === tab.id ? "var(--accent, #38bdf8)" : "rgba(255, 255, 255, 0.1)"),
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+              transition: "all 0.15s ease",
+            }}
+          >
+            <span style={{ marginRight: "4px" }}>{tab.icon}</span>
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* 🌟 뤼튼 크랙 감성 캐릭터 카드 갤러리 */}
       <div style={{ marginBottom: "16px" }}>
-        <label style={{ fontSize: "0.85rem", fontWeight: 600, display: "block", marginBottom: "8px" }}>
-          페르소나 프리셋 선택
-        </label>
-        <div className={styles.personaPresetGrid}>
-          {PERSONA_PRESETS.map((preset) => {
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
+            gap: "10px",
+            maxHeight: "320px",
+            overflowY: "auto",
+            padding: "4px",
+            borderRadius: "8px",
+          }}
+        >
+          {filteredPresets.map((preset) => {
             const isSelected =
               config.presetId === preset.id ||
-              (preset.id === "karina" && currentName === "카리나") ||
-              (preset.id === "barista" && !config.presetId && currentName === "AI 바리스타" && config.tone === "friendly");
+              (!config.presetId && preset.id === "karina" && currentName === "카리나") ||
+              (!config.presetId && preset.id === "barista" && currentName === "AI 바리스타");
 
             return (
-              <button
+              <div
                 key={preset.id}
-                type="button"
-                className={`${styles.personaPresetBtn} ${isSelected ? styles.personaPresetBtnActive : ""}`}
                 onClick={() => handleSelectPreset(preset)}
-                aria-pressed={isSelected}
+                style={{
+                  padding: "10px 12px",
+                  borderRadius: "10px",
+                  backgroundColor: isSelected ? "rgba(56, 189, 248, 0.12)" : "rgba(255, 255, 255, 0.03)",
+                  border: isSelected ? "2px solid var(--accent, #38bdf8)" : "1px solid rgba(255, 255, 255, 0.08)",
+                  cursor: "pointer",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "6px",
+                  transition: "all 0.15s ease",
+                  boxShadow: isSelected ? "0 0 12px rgba(56, 189, 248, 0.25)" : "none",
+                }}
               >
-                <span className={styles.personaPresetBadge}>{preset.badge}</span>
-                <span className={styles.personaPresetName}>{preset.name}</span>
-              </button>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: "0.78rem", padding: "2px 6px", borderRadius: "6px", backgroundColor: "rgba(255, 255, 255, 0.08)", color: "var(--text-dim, #aaa)" }}>
+                    {preset.badge}
+                  </span>
+                  {isSelected && (
+                    <span style={{ fontSize: "0.75rem", color: "var(--accent, #38bdf8)", fontWeight: 700 }}>
+                      선택됨 ✓
+                    </span>
+                  )}
+                </div>
+                <div style={{ fontSize: "0.95rem", fontWeight: 700, color: "var(--text, #fff)" }}>
+                  {preset.name}
+                </div>
+                <div style={{ fontSize: "0.75rem", color: "var(--text-dim, #888)", lineHeight: "1.3", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                  {preset.tagline}
+                </div>
+              </div>
             );
           })}
         </div>
 
-        {/* 💬 실시간 말투 미리보기 */}
-        <div className={styles.personaPreviewCard}>
-          <div className={styles.personaPreviewHeader}>
-            <UiIcon name="assistant" size={15} />
-            <span>{currentName} 실시간 응답 예시</span>
+        {/* 💬 실시간 캐릭터 대화 & 행동 지문 미리보기 */}
+        <div className={styles.personaPreviewCard} style={{ marginTop: "12px" }}>
+          <div className={styles.personaPreviewHeader} style={{ display: "flex", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <UiIcon name="assistant" size={15} />
+              <span><b>{selectedPreset.name}</b>의 세계관 대화 예시</span>
+            </div>
+            <span style={{ fontSize: "0.75rem", color: "var(--text-dim, #888)" }}>{selectedPreset.badge}</span>
           </div>
           <div className={styles.personaPreviewBubble}>
-            <b>{currentName}</b>: &ldquo;{previewGreeting}&rdquo;
+            <b>{selectedPreset.baristaName}</b>: &ldquo;{previewGreeting}&rdquo;
           </div>
           <div className={styles.personaPreviewBubble} style={{ whiteSpace: "pre-line", marginBottom: 0 }}>
             {previewResponse}
@@ -133,7 +192,7 @@ export function CopilotCustomSection({
       <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
         <div>
           <label style={{ fontSize: "0.85rem", fontWeight: 600, display: "block", marginBottom: "4px" }}>
-            AI 호칭
+            캐릭터 호칭 커스텀
           </label>
           <input
             className={styles.input}
@@ -160,66 +219,136 @@ export function CopilotCustomSection({
               <option value={12}>12시간 미응답 시 강조</option>
               <option value={24}>24시간 미응답 시 강조 (기본)</option>
               <option value={48}>48시간 미응답 시 강조</option>
+              <option value={72}>72시간 미응답 시 강조</option>
             </select>
-            <div style={{ fontSize: "0.76rem", color: "var(--text-dim)", lineHeight: "1.4" }}>
-              지정한 시간 동안 회신이나 처리가 없는 메일·일정을 AI 바리스타가 주의 항목으로 우선 브리핑합니다.
-            </div>
           </div>
         )}
 
         <div>
           <label style={{ fontSize: "0.85rem", fontWeight: 600, display: "block", marginBottom: "4px" }}>
-            어조 & 페르소나 스타일
+            어조 기본 모드
           </label>
           <select
             className={styles.input}
             value={config.tone ?? "friendly"}
             onChange={handleChangeTone}
-            style={{ width: "100%", marginBottom: "6px" }}
+            style={{ width: "100%", marginBottom: "4px" }}
+            aria-label="AI 바리스타 기본 어조"
           >
-            <option value="friendly">친근하고 따뜻한 개인 비서 (&quot;~해드릴게요&quot;)</option>
-            <option value="formal">정중하고 격식 있는 수석 비서 (&quot;~하십시오&quot;)</option>
-            <option value="concise">극도로 간결한 개조식 보고 (결론·핵심 위주)</option>
-            <option value="custom">사용자 지정 말투 직접 작성</option>
+            <option value="friendly">친근한 톤 (자연스러운 지원)</option>
+            <option value="formal">정중/격식 톤 (~하십시오, ~바랍니다)</option>
+            <option value="concise">초간결 개조식 톤 (핵심만 신속 전달)</option>
+            <option value="custom">캐릭터 고유 맞춤 톤 (프리셋/사용자 지정)</option>
           </select>
+        </div>
 
-          {config.tone === "custom" && (
+        {config.tone === "custom" && (
+          <div>
+            <label style={{ fontSize: "0.85rem", fontWeight: 600, display: "block", marginBottom: "4px" }}>
+              커스텀 어조 설명
+            </label>
             <input
               className={styles.input}
               type="text"
-              placeholder='예: "센스 있고 에너지 넘치는 톤. 이모지를 자연스럽게 곁들여 활기차게 응답"'
+              placeholder="예: 발랄하고 장난기 넘치며, 럭키비키 밈을 자연스럽게 섞는 톤"
               value={config.customToneText ?? ""}
               onChange={handleChangeCustomToneText}
-              maxLength={150}
+              maxLength={120}
             />
-          )}
-        </div>
+          </div>
+        )}
 
         <div>
           <label style={{ fontSize: "0.85rem", fontWeight: 600, display: "block", marginBottom: "4px" }}>
-            추가 응답 규칙 & 제약조건
+            추가 제약 조건 / 응답 규칙 (선택)
           </label>
           <textarea
             className={styles.input}
-            style={{ height: "60px", resize: "vertical", fontFamily: "inherit" }}
-            placeholder='예: "전문용어 사용 시 한글 병기", "중요한 항목은 굵은 글씨 강조"'
+            rows={3}
+            placeholder="예: 회의 준비 사항을 항상 맨 앞에 강조해줘 / 답변 끝에 3초 스트레칭 제안을 붙여줘"
             value={config.customInstructions ?? ""}
             onChange={handleChangeInstructions}
             maxLength={500}
+            style={{ resize: "vertical", width: "100%" }}
           />
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "4px" }}>
           <input
+            id="chk-time-estimate"
             type="checkbox"
-            id="timeEstimateCheck"
-            checked={!!config.includeTimeEstimate}
+            checked={config.includeTimeEstimate ?? false}
             onChange={handleToggleTimeEstimate}
           />
-          <label htmlFor="timeEstimateCheck" style={{ fontSize: "0.85rem", cursor: "pointer" }}>
-            ⏱️ 각 할 일 항목에 예상 소요시간([예상 30분] 등) 추정치 표기
+          <label htmlFor="chk-time-estimate" style={{ fontSize: "0.85rem", cursor: "pointer" }}>
+            주요 업무 브리핑 시 합리적인 예상 소요시간([예상 30분]) 함께 표시
           </label>
         </div>
+
+        {/* 💖 Phase 17: AI 컴패니언 관계·성장·기억 설정 */}
+        <div
+          style={{
+            marginTop: "16px",
+            padding: "12px",
+            borderRadius: "8px",
+            background: "rgba(244, 63, 94, 0.05)",
+            border: "1px solid rgba(244, 63, 94, 0.15)",
+          }}
+        >
+          <div style={{ fontSize: "0.88rem", fontWeight: 700, color: "#fda4af", marginBottom: "6px" }}>
+            💖 AI 컴패니언 관계성 & 기억 관리 (Phase 17)
+          </div>
+          <div style={{ fontSize: "0.8rem", color: "var(--muted, #94a3b8)", marginBottom: "10px", lineHeight: 1.4 }}>
+            캐릭터별 호감도와 계정 공통 업무 성장 분석을 활성화합니다. 선호 기억은 언제든 확인·수정·삭제할 수 있습니다.
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <input
+                id="chk-companion-growth"
+                type="checkbox"
+                defaultChecked={true}
+                onChange={(e) => {
+                  void fetch("/api/companion/settings", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ enabled: e.target.checked }),
+                  });
+                }}
+              />
+              <label htmlFor="chk-companion-growth" style={{ fontSize: "0.82rem", cursor: "pointer" }}>
+                컴패니언 관계성 & 업무 성장 기억 기능 켜기
+              </label>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowMemoryModal(true)}
+              style={{
+                padding: "4px 10px",
+                borderRadius: "6px",
+                background: "rgba(244, 63, 94, 0.15)",
+                border: "1px solid rgba(244, 63, 94, 0.3)",
+                color: "#fda4af",
+                fontSize: "0.78rem",
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              🧠 장기 기억 관리
+            </button>
+          </div>
+
+          {/* 4축 주간 성장 리포트 카드 */}
+          <div style={{ marginTop: "14px" }}>
+            <CompanionGrowthCard personaId={config.presetId || "karina"} />
+          </div>
+        </div>
+
+        {/* 장기 기억 관리 모달 */}
+        <CompanionMemoryModal
+          isOpen={showMemoryModal}
+          onClose={() => setShowMemoryModal(false)}
+        />
       </div>
     </section>
   );

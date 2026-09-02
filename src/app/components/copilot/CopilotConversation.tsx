@@ -7,6 +7,7 @@ import IcedAmericano from "../icedAmericano";
 import MarkdownLite from "../markdownLite";
 import { EvidencePanel } from "./EvidencePanel";
 import { UiIcon } from "../UiIcon";
+import { AffectionBadge } from "../barista/AffectionBadge";
 import { isConversationOnlyMode } from "@/lib/ai/conversation";
 import styles from "../../page.module.css";
 
@@ -26,6 +27,7 @@ interface Props {
   hasItems: boolean;
   /** AI 호칭/페르소나 이름 */
   baristaName?: string;
+  presetId?: string;
   expandedKeys: Set<string>;
   unreadKeys: Set<string>;
   onToggleExpand: (pairId: string) => void;
@@ -44,6 +46,7 @@ export function CopilotConversation({
   sparkBriefing,
   hasItems,
   baristaName = "AI 바리스타",
+  presetId = "karina",
   expandedKeys,
   unreadKeys,
   onToggleExpand,
@@ -55,6 +58,11 @@ export function CopilotConversation({
 
   return (
     <div className={styles.copilotBody} ref={bodyRef}>
+      {/* 💖 캐릭터 신뢰도/호감도 게이지 상태창 */}
+      <div style={{ marginBottom: "12px" }}>
+        <AffectionBadge presetId={presetId} baristaName={baristaName} />
+      </div>
+
       {sparkEnabled && (
         <section className={styles.sparkAutonomousBriefing} aria-label="Gemini Spark 자율 수신 브리핑">
           <div className={styles.sparkAutonomousBadge}><UiIcon name="spark" size={15} />Gemini Spark 24시간 자율 비서</div>

@@ -1,17 +1,50 @@
 // Copilot 응답 경량 렌더러 — G6: Markdown 원문(##, ** 등) 노출 금지, 카드/섹션 형태 렌더링.
-// 외부 의존성 없이 헤딩·리스트·굵게·인용만 지원하는 안전한 최소 구현.
+// 🎭 CRACK 스타일 행동 지문(*...*) 및 인라인 강조 파싱 지원
 
 "use client";
 
-import { Fragment, ReactNode } from "react";
+import React, { Fragment, ReactNode } from "react";
 import styles from "./markdownLite.module.css";
 
-function renderInline(text: string): ReactNode {
-  // **굵게** 만 지원 — 그 외 문법 문자는 일반 텍스트로
-  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+/**
+ * 인라인 마크다운 렌더러
+ * - **굵은 글씨**
+ * - *행동 지문* 또는 (*독백 지문*)
+ */
+export function renderInline(text: string): ReactNode {
+  // 1. **굵게** 및 *지문* 정규식 분할
+  // 토큰: (**...**), (*...*), (\(*...*\))
+  const tokenRegex = /(\*\*[^*]+\*\*|\(\*[^*]+\*\)|\*[^*]+\*)/g;
+  const parts = text.split(tokenRegex);
+
   return parts.map((part, i) => {
-    const bold = part.match(/^\*\*([^*]+)\*\*$/);
-    return bold ? <strong key={i}>{bold[1]}</strong> : <Fragment key={i}>{part}</Fragment>;
+    // 1. **굵게**
+    const boldMatch = part.match(/^\*\*([^*]+)\*\*$/);
+    if (boldMatch) {
+      return <strong key={i}>{boldMatch[1]}</strong>;
+    }
+
+    // 2. (*독백 지문*)
+    const parenNarrationMatch = part.match(/^\(\*([^*]+)\*\)$/);
+    if (parenNarrationMatch) {
+      return (
+        <span key={i} className={styles.actionNarration}>
+          *{parenNarrationMatch[1].trim()}*
+        </span>
+      );
+    }
+
+    // 3. *행동 지문*
+    const narrationMatch = part.match(/^\*([^*]+)\*$/);
+    if (narrationMatch) {
+      return (
+        <span key={i} className={styles.actionNarration}>
+          *{narrationMatch[1].trim()}*
+        </span>
+      );
+    }
+
+    return <Fragment key={i}>{part}</Fragment>;
   });
 }
 

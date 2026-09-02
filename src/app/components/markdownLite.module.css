@@ -23,6 +23,7 @@
 
 .p {
   color: var(--text);
+  line-height: 1.55;
 }
 
 .list {
@@ -46,4 +47,16 @@
   border: none;
   border-top: 1px solid var(--border);
   margin: 6px 0;
+}
+
+/* 🎭 CRACK 스타일 행동 지문 & 독백 스타일링 (*...*) */
+.actionNarration {
+  font-style: italic;
+  color: var(--text-dim, #94a3b8);
+  background: rgba(148, 163, 184, 0.08);
+  padding: 1px 6px;
+  border-radius: 6px;
+  margin: 0 2px;
+  font-size: 0.88em;
+  display: inline-block;
 }

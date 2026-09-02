@@ -5,7 +5,7 @@
 연동이 없어도 manual/paste로 바로 시작할 수 있는, 연결되면 더 강력해지는 시간 관리 비서입니다.
 
 - **서비스 도메인(예정)**: `coffeeTide.dongple.kr`
-- **현재 상태 (2026-07-28)**: MVP(2026-07-11) → Phase 7 브리핑 고도화(07-22) → 개인화 기능(출퇴근 길찾기·단어-앱 바로가기, 07-22~23) → 생산성 도구(퀵 위젯·슬래시 커맨드·워크노트·퇴근 핸드오프, 07-24) → 대용량 저장소(IndexedDB & Google Drive 일자별 백업, 07-27) → **문서 체계 정리(문서명 통일·`spec/` 분리) 및 피처 브랜치 체계 구축(07-28)**.
+- **현재 상태 (2026-09-01)**: MVP(2026-07-11) → Phase 7 브리핑 고도화(07-22) → 생산성 도구 & 저장소(07-24~27) → 12종 AI 캐릭터 & 생산성 연동 관계성 시스템(2026-09-01)
 - **UI 명칭**: 화면의 AI 도우미는 **"AI 바리스타"** 입니다 (코드·API는 `copilot`).
 
 ---
@@ -22,6 +22,9 @@ doc/
 ├── 04-mobile-strategy.md            모바일 전략
 ├── 05-hybrid-app-release-guide.md   하이브리드 앱 출시 가이드
 ├── 14-data-storage-ai-knowledge-architecture-plan.md 데이터·저장소·AI 지식 구조 계획
+├── 16-ai-character-productivity-companion-architecture.md AI 캐릭터 컴패니언 & 생산성 연동 관계성 아키텍처
+├── 17-ai-companion-growth-memory-system-design.md AI 컴패니언 성장·기억·지속 사용 시스템 설계
+├── 18-ai-companion-natural-conversation-orchestration-design.md 자연 대화·업무 의도 라우팅 및 오케스트레이션 설계
 ├── spec/                            단계별 기능 상세 스펙 (phaseN)
 └── legacy_timepilot/                구 TimePilot 시절 역사 문서
 ```
@@ -50,6 +53,12 @@ doc/
    - Capacitor 기반 하이브리드 앱 출시 가이드.
 7. [`14-data-storage-ai-knowledge-architecture-plan.md`](./14-data-storage-ai-knowledge-architecture-plan.md)
    - Supabase·Google Drive·브라우저 저장소의 역할, 자료 관계, AI 파생 데이터와 단계별 전환 기준.
+8. [`16-ai-character-productivity-companion-architecture.md`](./16-ai-character-productivity-companion-architecture.md)
+   - 지능형 AI 캐릭터 컴패니언 & 생산성 연동 관계성 시스템(지문 분리 렌더러·5단계 호감도·티키타카 추천 칩·레벨별 보상).
+9. [`17-ai-companion-growth-memory-system-design.md`](./17-ai-companion-growth-memory-system-design.md)
+   - 캐릭터별 관계와 계정 공통 사용자 성장을 분리하고, 다층 기억·상태 전이·상황 분기·시험 운영 활성화 모드·프라이버시·단계별 구현을 정의한 차기 설계.
+10. [`18-ai-companion-natural-conversation-orchestration-design.md`](./18-ai-companion-natural-conversation-orchestration-design.md)
+   - 사용자의 인사·칭찬·농담·불만·업무 요청을 구분하고, 자연 대화를 기본으로 필요한 경우에만 업무 근거와 실행 흐름을 호출하는 대화 오케스트레이션 설계.
 
 ---
 
@@ -71,6 +80,7 @@ doc/
 | [`phase14-04-assets-relations-ai-artifacts.md`](./spec/phase14-04-assets-relations-ai-artifacts.md) | 원문·첨부·자료 관계·AI 파생 결과 | 🔎 검증 중 |
 | [`phase14-05-cost-voice-quick-capture.md`](./spec/phase14-05-cost-voice-quick-capture.md) | 비용·음성 빠른 추가와 모바일 입력 | 🔎 검증 중 |
 | [`phase14-06-ai-knowledge-retrieval.md`](./spec/phase14-06-ai-knowledge-retrieval.md) | 관계·근거 기반 AI 지식 검색 | 🔎 검증 중 |
+| [`phase16-ai-character-productivity-companion.md`](./spec/phase16-ai-character-productivity-companion.md) | AI 캐릭터 컴패니언 & 생산성 연동 관계성 시스템 상세 스펙 | ✅ 구현 완료 (2026-09-01) |
 
 > 스펙 문서는 **당시 설계 의도**의 기록입니다. "지금 코드가 하는 일"의 정본은 항상 [`01-as-built-reference.md`](./01-as-built-reference.md)입니다.
 

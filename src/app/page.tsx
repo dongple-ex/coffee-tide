@@ -80,6 +80,7 @@ import { WelcomeCard, WeatherData } from "./components/WelcomeCard";
 import { WeatherWidget } from "./components/WeatherWidget";
 import type { CustomWidgetConfig } from "./components/CustomNewsWidget";
 import { ContextualRecStrip } from "./components/youtube/ContextualRecStrip";
+import { addAffectionExp } from "@/lib/ai/affectionManager";
 import type { ConversationTurnMode } from "@/lib/ai/conversation";
 
 // 초기 화면에 렌더링되지 않는 모달·위젯 패널은 지연 로딩으로 초기 번들에서 제외
@@ -2098,7 +2099,10 @@ export default function Home() {
       return prev;
     });
 
-    if (status === "completed") signalTodoCompletion();
+    if (status === "completed") {
+      signalTodoCompletion();
+      addAffectionExp(copilotConfig.presetId || "karina", "complete_task");
+    }
   }
 
   function deleteLocal(id: string) {
@@ -3768,6 +3772,7 @@ export default function Home() {
               sparkBriefing={sparkEnabled ? sparkBriefing : null}
               hasItems={merged.length > 0}
               baristaName={copilotConfig.baristaName || "AI 바리스타"}
+              presetId={copilotConfig.presetId}
               expandedKeys={expandedQaKeys}
               unreadKeys={unreadQaKeys}
               onToggleExpand={toggleQaPair}
@@ -3828,6 +3833,10 @@ export default function Home() {
               onFocus={() => setWelcomeCardCollapsed(true)}
               busy={copilotBusy}
               baristaName={copilotConfig.baristaName || "AI 바리스타"}
+              presetId={copilotConfig.presetId}
+              hasUrgentTasks={workflowItems.some((i) => i.category === "urgent" && i.status !== "completed" && i.status !== "dismissed")}
+              taskCount={workflowItems.filter((i) => i.status !== "completed" && i.status !== "dismissed").length}
+              onSelectQuickReply={(query) => void askCopilot(query)}
               onRunSlashCommand={(cmd) => {
                 if (!handleSlashCommand(cmd)) void askCopilot(cmd);
               }}

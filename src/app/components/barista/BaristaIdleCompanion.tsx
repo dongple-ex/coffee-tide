@@ -1,10 +1,12 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { CafeBaristaScene } from "./CafeBaristaScene";
 import { IDLE_TALK_POOL, formatIdleTalkForPersona, IdleMessageItem } from "@/lib/ai/baristaIdleTalks";
 import { getPersonaEffect } from "@/lib/ai/personaEffects";
-import { UiIcon } from "../UiIcon";
+import { AffectionBadge } from "./AffectionBadge";
+import { addAffectionExp } from "@/lib/ai/affectionManager";
 import styles from "../../page.module.css";
 
 export interface BaristaIdleCompanionProps {
@@ -25,19 +27,49 @@ export function BaristaIdleCompanion({
   const [isVisible, setIsVisible] = useState(false);
   const [isCardOpen, setIsCardOpen] = useState(false);
   const [currentItem, setCurrentItem] = useState<IdleMessageItem>(() => IDLE_TALK_POOL[0]);
+  const [dynamicTalk, setDynamicTalk] = useState<{ title: string; content: string } | null>(null);
+  const [isLoadingNext, setIsLoadingNext] = useState(false);
   const [talkIndex, setTalkIndex] = useState(0);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const lastActivityRef = useRef<number>(Date.now());
   const isDismissedRecentlyRef = useRef<boolean>(false);
 
-  // 무작위로 새로운 대화 선택
+  // 동적 AI 유머 & 페르소나 토크 비동기 호출
+  const fetchDynamicTalk = useCallback(async () => {
+    try {
+      setIsLoadingNext(true);
+      const res = await fetch(
+        `/api/ai/barista-talk?presetId=${encodeURIComponent(presetId)}&baristaName=${encodeURIComponent(baristaName)}`
+      );
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.title && data.content) {
+          setDynamicTalk({ title: data.title, content: data.content });
+          return;
+        }
+      }
+    } catch {
+      // 네트워크 장애 시 로컬 풀 사용
+    } finally {
+      setIsLoadingNext(false);
+    }
+  }, [presetId, baristaName]);
+
+  // 새로운 대화 선택 (로컬 풀 순환 + 동적 생성 시도)
   const pickNextTalk = useCallback(() => {
     setTalkIndex((prev) => {
       const next = (prev + 1) % IDLE_TALK_POOL.length;
       setCurrentItem(IDLE_TALK_POOL[next]);
+      setDynamicTalk(null); // 로컬 값으로 즉시 리셋 후 백그라운드 API 호출
       return next;
     });
-  }, []);
+    void fetchDynamicTalk();
+  }, [fetchDynamicTalk]);
 
   // 유휴 타이머 및 활동 감지
   useEffect(() => {
@@ -59,7 +91,7 @@ export function BaristaIdleCompanion({
       if (elapsed >= idleThresholdMs && !isVisible && !isDismissedRecentlyRef.current) {
         pickNextTalk();
         setIsVisible(true);
-        setIsCardOpen(false); // 처음에는 미니 마스코트만 띄우고, 큰 창은 닫아둠
+        setIsCardOpen(false); // 처음에는 미니 아바타만 띄우고, 큰 창은 닫아둠
       }
     }, 3000);
 
@@ -69,7 +101,7 @@ export function BaristaIdleCompanion({
     };
   }, [enabled, idleThresholdMs, isVisible, pickNextTalk]);
 
-  // 환영 카드 등 바리스타를 클릭하면 유휴 시간을 기다리지 않고 곧바로 등장한다.
+  // 환영 카드 등 바리스타를 클릭하면 유휴 시간을 기다리지 않고 곧바로 등장
   useEffect(() => {
     if (!enabled) return;
 
@@ -107,11 +139,14 @@ export function BaristaIdleCompanion({
 
   if (!enabled || !isVisible) return null;
 
-  const formatted = formatIdleTalkForPersona(currentItem, presetId, baristaName);
+  // 동적으로 가져온 대사가 있으면 우선 사용하고, 없으면 로컬 최신 유머 풀 기반 포맷팅
+  const localFormatted = formatIdleTalkForPersona(currentItem, presetId, baristaName);
+  const displayTitle = dynamicTalk?.title || localFormatted.title;
+  const displayContent = dynamicTalk?.content || localFormatted.content;
 
   return (
     <>
-      {/* 탭바 우측 상단에 위치할 미니 마스코트 */}
+      {/* 탭바 우측 상단에 위치할 미니 마스코트 아바타 */}
       <div 
         className={styles.baristaIdleMascotContainer}
         onClick={(e) => e.stopPropagation()}
@@ -129,7 +164,13 @@ export function BaristaIdleCompanion({
           <img 
             src={getPersonaEffect(presetId, baristaName).avatarIdle} 
             alt={baristaName}
-            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            style={{
+              width: "100%",
+              height: "100%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center"
+            }}
             onError={(e) => {
               (e.target as HTMLImageElement).src = "/barista/barista_male_3d_serving.jpg";
             }}
@@ -137,8 +178,8 @@ export function BaristaIdleCompanion({
         </div>
       </div>
 
-      {/* 클릭 시 혹은 소환 시 열리는 기존의 거대한 카드 모달 */}
-      {isCardOpen && (
+      {/* 클릭 시 혹은 소환 시 열리는 거대한 카드 모달 (createPortal로 Body 레벨 렌더링) */}
+      {isCardOpen && mounted && createPortal(
         <div
           className={styles.baristaIdleCard}
           style={{ maxWidth: 440 }}
@@ -148,7 +189,7 @@ export function BaristaIdleCompanion({
         >
           <div className={styles.baristaIdleHeader}>
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <span className={styles.baristaIdleTitle}>{formatted.title}</span>
+              <span className={styles.baristaIdleTitle}>{displayTitle}</span>
             </div>
             <button
               type="button"
@@ -161,11 +202,15 @@ export function BaristaIdleCompanion({
             </button>
           </div>
 
+          <div style={{ marginBottom: "10px" }}>
+            <AffectionBadge presetId={presetId} baristaName={baristaName} />
+          </div>
+
           <CafeBaristaScene
             baristaName={baristaName}
             presetId={presetId}
             title={null}
-            description={formatted.content}
+            description={displayContent}
             onOpenCopilot={handleChatClick}
             compact
           />
@@ -175,9 +220,10 @@ export function BaristaIdleCompanion({
               type="button"
               className={styles.baristaIdleActionBtn}
               onClick={pickNextTalk}
-              title="다른 농담이나 토막 상식 보기"
+              disabled={isLoadingNext}
+              title="다른 유머나 밈, 토막 상식 듣기"
             >
-              🔄 다른 얘기 더 듣기
+              {isLoadingNext ? "⏳ 새 토크 가져오는 중..." : "🔄 다른 얘기 더 듣기"}
             </button>
             <button
               type="button"
@@ -188,7 +234,8 @@ export function BaristaIdleCompanion({
               💬 바로 대화하기
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );

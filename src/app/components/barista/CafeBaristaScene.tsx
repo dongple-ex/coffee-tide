@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { InteractiveBarista3D } from "./InteractiveBarista3D";
 import { getPersonaEffect, getPersonaAvatar, PersonaMenuItem } from "@/lib/ai/personaEffects";
+import { renderInline } from "../markdownLite";
 import styles from "./cafeBaristaScene.module.css";
 
 export interface CafeBaristaSceneProps {
@@ -120,7 +121,9 @@ export function CafeBaristaScene({
 
           {(servedToast || title) && <h2 className={styles.sceneTitle}>{servedToast || title}</h2>}
 
-          <p className={styles.sceneDescription}>{description}</p>
+          <p className={styles.sceneDescription} style={{ whiteSpace: "pre-line" }}>
+            {description ? renderInline(description) : null}
+          </p>
         </div>
 
         {/* ☕ 우측: 카운터 테이블 & 3D 바리스타 스테이지 */}
