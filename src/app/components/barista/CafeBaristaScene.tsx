@@ -114,11 +114,6 @@ export function CafeBaristaScene({
       <div className={styles.sceneGrid}>
         {/* 📋 좌측: 브리핑 & 주문 영수증 보드 */}
         <div className={styles.sceneLeft}>
-          <div className={styles.sceneHeaderBadge}>
-            <span>☕ CoffeeTide Espresso Bar</span>
-            {dateLabel && <span>• {dateLabel}</span>}
-          </div>
-
           {(servedToast || title) && <h2 className={styles.sceneTitle}>{servedToast || title}</h2>}
 
           <p className={styles.sceneDescription} style={{ whiteSpace: "pre-line" }}>
