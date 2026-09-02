@@ -1,39 +1,37 @@
 # coffeeTide
 
-**커피 한 잔 하면서 오늘을 정리하는 AI 업무 비서**
+**커피 한 잔과 함께 오늘의 업무를 정리하고 실행하는 AI 업무 비서**
 
-연동이 없어도 직접 입력·붙여넣기로 바로 시작할 수 있는, 연결되면 더 강력해지는 AI 업무 비서입니다.
+coffeeTide는 직접 입력과 붙여넣기만으로 바로 시작할 수 있고, 필요할 때 Google·Outlook·Notion·Obsidian 같은 외부 서비스를 연결해 확장하는 Next.js 기반 업무 대시보드입니다.
 
-- **서비스 도메인(예정)**: `coffeeTide.dongple.kr`
-- **이전 프로젝트명**: TimePilot — 역사 문서의 TimePilot 표기는 coffeeTide를 가리킵니다.
-- **현재 상태**: **MVP 구현 완료 (2026-07-11)** — 무연동 코어(manual/paste·Copilot·자동화 규칙)와 6종 연동(Outlook·Gmail·Notion·Obsidian·로컬 문서·LLM 산출물) 구조가 동작합니다. 외부 OAuth는 실계정 검증 전입니다(`doc/02-backlog.md` H 항목).
+- 기본 운영 도메인: `https://coffee-tide.dongple.kr`
+- 앱 버전: `1.1.0`
+- 기술 스택: Next.js 16.3 · React 19 · TypeScript · Supabase · Vitest
 
-## 핵심 가치
-- 무연동 우선 설계
-- 자연스러운 업무 입력 (manual, paste)
-- AI Copilot + 자동화
-- 다중 플랫폼 연결
-- 웹 우선 (모바일 전략: `doc/04-mobile-strategy.md`)
+## 핵심 기능
 
-## 빠른 시작
+- **무연동 우선 업무 관리**: manual/paste 입력, 파일 업로드, 빠른 캡처, 워크노트와 하위작업
+- **AI 바리스타**: 오늘의 브리핑, 답변 근거, 예상 소요시간, 사용자 지정 호칭·말투·지침
+- **페르소나 경험**: 카리나·AI 바리스타·김부장·칼퇴봇·채린이·베아트리체 공녀 프리셋과 사용자 지정 모드
+- **자연 대화 시험 운영**: 일상 대화에는 업무 브리핑 형식을 강제하지 않고, 실제 업무 요청에만 업무 맥락과 도구를 연결
+- **AI 캔버스**: 답변을 별도 작업 공간에서 다듬고 팝업 창이나 분할 레이아웃으로 사용
+- **생산성 도구**: 자동화 규칙, 팔로업, 퇴근 핸드오프, 타이머, 계산기, 날씨, 출퇴근, 바로가기
+- **데이터 확장**: Google·Outlook·Notion·Obsidian·로컬 문서·LLM 산출물, Supabase 기반 동기화와 지식 검색
 
-```bash
-npm install
-cp .env.example .env.local   # MOCK_MODE=true 로 두면 연동/키 없이 바로 체험 가능
-npm run dev                  # http://localhost:3000
-```
+## 데이터 표시 원칙
 
-- `SESSION_ENCRYPTION_SECRET`은 프로덕션 필수입니다 (미설정 시 기동 거부).
-- `GEMINI_API_KEY`가 없으면 AI 기능은 로컬 FallbackEngine으로 자동 대체됩니다.
+- Mock 모드에서는 외부 서비스의 실제 데이터가 아니라 **Mock/샘플 데이터**를 표시합니다.
+- 클라우드 AI가 비활성화되어 있거나 호출에 실패하면 규칙 기반 로컬 엔진을 사용합니다. 이 결과는 Gemini가 생성한 답변이 아닙니다.
+- Google·Outlook·Notion 등의 데이터는 해당 계정 인증과 연동이 완료된 경우에만 실데이터로 간주합니다.
+- 출퇴근 API의 일부 시각·소요시간·요금·혼잡도는 아직 예시 값이며 화면에서도 샘플임을 구분해야 합니다.
 
-## 검증
+## 문서
 
-```bash
-npm run typecheck   # tsc --noEmit
-npm run lint        # eslint
-npm run build       # next build
-```
+- [문서 인덱스](./doc/README.md)
+- [제품 정본](./doc/00-product-spec.md)
+- [구현 기술 레퍼런스](./doc/01-as-built-reference.md)
+- [백로그](./doc/02-backlog.md)
+- [모바일 전략](./doc/04-mobile-strategy.md)
+- [데이터·저장소·AI 지식 아키텍처](./doc/14-data-storage-ai-knowledge-architecture-plan.md)
 
-## 문서 위치
-- `doc/` : 모든 설계 및 기획 문서 — 읽기 순서는 [`doc/README.md`](./doc/README.md) 참조
-- 구현 기준 기술 레퍼런스: [`doc/01-as-built-reference.md`](./doc/01-as-built-reference.md)
+설계 문서는 목표와 의사결정을 설명하며, 실제 동작 여부는 현재 `main`의 코드와 검증 결과를 기준으로 판단합니다.
