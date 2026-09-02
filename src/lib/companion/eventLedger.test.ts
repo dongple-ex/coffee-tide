@@ -99,4 +99,25 @@ describe("Companion Event Ledger & Trust Boundaries (Phase 17-A)", () => {
     const day = calculateCreditedDay(ts, "Asia/Seoul");
     expect(day).toBe("2026-09-01");
   });
+
+  it("성장 실험 회고는 실험 ID별로 서로 다른 멱등 키를 사용한다", () => {
+    const first = createCompanionDomainEvent({
+      userId: "user_1",
+      personaId: "karina",
+      eventType: "growth_experiment_reviewed",
+      authority: "server_domain",
+      payload: { experimentId: "exp_focus_morning" },
+    });
+    const second = createCompanionDomainEvent({
+      userId: "user_1",
+      personaId: "karina",
+      eventType: "growth_experiment_reviewed",
+      authority: "server_domain",
+      payload: { experimentId: "exp_reflection_evening" },
+    });
+
+    expect(first.idempotencyKey).toBe("v1:growth_review:period:exp_focus_morning");
+    expect(second.idempotencyKey).toBe("v1:growth_review:period:exp_reflection_evening");
+    expect(first.idempotencyKey).not.toBe(second.idempotencyKey);
+  });
 });

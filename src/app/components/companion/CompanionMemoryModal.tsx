@@ -9,7 +9,7 @@ import styles from "./CompanionMemoryModal.module.css";
 interface Props {
   isOpen: boolean;
   onClose: () => void;
-  userId?: string;
+  storageMode?: "local" | "account";
 }
 
 const MEMORY_CATEGORIES: { id: CompanionMemoryType; label: string; icon: string; placeholder: string }[] = [
@@ -41,10 +41,12 @@ const MEMORY_CATEGORIES: { id: CompanionMemoryType; label: string; icon: string;
 
 const CATEGORY_MAP = Object.fromEntries(MEMORY_CATEGORIES.map((c) => [c.id, c]));
 
-export function CompanionMemoryModal({ isOpen, onClose, userId = "guest" }: Props) {
+export function CompanionMemoryModal({ isOpen, onClose, storageMode = "local" }: Props) {
   const [memories, setMemories] = useState<CompanionMemory[]>([]);
   const [newText, setNewText] = useState("");
   const [filterType, setFilterType] = useState<string>("all");
+  const [operationError, setOperationError] = useState<string | null>(null);
+  const isAccountMode = storageMode === "account";
 
   // 상단 탭이 'all'이면 기본값 'preference', 특정 탭이면 해당 탭 타입으로 자동 바인딩
   const activeCreationType: CompanionMemoryType =
@@ -52,27 +54,56 @@ export function CompanionMemoryModal({ isOpen, onClose, userId = "guest" }: Prop
   const currentCategory = CATEGORY_MAP[activeCreationType] || MEMORY_CATEGORIES[0];
 
   const loadMemories = async () => {
-    if (userId === "guest") {
+    if (!isAccountMode) {
       const local = await getLocalCompanionMemories();
       setMemories(local.filter((m) => m.status !== "deleted"));
+      setOperationError(null);
     } else {
       try {
-        const res = await fetch(`/api/companion/memories?userId=${userId}`);
+        const res = await fetch("/api/companion/memories");
         const data = await res.json();
-        if (data.success && Array.isArray(data.memories)) {
+        if (res.ok && data.success && Array.isArray(data.memories)) {
           setMemories(data.memories);
+          setOperationError(null);
+        } else {
+          setOperationError(data.message || "계정 기억을 불러오지 못했습니다.");
         }
       } catch {
-        // fallback
+        setOperationError("계정 기억을 불러오지 못했습니다.");
       }
     }
   };
 
   useEffect(() => {
-    if (isOpen) {
-      void loadMemories();
-    }
-  }, [isOpen, userId]);
+    if (!isOpen) return;
+    let cancelled = false;
+    void (async () => {
+      if (!isAccountMode) {
+        const local = await getLocalCompanionMemories();
+        if (!cancelled) {
+          setMemories(local.filter((memory) => memory.status !== "deleted"));
+          setOperationError(null);
+        }
+        return;
+      }
+      try {
+        const response = await fetch("/api/companion/memories");
+        const data = await response.json();
+        if (cancelled) return;
+        if (response.ok && data.success && Array.isArray(data.memories)) {
+          setMemories(data.memories);
+          setOperationError(null);
+        } else {
+          setOperationError(data.message || "계정 기억을 불러오지 못했습니다.");
+        }
+      } catch {
+        if (!cancelled) setOperationError("계정 기억을 불러오지 못했습니다.");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, isAccountMode]);
 
   if (!isOpen) return null;
 
@@ -82,7 +113,7 @@ export function CompanionMemoryModal({ isOpen, onClose, userId = "guest" }: Prop
 
     const memory: CompanionMemory = {
       id: `mem_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-      userId,
+      userId: "guest",
       personaScope: "shared",
       memoryType: activeCreationType,
       contentText: newText.trim(),
@@ -97,8 +128,24 @@ export function CompanionMemoryModal({ isOpen, onClose, userId = "guest" }: Prop
       updatedAt: Date.now(),
     };
 
-    if (userId === "guest") {
+    setOperationError(null);
+    if (!isAccountMode) {
       await saveLocalCompanionMemory(memory);
+    } else {
+      const res = await fetch("/api/companion/memories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          memoryType: activeCreationType,
+          contentText: memory.contentText,
+          personaScope: "shared",
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setOperationError(data.message || data.error || "기억을 저장하지 못했습니다.");
+        return;
+      }
     }
     setNewText("");
     await loadMemories();
@@ -107,25 +154,37 @@ export function CompanionMemoryModal({ isOpen, onClose, userId = "guest" }: Prop
   const handleDeleteMemory = async (id: string) => {
     if (!confirm("이 기억을 정말 잊게 하시겠습니까? 삭제된 기억은 즉시 검색 및 대화에서 제외됩니다.")) return;
 
-    const keyHash = generateMemoryKeyHash(userId, id);
-    if (userId === "guest") {
+    setOperationError(null);
+    const keyHash = generateMemoryKeyHash("guest", id);
+    if (!isAccountMode) {
       await deleteLocalCompanionMemory(id, keyHash);
     } else {
-      await fetch(`/api/companion/memories/${id}?userId=${userId}`, { method: "DELETE" });
+      const res = await fetch(`/api/companion/memories/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json();
+        setOperationError(data.message || data.error || "기억을 삭제하지 못했습니다.");
+        return;
+      }
     }
     await loadMemories();
   };
 
   const handleToggleConfirm = async (mem: CompanionMemory) => {
     const nextConfirmed = !mem.userConfirmed;
-    if (userId === "guest") {
+    setOperationError(null);
+    if (!isAccountMode) {
       await saveLocalCompanionMemory({ ...mem, userConfirmed: nextConfirmed });
     } else {
-      await fetch(`/api/companion/memories/${mem.id}`, {
+      const res = await fetch(`/api/companion/memories/${mem.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, userConfirmed: nextConfirmed }),
+        body: JSON.stringify({ userConfirmed: nextConfirmed }),
       });
+      if (!res.ok) {
+        const data = await res.json();
+        setOperationError(data.message || data.error || "기억을 수정하지 못했습니다.");
+        return;
+      }
     }
     await loadMemories();
   };
@@ -173,6 +232,12 @@ export function CompanionMemoryModal({ isOpen, onClose, userId = "guest" }: Prop
             </button>
           ))}
         </div>
+
+        {operationError && (
+          <div role="alert" style={{ color: "#fda4af", fontSize: "0.78rem", marginBottom: "8px" }}>
+            {operationError}
+          </div>
+        )}
 
         {/* 기억 리스트 */}
         <div className={styles.memoryList}>

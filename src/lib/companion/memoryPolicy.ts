@@ -182,7 +182,7 @@ export function checkMemoryRetentionStatus(memory: CompanionMemory, now = Date.n
   return { isExpired: false, needsReconfirmation: false };
 }
 
-/** 기억 식별용 SHA-256 결정론적 해시 생성 (원문 없이 내용 없는 tombstone 생성에 사용, §13.6) */
+/** 게스트 로컬 tombstone용 결정론적 식별자 (서버 삭제는 node:crypto SHA-256 사용, §13.6) */
 export function generateMemoryKeyHash(userId: string, memoryIdOrContent: string): string {
   let hash = 0;
   const str = `${userId}:${memoryIdOrContent}`;

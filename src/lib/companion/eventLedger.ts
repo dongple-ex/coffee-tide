@@ -175,6 +175,10 @@ export function createCompanionDomainEvent(params: {
     sourceVersion: params.sourceVersion,
     artifactId: payload.artifactId as string | undefined,
     creditedDay,
+    periodStart:
+      (payload.periodStart as string | undefined) ||
+      (payload.experimentId as string | undefined) ||
+      creditedDay,
     sessionReceiptId: params.sourceReceiptId,
     memoryId: payload.memoryId as string | undefined,
     personaId: params.personaId,

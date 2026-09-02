@@ -2,20 +2,57 @@
 // 정본 문서: doc/17-ai-companion-growth-memory-system-design.md §11.2, §13.6
 
 import { NextRequest, NextResponse } from "next/server";
-import { SupabaseCompanionRepository } from "@/lib/companion/repositories/supabase";
-import { generateMemoryKeyHash } from "@/lib/companion/memoryPolicy";
+import {
+  isSameOriginRequest,
+  isValidUuid,
+  requireCompanionContext,
+} from "@/lib/companion/serverContext";
+import type { CompanionMemoryStatus } from "@/lib/companion/contracts";
+import { evaluateMemoryCandidate } from "@/lib/companion/memoryPolicy";
+
+const EDITABLE_MEMORY_STATUSES = new Set<CompanionMemoryStatus>([
+  "candidate",
+  "active",
+  "rejected",
+  "expired",
+]);
 
 export async function PATCH(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
+    if (!isSameOriginRequest(req)) {
+      return NextResponse.json({ success: false, error: "invalid_request_origin" }, { status: 403 });
+    }
     const { id } = await context.params;
-    const body = await req.json();
-    const { userId = "guest", userConfirmed, contentText, status } = body;
+    if (!isValidUuid(id)) {
+      return NextResponse.json({ success: false, error: "invalid_memory_id" }, { status: 400 });
+    }
+    const body: { userConfirmed?: unknown; contentText?: unknown; status?: unknown } = await req.json();
+    if (body.status !== undefined && !EDITABLE_MEMORY_STATUSES.has(body.status as CompanionMemoryStatus)) {
+      return NextResponse.json({ success: false, error: "invalid_memory_status" }, { status: 400 });
+    }
+    if (body.contentText !== undefined) {
+      if (typeof body.contentText !== "string" || !body.contentText.trim() || body.contentText.length > 2000) {
+        return NextResponse.json({ success: false, error: "invalid_memory_content" }, { status: 400 });
+      }
+      const evaluation = evaluateMemoryCandidate(body.contentText);
+      if (!evaluation.isEligible) {
+        return NextResponse.json(
+          { success: false, error: evaluation.rejectReason || "memory_not_eligible" },
+          { status: 422 }
+        );
+      }
+    }
+    if (body.userConfirmed !== undefined && typeof body.userConfirmed !== "boolean") {
+      return NextResponse.json({ success: false, error: "invalid_confirmation_value" }, { status: 400 });
+    }
 
-    const repo = new SupabaseCompanionRepository();
-    const existing = await repo.getMemories(userId);
+    const companion = await requireCompanionContext();
+    if (!companion.ok) return companion.response;
+    const repo = companion.repo!;
+    const existing = await repo.getMemories();
     const target = existing.find((m) => m.id === id);
 
     if (!target) {
@@ -24,9 +61,11 @@ export async function PATCH(
 
     const updated = {
       ...target,
-      userConfirmed: typeof userConfirmed === "boolean" ? userConfirmed : target.userConfirmed,
-      contentText: contentText ? String(contentText).trim() : target.contentText,
-      status: status || target.status,
+      userConfirmed:
+        typeof body.userConfirmed === "boolean" ? body.userConfirmed : target.userConfirmed,
+      contentText:
+        typeof body.contentText === "string" ? body.contentText.trim() : target.contentText,
+      status: (body.status as CompanionMemoryStatus | undefined) || target.status,
       version: target.version + 1,
       updatedAt: Date.now(),
     };
@@ -38,10 +77,11 @@ export async function PATCH(
       memory: updated,
     });
   } catch (error) {
+    console.error("[PATCH /api/companion/memories/:id] Failed", error);
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Failed to update memory",
+        error: "companion_memory_update_failed",
       },
       { status: 500 }
     );
@@ -53,14 +93,19 @@ export async function DELETE(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
+    if (!isSameOriginRequest(req)) {
+      return NextResponse.json({ success: false, error: "invalid_request_origin" }, { status: 403 });
+    }
     const { id } = await context.params;
-    const userId = req.nextUrl.searchParams.get("userId") || "guest";
-
-    const keyHash = generateMemoryKeyHash(userId, id);
-    const repo = new SupabaseCompanionRepository();
-
-    // 기억 즉시 삭제 및 30일 tombstone 기록
-    await repo.deleteMemory(userId, id, keyHash);
+    if (!isValidUuid(id)) {
+      return NextResponse.json({ success: false, error: "invalid_memory_id" }, { status: 400 });
+    }
+    const companion = await requireCompanionContext({ requireActive: false });
+    if (!companion.ok) return companion.response;
+    const deleted = await companion.repo!.deleteMemory(id);
+    if (!deleted) {
+      return NextResponse.json({ success: false, error: "Memory not found" }, { status: 404 });
+    }
 
     return NextResponse.json({
       success: true,
@@ -69,10 +114,11 @@ export async function DELETE(
       expiresInDays: 30,
     });
   } catch (error) {
+    console.error("[DELETE /api/companion/memories/:id] Failed", error);
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Failed to delete memory",
+        error: "companion_memory_delete_failed",
       },
       { status: 500 }
     );

@@ -2,94 +2,111 @@
 // 정본 문서: doc/17-ai-companion-growth-memory-system-design.md §8.3, §11.2
 
 import { NextRequest, NextResponse } from "next/server";
-import { getCompanionFeatureAccess, isCompanionGrowthActive } from "@/lib/companion/featureAccess";
 import { createCompanionDomainEvent } from "@/lib/companion/eventLedger";
-import { evaluateRelationshipProfile } from "@/lib/companion/relationshipEngine";
-import { SupabaseCompanionRepository } from "@/lib/companion/repositories/supabase";
-import { CompanionEventType } from "@/lib/companion/contracts";
+import {
+  applyCompanionEventWithRetry,
+  isSameOriginRequest,
+  isValidPersonaId,
+  requireCompanionContext,
+} from "@/lib/companion/serverContext";
+import type { WorkspaceItem } from "@/lib/data/contracts";
+
+type ReceiptResult = {
+  status?: string;
+  serverItem?: WorkspaceItem;
+};
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    if (!isSameOriginRequest(req)) {
+      return NextResponse.json({ success: false, error: "invalid_request_origin" }, { status: 403 });
+    }
+    const body: Record<string, unknown> = await req.json();
     const {
-      userId = "guest",
       personaId = "karina",
       interactionType,
       receiptId,
       sourceItemId,
-      sourceVersion,
-      payload = {},
-      timezone = "Asia/Seoul",
     } = body;
 
-    const access = getCompanionFeatureAccess();
-    const active = isCompanionGrowthActive(access);
+    if (interactionType !== "task_progress") {
+      return NextResponse.json(
+        { success: false, accepted: false, error: "unsupported_receipt_type" },
+        { status: 422 }
+      );
+    }
+    if (typeof personaId !== "string" || !isValidPersonaId(personaId)) {
+      return NextResponse.json({ success: false, error: "invalid_persona_id" }, { status: 400 });
+    }
+    if (typeof receiptId !== "string" || !receiptId || receiptId.length > 160) {
+      return NextResponse.json({ success: false, error: "verified_receipt_required" }, { status: 400 });
+    }
+    if (sourceItemId !== undefined && typeof sourceItemId !== "string") {
+      return NextResponse.json({ success: false, error: "invalid_source_item_id" }, { status: 400 });
+    }
+    const context = await requireCompanionContext();
+    if (!context.ok) return context.response;
 
-    if (!active) {
-      return NextResponse.json({
-        success: true,
-        accepted: false,
-        reason: "feature_disabled",
-      });
+    const { data: receipt, error: receiptError } = await context.supabase
+      .from("sync_mutation_receipts")
+      .select("result")
+      .eq("user_id", context.userId)
+      .eq("mutation_id", receiptId)
+      .maybeSingle();
+    if (receiptError) {
+      return NextResponse.json({ success: false, error: "receipt_verification_failed" }, { status: 500 });
     }
 
-    const eventType: CompanionEventType =
-      interactionType === "focus_session"
-        ? "focus_session_completed"
-        : interactionType === "briefing_plan"
-        ? "briefing_plan_accepted"
-        : interactionType === "artifact"
-        ? "artifact_accepted"
-        : "task_progressed";
+    const receiptResult = receipt?.result as ReceiptResult | undefined;
+    const verifiedItem = receiptResult?.serverItem;
+    if (!receiptResult || !["applied", "duplicate"].includes(receiptResult.status || "") || !verifiedItem) {
+      return NextResponse.json({ success: false, accepted: false, error: "unverified_receipt" }, { status: 422 });
+    }
+    if (typeof sourceItemId === "string" && sourceItemId !== verifiedItem.id) {
+      return NextResponse.json({ success: false, accepted: false, error: "receipt_item_mismatch" }, { status: 422 });
+    }
 
-    const repo = new SupabaseCompanionRepository();
-    const existingEvents = await repo.getEvents(userId, personaId);
-
-    const event = createCompanionDomainEvent({
-      userId,
+    const repo = context.repo!;
+    const attributes = verifiedItem.attributes || {};
+    const applied = await applyCompanionEventWithRetry({
+      repo,
       personaId,
-      eventType,
-      authority: "server_receipt",
-      sourceItemId,
-      sourceVersion,
-      sourceReceiptId: receiptId || `rec_${Date.now()}`,
-      payload,
-      timezone,
-      existingDayEvents: existingEvents,
+      buildEvent: (existingEvents) =>
+        createCompanionDomainEvent({
+          userId: context.userId,
+          personaId,
+          eventType: "task_progressed",
+          authority: "server_receipt",
+          sourceItemId: verifiedItem.id,
+          sourceVersion: verifiedItem.version,
+          sourceReceiptId: receiptId,
+          payload: {
+            itemId: verifiedItem.id,
+            sourceVersion: verifiedItem.version,
+            isSample: attributes.isSample === true,
+            isMock: attributes.isMock === true,
+          },
+          timezone: "Asia/Seoul",
+          existingDayEvents: existingEvents,
+        }),
     });
-
-    const recorded = await repo.recordEvent(event);
-    const updatedEvents = recorded ? [event, ...existingEvents] : existingEvents;
-
-    const profile = await repo.getProfile(userId, personaId);
-    const evalResult = evaluateRelationshipProfile({
-      existingProfile: profile,
-      events: updatedEvents,
-    });
-
-    const nextProfile = {
-      ...profile,
-      bondExp: evalResult.bondExp,
-      relationshipLevel: evalResult.relationshipLevel,
-      lastInteractionAt: Date.now(),
-    };
-
-    await repo.saveProfile(nextProfile);
 
     return NextResponse.json({
       success: true,
-      accepted: true,
-      eventRecorded: recorded,
-      bondDelta: event.bondDelta,
-      profile: nextProfile,
-      isLevelUp: evalResult.isLevelUp,
-      transitionSceneKey: evalResult.transitionSceneKey,
+      accepted: applied.recorded,
+      eventRecorded: applied.recorded,
+      duplicate: !applied.recorded,
+      bondDelta: applied.bondDelta,
+      profile: applied.profile,
+      isLevelUp: applied.isLevelUp,
+      transitionSceneKey: applied.transitionSceneKey,
     });
   } catch (error) {
+    console.error("[POST /api/companion/interactions] Failed", error);
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Failed to process interaction",
+        error: "companion_interaction_failed",
       },
       { status: 500 }
     );

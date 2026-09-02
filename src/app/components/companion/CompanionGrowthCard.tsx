@@ -4,45 +4,49 @@ import React, { useState, useEffect } from "react";
 import { GrowthSnapshot } from "@/lib/companion/contracts";
 
 interface Props {
-  userId?: string;
   personaId?: string;
+  active?: boolean;
 }
 
-export function CompanionGrowthCard({ userId = "guest", personaId = "karina" }: Props) {
+export function CompanionGrowthCard({ personaId = "karina", active = false }: Props) {
   const [snapshot, setSnapshot] = useState<GrowthSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [experimentAccepted, setExperimentAccepted] = useState(false);
 
-  const loadGrowth = async () => {
-    try {
-      const res = await fetch(`/api/growth/weekly?userId=${userId}`);
-      const data = await res.json();
-      if (data.success && data.snapshot) {
-        setSnapshot(data.snapshot);
-      }
-    } catch {
-      // fallback
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    void loadGrowth();
-  }, [userId]);
+    if (!active) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/growth/weekly");
+        const data = await res.json();
+        if (cancelled) return;
+        setSnapshot(res.ok && data.success && data.snapshot ? data.snapshot : null);
+      } catch {
+        if (!cancelled) setSnapshot(null);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [active]);
 
   const handleAcceptExperiment = async (expId: string) => {
     try {
-      await fetch(`/api/growth/experiments/${expId}/review`, {
+      const res = await fetch(`/api/growth/experiments/${expId}/review`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, personaId, action: "accepted" }),
+        body: JSON.stringify({ personaId, action: "accepted" }),
       });
-      setExperimentAccepted(true);
+      if (res.ok) setExperimentAccepted(true);
     } catch {
       // ignore
     }
   };
+
+  if (!active) return null;
 
   if (loading) {
     return (

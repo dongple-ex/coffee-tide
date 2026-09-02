@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { CopilotUserConfig, PERSONA_PRESETS, PersonaPreset } from "@/lib/ai/harness";
+import type { CompanionFeatureStatus } from "@/lib/companion/contracts";
 import { UiIcon } from "../UiIcon";
 import { CompanionMemoryModal } from "@/app/components/companion/CompanionMemoryModal";
 import { CompanionGrowthCard } from "@/app/components/companion/CompanionGrowthCard";
@@ -33,7 +34,73 @@ export function CopilotCustomSection({
 }: Props) {
   const [activeCategory, setActiveCategory] = useState<FilterCategory>("all");
   const [showMemoryModal, setShowMemoryModal] = useState(false);
+  const [companionEnabled, setCompanionEnabled] = useState(false);
+  const [companionStatus, setCompanionStatus] = useState<CompanionFeatureStatus | null>(null);
+  const [companionAccountMode, setCompanionAccountMode] = useState(true);
+  const [companionStatusLoading, setCompanionStatusLoading] = useState(true);
+  const [companionStatusMessage, setCompanionStatusMessage] = useState<string | null>(null);
   const currentName = config.baristaName ?? "AI 바리스타";
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const response = await fetch("/api/companion/status");
+        const data = await response.json();
+        if (cancelled) return;
+        if (response.ok && data.success) {
+          setCompanionAccountMode(true);
+          setCompanionEnabled(data.settings?.enabled === true);
+          setCompanionStatus(data.status || null);
+          if (data.status?.available === false) {
+            setCompanionStatusMessage(
+              data.status.reason === "kill_switch"
+                ? "서버 안전 중지 상태라 현재 활성화할 수 없습니다."
+                : "현재 시험 운영 대상이 아니거나 서버 기능이 꺼져 있습니다."
+            );
+          } else {
+            setCompanionStatusMessage(null);
+          }
+        } else {
+          setCompanionAccountMode(response.status !== 401);
+          setCompanionStatusMessage(
+            response.status === 401
+              ? "게스트 기억은 이 기기에만 저장됩니다."
+              : "컴패니언 기능 상태를 확인하지 못했습니다."
+          );
+        }
+      } catch {
+        if (!cancelled) setCompanionStatusMessage("컴패니언 기능 상태를 확인하지 못했습니다.");
+      } finally {
+        if (!cancelled) setCompanionStatusLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleToggleCompanion = async (enabled: boolean) => {
+    const previous = companionEnabled;
+    setCompanionEnabled(enabled);
+    setCompanionStatusLoading(true);
+    setCompanionStatusMessage(null);
+    try {
+      const response = await fetch("/api/companion/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.error || "settings_save_failed");
+      setCompanionStatus(data.status || null);
+    } catch {
+      setCompanionEnabled(previous);
+      setCompanionStatusMessage("설정을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.");
+    } finally {
+      setCompanionStatusLoading(false);
+    }
+  };
 
   const handleSelectPreset = (preset: PersonaPreset) => {
     onChangeConfig({
@@ -307,14 +374,13 @@ export function CopilotCustomSection({
               <input
                 id="chk-companion-growth"
                 type="checkbox"
-                defaultChecked={true}
-                onChange={(e) => {
-                  void fetch("/api/companion/settings", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ enabled: e.target.checked }),
-                  });
-                }}
+                checked={companionEnabled}
+                disabled={
+                  companionStatusLoading ||
+                  !companionAccountMode ||
+                  (!companionEnabled && companionStatus?.canToggle !== true)
+                }
+                onChange={(e) => void handleToggleCompanion(e.target.checked)}
               />
               <label htmlFor="chk-companion-growth" style={{ fontSize: "0.82rem", cursor: "pointer" }}>
                 컴패니언 관계성 & 업무 성장 기억 기능 켜기
@@ -338,9 +404,18 @@ export function CopilotCustomSection({
             </button>
           </div>
 
+          {companionStatusMessage && (
+            <div role="status" style={{ marginTop: "8px", fontSize: "0.76rem", color: "var(--muted, #94a3b8)" }}>
+              {companionStatusMessage}
+            </div>
+          )}
+
           {/* 4축 주간 성장 리포트 카드 */}
           <div style={{ marginTop: "14px" }}>
-            <CompanionGrowthCard personaId={config.presetId || "karina"} />
+            <CompanionGrowthCard
+              personaId={config.presetId || "karina"}
+              active={companionAccountMode && companionStatus?.active === true}
+            />
           </div>
         </div>
 
@@ -348,6 +423,7 @@ export function CopilotCustomSection({
         <CompanionMemoryModal
           isOpen={showMemoryModal}
           onClose={() => setShowMemoryModal(false)}
+          storageMode={companionAccountMode ? "account" : "local"}
         />
       </div>
     </section>

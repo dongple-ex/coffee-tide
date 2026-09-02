@@ -2,37 +2,18 @@
 // 정본 문서: doc/17-ai-companion-growth-memory-system-design.md §11.2
 
 import { NextRequest, NextResponse } from "next/server";
-import { SupabaseCompanionRepository } from "@/lib/companion/repositories/supabase";
-import { getCompanionFeatureAccess, isCompanionGrowthActive } from "@/lib/companion/featureAccess";
+import { isValidPersonaId, requireCompanionContext } from "@/lib/companion/serverContext";
 
 export async function GET(req: NextRequest) {
   try {
     const personaId = req.nextUrl.searchParams.get("personaId") || "karina";
-    const userId = req.nextUrl.searchParams.get("userId") || "guest";
-
-    const access = getCompanionFeatureAccess();
-    const active = isCompanionGrowthActive(access);
-
-    if (!active) {
-      return NextResponse.json({
-        success: true,
-        active: false,
-        profile: {
-          userId,
-          personaId,
-          bondExp: 0,
-          relationshipLevel: 1,
-          currentMode: "momentum",
-          completedTasksCount: 0,
-          lastInteractionAt: Date.now(),
-          version: 1,
-          updatedAt: Date.now(),
-        },
-      });
+    if (!isValidPersonaId(personaId)) {
+      return NextResponse.json({ success: false, error: "invalid_persona_id" }, { status: 400 });
     }
 
-    const repo = new SupabaseCompanionRepository();
-    const profile = await repo.getProfile(userId, personaId);
+    const context = await requireCompanionContext();
+    if (!context.ok) return context.response;
+    const profile = await context.repo!.getProfile(personaId);
 
     return NextResponse.json({
       success: true,
@@ -40,10 +21,11 @@ export async function GET(req: NextRequest) {
       profile,
     });
   } catch (error) {
+    console.error("[GET /api/companion/profile] Failed", error);
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Failed to load companion profile",
+        error: "companion_profile_load_failed",
       },
       { status: 500 }
     );

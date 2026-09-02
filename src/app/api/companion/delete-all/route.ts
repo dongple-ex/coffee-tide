@@ -1,53 +1,114 @@
 import { NextRequest, NextResponse } from "next/server";
-import { deletionJobsStore, DeletionJobState } from "@/lib/companion/deletionJobs";
+import {
+  CompanionDeletionError,
+  createDeletionChallenge,
+  executeDeletionChallenge,
+} from "@/lib/companion/deletionService";
+import type { CompanionDeletionScope } from "@/lib/companion/deletionJobs";
+import {
+  isSameOriginRequest,
+  isValidPersonaId,
+  isValidUuid,
+  requireCompanionContext,
+} from "@/lib/companion/serverContext";
+
+const DELETION_SCOPES = new Set<CompanionDeletionScope>([
+  "all",
+  "persona",
+  "growth",
+  "memories",
+]);
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { userId = "guest", scope = "all", personaId, confirmToken } = body;
+    if (!isSameOriginRequest(req)) {
+      return NextResponse.json({ success: false, error: "invalid_request_origin" }, { status: 403 });
+    }
+    const body: {
+      scope?: unknown;
+      personaId?: unknown;
+      preserveRelationship?: unknown;
+      jobId?: unknown;
+      confirmToken?: unknown;
+    } = await req.json();
+    const scope = (body.scope || "all") as CompanionDeletionScope;
+    if (!DELETION_SCOPES.has(scope)) {
+      return NextResponse.json({ success: false, error: "invalid_deletion_scope" }, { status: 400 });
+    }
+    if (scope === "persona") {
+      if (typeof body.personaId !== "string" || !isValidPersonaId(body.personaId)) {
+        return NextResponse.json({ success: false, error: "persona_id_required" }, { status: 400 });
+      }
+    } else if (body.personaId !== undefined) {
+      return NextResponse.json({ success: false, error: "persona_id_not_allowed" }, { status: 400 });
+    }
+    if (body.preserveRelationship !== undefined) {
+      if (scope !== "growth" || typeof body.preserveRelationship !== "boolean") {
+        return NextResponse.json(
+          { success: false, error: "invalid_preserve_relationship_option" },
+          { status: 400 }
+        );
+      }
+    }
 
-    // 안전 재확인
-    if (!confirmToken) {
+    const companion = await requireCompanionContext({ requireActive: false });
+    if (!companion.ok) return companion.response;
+    const admin = companion.admin!;
+
+    const hasConfirmation = body.jobId !== undefined || body.confirmToken !== undefined;
+    if (!hasConfirmation) {
+      const challenge = await createDeletionChallenge({
+        admin,
+        userId: companion.userId,
+        scope,
+        personaId: typeof body.personaId === "string" ? body.personaId : undefined,
+        preserveRelationship:
+          scope === "growth" ? body.preserveRelationship !== false : undefined,
+      });
       return NextResponse.json(
         {
-          success: false,
-          error: "Confirmation token required for deletion operations",
+          success: true,
+          requiresConfirmation: true,
+          jobId: challenge.job.jobId,
+          confirmToken: challenge.confirmToken,
+          expiresAt: challenge.job.expiresAt,
+          scope: challenge.job.scope,
+          preserveRelationship: challenge.job.preserveRelationship,
         },
-        { status: 400 }
+        { status: 202 }
       );
     }
 
-    const jobId = `del_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    const job: DeletionJobState = {
-      jobId,
-      userId,
-      scope,
-      personaId,
-      status: "completed", // 로컬/모듈 인스턴스 기준 즉시 처리
-      deletedCounts: {
-        memories: scope === "all" || scope === "memories" || scope === "persona" ? 1 : 0,
-        events: scope === "all" || scope === "growth" || scope === "persona" ? 1 : 0,
-        profiles: scope === "all" || scope === "persona" ? 1 : 0,
-        snapshots: scope === "all" || scope === "growth" ? 1 : 0,
-      },
-      createdAt: Date.now(),
-      completedAt: Date.now(),
-    };
-
-    deletionJobsStore.set(jobId, job);
-
+    if (typeof body.jobId !== "string" || typeof body.confirmToken !== "string") {
+      return NextResponse.json(
+        { success: false, error: "job_id_and_confirmation_token_required" },
+        { status: 400 }
+      );
+    }
+    if (!isValidUuid(body.jobId) || body.confirmToken.length < 32 || body.confirmToken.length > 128) {
+      return NextResponse.json({ success: false, error: "invalid_deletion_confirmation" }, { status: 400 });
+    }
+    const job = await executeDeletionChallenge({
+      admin,
+      userId: companion.userId,
+      jobId: body.jobId,
+      confirmToken: body.confirmToken,
+    });
     return NextResponse.json({
       success: true,
-      jobId,
-      status: job.status,
-      scope: job.scope,
-      message: "선택하신 범위의 컴패니언 데이터 삭제 작업이 접수되어 처리되었습니다.",
+      requiresConfirmation: false,
+      job,
+      message: "선택한 범위의 컴패니언 데이터가 삭제되었습니다.",
     });
   } catch (error) {
+    if (error instanceof CompanionDeletionError) {
+      return NextResponse.json({ success: false, error: error.code }, { status: error.status });
+    }
+    console.error("[POST /api/companion/delete-all] Failed", error);
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Failed to initiate deletion job",
+        error: "companion_delete_failed",
       },
       { status: 500 }
     );
