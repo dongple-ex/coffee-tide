@@ -55,7 +55,7 @@
   color: var(--text);
 }
 
-/* 스크롤바 없이 2개 카드를 1:1로 꽉 채우는 반응형 그리드 */
+/* PC: 스크롤바 없이 2개 카드를 1:1로 꽉 채우는 그리드 */
 .scrollRow {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -63,9 +63,55 @@
   width: 100%;
 }
 
+.mobilePagination {
+  display: none;
+}
+
 @media (max-width: 520px) {
   .scrollRow {
-    grid-template-columns: 1fr;
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    gap: 10px;
+    padding-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .scrollRow::-webkit-scrollbar {
+    display: none;
+  }
+
+  .card {
+    flex: 0 0 88%;
+    min-width: 0;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+  }
+
+  .mobilePagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 6px;
+  }
+
+  .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--border);
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .dotActive {
+    width: 18px;
+    background: var(--accent);
   }
 }
 

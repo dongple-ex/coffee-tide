@@ -46,6 +46,19 @@ export function ContextualRecStrip({ onNotify, userScope }: ContextualRecStripPr
     () => continuitySession?.isMini
   );
   const [isDismissed, setIsDismissed] = useState<boolean>(true); // 기본 true로 두고 마운트 시 체크
+  const [activeSlide, setActiveSlide] = useState(0);
+  const scrollRef = React.useRef<HTMLDivElement>(null);
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.currentTarget;
+    const cardWidth = target.clientWidth * 0.88;
+    if (cardWidth > 0) {
+      const idx = Math.round(target.scrollLeft / cardWidth);
+      if (idx !== activeSlide && idx >= 0 && idx < (rec?.videos.length || 0)) {
+        setActiveSlide(idx);
+      }
+    }
+  };
 
   useEffect(() => {
     // 오늘 닫은 적이 있는지 확인
@@ -112,7 +125,11 @@ export function ContextualRecStrip({ onNotify, userScope }: ContextualRecStripPr
             ✕
           </button>
 
-          <div className={styles.scrollRow}>
+          <div
+            ref={scrollRef}
+            className={styles.scrollRow}
+            onScroll={handleScroll}
+          >
             {rec.videos.map((video, index) => (
               <button
                 key={video.id}
@@ -127,7 +144,7 @@ export function ContextualRecStrip({ onNotify, userScope }: ContextualRecStripPr
                     alt={video.title}
                     className={styles.thumbImg}
                     fill
-                    sizes="160px"
+                    sizes="(max-width: 520px) 88vw, 320px"
                     loading={index === 0 ? "eager" : "lazy"}
                   />
                 </div>
@@ -138,6 +155,25 @@ export function ContextualRecStrip({ onNotify, userScope }: ContextualRecStripPr
               </button>
             ))}
           </div>
+
+          {rec.videos.length > 1 && (
+            <div className={styles.mobilePagination}>
+              {rec.videos.map((_, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  className={`${styles.dot} ${activeSlide === idx ? styles.dotActive : ""}`}
+                  onClick={() => {
+                    if (scrollRef.current) {
+                      const card = scrollRef.current.children[idx] as HTMLElement;
+                      card?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "start" });
+                    }
+                  }}
+                  aria-label={`추천 영상 ${idx + 1}`}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
 

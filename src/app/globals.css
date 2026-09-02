@@ -29,6 +29,15 @@
   --warn: #ffb454;
   --ok: #4ade80;
   --radius: 14px;
+
+  /* 🔗 테마 호환성 별칭 변수 (Alias) */
+  --bg-surface: var(--card);
+  --bg-card-solid: var(--card);
+  --border-color: var(--border);
+  --border-subtle: var(--border);
+  --text-main: var(--text);
+  --text-muted: var(--text-dim);
+  --primary-light: var(--accent);
 }
 
 :root[data-theme="light"] {

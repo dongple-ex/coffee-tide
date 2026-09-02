@@ -21,10 +21,10 @@ doc/
 ├── 03-source-fix-plan.md            소스 점검 계획 (K 항목)
 ├── 04-mobile-strategy.md            모바일 전략
 ├── 05-hybrid-app-release-guide.md   하이브리드 앱 출시 가이드
-├── 14-data-storage-ai-knowledge-architecture-plan.md 데이터·저장소·AI 지식 구조 계획
 ├── 16-ai-character-productivity-companion-architecture.md AI 캐릭터 컴패니언 & 생산성 연동 관계성 아키텍처
 ├── 17-ai-companion-growth-memory-system-design.md AI 컴패니언 성장·기억·지속 사용 시스템 설계
 ├── 18-ai-companion-natural-conversation-orchestration-design.md 자연 대화·업무 의도 라우팅 및 오케스트레이션 설계
+├── 19-ai-companion-advanced-evolution-architecture-strategy.md 차세대 AI 컴패니언 고도화 및 아키텍처 진화 전략 (R&D)
 ├── spec/                            단계별 기능 상세 스펙 (phaseN)
 └── legacy_timepilot/                구 TimePilot 시절 역사 문서
 ```
@@ -59,6 +59,8 @@ doc/
    - 캐릭터별 관계와 계정 공통 사용자 성장을 분리하고, 다층 기억·상태 전이·상황 분기·시험 운영 활성화 모드·프라이버시·단계별 구현을 정의한 차기 설계.
 10. [`18-ai-companion-natural-conversation-orchestration-design.md`](./18-ai-companion-natural-conversation-orchestration-design.md)
    - 사용자의 인사·칭찬·농담·불만·업무 요청을 구분하고, 자연 대화를 기본으로 필요한 경우에만 업무 근거와 실행 흐름을 호출하는 대화 오케스트레이션 설계.
+11. [`19-ai-companion-advanced-evolution-architecture-strategy.md`](./19-ai-companion-advanced-evolution-architecture-strategy.md)
+   - 인지 과학(수면 주기 기억 응고화) 및 최신 멀티에이전트·WebRTC 실시간 음성·Generative UI·프라이버시 라우터를 융합한 차세대 AI 컴패니언 고도화 및 R&D 전략 정본.
 
 ---
 

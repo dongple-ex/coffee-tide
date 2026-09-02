@@ -1,0 +1,181 @@
+/* CompanionLevelUpModal.module.css */
+
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  padding: 16px;
+}
+
+.modalCard {
+  width: 100%;
+  max-width: 480px;
+  background-color: var(--card, #ffffff);
+  border: 2px solid #f43f5e;
+  border-radius: 20px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  box-shadow: 0 25px 50px -12px rgba(244, 63, 94, 0.25);
+  position: relative;
+  animation: popIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+:root[data-theme="dark"] .modalCard,
+:root:not([data-theme="light"]):not([data-theme="mega"]) .modalCard {
+  background-color: #1e293b;
+  box-shadow: 0 25px 50px -12px rgba(244, 63, 94, 0.35);
+}
+
+.celebrationIcon {
+  font-size: 3rem;
+  margin-bottom: 8px;
+}
+
+.levelUpTag {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #e11d48;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 4px;
+}
+
+:root[data-theme="dark"] .levelUpTag,
+:root:not([data-theme="light"]):not([data-theme="mega"]) .levelUpTag {
+  color: #fda4af;
+}
+
+.levelTitle {
+  font-size: 1.4rem;
+  font-weight: 800;
+  margin: 0 0 8px;
+  color: var(--text, #1a2333);
+}
+
+:root[data-theme="dark"] .levelTitle,
+:root:not([data-theme="light"]):not([data-theme="mega"]) .levelTitle {
+  color: #f8fafc;
+}
+
+.levelDescription {
+  font-size: 0.85rem;
+  color: var(--text-dim, #5d6b80);
+  margin: 0 0 16px;
+  line-height: 1.4;
+}
+
+:root[data-theme="dark"] .levelDescription,
+:root:not([data-theme="light"]):not([data-theme="mega"]) .levelDescription {
+  color: #94a3b8;
+}
+
+.perkBox {
+  width: 100%;
+  padding: 12px;
+  border-radius: 10px;
+  background: rgba(244, 63, 94, 0.08);
+  border: 1px solid rgba(244, 63, 94, 0.2);
+  margin-bottom: 16px;
+  text-align: left;
+}
+
+.perkTag {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #e11d48;
+  margin-bottom: 4px;
+}
+
+:root[data-theme="dark"] .perkTag,
+:root:not([data-theme="light"]):not([data-theme="mega"]) .perkTag {
+  color: #fda4af;
+}
+
+.perkText {
+  font-size: 0.85rem;
+  color: var(--text, #1a2333);
+  font-weight: 600;
+}
+
+:root[data-theme="dark"] .perkText,
+:root:not([data-theme="light"]):not([data-theme="mega"]) .perkText {
+  color: #f1f5f9;
+}
+
+.sceneBox {
+  width: 100%;
+  padding: 14px;
+  border-radius: 12px;
+  background: var(--card-hover, rgba(0, 0, 0, 0.03));
+  border: 1px solid var(--border, #dde4ee);
+  margin-bottom: 20px;
+  text-align: left;
+}
+
+:root[data-theme="dark"] .sceneBox,
+:root:not([data-theme="light"]):not([data-theme="mega"]) .sceneBox {
+  background: rgba(0, 0, 0, 0.25);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.sceneNarration {
+  font-size: 0.8rem;
+  color: var(--text-dim, #5d6b80);
+  font-style: italic;
+  margin-bottom: 6px;
+}
+
+:root[data-theme="dark"] .sceneNarration,
+:root:not([data-theme="light"]):not([data-theme="mega"]) .sceneNarration {
+  color: #94a3b8;
+}
+
+.sceneQuote {
+  font-size: 0.9rem;
+  color: var(--text, #1a2333);
+  line-height: 1.45;
+  font-weight: 500;
+}
+
+:root[data-theme="dark"] .sceneQuote,
+:root:not([data-theme="light"]):not([data-theme="mega"]) .sceneQuote {
+  color: #f8fafc;
+}
+
+.sceneAuthor {
+  text-align: right;
+  font-size: 0.75rem;
+  color: #e11d48;
+  margin-top: 6px;
+}
+
+:root[data-theme="dark"] .sceneAuthor,
+:root:not([data-theme="light"]):not([data-theme="mega"]) .sceneAuthor {
+  color: #fda4af;
+}
+
+.confirmButton {
+  width: 100%;
+  padding: 12px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #f43f5e, #e11d48);
+  border: none;
+  color: #ffffff;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(244, 63, 94, 0.3);
+  transition: transform 0.15s ease;
+}
+
+.confirmButton:hover {
+  transform: translateY(-1px);
+}

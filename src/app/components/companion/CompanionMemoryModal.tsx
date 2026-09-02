@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { CompanionMemory, CompanionMemoryType } from "@/lib/companion/contracts";
 import { getLocalCompanionMemories, saveLocalCompanionMemory, deleteLocalCompanionMemory } from "@/lib/companion/repositories/indexedDb";
 import { generateMemoryKeyHash } from "@/lib/companion/memoryPolicy";
+import styles from "./CompanionMemoryModal.module.css";
 
 interface Props {
   isOpen: boolean;
@@ -11,11 +12,44 @@ interface Props {
   userId?: string;
 }
 
+const MEMORY_CATEGORIES: { id: CompanionMemoryType; label: string; icon: string; placeholder: string }[] = [
+  {
+    id: "preference",
+    label: "표현/호칭 선호",
+    icon: "💬",
+    placeholder: "표현/호칭 기억 추가 (예: '팀장님이라고 불러줘')",
+  },
+  {
+    id: "work_style",
+    label: "작업 방식",
+    icon: "⚙️",
+    placeholder: "작업 방식 기억 추가 (예: '회의록 요약은 항상 3줄 개조식으로 해줘')",
+  },
+  {
+    id: "commitment",
+    label: "중요 약속",
+    icon: "🤝",
+    placeholder: "중요 약속 기억 추가 (예: '매주 목요일 17:30에 Jira 등록하라고 알려줘')",
+  },
+  {
+    id: "boundary",
+    label: "금지 경계",
+    icon: "⛔",
+    placeholder: "금지 경계 기억 추가 (예: '주말에는 업무 알림 보내지 마')",
+  },
+];
+
+const CATEGORY_MAP = Object.fromEntries(MEMORY_CATEGORIES.map((c) => [c.id, c]));
+
 export function CompanionMemoryModal({ isOpen, onClose, userId = "guest" }: Props) {
   const [memories, setMemories] = useState<CompanionMemory[]>([]);
   const [newText, setNewText] = useState("");
-  const [newType, setNewType] = useState<CompanionMemoryType>("preference");
   const [filterType, setFilterType] = useState<string>("all");
+
+  // 상단 탭이 'all'이면 기본값 'preference', 특정 탭이면 해당 탭 타입으로 자동 바인딩
+  const activeCreationType: CompanionMemoryType =
+    filterType === "all" ? "preference" : (filterType as CompanionMemoryType);
+  const currentCategory = CATEGORY_MAP[activeCreationType] || MEMORY_CATEGORIES[0];
 
   const loadMemories = async () => {
     if (userId === "guest") {
@@ -50,7 +84,7 @@ export function CompanionMemoryModal({ isOpen, onClose, userId = "guest" }: Prop
       id: `mem_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       userId,
       personaScope: "shared",
-      memoryType: newType,
+      memoryType: activeCreationType,
       contentText: newText.trim(),
       status: "active",
       confidence: 1.0,
@@ -100,226 +134,113 @@ export function CompanionMemoryModal({ isOpen, onClose, userId = "guest" }: Prop
     filterType === "all" ? memories : memories.filter((m) => m.memoryType === filterType);
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        backgroundColor: "rgba(0, 0, 0, 0.7)",
-        backdropFilter: "blur(4px)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 9999,
-        padding: "16px",
-      }}
-    >
-      <div
-        style={{
-          width: "100%",
-          maxWidth: "560px",
-          maxHeight: "85vh",
-          backgroundColor: "#1e293b",
-          border: "1px solid rgba(255, 255, 255, 0.12)",
-          borderRadius: "16px",
-          display: "flex",
-          flexDirection: "column",
-          overflow: "hidden",
-          boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.5)",
-        }}
-      >
+    <div className={styles.modalOverlay}>
+      <div className={styles.modalCard}>
         {/* 헤더 */}
-        <div
-          style={{
-            padding: "16px 20px",
-            borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
+        <div className={styles.modalHeader}>
           <div>
-            <h3 style={{ fontSize: "1.05rem", fontWeight: 700, margin: 0, color: "#f8fafc" }}>
+            <h3 className={styles.headerTitle}>
               🧠 AI 컴패니언 장기 기억 관리
             </h3>
-            <p style={{ fontSize: "0.8rem", color: "#94a3b8", margin: "2px 0 0" }}>
+            <p className={styles.headerSubtitle}>
               AI 바리스타가 기억하고 있는 선호와 작업 방식입니다. 언제든 확인·수정·삭제할 수 있습니다.
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            style={{
-              background: "transparent",
-              border: "none",
-              color: "#94a3b8",
-              fontSize: "1.2rem",
-              cursor: "pointer",
-            }}
+            className={styles.closeButton}
+            aria-label="닫기"
           >
             ✕
           </button>
         </div>
 
-        {/* 필터 탭 */}
-        <div style={{ display: "flex", gap: "6px", padding: "12px 20px", borderBottom: "1px solid rgba(255, 255, 255, 0.06)" }}>
+        {/* 일원화된 필터/카테고리 칩 탭 */}
+        <div className={styles.chipsContainer}>
           {[
-            { id: "all", label: "전체" },
-            { id: "preference", label: "표현/호칭 선호" },
-            { id: "work_style", label: "작업 방식" },
-            { id: "commitment", label: "중요 약속" },
-            { id: "boundary", label: "금지 경계" },
+            { id: "all", label: "전체", icon: "📋" },
+            ...MEMORY_CATEGORIES,
           ].map((tab) => (
             <button
               key={tab.id}
               type="button"
               onClick={() => setFilterType(tab.id)}
-              style={{
-                padding: "4px 10px",
-                borderRadius: "12px",
-                fontSize: "0.78rem",
-                border: "none",
-                cursor: "pointer",
-                background: filterType === tab.id ? "#38bdf8" : "rgba(255, 255, 255, 0.06)",
-                color: filterType === tab.id ? "#0f172a" : "#cbd5e1",
-                fontWeight: filterType === tab.id ? 700 : 500,
-              }}
+              className={`${styles.chipTab} ${filterType === tab.id ? styles.chipTabActive : ""}`}
             >
-              {tab.label}
+              <span>{tab.icon}</span>
+              <span>{tab.label}</span>
             </button>
           ))}
         </div>
 
         {/* 기억 리스트 */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px", display: "flex", flexDirection: "column", gap: "10px" }}>
+        <div className={styles.memoryList}>
           {filteredMemories.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "30px 0", color: "#64748b", fontSize: "0.85rem" }}>
+            <div className={styles.emptyState}>
               등록된 장기 기억이 없습니다.
             </div>
           ) : (
-            filteredMemories.map((m) => (
-              <div
-                key={m.id}
-                style={{
-                  padding: "12px 14px",
-                  borderRadius: "10px",
-                  background: "rgba(255, 255, 255, 0.03)",
-                  border: "1px solid rgba(255, 255, 255, 0.08)",
-                  display: "flex",
-                  alignItems: "flex-start",
-                  justifyContent: "space-between",
-                  gap: "12px",
-                }}
-              >
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "4px" }}>
-                    <span
-                      style={{
-                        fontSize: "0.7rem",
-                        padding: "2px 6px",
-                        borderRadius: "4px",
-                        background: "rgba(56, 189, 248, 0.15)",
-                        color: "#38bdf8",
-                        fontWeight: 600,
-                      }}
-                    >
-                      {m.memoryType}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => handleToggleConfirm(m)}
-                      style={{
-                        fontSize: "0.7rem",
-                        padding: "2px 6px",
-                        borderRadius: "4px",
-                        background: m.userConfirmed ? "rgba(34, 197, 94, 0.15)" : "rgba(234, 179, 8, 0.15)",
-                        color: m.userConfirmed ? "#4ade80" : "#facc15",
-                        border: "none",
-                        cursor: "pointer",
-                      }}
-                      title="클릭하여 확인 상태 변경"
-                    >
-                      {m.userConfirmed ? "✓ 확인됨" : "❓ 추정 (클릭 시 확인)"}
-                    </button>
+            filteredMemories.map((m) => {
+              const cat = CATEGORY_MAP[m.memoryType] || { label: m.memoryType, icon: "📌" };
+              return (
+                <div key={m.id} className={styles.memoryCard}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "4px" }}>
+                      <span className={styles.memoryBadge}>
+                        {cat.icon} {cat.label}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleConfirm(m)}
+                        className={`${styles.confirmStatusBtn} ${
+                          m.userConfirmed ? styles.confirmStatusConfirmed : styles.confirmStatusInferred
+                        }`}
+                        title="클릭하여 확인 상태 변경"
+                      >
+                        {m.userConfirmed ? "✓ 확인됨" : "❓ 추정 (클릭 시 확인)"}
+                      </button>
+                    </div>
+                    <p className={styles.memoryContent}>
+                      {m.contentText}
+                    </p>
                   </div>
-                  <p style={{ margin: 0, fontSize: "0.88rem", color: "#f1f5f9", lineHeight: 1.4 }}>
-                    {m.contentText}
-                  </p>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteMemory(m.id)}
+                    className={styles.deleteBtn}
+                  >
+                    잊기
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => handleDeleteMemory(m.id)}
-                  style={{
-                    padding: "4px 8px",
-                    borderRadius: "6px",
-                    background: "rgba(239, 68, 68, 0.12)",
-                    border: "1px solid rgba(239, 68, 68, 0.25)",
-                    color: "#f87171",
-                    fontSize: "0.75rem",
-                    cursor: "pointer",
-                  }}
-                >
-                  잊기
-                </button>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
 
-        {/* 직접 추가 폼 */}
+        {/* 일원화된 직접 추가 폼 (상단 탭 1:1 연동) */}
         <form
           onSubmit={handleAddMemory}
-          style={{
-            padding: "14px 20px",
-            borderTop: "1px solid rgba(255, 255, 255, 0.08)",
-            display: "flex",
-            gap: "8px",
-            background: "rgba(0, 0, 0, 0.2)",
-          }}
+          className={styles.bottomForm}
         >
-          <select
-            value={newType}
-            onChange={(e) => setNewType(e.target.value as CompanionMemoryType)}
-            style={{
-              padding: "8px 10px",
-              borderRadius: "8px",
-              background: "#0f172a",
-              border: "1px solid rgba(255, 255, 255, 0.15)",
-              color: "#f8fafc",
-              fontSize: "0.82rem",
-            }}
-          >
-            <option value="preference">표현/호칭</option>
-            <option value="work_style">작업방식</option>
-            <option value="commitment">약속</option>
-            <option value="boundary">금지경계</option>
-          </select>
           <input
             type="text"
-            placeholder="직접 기억 추가 (예: '팀장님이라고 불러줘')"
-            value={newText}
+            disabled={filterType === "all"}
+            placeholder={
+              filterType === "all"
+                ? "💡 기억을 추가하려면 상단에서 카테고리(호칭/작업방식/약속/금지경계)를 선택해 주세요."
+                : currentCategory.placeholder
+            }
+            value={filterType === "all" ? "" : newText}
             onChange={(e) => setNewText(e.target.value)}
-            style={{
-              flex: 1,
-              padding: "8px 12px",
-              borderRadius: "8px",
-              background: "#0f172a",
-              border: "1px solid rgba(255, 255, 255, 0.15)",
-              color: "#f8fafc",
-              fontSize: "0.82rem",
-            }}
+            className={`${styles.inputField} ${filterType === "all" ? styles.inputFieldDisabled : ""}`}
           />
           <button
             type="submit"
-            style={{
-              padding: "8px 16px",
-              borderRadius: "8px",
-              background: "#38bdf8",
-              border: "none",
-              color: "#0f172a",
-              fontSize: "0.82rem",
-              fontWeight: 700,
-              cursor: "pointer",
-            }}
+            disabled={filterType === "all" || !newText.trim()}
+            className={`${styles.submitButton} ${
+              filterType !== "all" && newText.trim() ? styles.submitButtonActive : styles.submitButtonDisabled
+            }`}
           >
             추가
           </button>

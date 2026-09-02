@@ -37,11 +37,11 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
         className={styles.toggleButton}
         aria-expanded={isOpen}
       >
-        <span style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 600 }}>
-          <span style={{ color: "#a5b4fc", fontSize: "0.75rem" }}>◆</span>
-          답변 근거 자료 ({evidences.length}건)
+        <span className={styles.toggleLabel}>
+          <span className={styles.toggleIcon}>◆</span>
+          <span>답변 근거 자료 ({evidences.length}건)</span>
         </span>
-        <span style={{ fontSize: "0.74rem", color: "var(--text-muted, #a1a1aa)" }}>
+        <span className={styles.toggleState}>
           {isOpen ? "▲ 접기" : "▼ 근거 확인"}
         </span>
       </button>
@@ -63,15 +63,7 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
                         type="button"
                         onClick={() => handleComplete(ev.itemId)}
                         disabled={isCompleted}
-                        style={{
-                          fontSize: "0.7rem",
-                          padding: "2px 6px",
-                          borderRadius: "4px",
-                          border: isCompleted ? "1px solid #10b981" : "1px solid #4b5563",
-                          backgroundColor: isCompleted ? "rgba(16, 185, 129, 0.1)" : "transparent",
-                          color: isCompleted ? "#10b981" : "var(--text-muted, #a1a1aa)",
-                          cursor: isCompleted ? "default" : "pointer",
-                        }}
+                        className={`${styles.completeBtn} ${isCompleted ? styles.completeBtnDone : ""}`}
                       >
                         {isCompleted ? "✓ 완료됨" : "완료 처리"}
                       </button>

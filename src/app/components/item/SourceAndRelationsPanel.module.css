@@ -3,7 +3,7 @@
 .container {
   margin-top: 10px;
   padding-top: 8px;
-  border-top: 1px dashed var(--border-subtle, rgba(63, 63, 70, 0.4));
+  border-top: 1px dashed var(--border, #dde4ee);
   font-size: 0.78rem;
 }
 
@@ -16,7 +16,7 @@
   text-align: left;
   background: transparent;
   border: none;
-  color: var(--text-muted, #a1a1aa);
+  color: var(--text-dim, #5d6b80);
   cursor: pointer;
   padding: 6px 4px;
   font-size: 0.76rem;
@@ -24,7 +24,7 @@
 }
 
 .toggleHeader:hover {
-  color: var(--text-main, #f4f4f5);
+  color: var(--text, #1a2333);
 }
 
 .contentWrapper {
@@ -33,9 +33,15 @@
   flex-direction: column;
   gap: 10px;
   padding: 10px;
-  background: var(--bg-surface, rgba(18, 18, 20, 0.6));
-  border: 1px solid var(--border-color, rgba(63, 63, 70, 0.5));
+  background: var(--card-hover, rgba(0, 0, 0, 0.03));
+  border: 1px solid var(--border, #dde4ee);
   border-radius: 10px;
+}
+
+:root[data-theme="dark"] .contentWrapper,
+:root:not([data-theme="light"]):not([data-theme="mega"]) .contentWrapper {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.09);
 }
 
 .section {
@@ -47,22 +53,29 @@
 .sectionTitle {
   font-size: 0.72rem;
   font-weight: 700;
-  color: var(--text-muted, #a1a1aa);
+  color: var(--text-dim, #5d6b80);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
 .rawTextSnippet {
-  background: var(--bg-card-solid, #18181b);
-  border: 1px solid var(--border-subtle, rgba(63, 63, 70, 0.4));
+  background: var(--card, #ffffff);
+  border: 1px solid var(--border, #dde4ee);
   border-radius: 6px;
   padding: 8px;
   font-size: 0.75rem;
-  color: var(--text-muted, #a1a1aa);
+  color: var(--text, #1a2333);
   line-height: 1.4;
   white-space: pre-wrap;
   max-height: 120px;
   overflow-y: auto;
+}
+
+:root[data-theme="dark"] .rawTextSnippet,
+:root:not([data-theme="light"]):not([data-theme="mega"]) .rawTextSnippet {
+  background: #18181b;
+  border-color: rgba(63, 63, 70, 0.4);
+  color: var(--text-dim, #a1a1aa);
 }
 
 .badge {
@@ -75,15 +88,16 @@
 
 .badgeStale {
   background: rgba(239, 68, 68, 0.15);
-  color: #fca5a5;
+  color: var(--danger, #dc2626);
   border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
 .badgeCurrent {
   background: rgba(34, 197, 94, 0.15);
-  color: #86efac;
+  color: var(--ok, #16a34a);
   border: 1px solid rgba(34, 197, 94, 0.3);
 }
+
 .assetButton {
   min-height: 44px;
   padding: 4px 0;

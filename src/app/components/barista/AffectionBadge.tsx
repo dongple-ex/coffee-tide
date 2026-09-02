@@ -89,35 +89,10 @@ export function AffectionBadge({
   }
 
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: "6px",
-        padding: "10px 14px",
-        borderRadius: "12px",
-        background: "rgba(255, 255, 255, 0.04)",
-        border: "1px solid rgba(255, 255, 255, 0.09)",
-        position: "relative",
-        overflow: "hidden",
-      }}
-    >
+    <div className={styles.badgeContainer}>
       {/* 🎊 레벨업 축하 배너 */}
       {isLevelUpAlert && (
-        <div
-          style={{
-            padding: "6px 10px",
-            borderRadius: "8px",
-            background: "linear-gradient(90deg, #f59e0b 0%, #ec4899 100%)",
-            color: "#fff",
-            fontSize: "0.8rem",
-            fontWeight: 700,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            animation: "bounce 0.5s ease",
-          }}
-        >
+        <div className={styles.levelUpBanner}>
           <span>🎉 {baristaName}와의 관계 레벨업! [{levelInfo.badge} {levelInfo.title}]</span>
           <span>✨</span>
         </div>
@@ -146,38 +121,16 @@ export function AffectionBadge({
       </div>
 
       {/* 호감도 프로그레스 바 */}
-      <div
-        style={{
-          width: "100%",
-          height: "6px",
-          borderRadius: "3px",
-          backgroundColor: "rgba(255, 255, 255, 0.1)",
-          overflow: "hidden",
-        }}
-      >
+      <div className={styles.progressBarTrack}>
         <div
-          style={{
-            width: `${progressPercent}%`,
-            height: "100%",
-            borderRadius: "3px",
-            background: "linear-gradient(90deg, #f43f5e 0%, #ec4899 50%, #38bdf8 100%)",
-            transition: "width 0.4s ease",
-          }}
+          className={styles.progressBarFill}
+          style={{ width: `${progressPercent}%` }}
         />
       </div>
 
       {/* 실시간 획득 EXP 알림 */}
       {showToastGlow && lastGainedText && (
-        <div
-          style={{
-            fontSize: "0.74rem",
-            color: "#4ade80",
-            fontWeight: 700,
-            display: "flex",
-            alignItems: "center",
-            gap: "4px",
-          }}
-        >
+        <div className={styles.toastGlow}>
           <span>✨</span>
           <span>{lastGainedText}</span>
         </div>
@@ -185,45 +138,27 @@ export function AffectionBadge({
 
       {/* 🎁 현재 레벨 해금 혜택 및 시크릿 대사 카드 */}
       {showPerksDetail && (
-        <div
-          style={{
-            marginTop: "6px",
-            padding: "8px 10px",
-            borderRadius: "8px",
-            background: "rgba(0, 0, 0, 0.25)",
-            border: "1px solid rgba(255, 255, 255, 0.06)",
-            fontSize: "0.78rem",
-            display: "flex",
-            flexDirection: "column",
-            gap: "5px",
-          }}
-        >
-          <div style={{ color: "var(--accent, #38bdf8)", fontWeight: 700 }}>
-            {levelInfo.rewardPerk.icon} 해금 혜택: {levelInfo.rewardPerk.name}
+        <div className={styles.perksDetailCard}>
+          <div className={styles.perksTitle}>
+            <span>{levelInfo.rewardPerk.icon}</span>
+            <span>해금 혜택: {levelInfo.rewardPerk.name}</span>
           </div>
-          <div style={{ color: "var(--text-dim, #aaa)", fontSize: "0.74rem" }}>
+          <div className={styles.perksDescription}>
             {levelInfo.rewardPerk.description}
           </div>
           {levelInfo.secretQuote && (
-            <div style={{ fontStyle: "italic", color: "#fda4af", fontSize: "0.74rem", marginTop: "2px" }}>
+            <div className={styles.secretQuoteBox}>
               💬 {levelInfo.secretQuote}
             </div>
           )}
-          <div style={{ marginTop: "4px", borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: "4px", display: "flex", gap: "8px" }}>
+          <div className={styles.perksFooter}>
             <button
               type="button"
               onClick={() => setShowMemoryModal(true)}
-              style={{
-                background: "transparent",
-                border: "none",
-                color: "#38bdf8",
-                fontSize: "0.74rem",
-                cursor: "pointer",
-                padding: 0,
-                textDecoration: "underline",
-              }}
+              className={styles.memoryManageBtn}
             >
-              🧠 장기 기억 관리
+              <span>🧠</span>
+              <span>장기 기억 관리</span>
             </button>
           </div>
         </div>
