@@ -114,60 +114,52 @@ export function CopilotComposer({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "8px", width: "100%" }}>
-      {/* 💬 티키타카 추천 답변 & 원클릭 액션 칩 바 */}
-      {trimmed === "" && slashMatches.length === 0 && (
-        <div
-          style={{
-            display: "flex",
-            gap: "6px",
-            overflowX: "auto",
-            padding: "2px 4px 6px 4px",
-            scrollbarWidth: "none",
-            WebkitOverflowScrolling: "touch",
-          }}
-          aria-label="추천 대화 선택지"
-        >
-          {quickReplies.map((chip) => (
-            <button
-              key={chip.id}
-              type="button"
-              onClick={() => {
-                if (onSelectQuickReply) {
-                  onSelectQuickReply(chip.query);
-                } else {
-                  onChange(chip.query);
-                }
-              }}
-              disabled={busy}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "5px",
-                padding: "5px 10px",
-                borderRadius: "16px",
-                fontSize: "0.78rem",
-                fontWeight: 500,
-                backgroundColor: "rgba(255, 255, 255, 0.05)",
-                color: "var(--text, #eee)",
-                border: "1px solid rgba(255, 255, 255, 0.12)",
-                cursor: "pointer",
-                whiteSpace: "nowrap",
-                transition: "all 0.2s ease",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = "rgba(56, 189, 248, 0.15)";
-                e.currentTarget.style.borderColor = "var(--accent, #38bdf8)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.05)";
-                e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.12)";
-              }}
-              title={chip.query}
-            >
-              {chip.icon && <span>{chip.icon}</span>}
-              <span>{chip.label}</span>
-            </button>
-          ))}
+      {/* 💬 빠른 추천 질문 셀렉트 드롭다운 */}
+      {trimmed === "" && slashMatches.length === 0 && quickReplies.length > 0 && (
+        <div style={{ display: "flex", width: "100%", padding: "0 2px" }}>
+          <select
+            value=""
+            onChange={(e) => {
+              const query = e.target.value;
+              if (!query) return;
+              if (onSelectQuickReply) {
+                onSelectQuickReply(query);
+              } else {
+                onChange(query);
+              }
+            }}
+            disabled={busy}
+            aria-label="빠른 질문 선택"
+            style={{
+              width: "100%",
+              padding: "7px 12px",
+              borderRadius: "10px",
+              fontSize: "0.8rem",
+              fontWeight: 500,
+              backgroundColor: "var(--card-hover, var(--card, #ffffff))",
+              color: "var(--text-dim, #555555)",
+              border: "1px solid var(--border, #dde4ee)",
+              outline: "none",
+              cursor: "pointer",
+              transition: "border-color 0.2s ease, background-color 0.2s ease",
+            }}
+          >
+            <option value="" disabled>
+              💬 빠른 질문 선택...
+            </option>
+            {quickReplies.map((chip) => (
+              <option
+                key={chip.id}
+                value={chip.query}
+                style={{
+                  backgroundColor: "var(--card, #ffffff)",
+                  color: "var(--text, #222222)",
+                }}
+              >
+                {chip.label}
+              </option>
+            ))}
+          </select>
         </div>
       )}
 
