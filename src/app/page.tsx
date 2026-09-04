@@ -78,6 +78,7 @@ import { buildQaPairs, CopilotMessage } from "@/lib/copilotPairs";
 import IcedAmericano from "./components/icedAmericano";
 import { WelcomeCard, WeatherData } from "./components/WelcomeCard";
 import { WeatherWidget } from "./components/WeatherWidget";
+import { checkChromeCanaryAiStatus, runChromeCanaryPrompt } from "@/lib/ai/chromeCanaryAi";
 import type { CustomWidgetConfig } from "./components/CustomNewsWidget";
 import { ContextualRecStrip } from "./components/youtube/ContextualRecStrip";
 import { addAffectionExp } from "@/lib/ai/affectionManager";
@@ -2397,6 +2398,28 @@ export default function Home() {
         },
       ]);
     } catch {
+      // 💡 Chrome Canary Built-in AI가 활성화되어 있으면 온디바이스 Gemini Nano로 로컬 즉시 생성 시도
+      try {
+        const canaryStatus = await checkChromeCanaryAiStatus();
+        if (canaryStatus.status === "ready") {
+          const personaName = copilotConfig.baristaName || "AI 바리스타";
+          const sysPrompt = `당신은 사용자의 든든하고 친근한 AI 비서이자 바리스타 '${personaName}'입니다. 사용자의 질문에 맞춰 다정하고 명확하게 한국어로 답변해 주세요.`;
+          const localAnswer = await runChromeCanaryPrompt(sysPrompt, question);
+          if (localAnswer) {
+            setCopilotMessages((prev) => [
+              ...prev,
+              {
+                role: "ai",
+                text: `${localAnswer}\n\n*(✨ Chrome Canary Gemini Nano 온디바이스 로컬 생성)*`,
+                fallback: false,
+              },
+            ]);
+            return;
+          }
+        }
+      } catch (canaryErr) {
+        console.warn("[askCopilot] Canary local fallback error:", canaryErr);
+      }
       setCopilotMessages((prev) => [
         ...prev,
         { role: "ai", text: "앗, 대답을 놓쳤어요. 잠시 후 다시 물어봐 주세요." },
@@ -3138,6 +3161,10 @@ export default function Home() {
                   const composer = document.querySelector<HTMLInputElement>("input[placeholder*='바리스타']");
                   composer?.focus();
                 }, 200);
+              }}
+              onSendMessage={(msg) => {
+                if (compactMode) openWorkspaceTab("copilot");
+                void askCopilot(msg);
               }}
               enabled={true}
             />

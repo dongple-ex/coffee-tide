@@ -14,6 +14,7 @@ export interface BaristaIdleCompanionProps {
   baristaName?: string;
   idleThresholdMs?: number; // 기본: 45초(45,000ms)
   onOpenCopilot?: () => void;
+  onSendMessage?: (message: string) => void;
   enabled?: boolean;
 }
 
@@ -22,6 +23,7 @@ export function BaristaIdleCompanion({
   baristaName = "AI 바리스타",
   idleThresholdMs = 45000,
   onOpenCopilot,
+  onSendMessage,
   enabled = true,
 }: BaristaIdleCompanionProps) {
   const [isVisible, setIsVisible] = useState(false);
@@ -30,6 +32,7 @@ export function BaristaIdleCompanion({
   const [dynamicTalk, setDynamicTalk] = useState<{ title: string; content: string } | null>(null);
   const [isLoadingNext, setIsLoadingNext] = useState(false);
   const [talkIndex, setTalkIndex] = useState(0);
+  const [quickInput, setQuickInput] = useState("");
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -137,6 +140,19 @@ export function BaristaIdleCompanion({
     onOpenCopilot?.();
   };
 
+  const handleQuickSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const msg = quickInput.trim();
+    if (!msg) return;
+    setQuickInput("");
+    handleDismissAll();
+    if (onSendMessage) {
+      onSendMessage(msg);
+    } else {
+      onOpenCopilot?.();
+    }
+  };
+
   if (!enabled || !isVisible) return null;
 
   // 동적으로 가져온 대사가 있으면 우선 사용하고, 없으면 로컬 최신 유머 풀 기반 포맷팅
@@ -215,7 +231,55 @@ export function BaristaIdleCompanion({
             compact
           />
 
-          <div className={styles.baristaIdleActions} style={{ marginTop: 10 }}>
+          {/* 💬 팝업 내 인라인 빠른 대화 전송 */}
+          <form
+            onSubmit={handleQuickSubmit}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              marginTop: "10px",
+              background: "var(--card-hover, #f1f5f9)",
+              border: "1px solid var(--border, #dde4ee)",
+              borderRadius: "10px",
+              padding: "4px 8px",
+            }}
+          >
+            <input
+              type="text"
+              value={quickInput}
+              onChange={(e) => setQuickInput(e.target.value)}
+              placeholder={`${baristaName}에게 메시지 보내기...`}
+              style={{
+                flex: 1,
+                background: "transparent",
+                border: "none",
+                outline: "none",
+                fontSize: "0.82rem",
+                color: "var(--text, #111)",
+                padding: "5px 4px",
+              }}
+            />
+            <button
+              type="submit"
+              disabled={!quickInput.trim()}
+              style={{
+                background: quickInput.trim() ? "var(--accent, #0891b2)" : "transparent",
+                color: quickInput.trim() ? "#fff" : "var(--text-dim, #888)",
+                border: "none",
+                borderRadius: "6px",
+                padding: "4px 10px",
+                fontSize: "0.78rem",
+                fontWeight: 600,
+                cursor: quickInput.trim() ? "pointer" : "default",
+                transition: "all 0.2s ease",
+              }}
+            >
+              전송
+            </button>
+          </form>
+
+          <div className={styles.baristaIdleActions} style={{ marginTop: 8 }}>
             <button
               type="button"
               className={styles.baristaIdleActionBtn}
@@ -231,7 +295,7 @@ export function BaristaIdleCompanion({
               onClick={handleChatClick}
               title="AI 바리스타 대화창 열기"
             >
-              💬 바로 대화하기
+              💬 전체 대화창 열기
             </button>
           </div>
         </div>,

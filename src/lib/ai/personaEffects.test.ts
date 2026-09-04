@@ -82,4 +82,11 @@ describe("페르소나별 효과 정의", () => {
     expect(getPersonaAvatar(classic, true)).toBe(classic.avatarBrewing);
     expect(getPersonaAvatar(classic, false)).toBe(classic.avatarIdle);
   });
+
+  it("12개 페르소나 전원이 서로 겹치지 않는 고유한 아바타 이미지를 갖는다", () => {
+    const avatarList = ALL_KINDS.map((kind) => getPersonaEffect(kind).avatarIdle);
+    const uniqueAvatars = new Set(avatarList);
+    // 중복이 전혀 없어야 하므로 전체 개수와 Set의 크기가 같아야 함
+    expect(uniqueAvatars.size).toBe(ALL_KINDS.length);
+  });
 });

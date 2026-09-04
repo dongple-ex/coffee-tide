@@ -445,8 +445,8 @@ const PERSONA_EFFECTS: Record<PersonaKind, PersonaEffect> = {
   senior_dev: {
     kind: "senior_dev",
     accent: "#10b981",
-    avatarIdle: "/barista/barista_male_3d_serving.jpg",
-    avatarBrewing: "/barista/barista_male_3d_brewing.jpg",
+    avatarIdle: "/barista/barista_ted_dev.jpg",
+    avatarBrewing: "/barista/barista_ted_dev.jpg",
     ambient: {
       shape: "pixel",
       colors: ["#10b981", "#34d399", "#059669", "#ffffff"],
@@ -489,8 +489,8 @@ const PERSONA_EFFECTS: Record<PersonaKind, PersonaEffect> = {
   fantasy_mage: {
     kind: "fantasy_mage",
     accent: "#8b5cf6",
-    avatarIdle: "/barista/ropan_webtoon_idle.jpg",
-    avatarBrewing: "/barista/ropan_webtoon_brewing.jpg",
+    avatarIdle: "/barista/barista_lumiel_mage.jpg",
+    avatarBrewing: "/barista/barista_lumiel_mage.jpg",
     ambient: {
       shape: "star",
       colors: ["#8b5cf6", "#c084fc", "#e879f9", "#ffffff"],
@@ -533,8 +533,8 @@ const PERSONA_EFFECTS: Record<PersonaKind, PersonaEffect> = {
   detective: {
     kind: "detective",
     accent: "#64748b",
-    avatarIdle: "/barista/barista_3d_serving.jpg",
-    avatarBrewing: "/barista/barista_3d_brewing.jpg",
+    avatarIdle: "/barista/barista_sherlock_detective.jpg",
+    avatarBrewing: "/barista/barista_sherlock_detective.jpg",
     ambient: {
       shape: "steam",
       colors: ["#94a3b8", "#cbd5e1", "#ffffff"],
@@ -577,8 +577,8 @@ const PERSONA_EFFECTS: Record<PersonaKind, PersonaEffect> = {
   cheerleader: {
     kind: "cheerleader",
     accent: "#ea580c",
-    avatarIdle: "/barista/barista_male_3d_serving.jpg",
-    avatarBrewing: "/barista/barista_male_3d_brewing.jpg",
+    avatarIdle: "/barista/barista_captain_cheer.jpg",
+    avatarBrewing: "/barista/barista_captain_cheer.jpg",
     ambient: {
       shape: "steam",
       colors: ["#fb923c", "#fdba74", "#ffffff"],
@@ -621,8 +621,8 @@ const PERSONA_EFFECTS: Record<PersonaKind, PersonaEffect> = {
   doggo: {
     kind: "doggo",
     accent: "#f59e0b",
-    avatarIdle: "/barista/barista_chaerin_3d.png",
-    avatarBrewing: "/barista/barista_chaerin_3d.png",
+    avatarIdle: "/barista/barista_poppy_doggo.jpg",
+    avatarBrewing: "/barista/barista_poppy_doggo.jpg",
     ambient: {
       shape: "star",
       colors: ["#fde68a", "#fef3c7", "#ffffff", "#f59e0b"],
@@ -665,8 +665,8 @@ const PERSONA_EFFECTS: Record<PersonaKind, PersonaEffect> = {
   cat_master: {
     kind: "cat_master",
     accent: "#ec4899",
-    avatarIdle: "/barista/barista_robot_3d.png",
-    avatarBrewing: "/barista/barista_robot_3d.png",
+    avatarIdle: "/barista/barista_miya_cat.jpg",
+    avatarBrewing: "/barista/barista_miya_cat.jpg",
     ambient: {
       shape: "crystal",
       colors: ["#fbcfe8", "#f472b6", "#ffffff", "#ec4899"],
