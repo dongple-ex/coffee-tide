@@ -5,7 +5,7 @@ import IcedAmericano from "./icedAmericano";
 import { UiIcon } from "./UiIcon";
 import styles from "../page.module.css";
 
-export type Theme = "dark" | "light" | "coffee" | "notebook" | "mega" | "kustom";
+export type Theme = "dark" | "light" | "simple" | "notebook" | "coffee" | "mega" | "kustom";
 
 export interface HeaderControlsProps {
   onLogoutHandoff: () => void;

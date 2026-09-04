@@ -209,3 +209,42 @@
     display: none;
   }
 }
+
+/* ==========================================================================
+   🖤 심플(다크) shadcn/ui 징크 미니멀 전용 스타일
+   ========================================================================== */
+
+:global([data-theme="simple"]) .badgeContainer {
+  background: #18181b !important;
+  border: 1px solid #27272a !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+}
+
+:global([data-theme="simple"]) .levelLabel {
+  color: #fafafa !important;
+}
+
+:global([data-theme="simple"]) .taskCount {
+  color: #a1a1aa !important;
+}
+
+:global([data-theme="simple"]) .perksToggle {
+  color: #a1a1aa !important;
+}
+
+:global([data-theme="simple"]) .expSummary {
+  color: #a1a1aa !important;
+  font-weight: 500 !important;
+}
+
+:global([data-theme="simple"]) .progressBarTrack {
+  background-color: #27272a !important;
+  border-radius: 4px !important;
+}
+
+:global([data-theme="simple"]) .progressBarFill {
+  background: #fafafa !important;
+  border-radius: 4px !important;
+}
+

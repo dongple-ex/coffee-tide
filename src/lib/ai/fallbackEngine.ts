@@ -4,6 +4,11 @@
 import { CATEGORY_LABELS, SOURCE_LABELS, UnifiedCategory, UnifiedData } from "../types/unified";
 import { AutomationRule } from "../automation/rules";
 import type { CopilotUserConfig } from "./harness";
+import {
+  conversationFallback,
+  isConversationOnlyMode,
+  routeConversation,
+} from "./conversation";
 
 export function classifyOne(title: string, content: string): {
   category: UnifiedCategory;
@@ -74,6 +79,11 @@ export function copilotBriefing(
 
   // 1. 특정 질문(Spark/드라이브/보고서/특정 키워드)에 대한 직접 조치 답변 처리
   if (q && q !== "오늘 해야 할 일을 브리핑해줘") {
+    const route = routeConversation({ text: q });
+    if (isConversationOnlyMode(route.mode)) {
+      return conversationFallback(q, route.mode, config);
+    }
+
     const keywords = q.toLowerCase().split(/\s+/).filter((k) => k.length > 1);
     const matched = active.filter((item) => {
       const targetStr = `${item.title} ${item.content} ${item.author.name}`.toLowerCase();

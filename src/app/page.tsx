@@ -379,7 +379,7 @@ export default function Home() {
   const [sparkEnabled, setSparkEnabled] = useState<boolean>(() => loadLS<boolean>(LS_SPARK_ENABLED, false));
   const [canvasEnabled, setCanvasEnabled] = useState<boolean>(() => loadLS<boolean>(LS_CANVAS_ENABLED, true));
   const [conversationEnabled, setConversationEnabled] = useState<boolean>(
-    () => loadLS<boolean>(LS_CONVERSATION_ENABLED, false)
+    () => loadLS<boolean>(LS_CONVERSATION_ENABLED, true)
   );
   const [conversationRuntimeActive, setConversationRuntimeActive] = useState<boolean | null>(null);
   const [sparkBriefing, setSparkBriefing] = useState<string | null>(null);
@@ -2257,8 +2257,14 @@ export default function Home() {
   };
 
   // ── Copilot (G3: 무연동에서도 동작) ──────────
-  async function askCopilot(preset?: string) {
-    setWelcomeCardCollapsed(true);
+  async function askCopilot(
+    preset?: string,
+    options?: { explicitMode?: "talk" | "work"; persistToFeed?: boolean }
+  ): Promise<string | undefined> {
+    const persistToFeed = options?.persistToFeed ?? true;
+    if (persistToFeed) {
+      setWelcomeCardCollapsed(true);
+    }
     const question = (preset ?? copilotInput).trim();
     if (!question || copilotBusy) return;
 
@@ -2266,8 +2272,10 @@ export default function Home() {
       return;
     }
 
-    setCopilotInput("");
-    setCopilotMessages((prev) => [...prev, { role: "user", text: question }]);
+    if (persistToFeed) {
+      setCopilotInput("");
+      setCopilotMessages((prev) => [...prev, { role: "user", text: question }]);
+    }
 
     // 단어-앱 바로가기 레시피 — 질문 전체가 키워드(또는 @키워드)와 일치할 때만 실행한다.
     // 부분 일치로 잡으면 "노션에 정리한 업무 알려줘" 같은 정상 질문이 실행에 가로채여 답변을 못 받는다.
@@ -2285,24 +2293,31 @@ export default function Home() {
           body: JSON.stringify({ target: matchedShortcut.target }),
         });
         const json = (await res.json().catch(() => ({}))) as { error?: string };
-        setCopilotMessages((prev) => [
-          ...prev,
-          {
-            role: "ai",
-            text: res.ok
-              ? `**'${matchedShortcut.keyword}'** 명령을 확인하여 **[${matchedShortcut.target}]**을 실행했습니다.`
-              : `앗, **'${matchedShortcut.keyword}'** 실행에 실패했어요 — ${json.error ?? `HTTP ${res.status}`}`,
-          },
-        ]);
+        const shortcutAnswer = res.ok
+          ? `**'${matchedShortcut.keyword}'** 명령을 확인하여 **[${matchedShortcut.target}]**을 실행했습니다.`
+          : `앗, **'${matchedShortcut.keyword}'** 실행에 실패했어요 — ${json.error ?? `HTTP ${res.status}`}`;
+        if (persistToFeed) {
+          setCopilotMessages((prev) => [
+            ...prev,
+            {
+              role: "ai",
+              text: shortcutAnswer,
+            },
+          ]);
+        }
+        return shortcutAnswer;
       } catch {
-        setCopilotMessages((prev) => [
-          ...prev,
-          { role: "ai", text: `앗, **'${matchedShortcut.keyword}'** 실행 요청을 보내지 못했어요. 잠시 후 다시 시도해 주세요.` },
-        ]);
+        const failShortcut = `앗, **'${matchedShortcut.keyword}'** 실행 요청을 보내지 못했어요. 잠시 후 다시 시도해 주세요.`;
+        if (persistToFeed) {
+          setCopilotMessages((prev) => [
+            ...prev,
+            { role: "ai", text: failShortcut },
+          ]);
+        }
+        return failShortcut;
       } finally {
         setCopilotBusy(false);
       }
-      return;
     }
 
     setCopilotBusy(true);
@@ -2316,7 +2331,8 @@ export default function Home() {
             timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
             copilotConfig,
             includeSpark: sparkEnabled,
-            conversationEnabled,
+            conversationEnabled: true,
+            explicitMode: options?.explicitMode,
             history: copilotMessages.slice(-8).map((message) => ({
               role: message.role === "ai" ? "assistant" : "user",
               text: message.text,
@@ -2387,18 +2403,43 @@ export default function Home() {
         });
         showToast(`'${newS.keyword}' 바로가기 레시피가 등록되었습니다.`);
       }
-      setCopilotMessages((prev) => [
-        ...prev,
-        {
-          role: "ai",
-          text: json.answer ?? "응답이 지연되고 있습니다. 잠시 후 다시 물어봐 주세요.",
-          fallback: json.ai_fallback,
-          evidences: json.evidences,
-          mode: json.mode,
-        },
-      ]);
+      let finalAnswer = json.answer ?? "응답이 지연되고 있습니다. 잠시 후 다시 물어봐 주세요.";
+      let isFallback = json.ai_fallback;
+
+      // 💡 만약 서버에 Gemini API Key가 없어서 ai_fallback: true로 떨어졌다면,
+      // 브라우저 로컬의 Chrome Canary Built-in AI (Gemini Nano)가 가능한지 즉시 확인하고 온디바이스 생성을 시도한다!
+      if (json.ai_fallback) {
+        try {
+          const canaryStatus = await checkChromeCanaryAiStatus();
+          if (canaryStatus.status === "ready") {
+            const personaName = copilotConfig.baristaName || "AI 바리스타";
+            const sysPrompt = `당신은 사용자의 든든하고 친근한 AI 비서이자 바리스타 '${personaName}'입니다. 사용자의 질문에 맞춰 다정하고 명확하게 한국어로 답변해 주세요.`;
+            const localAnswer = await runChromeCanaryPrompt(sysPrompt, question);
+            if (localAnswer) {
+              finalAnswer = `${localAnswer}\n\n*(✨ Chrome Canary Gemini Nano 온디바이스 로컬 생성)*`;
+              isFallback = false;
+            }
+          }
+        } catch (canaryErr) {
+          console.warn("[askCopilot] Canary on-device fallback attempt error:", canaryErr);
+        }
+      }
+
+      if (persistToFeed) {
+        setCopilotMessages((prev) => [
+          ...prev,
+          {
+            role: "ai",
+            text: finalAnswer,
+            fallback: isFallback,
+            evidences: json.evidences,
+            mode: json.mode,
+          },
+        ]);
+      }
+      return finalAnswer;
     } catch {
-      // 💡 Chrome Canary Built-in AI가 활성화되어 있으면 온디바이스 Gemini Nano로 로컬 즉시 생성 시도
+      // 💡 네트워크 단절 등 예외 시 Chrome Canary Built-in AI로 로컬 즉시 생성 시도
       try {
         const canaryStatus = await checkChromeCanaryAiStatus();
         if (canaryStatus.status === "ready") {
@@ -2406,24 +2447,31 @@ export default function Home() {
           const sysPrompt = `당신은 사용자의 든든하고 친근한 AI 비서이자 바리스타 '${personaName}'입니다. 사용자의 질문에 맞춰 다정하고 명확하게 한국어로 답변해 주세요.`;
           const localAnswer = await runChromeCanaryPrompt(sysPrompt, question);
           if (localAnswer) {
-            setCopilotMessages((prev) => [
-              ...prev,
-              {
-                role: "ai",
-                text: `${localAnswer}\n\n*(✨ Chrome Canary Gemini Nano 온디바이스 로컬 생성)*`,
-                fallback: false,
-              },
-            ]);
-            return;
+            const nanoAnswer = `${localAnswer}\n\n*(✨ Chrome Canary Gemini Nano 온디바이스 로컬 생성)*`;
+            if (persistToFeed) {
+              setCopilotMessages((prev) => [
+                ...prev,
+                {
+                  role: "ai",
+                  text: nanoAnswer,
+                  fallback: false,
+                },
+              ]);
+            }
+            return nanoAnswer;
           }
         }
       } catch (canaryErr) {
         console.warn("[askCopilot] Canary local fallback error:", canaryErr);
       }
-      setCopilotMessages((prev) => [
-        ...prev,
-        { role: "ai", text: "앗, 대답을 놓쳤어요. 잠시 후 다시 물어봐 주세요." },
-      ]);
+      const failMsg = "앗, 대답을 놓쳤어요. 잠시 후 다시 물어봐 주세요.";
+      if (persistToFeed) {
+        setCopilotMessages((prev) => [
+          ...prev,
+          { role: "ai", text: failMsg },
+        ]);
+      }
+      return failMsg;
     } finally {
       setCopilotBusy(false);
     }
@@ -3162,9 +3210,8 @@ export default function Home() {
                   composer?.focus();
                 }, 200);
               }}
-              onSendMessage={(msg) => {
-                if (compactMode) openWorkspaceTab("copilot");
-                void askCopilot(msg);
+              onSendMessage={async (msg) => {
+                return await askCopilot(msg, { explicitMode: "talk", persistToFeed: false });
               }}
               enabled={true}
             />

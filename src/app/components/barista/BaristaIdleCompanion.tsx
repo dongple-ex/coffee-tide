@@ -14,7 +14,7 @@ export interface BaristaIdleCompanionProps {
   baristaName?: string;
   idleThresholdMs?: number; // 기본: 45초(45,000ms)
   onOpenCopilot?: () => void;
-  onSendMessage?: (message: string) => void;
+  onSendMessage?: (message: string) => Promise<string | undefined> | void;
   enabled?: boolean;
 }
 
@@ -30,6 +30,11 @@ export function BaristaIdleCompanion({
   const [isCardOpen, setIsCardOpen] = useState(false);
   const [currentItem, setCurrentItem] = useState<IdleMessageItem>(() => IDLE_TALK_POOL[0]);
   const [dynamicTalk, setDynamicTalk] = useState<{ title: string; content: string } | null>(null);
+  const [inlineChat, setInlineChat] = useState<{
+    userText: string;
+    aiText?: string;
+    isThinking: boolean;
+  } | null>(null);
   const [isLoadingNext, setIsLoadingNext] = useState(false);
   const [talkIndex, setTalkIndex] = useState(0);
   const [quickInput, setQuickInput] = useState("");
@@ -65,6 +70,7 @@ export function BaristaIdleCompanion({
 
   // 새로운 대화 선택 (로컬 풀 순환 + 동적 생성 시도)
   const pickNextTalk = useCallback(() => {
+    setInlineChat(null);
     setTalkIndex((prev) => {
       const next = (prev + 1) % IDLE_TALK_POOL.length;
       setCurrentItem(IDLE_TALK_POOL[next]);
@@ -140,15 +146,32 @@ export function BaristaIdleCompanion({
     onOpenCopilot?.();
   };
 
-  const handleQuickSubmit = (e: React.FormEvent) => {
+  const handleQuickSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const msg = quickInput.trim();
-    if (!msg) return;
+    if (!msg || inlineChat?.isThinking) return;
     setQuickInput("");
-    handleDismissAll();
     if (onSendMessage) {
-      onSendMessage(msg);
+      setInlineChat({
+        userText: msg,
+        isThinking: true,
+      });
+      try {
+        const answer = await onSendMessage(msg);
+        if (answer) {
+          setInlineChat({
+            userText: msg,
+            aiText: answer,
+            isThinking: false,
+          });
+        } else {
+          setInlineChat((prev) => (prev ? { ...prev, isThinking: false } : null));
+        }
+      } catch {
+        setInlineChat((prev) => (prev ? { ...prev, isThinking: false } : null));
+      }
     } else {
+      handleDismissAll();
       onOpenCopilot?.();
     }
   };
@@ -157,8 +180,19 @@ export function BaristaIdleCompanion({
 
   // 동적으로 가져온 대사가 있으면 우선 사용하고, 없으면 로컬 최신 유머 풀 기반 포맷팅
   const localFormatted = formatIdleTalkForPersona(currentItem, presetId, baristaName);
-  const displayTitle = dynamicTalk?.title || localFormatted.title;
-  const displayContent = dynamicTalk?.content || localFormatted.content;
+  const thinkingMessage =
+    presetId === "senior_dev"
+      ? "*기계식 키보드를 타닥이며 생각 중...* ☕"
+      : `*${baristaName}가 생각 중...* 💭`;
+
+  const displayTitle = inlineChat
+    ? `💬 ${baristaName}와 대화 중`
+    : dynamicTalk?.title || localFormatted.title;
+  const displayContent = inlineChat
+    ? inlineChat.isThinking
+      ? thinkingMessage
+      : inlineChat.aiText || localFormatted.content
+    : dynamicTalk?.content || localFormatted.content;
 
   return (
     <>
@@ -249,7 +283,12 @@ export function BaristaIdleCompanion({
               type="text"
               value={quickInput}
               onChange={(e) => setQuickInput(e.target.value)}
-              placeholder={`${baristaName}에게 메시지 보내기...`}
+              disabled={inlineChat?.isThinking}
+              placeholder={
+                inlineChat?.isThinking
+                  ? `${baristaName}가 답변을 준비하고 있어요...`
+                  : `${baristaName}에게 메시지 보내기...`
+              }
               style={{
                 flex: 1,
                 background: "transparent",
@@ -262,20 +301,20 @@ export function BaristaIdleCompanion({
             />
             <button
               type="submit"
-              disabled={!quickInput.trim()}
+              disabled={!quickInput.trim() || inlineChat?.isThinking}
               style={{
-                background: quickInput.trim() ? "var(--accent, #0891b2)" : "transparent",
-                color: quickInput.trim() ? "#fff" : "var(--text-dim, #888)",
+                background: quickInput.trim() && !inlineChat?.isThinking ? "var(--accent, #0891b2)" : "transparent",
+                color: quickInput.trim() && !inlineChat?.isThinking ? "var(--accent-contrast, #fff)" : "var(--text-dim, #888)",
                 border: "none",
                 borderRadius: "6px",
                 padding: "4px 10px",
                 fontSize: "0.78rem",
                 fontWeight: 600,
-                cursor: quickInput.trim() ? "pointer" : "default",
+                cursor: quickInput.trim() && !inlineChat?.isThinking ? "pointer" : "default",
                 transition: "all 0.2s ease",
               }}
             >
-              전송
+              {inlineChat?.isThinking ? "생각 중..." : "전송"}
             </button>
           </form>
 

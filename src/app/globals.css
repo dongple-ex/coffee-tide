@@ -57,6 +57,47 @@
   --ok: #16a34a;
 }
 
+:root[data-theme="simple"] {
+  /* 🖤 심플(다크) — shadcn/ui Base 기반 징크(Zinc) 미니멀 다크 테마 */
+  --bg: #09090b;
+  --card: #18181b;
+  --card-hover: #27272a;
+  --card-hover-border: #3f3f46;
+  --border: #27272a;
+  --text: #fafafa;
+  --text-dim: #a1a1aa;
+  --accent: #fafafa;
+  --accent-dim: rgba(250, 250, 250, 0.08);
+  --accent-contrast: #09090b;
+  --danger: #ef4444;
+  --warn: #f59e0b;
+  --ok: #10b981;
+  --radius: 8px;
+
+  /* 🔗 테마 호환성 별칭 변수 (Alias) */
+  --bg-surface: var(--card);
+  --bg-card-solid: var(--card);
+  --border-color: var(--border);
+  --border-subtle: var(--border);
+  --text-main: var(--text);
+  --text-muted: var(--text-dim);
+  --primary-light: var(--accent);
+}
+
+:root[data-theme="simple"] body {
+  background-color: #09090b;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  letter-spacing: -0.015em;
+}
+
+:root[data-theme="simple"] input,
+:root[data-theme="simple"] textarea,
+:root[data-theme="simple"] select,
+:root[data-theme="simple"] button {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  letter-spacing: -0.01em;
+}
+
 :root[data-theme="mega"] {
   /* 💛 메가커피 — 옐로우 + 그레이(메인), 네이비(포인트) 3색 중심 팔레트 (녹색 배제) */
   --bg: #f4f5f8;

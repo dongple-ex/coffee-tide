@@ -623,3 +623,72 @@
     opacity: 0;
   }
 }
+
+/* ==========================================================================
+   🖤 심플(다크) shadcn/ui 징크 미니멀 전용 스타일
+   ========================================================================== */
+
+:global([data-theme="simple"]) .sceneContainer {
+  background: var(--card) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius, 8px) !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2) !important;
+  color: var(--text) !important;
+}
+
+:global([data-theme="simple"]) .sceneTitle {
+  background: none !important;
+  -webkit-background-clip: border-box !important;
+  background-clip: border-box !important;
+  -webkit-text-fill-color: currentColor !important;
+  color: #fafafa !important;
+}
+
+:global([data-theme="simple"]) .sceneDescription {
+  color: #e4e4e7 !important;
+}
+
+:global([data-theme="simple"]) .counterTable {
+  background: #18181b !important;
+  border: 1px solid #27272a !important;
+  border-top: 1px solid #27272a !important;
+  border-radius: 6px !important;
+  box-shadow: none !important;
+}
+
+:global([data-theme="simple"]) .counterBellBtn {
+  background: #27272a !important;
+  border: 1px solid #3f3f46 !important;
+  color: #fafafa !important;
+  border-radius: 6px !important;
+  box-shadow: none !important;
+  font-weight: 500 !important;
+}
+
+:global([data-theme="simple"]) .counterBellBtn:hover {
+  background: #3f3f46 !important;
+  border-color: #52525b !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+:global([data-theme="simple"]) .counterBellBtn:active {
+  background: #27272a !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+:global([data-theme="simple"]) .counterMenuChip {
+  background: #27272a !important;
+  border: 1px solid #3f3f46 !important;
+  border-radius: 6px !important;
+  box-shadow: none !important;
+}
+
+:global([data-theme="simple"]) .counterMenuChipActive {
+  background: #3f3f46 !important;
+  border-color: #71717a !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+

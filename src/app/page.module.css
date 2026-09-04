@@ -2769,6 +2769,115 @@
   border-color: rgba(52, 201, 121, 0.4);
 }
 
+/* ── 심플(다크) 테마 — shadcn/ui 스타일 미니멀 플랫 카드, 샤프 8px 보더, 고대비 모노크롬 ── */
+:global([data-theme="simple"]) .card {
+  background: #18181b;
+  border: 1px solid #27272a;
+  border-radius: 8px;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
+}
+
+:global([data-theme="simple"]) .card:hover {
+  border-color: #3f3f46;
+}
+
+:global([data-theme="simple"]) .cardTitle {
+  color: #fafafa;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+:global([data-theme="simple"]) .item {
+  background: #18181b;
+  border: 1px solid #27272a;
+  border-radius: 6px;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+:global([data-theme="simple"]) .item:hover {
+  background: #27272a;
+  border-color: #3f3f46;
+}
+
+:global([data-theme="simple"]) .itemPinned {
+  border-left: 3px solid #fafafa;
+}
+
+:global([data-theme="simple"]) .itemOverdue {
+  border-left: 3px solid var(--warn);
+}
+
+:global([data-theme="simple"]) .btnPrimary {
+  background: #fafafa;
+  color: #09090b;
+  border: 1px solid #fafafa;
+  font-weight: 600;
+  border-radius: 6px;
+}
+
+:global([data-theme="simple"]) .btnPrimary:hover {
+  background: #e4e4e7;
+  border-color: #e4e4e7;
+}
+
+:global([data-theme="simple"]) .btnSecondary {
+  background: transparent;
+  color: #f4f4f5;
+  border: 1px solid #27272a;
+  border-radius: 6px;
+}
+
+:global([data-theme="simple"]) .btnSecondary:hover {
+  background: #27272a;
+  border-color: #3f3f46;
+}
+
+:global([data-theme="simple"]) .input,
+:global([data-theme="simple"]) .textarea {
+  background: #09090b;
+  border: 1px solid #27272a;
+  border-radius: 6px;
+  color: #fafafa;
+}
+
+:global([data-theme="simple"]) .input:focus,
+:global([data-theme="simple"]) .textarea:focus {
+  border-color: #fafafa;
+  box-shadow: 0 0 0 1px #fafafa;
+  outline: none;
+}
+
+:global([data-theme="simple"]) .statChip {
+  background: #18181b;
+  border: 1px solid #27272a;
+  border-radius: 6px;
+}
+
+:global([data-theme="simple"]) .baristaIdleCard {
+  background: #18181b !important;
+  border: 1px solid #27272a !important;
+  border-radius: 8px !important;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.5) !important;
+  backdrop-filter: none !important;
+}
+
+:global([data-theme="simple"]) .baristaIdleHeader {
+  border-bottom: 1px solid #27272a !important;
+}
+
+:global([data-theme="simple"]) .baristaIdleTitle {
+  color: #fafafa !important;
+}
+
+:global([data-theme="simple"]) .baristaIdleCloseBtn {
+  color: #a1a1aa !important;
+}
+
+:global([data-theme="simple"]) .baristaIdleCloseBtn:hover {
+  background: #27272a !important;
+  color: #fafafa !important;
+}
+
 /* ── 반응형 (M1: ≤720px 단일 컬럼, ≤480px 밀도 완화) ── */
 @media (max-width: 900px) {
   .colInput,
