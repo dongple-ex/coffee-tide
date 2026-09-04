@@ -20,7 +20,7 @@ export interface ChromeCanaryAiStatus {
 }
 
 export const CHROME_CANARY_AI_ATTRIBUTION =
-  "*(✨ Chrome Canary Gemini Nano 온디바이스 로컬 생성)*";
+  "*(✨ Chrome Canary Gemma 4 온디바이스 로컬 생성)*";
 
 export interface ChromeCanaryConversationTurn {
   role: "user" | "assistant";
@@ -28,7 +28,7 @@ export interface ChromeCanaryConversationTurn {
 }
 
 const FLAG_GUIDE =
-  "chrome://flags/#prompt-api-for-gemini-nano 및 chrome://flags/#optimization-guide-on-device-model을 확인해 주세요.";
+  "chrome://flags/#prompt-api, chrome://flags/#gemma-4-for-built-in-ai 및 chrome://flags/#optimization-guide-on-device-model을 확인해 주세요. 구버전 Canary에서는 chrome://flags/#prompt-api-for-gemini-nano를 사용합니다.";
 
 const MAX_HISTORY_TURN_CHARS = 500;
 const MAX_USER_PROMPT_CHARS = 3_000;

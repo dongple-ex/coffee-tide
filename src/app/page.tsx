@@ -3880,7 +3880,7 @@ export default function Home() {
                     canaryPreparing
                       ? canaryStatus?.message || "온디바이스 AI 모델 준비 중"
                       : canaryStatus?.supported && canaryStatus.status === "ready"
-                      ? "Chrome Gemini Nano와 한국어 Translator API 활성 (클릭하여 상태 확인)"
+                      ? "Chrome Gemma 4와 한국어 Translator API 활성 (클릭하여 상태 확인)"
                       : `${canaryStatus?.message || "Chrome Canary 온디바이스 AI 미지원"} (클릭하여 다운로드 또는 상태 재확인)`
                   }
                   aria-busy={canaryPreparing}
