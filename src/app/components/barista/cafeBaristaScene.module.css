@@ -76,6 +76,22 @@
   box-shadow: none;
 }
 
+.sceneContainerCompact .counterTable {
+  padding: 0 8px;
+  gap: 4px;
+}
+
+.sceneContainerCompact .counterBellBtn {
+  padding: 3px 8px;
+  font-size: 0.72rem;
+}
+
+.sceneContainerCompact .counterMenuChip {
+  width: 26px;
+  height: 26px;
+  font-size: 0.82rem;
+}
+
 /* 🌟 따뜻한 카페 펜던트 조명 빛 & 앰비언스 */
 .ambientLighting {
   position: absolute;

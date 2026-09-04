@@ -14,7 +14,10 @@ export interface BaristaIdleCompanionProps {
   baristaName?: string;
   idleThresholdMs?: number; // 기본: 45초(45,000ms)
   onOpenCopilot?: () => void;
-  onSendMessage?: (message: string) => Promise<string | undefined> | void;
+  onSendMessage?: (
+    message: string,
+    previousTurn?: { userText: string; aiText: string }
+  ) => Promise<string | undefined> | void;
   enabled?: boolean;
 }
 
@@ -150,6 +153,9 @@ export function BaristaIdleCompanion({
     e.preventDefault();
     const msg = quickInput.trim();
     if (!msg || inlineChat?.isThinking) return;
+    const previousTurn = inlineChat?.aiText
+      ? { userText: inlineChat.userText, aiText: inlineChat.aiText }
+      : undefined;
     setQuickInput("");
     if (onSendMessage) {
       setInlineChat({
@@ -157,7 +163,7 @@ export function BaristaIdleCompanion({
         isThinking: true,
       });
       try {
-        const answer = await onSendMessage(msg);
+        const answer = await onSendMessage(msg, previousTurn);
         if (answer) {
           setInlineChat({
             userText: msg,
@@ -232,7 +238,6 @@ export function BaristaIdleCompanion({
       {isCardOpen && mounted && createPortal(
         <div
           className={styles.baristaIdleCard}
-          style={{ maxWidth: 440 }}
           role="complementary"
           aria-label="바리스타 막간 토크 라운지"
           onClick={(e) => e.stopPropagation()}
@@ -291,12 +296,13 @@ export function BaristaIdleCompanion({
               }
               style={{
                 flex: 1,
+                minWidth: 0,
                 background: "transparent",
                 border: "none",
                 outline: "none",
-                fontSize: "0.82rem",
+                fontSize: "16px",
                 color: "var(--text, #111)",
-                padding: "5px 4px",
+                padding: "6px 4px",
               }}
             />
             <button

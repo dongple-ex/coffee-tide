@@ -78,7 +78,15 @@ import { buildQaPairs, CopilotMessage } from "@/lib/copilotPairs";
 import IcedAmericano from "./components/icedAmericano";
 import { WelcomeCard, WeatherData } from "./components/WelcomeCard";
 import { WeatherWidget } from "./components/WeatherWidget";
-import { checkChromeCanaryAiStatus, runChromeCanaryPrompt } from "@/lib/ai/chromeCanaryAi";
+import {
+  CHROME_CANARY_AI_ATTRIBUTION,
+  buildChromeCanaryConversationPrompt,
+  checkChromeCanaryAiStatus,
+  prepareChromeCanaryAi,
+  runChromeCanaryPrompt,
+  type ChromeCanaryConversationTurn,
+  type ChromeCanaryAiStatus,
+} from "@/lib/ai/chromeCanaryAi";
 import type { CustomWidgetConfig } from "./components/CustomNewsWidget";
 import { ContextualRecStrip } from "./components/youtube/ContextualRecStrip";
 import { addAffectionExp } from "@/lib/ai/affectionManager";
@@ -420,6 +428,12 @@ export default function Home() {
   const activeCollapsedAudioPlayer = collapsedAudioPlayers[collapsedAudioPlayers.length - 1];
   const todoTabSignalTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSignaledSparkBriefing = useRef<string | null>(null);
+  const [canaryStatus, setCanaryStatus] = useState<ChromeCanaryAiStatus | null>(null);
+  const [canaryPreparing, setCanaryPreparing] = useState(false);
+
+  useEffect(() => {
+    void checkChromeCanaryAiStatus().then(setCanaryStatus);
+  }, []);
 
   useEffect(() => {
     const handleCollapsedAudioPlayerChange = (event: Event) => {
@@ -1115,6 +1129,42 @@ export default function Home() {
     if (toastTimer.current) clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToast(""), 3500);
   }, []);
+
+  const handleCanaryStatusClick = useCallback(() => {
+    if (canaryPreparing) {
+      showToast(canaryStatus?.message || "온디바이스 AI 모델을 준비하고 있습니다.");
+      return;
+    }
+
+    const startingMessage =
+      canaryStatus?.status === "ready"
+        ? "온디바이스 AI와 한국어 번역 상태를 다시 확인하고 있습니다."
+        : canaryStatus?.status === "downloading"
+        ? "온디바이스 AI 모델과 한국어 번역 언어팩 다운로드를 시작합니다."
+        : canaryStatus?.message ||
+          "Built-in AI가 비활성 상태입니다. chrome://flags/#prompt-api-for-gemini-nano 및 chrome://flags/#optimization-guide-on-device-model을 확인해 주세요.";
+    showToast(startingMessage);
+    setCanaryPreparing(true);
+
+    // create()는 사용자 활성화가 남아 있는 클릭 핸들러 안에서 즉시 호출해야 다운로드를 시작할 수 있다.
+    void prepareChromeCanaryAi((progress) => {
+      const percent = Math.round(progress * 100);
+      setCanaryStatus({
+        supported: true,
+        status: "downloading",
+        message: `온디바이스 AI 모델 다운로드 중 ${percent}%`,
+      });
+    })
+      .then((nextStatus) => {
+        setCanaryStatus(nextStatus);
+        if (nextStatus.status === "ready") {
+          showToast("✨ Chrome Canary 온디바이스 AI 활성 (0ms 즉시 응답)");
+        } else if (nextStatus.message !== startingMessage) {
+          showToast(nextStatus.message);
+        }
+      })
+      .finally(() => setCanaryPreparing(false));
+  }, [canaryPreparing, canaryStatus, showToast]);
 
   const signalTodoCompletion = useCallback(() => {
     setTodoTabSignal(true);
@@ -2257,9 +2307,52 @@ export default function Home() {
   };
 
   // ── Copilot (G3: 무연동에서도 동작) ──────────
+  async function tryChromeCanaryFallback(
+    question: string,
+    history: ChromeCanaryConversationTurn[],
+    localItems: UnifiedData[]
+  ): Promise<string | null> {
+    try {
+      const status = await checkChromeCanaryAiStatus();
+      setCanaryStatus(status);
+      if (status.status !== "ready") return null;
+
+      const personaName = copilotConfig.baristaName || "AI 바리스타";
+      const systemPrompt = `당신은 사용자의 든든하고 친근한 AI 비서이자 바리스타 '${personaName}'입니다. 사용자의 질문에 맞춰 다정하고 명확하게 한국어로 답변해 주세요.`;
+      const localWorkContext = localItems
+        .filter((item) => item.status !== "completed" && item.status !== "dismissed")
+        .slice(0, 8)
+        .map((item) => ({
+          source: item.source,
+          title: item.title.slice(0, 120),
+          content: item.content.slice(0, 180),
+          category: item.category,
+          status: item.status,
+          actionDirective: item.actionDirective?.slice(0, 120),
+        }));
+      const groundedQuestion = localWorkContext.length > 0
+        ? [
+            `현재 사용자 질문: ${question}`,
+            "아래는 이 브라우저 안에서만 사용하는 현재 CoffeeTide 업무 데이터입니다. 질문과 관련된 항목만 근거로 사용하고, 없는 사실은 추측하지 마세요.",
+            JSON.stringify(localWorkContext),
+          ].join("\n\n")
+        : question;
+      const conversationPrompt = buildChromeCanaryConversationPrompt(groundedQuestion, history);
+      const localAnswer = await runChromeCanaryPrompt(systemPrompt, conversationPrompt);
+      return `${localAnswer}\n\n${CHROME_CANARY_AI_ATTRIBUTION}`;
+    } catch (error) {
+      console.warn("[askCopilot] Chrome on-device fallback failed:", error);
+      return null;
+    }
+  }
+
   async function askCopilot(
     preset?: string,
-    options?: { explicitMode?: "talk" | "work"; persistToFeed?: boolean }
+    options?: {
+      explicitMode?: "talk" | "work";
+      persistToFeed?: boolean;
+      localHistory?: ChromeCanaryConversationTurn[];
+    }
   ): Promise<string | undefined> {
     const persistToFeed = options?.persistToFeed ?? true;
     if (persistToFeed) {
@@ -2267,6 +2360,13 @@ export default function Home() {
     }
     const question = (preset ?? copilotInput).trim();
     if (!question || copilotBusy) return;
+    const conversationHistory: ChromeCanaryConversationTurn[] = [
+      ...copilotMessages.slice(-8).map((message) => ({
+        role: message.role === "ai" ? "assistant" as const : "user" as const,
+        text: message.text,
+      })),
+      ...(options?.localHistory ?? []),
+    ].slice(-8);
 
     if (handleSlashCommand(question)) {
       return;
@@ -2333,14 +2433,12 @@ export default function Home() {
             includeSpark: sparkEnabled,
             conversationEnabled: true,
             explicitMode: options?.explicitMode,
-            history: copilotMessages.slice(-8).map((message) => ({
-              role: message.role === "ai" ? "assistant" : "user",
-              text: message.text,
-            })),
+            history: conversationHistory,
           }),
       });
       const json = (await res.json()) as {
         answer?: string;
+        error?: string;
         ai_fallback?: boolean;
         evidences?: KnowledgeEvidence[];
         calendar_draft?: CalendarEventDraft;
@@ -2352,6 +2450,7 @@ export default function Home() {
         mode?: ConversationTurnMode;
         conversation_feature_active?: boolean;
       };
+      if (!res.ok) throw new Error(json.error ?? `Copilot HTTP ${res.status}`);
       if (typeof json.conversation_feature_active === "boolean") {
         setConversationRuntimeActive(json.conversation_feature_active);
       }
@@ -2406,22 +2505,12 @@ export default function Home() {
       let finalAnswer = json.answer ?? "응답이 지연되고 있습니다. 잠시 후 다시 물어봐 주세요.";
       let isFallback = json.ai_fallback;
 
-      // 💡 만약 서버에 Gemini API Key가 없어서 ai_fallback: true로 떨어졌다면,
-      // 브라우저 로컬의 Chrome Canary Built-in AI (Gemini Nano)가 가능한지 즉시 확인하고 온디바이스 생성을 시도한다!
+      // 서버가 정적 폴백을 반환했다면 브라우저 로컬 모델을 먼저 시도한다.
       if (json.ai_fallback) {
-        try {
-          const canaryStatus = await checkChromeCanaryAiStatus();
-          if (canaryStatus.status === "ready") {
-            const personaName = copilotConfig.baristaName || "AI 바리스타";
-            const sysPrompt = `당신은 사용자의 든든하고 친근한 AI 비서이자 바리스타 '${personaName}'입니다. 사용자의 질문에 맞춰 다정하고 명확하게 한국어로 답변해 주세요.`;
-            const localAnswer = await runChromeCanaryPrompt(sysPrompt, question);
-            if (localAnswer) {
-              finalAnswer = `${localAnswer}\n\n*(✨ Chrome Canary Gemini Nano 온디바이스 로컬 생성)*`;
-              isFallback = false;
-            }
-          }
-        } catch (canaryErr) {
-          console.warn("[askCopilot] Canary on-device fallback attempt error:", canaryErr);
+        const localAnswer = await tryChromeCanaryFallback(question, conversationHistory, merged);
+        if (localAnswer) {
+          finalAnswer = localAnswer;
+          isFallback = false;
         }
       }
 
@@ -2439,30 +2528,20 @@ export default function Home() {
       }
       return finalAnswer;
     } catch {
-      // 💡 네트워크 단절 등 예외 시 Chrome Canary Built-in AI로 로컬 즉시 생성 시도
-      try {
-        const canaryStatus = await checkChromeCanaryAiStatus();
-        if (canaryStatus.status === "ready") {
-          const personaName = copilotConfig.baristaName || "AI 바리스타";
-          const sysPrompt = `당신은 사용자의 든든하고 친근한 AI 비서이자 바리스타 '${personaName}'입니다. 사용자의 질문에 맞춰 다정하고 명확하게 한국어로 답변해 주세요.`;
-          const localAnswer = await runChromeCanaryPrompt(sysPrompt, question);
-          if (localAnswer) {
-            const nanoAnswer = `${localAnswer}\n\n*(✨ Chrome Canary Gemini Nano 온디바이스 로컬 생성)*`;
-            if (persistToFeed) {
-              setCopilotMessages((prev) => [
-                ...prev,
-                {
-                  role: "ai",
-                  text: nanoAnswer,
-                  fallback: false,
-                },
-              ]);
-            }
-            return nanoAnswer;
-          }
+      // 네트워크·서버 오류에서도 정적 메시지보다 브라우저 로컬 모델을 우선한다.
+      const localAnswer = await tryChromeCanaryFallback(question, conversationHistory, merged);
+      if (localAnswer) {
+        if (persistToFeed) {
+          setCopilotMessages((prev) => [
+            ...prev,
+            {
+              role: "ai",
+              text: localAnswer,
+              fallback: false,
+            },
+          ]);
         }
-      } catch (canaryErr) {
-        console.warn("[askCopilot] Canary local fallback error:", canaryErr);
+        return localAnswer;
       }
       const failMsg = "앗, 대답을 놓쳤어요. 잠시 후 다시 물어봐 주세요.";
       if (persistToFeed) {
@@ -3210,8 +3289,17 @@ export default function Home() {
                   composer?.focus();
                 }, 200);
               }}
-              onSendMessage={async (msg) => {
-                return await askCopilot(msg, { explicitMode: "talk", persistToFeed: false });
+              onSendMessage={async (msg, previousTurn) => {
+                return await askCopilot(msg, {
+                  explicitMode: "talk",
+                  persistToFeed: false,
+                  localHistory: previousTurn
+                    ? [
+                        { role: "user", text: previousTurn.userText },
+                        { role: "assistant", text: previousTurn.aiText },
+                      ]
+                    : undefined,
+                });
               }}
               enabled={true}
             />
@@ -3779,6 +3867,28 @@ export default function Home() {
                   대화 <b>{
                     !conversationEnabled ? "OFF" : conversationRuntimeActive === false ? "SERVER OFF" : "ON"
                   }</b>
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.statChip} ${
+                    canaryStatus?.supported && canaryStatus.status === "ready"
+                      ? styles.conversationStatusActive
+                      : styles.conversationStatusInactive
+                  }`}
+                  onClick={handleCanaryStatusClick}
+                  title={
+                    canaryPreparing
+                      ? canaryStatus?.message || "온디바이스 AI 모델 준비 중"
+                      : canaryStatus?.supported && canaryStatus.status === "ready"
+                      ? "Chrome Gemini Nano와 한국어 Translator API 활성 (클릭하여 상태 확인)"
+                      : `${canaryStatus?.message || "Chrome Canary 온디바이스 AI 미지원"} (클릭하여 다운로드 또는 상태 재확인)`
+                  }
+                  aria-busy={canaryPreparing}
+                  aria-label={`브라우저 온디바이스 AI 상태: ${
+                    canaryStatus?.supported && canaryStatus.status === "ready" ? "AI ON" : "AI OFF"
+                  }`}
+                >
+                  AI <b>{canaryStatus?.supported && canaryStatus.status === "ready" ? "ON" : "OFF"}</b>
                 </button>
                 {!isAnyConnected && (
                   <button

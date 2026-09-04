@@ -156,6 +156,8 @@
 .copilotCardTitle {
   justify-content: space-between;
   gap: 12px;
+  flex-wrap: nowrap;
+  min-width: 0;
 }
 
 .copilotTitleLabel {
@@ -166,9 +168,20 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
+  flex-wrap: nowrap;
   gap: 6px;
   min-width: 0;
   margin-left: auto;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.copilotStatus::-webkit-scrollbar {
+  display: none;
+}
+
+.copilotStatus > * {
+  flex-shrink: 0;
 }
 
 .copilotStatus .statChip {
@@ -4518,8 +4531,11 @@
   bottom: 24px;
   right: 24px;
   z-index: 1000;
-  width: calc(100vw - 32px);
-  max-width: 360px;
+  width: 400px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100dvh - 48px);
+  overflow-y: auto;
+  box-sizing: border-box;
   background: color-mix(in srgb, var(--card) 92%, #1a1612);
   border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
   border-radius: 16px;
@@ -4527,6 +4543,19 @@
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35), 0 0 20px color-mix(in srgb, var(--accent) 20%, transparent);
   backdrop-filter: blur(14px);
   animation: baristaSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@media (max-width: 640px) {
+  .baristaIdleCard {
+    right: 12px;
+    left: 12px;
+    bottom: max(12px, env(safe-area-inset-bottom, 12px));
+    width: auto;
+    max-width: none;
+    max-height: 85dvh;
+    padding: 12px 14px;
+    border-radius: 14px;
+  }
 }
 
 @keyframes baristaSlideIn {
@@ -4595,18 +4624,20 @@
   align-items: center;
   justify-content: flex-end;
   gap: 6px;
+  flex-wrap: wrap;
 }
 
 .baristaIdleActionBtn {
   font-size: 0.76rem;
   font-weight: 600;
-  padding: 5px 10px;
+  padding: 6px 10px;
   border-radius: 8px;
   border: 1px solid var(--border);
   background: color-mix(in srgb, var(--card) 80%, transparent);
   color: var(--text);
   cursor: pointer;
   transition: all 0.15s ease;
+  white-space: nowrap;
 }
 
 .baristaIdleActionBtn:hover {
@@ -4622,6 +4653,17 @@
 
 .baristaIdleActionPrimary:hover {
   filter: brightness(1.1);
+}
+
+@media (max-width: 640px) {
+  .baristaIdleActions {
+    justify-content: stretch;
+  }
+  .baristaIdleActionBtn {
+    flex: 1 1 calc(50% - 4px);
+    text-align: center;
+    padding: 8px 6px;
+  }
 }
 
 
