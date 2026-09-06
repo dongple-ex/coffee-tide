@@ -6,6 +6,7 @@ import type {
 } from "../canvas/types";
 import { checkChromeCanaryAiStatus, runChromeCanaryPrompt } from "./chromeCanaryAi";
 import { generateId } from "../ids";
+import { AiJobPendingError, requestAiJob } from "./jobs/client";
 
 const LS_CANVAS_DOCS = "ct_canvas_documents";
 const LS_ACTIVE_CANVAS_ID = "ct_active_canvas_id";
@@ -23,6 +24,8 @@ export async function transformCanvasContentClient(params: {
   docTitle?: string;
   docType?: string;
   personaName?: string;
+  jobScope?: string;
+  pushEndpoint?: string | null;
 }): Promise<CanvasTransformResult> {
   const { content, action, customPrompt, docTitle, docType, personaName } = params;
 
@@ -106,18 +109,19 @@ export async function transformCanvasContentClient(params: {
 
   // 2. 서버 사이드 Gemini 2.5 Flash API 호출
   try {
-    const res = await fetch("/api/copilot/canvas", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+    const payload = {
         content,
         action,
         customPrompt,
         docTitle,
         docType,
         personaName,
-      }),
-    });
+    };
+    const res = params.jobScope
+      ? await requestAiJob("/api/copilot/canvas", payload, { scope: params.jobScope, pushEndpoint: params.pushEndpoint })
+      : await fetch("/api/copilot/canvas", {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+        });
 
     if (res.ok) {
       const data = (await res.json()) as {
@@ -132,6 +136,7 @@ export async function transformCanvasContentClient(params: {
       };
     }
   } catch (err) {
+    if (err instanceof AiJobPendingError) throw err;
     console.warn("[CanvasAI] Server API call failed. Using local fallback.", err);
   }
 

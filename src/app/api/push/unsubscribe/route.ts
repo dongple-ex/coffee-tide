@@ -4,12 +4,13 @@
 // 7일 만료 후 재입장한 사용자가 자기 구독을 해제/동기화하지 못하게 된다.
 
 import { NextRequest, NextResponse } from "next/server";
-import { readSession, unauthorized } from "@/lib/auth/cookies";
+import { unauthorized } from "@/lib/auth/cookies";
+import { resolveIdentity } from "@/lib/auth/identity";
 import { removeProfile } from "@/lib/push/store";
 
 export async function POST(request: NextRequest) {
-  const session = await readSession();
-  if (!session) return unauthorized();
+  const identity = await resolveIdentity();
+  if (!identity) return unauthorized();
 
   const body = (await request.json().catch(() => ({}))) as { endpoint?: string };
   if (!body.endpoint) {

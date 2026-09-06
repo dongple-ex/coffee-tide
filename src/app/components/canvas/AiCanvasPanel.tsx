@@ -20,6 +20,8 @@ interface Props {
   onClose: () => void;
   onRegisterTasks?: (tasks: CanvasExtractedTask[]) => void;
   personaName?: string;
+  jobScope?: string;
+  pushEndpoint?: string | null;
   /** 편집기와 미리보기를 좌우가 아니라 상하로 배치한다 (모바일/축소 모드) */
   stacked?: boolean;
   /** 브라우저의 별도 창에서 단독으로 표시되는 상태 */
@@ -45,6 +47,8 @@ export function AiCanvasPanel({
   onClose,
   onRegisterTasks,
   personaName = "AI 바리스타",
+  jobScope,
+  pushEndpoint,
   stacked = false,
   popout = false,
   onTogglePopout,
@@ -54,6 +58,7 @@ export function AiCanvasPanel({
   const [splitStacked, setSplitStacked] = useState(stacked);
   const [canaryStatus, setCanaryStatus] = useState<ChromeCanaryAiStatus | null>(null);
   const [aiBusy, setAiBusy] = useState(false);
+  const [aiNotice, setAiNotice] = useState<string | null>(null);
   const [customPrompt, setCustomPrompt] = useState("");
   const [extractedTasks, setExtractedTasks] = useState<CanvasExtractedTask[] | null>(null);
   const [copyNotice, setCopyNotice] = useState(false);
@@ -115,6 +120,7 @@ export function AiCanvasPanel({
   const handleRunAiAction = async (action: CanvasAiAction, promptOverride?: string) => {
     if (aiBusy) return;
     setAiBusy(true);
+    setAiNotice(null);
 
     try {
       const result = await transformCanvasContentClient({
@@ -124,6 +130,8 @@ export function AiCanvasPanel({
         docTitle: document.title,
         docType: document.type,
         personaName,
+        jobScope,
+        pushEndpoint,
       });
 
       if (action === "extract_tasks" && result.extractedTasks && result.extractedTasks.length > 0) {
@@ -133,6 +141,7 @@ export function AiCanvasPanel({
       }
     } catch (e) {
       console.error("[AiCanvas] Transform error:", e);
+      setAiNotice(e instanceof Error ? e.message : "작업 결과를 불러오지 못했습니다.");
     } finally {
       setAiBusy(false);
       setCustomPrompt("");
@@ -167,6 +176,7 @@ export function AiCanvasPanel({
 
   return (
     <div className={`${styles.canvasContainer} ${popout ? styles.canvasContainerPopout : ""}`}>
+      {aiNotice && <p role="status" className={styles.connNote}>{aiNotice}</p>}
       {/* 캔버스 상단 헤더 */}
       <header className={styles.canvasHeader}>
         <div className={styles.canvasHeaderLeft}>

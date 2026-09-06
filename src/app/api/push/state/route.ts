@@ -2,13 +2,14 @@
 // 세션(쿠키) 없이는 서버가 manual/paste에 접근할 수 없으므로, 스케줄 발송의 데이터 소스가 된다.
 
 import { NextRequest, NextResponse } from "next/server";
-import { readSession, unauthorized } from "@/lib/auth/cookies";
+import { unauthorized } from "@/lib/auth/cookies";
+import { resolveIdentity } from "@/lib/auth/identity";
 import { UnifiedData } from "@/lib/types/unified";
 import { updateProfile } from "@/lib/push/store";
 
 export async function POST(request: NextRequest) {
-  const session = await readSession();
-  if (!session) return unauthorized();
+  const identity = await resolveIdentity();
+  if (!identity) return unauthorized();
 
   const body = (await request.json().catch(() => ({}))) as {
     endpoint?: string;

@@ -27,6 +27,9 @@ import {
   type ConversationHistoryTurn,
 } from "@/lib/ai/conversation";
 import { getConversationFeatureAccess } from "@/lib/ai/conversationFeatureAccess";
+import { acceptAiJob } from "@/lib/ai/jobs/server";
+
+export const maxDuration = 300;
 
 function mergeById(items: UnifiedData[]): UnifiedData[] {
   return [...new Map(items.map((item) => [item.id, item])).values()];
@@ -66,13 +69,30 @@ export async function POST(request: NextRequest) {
     explicitMode?: ConversationExplicitMode;
     history?: Array<{ role?: string; text?: string }>;
     conversationEnabled?: boolean;
+    background?: boolean;
+    jobId?: string;
+    pushEndpoint?: string;
   };
 
+  // /connect writes refreshed cookies and must finish in the original response.
+  if (body.background === true && !body.autonomousSparkBriefing &&
+      !/^\/connect(?:\s|$)/i.test(body.question ?? "") && !extractRegistrationIntent(body.question ?? "")) {
+    return acceptAiJob({
+      id: body.jobId, ownerId: identity.id, kind: "copilot",
+      question: body.question || "오늘 해야 할 일을 브리핑해줘",
+      pushEndpoint: body.pushEndpoint, execute,
+    });
+  }
+  return execute();
+
+  async function execute() {
+  // identity was resolved before accepting the background task.
+  const signedInIdentity = identity!;
   if (body.autonomousSparkBriefing) {
     if (!body.includeSpark) {
       return NextResponse.json({ answer: null, spark_autonomous: false, spark_item_count: 0 });
     }
-    return NextResponse.json(await autonomousSparkResponse(identity));
+    return NextResponse.json(await autonomousSparkResponse(signedInIdentity));
   }
 
   const question = body.question?.trim() || "오늘 해야 할 일을 브리핑해줘";
@@ -136,7 +156,7 @@ export async function POST(request: NextRequest) {
         toolId,
         input,
         context: {
-          userId: identity.id,
+          userId: signedInIdentity.id,
           timezone: body.timezone || "Asia/Seoul",
           items: clientItems,
         },
@@ -234,7 +254,7 @@ export async function POST(request: NextRequest) {
     explicitMode: body.explicitMode,
   });
   const conversationAccess = getConversationFeatureAccess({
-    userId: identity.id,
+    userId: signedInIdentity.id,
     userEnabled: body.conversationEnabled === true,
   });
   const conversationRoute = conversationAccess.active
@@ -274,7 +294,7 @@ export async function POST(request: NextRequest) {
   }
 
   const sparkItems = body.includeSpark
-    ? await getRecentSparkUnifiedItems(identity.id, identity.supabase)
+    ? await getRecentSparkUnifiedItems(signedInIdentity.id, signedInIdentity.supabase)
     : [];
   const items = mergeById([...sparkItems, ...clientItems]);
 
@@ -289,27 +309,27 @@ export async function POST(request: NextRequest) {
   try {
     let serverItems: WorkspaceItem[] = [];
     let relations: ItemRelation[] = [];
-    if (identity.supabase) {
+    if (signedInIdentity.supabase) {
       const requestedIds = Array.from(new Set(items.map((item) => item.id))).slice(0, 80);
       const requestedItemResult = requestedIds.length > 0
-        ? await identity.supabase
+        ? await signedInIdentity.supabase
             .from("unified_items")
             .select("*")
-            .eq("user_id", identity.id)
+            .eq("user_id", signedInIdentity.id)
             .in("id", requestedIds)
         : { data: [], error: null };
       const [itemResult, relationResult] = await Promise.all([
-        identity.supabase
+        signedInIdentity.supabase
           .from("unified_items")
           .select("*")
-          .eq("user_id", identity.id)
+          .eq("user_id", signedInIdentity.id)
           .is("deleted_at", null)
           .order("updated_at", { ascending: false })
           .limit(500),
-        identity.supabase
+        signedInIdentity.supabase
           .from("item_relations")
           .select("*")
-          .eq("user_id", identity.id)
+          .eq("user_id", signedInIdentity.id)
           .is("deleted_at", null)
           .limit(500),
       ]);
@@ -362,7 +382,7 @@ export async function POST(request: NextRequest) {
     ].slice(0, 80);
   } catch {
     // 로그인 사용자의 서버 정책을 확인하지 못하면 클라이언트 사본을 외부 AI에 보내지 않습니다.
-    if (identity.supabase) allowedItems = [];
+    if (signedInIdentity.supabase) allowedItems = [];
     evidences = [];
   }
 
@@ -390,7 +410,7 @@ export async function POST(request: NextRequest) {
       allowedItems,
       body.timezone || "Asia/Seoul",
       updatedConfig,
-      { userId: identity.id },
+      { userId: signedInIdentity.id },
       {
         mode: conversationRoute.mode,
         history,
@@ -411,4 +431,5 @@ export async function POST(request: NextRequest) {
       ...(cloudToolExecution ? { cloud_tool_execution: cloudToolExecution } : {}),
       ...(cloudToolDraft ? { cloud_tool_draft: cloudToolDraft } : {}),
     });
+  }
 }

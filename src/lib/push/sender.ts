@@ -24,6 +24,7 @@ export interface PushPayload {
   title: string;
   body: string;
   url: string;
+  tag?: string;
 }
 
 const CATEGORY_RANK: Record<UnifiedCategory, number> = {

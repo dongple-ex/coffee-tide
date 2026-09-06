@@ -2,15 +2,16 @@
 // 등록 당일은 발송 스킵(lastSentDate=오늘)하고, 즉시 확인은 /api/push/test 사용.
 
 import { NextRequest, NextResponse } from "next/server";
-import { readSession, unauthorized } from "@/lib/auth/cookies";
+import { unauthorized } from "@/lib/auth/cookies";
+import { resolveIdentity } from "@/lib/auth/identity";
 import { isPushConfigured } from "@/lib/push/sender";
 import { StoredSubscription, upsertProfile } from "@/lib/push/store";
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 export async function POST(request: NextRequest) {
-  const session = await readSession();
-  if (!session) return unauthorized();
+  const identity = await resolveIdentity();
+  if (!identity) return unauthorized();
 
   if (!isPushConfigured()) {
     return NextResponse.json(

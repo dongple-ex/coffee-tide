@@ -7,6 +7,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import dynamic from "next/dynamic";
+import { AiJobRecovery } from "./components/copilot/AiJobRecovery";
+import { AiJobPendingError, requestAiJob } from "@/lib/ai/jobs/client";
 import { AutomationRule, ProcessedData } from "@/lib/automation/rules";
 import {
   BROWSER_ID_PREFIX,
@@ -1858,12 +1860,19 @@ export default function Home() {
         const registration = await navigator.serviceWorker.register("/sw.js");
         const subscription = await registration.pushManager.getSubscription();
         setPushSupported(true);
-        setPushEndpoint(subscription?.endpoint ?? null);
+        if (!subscription) { setPushEndpoint(null); return; }
+        // Permission alone is not proof that the server still has this subscription.
+        const response = await fetch("/api/push/subscribe", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ subscription: subscription.toJSON(),
+            briefTime: loadLS(LS_BRIEF_TIME, "08:30"), timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }),
+        }).catch(() => null);
+        setPushEndpoint(response?.ok ? subscription.endpoint : null);
       } catch {
         setPushSupported(false);
       }
     })();
-  }, [phase]);
+  }, [phase, userScope]);
 
   // 웹 푸시 — 업무 스냅샷 동기화 (스케줄 발송의 데이터 소스, 2초 디바운스)
   useEffect(() => {
@@ -2422,10 +2431,7 @@ export default function Home() {
 
     setCopilotBusy(true);
     try {
-      const res = await fetch("/api/copilot", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
+      const res = await requestAiJob("/api/copilot", {
             question,
             items: merged.filter((i) => i.status !== "completed"),
             timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -2434,8 +2440,7 @@ export default function Home() {
             conversationEnabled: true,
             explicitMode: options?.explicitMode,
             history: conversationHistory,
-          }),
-      });
+      }, { scope: userScope ?? "guest", pushEndpoint });
       const json = (await res.json()) as {
         answer?: string;
         error?: string;
@@ -2527,7 +2532,11 @@ export default function Home() {
         ]);
       }
       return finalAnswer;
-    } catch {
+    } catch (error) {
+      if (error instanceof AiJobPendingError) {
+        if (persistToFeed) setCopilotMessages((previous) => [...previous, { role: "ai", text: error.message }]);
+        return error.message;
+      }
       // 네트워크·서버 오류에서도 정적 메시지보다 브라우저 로컬 모델을 우선한다.
       const localAnswer = await tryChromeCanaryFallback(question, conversationHistory, merged);
       if (localAnswer) {
@@ -2830,6 +2839,10 @@ export default function Home() {
 
   // ── 웹 푸시 (H5) ────────────────────────────
   async function subscribePush() {
+    if (!pushSupported || !("Notification" in window)) {
+      showToast("아이폰은 홈 화면에 추가한 CoffeeTide에서 알림을 켜주세요. 지원 브라우저와 알림 권한이 필요합니다.");
+      return;
+    }
     if (!VAPID_PUBLIC_KEY) {
       console.warn("웹 푸시 미설정: NEXT_PUBLIC_VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY 환경변수가 필요합니다 (.env.example 참조)");
       showToast("이 서버는 아직 알림을 내릴 준비가 안 됐어요 — 관리자에게 문의해 주세요.");
@@ -2838,6 +2851,7 @@ export default function Home() {
     setPushBusy(true);
     try {
       const permission = await Notification.requestPermission();
+      setNotifPerm(permission);
       if (permission !== "granted") {
         showToast("알림 권한이 꺼져 있어요 — 주소창 옆 자물쇠(사이트 설정)에서 허용해 주시면 바로 찾아뵐게요!");
         return;
@@ -2859,7 +2873,7 @@ export default function Home() {
       const json = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) throw new Error(json.error || `서버가 잠시 말이 없네요 (HTTP ${res.status}). 조금 뒤 다시 시도해 주세요.`);
       setPushEndpoint(subscription.endpoint);
-      showToast(`좋아요, 매일 ${briefTime}에 찾아뵐게요! 첫 브리핑은 내일부터 — 궁금하면 '테스트 발송'을 눌러보세요.`);
+      showToast(`브리핑과 AI 작업 완료 알림을 켰습니다. 첫 브리핑은 내일 ${briefTime}에 보내드려요.`);
     } catch (err) {
       showToast(
         err instanceof Error && err.message
@@ -2900,6 +2914,10 @@ export default function Home() {
     setPushBusy(true);
     try {
       if (enable) {
+        if (pushSupported) {
+          await subscribePush();
+          return;
+        }
         const res = await requestNotificationPermission();
         setNotifPerm(res);
         if (res === "granted") {
@@ -3124,6 +3142,37 @@ export default function Home() {
           </button>
         </div>
       )}
+
+      {phase === "ready" && <AiJobRecovery key={userScope} scope={userScope ?? "guest"} canOpenCanvas={canvasEnabled} onOpen={(job) => {
+        const result = job.result || {};
+        if (job.kind === "canvas") {
+          setCanvasPopout(false);
+          const tasks = Array.isArray(result.extractedTasks)
+            ? result.extractedTasks.map((task) => `- [ ] ${String((task as { title?: string }).title || "할 일")}`).join("\n")
+            : "";
+          handleOpenInCanvas(String(result.content || "") + (tasks ? `\n\n## 추출된 할 일\n${tasks}` : ""), job.question);
+          return;
+        }
+        openWorkspaceTab("copilot");
+        setWelcomeCardCollapsed(true);
+        setCopilotMessages((previous) => [...previous,
+          { role: "user", text: job.question },
+          { role: "ai", text: String(result.answer || "응답을 불러오지 못했습니다."),
+            fallback: result.ai_fallback === true,
+            evidences: result.evidences as KnowledgeEvidence[] | undefined,
+            mode: result.mode as ConversationTurnMode | undefined },
+        ]);
+        if (result.calendar_draft) {
+          setCalendarDraft(result.calendar_draft as CalendarEventDraft);
+          setCloudWriteApproval(null);
+          setCalendarReconnectRequired(false);
+        }
+        if (result.cloud_tool_draft) {
+          setCloudToolDraft(result.cloud_tool_draft as CloudDraftPayload);
+          setCloudWriteApproval(null);
+        }
+        showToast("저장된 답변을 AI 대화에 불러왔습니다.");
+      }} />}
 
       {integrationError && (
         <div
@@ -4379,6 +4428,8 @@ export default function Home() {
             }}
           >
             <AiCanvasPanel
+              jobScope={userScope ?? "guest"}
+              pushEndpoint={pushEndpoint}
               document={activeCanvasDoc}
               onChangeDocument={handleUpdateCanvasDoc}
               onClose={() => setIsCanvasOpen(false)}
@@ -4409,6 +4460,8 @@ export default function Home() {
               onClick={(e) => e.stopPropagation()}
             >
               <AiCanvasPanel
+                jobScope={userScope ?? "guest"}
+                pushEndpoint={pushEndpoint}
                 document={activeCanvasDoc}
                 onChangeDocument={handleUpdateCanvasDoc}
                 onClose={() => setIsCanvasOpen(false)}

@@ -21,13 +21,14 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const url = (event.notification.data && event.notification.data.url) || "/";
+  const target = new URL((event.notification.data && event.notification.data.url) || "/", self.location.origin);
+  const url = target.origin === self.location.origin ? target.href : `${self.location.origin}/`;
   event.waitUntil(
-    clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
+    clients.matchAll({ type: "window", includeUncontrolled: true }).then(async (list) => {
       for (const client of list) {
-        if ("focus" in client) {
-          client.navigate(url);
-          return client.focus();
+        if (new URL(client.url).origin === self.location.origin && "focus" in client) {
+          const navigated = await client.navigate(url);
+          if (navigated) return navigated.focus();
         }
       }
       return clients.openWindow(url);

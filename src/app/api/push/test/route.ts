@@ -1,13 +1,14 @@
 // 테스트 발송 — 저장된 스냅샷으로 즉시 브리핑 알림 1건 발송
 
 import { NextRequest, NextResponse } from "next/server";
-import { readSession, unauthorized } from "@/lib/auth/cookies";
+import { unauthorized } from "@/lib/auth/cookies";
+import { resolveIdentity } from "@/lib/auth/identity";
 import { buildBriefingPayload, isPushConfigured, sendPush } from "@/lib/push/sender";
 import { getProfile } from "@/lib/push/store";
 
 export async function POST(request: NextRequest) {
-  const session = await readSession();
-  if (!session) return unauthorized();
+  const identity = await resolveIdentity();
+  if (!identity) return unauthorized();
 
   if (!isPushConfigured()) {
     console.warn("웹 푸시 미설정: VAPID 키 환경변수 누락 (.env.example 참조)");
