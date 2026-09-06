@@ -856,3 +856,70 @@
 .videoTopPipBtn:active {
   transform: scale(0.96);
 }
+
+.pipPlaceholder {
+  position: absolute;
+  inset: 0;
+  background: #05060a;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: #fff;
+  padding: 24px;
+  text-align: center;
+  z-index: 5;
+}
+
+.pipPlaceholderTitle {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -0.01em;
+}
+
+.pipPlaceholderDesc {
+  font-size: 0.8rem;
+  color: var(--text-dim, #94a3b8);
+  max-width: 320px;
+  line-height: 1.45;
+}
+
+.pipPlaceholderBtn {
+  margin-top: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--card-hover, #1e2238);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.15));
+  color: #fff;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pipPlaceholderBtn:hover {
+  background: var(--accent);
+  color: var(--accent-contrast, #fff);
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.pipVideoContainer {
+  width: 100vw;
+  height: 100vh;
+  background: #000;
+  position: relative;
+  overflow: hidden;
+}
+
+.pipIframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+}
