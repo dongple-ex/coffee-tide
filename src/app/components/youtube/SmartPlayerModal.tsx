@@ -873,16 +873,16 @@ export function SmartPlayerModal({
                 </button>
               )}
 
-              {/* 인앱 미니 모드 */}
+              {/* 인앱 미니 (PiP) 모드 */}
               {isMini ? (
                 <button
                   type="button"
                   className={styles.headerActionBtn}
                   onClick={() => setIsMini(false)}
-                  data-tooltip="플레이어 확장"
-                  aria-label="플레이어 확장"
+                  data-tooltip="플레이어 복원"
+                  aria-label="플레이어 복원"
                 >
-                  <UiIcon name="expand" size={16} />
+                  <UiIcon name="pip-restore" size={16} />
                 </button>
               ) : (
                 <button
@@ -890,10 +890,10 @@ export function SmartPlayerModal({
                   type="button"
                   className={styles.headerActionBtn}
                   onClick={() => setIsMini(true)}
-                  data-tooltip="미니 도킹 모드"
-                  aria-label="미니 도킹 모드"
+                  data-tooltip="미니 플레이어 (PiP)"
+                  aria-label="미니 플레이어 (PiP)"
                 >
-                  <UiIcon name="expand" size={16} />
+                  <UiIcon name="pip" size={16} />
                 </button>
               )}
 
@@ -1261,7 +1261,7 @@ export function SmartPlayerModal({
             aria-label="CoffeeTide 화면으로 돌아가기"
             title="CoffeeTide 화면으로 돌아가기"
           >
-            <UiIcon name="expand" size={15} />
+            <UiIcon name="pip-restore" size={15} />
           </button>
           <button
             type="button"

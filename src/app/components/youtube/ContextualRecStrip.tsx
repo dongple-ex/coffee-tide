@@ -99,6 +99,14 @@ export function ContextualRecStrip({ onNotify, userScope }: ContextualRecStripPr
     setSelectedVideo(video);
   };
 
+  const handleSelectVideoPiP = (video: YouTubeVideo) => {
+    setInitialSeekTime(0);
+    setInitialDraft("");
+    setInitialIsMini(true);
+    setSelectedVideo(video);
+    onNotify?.("🎬 미니 플레이어(PiP) 모드로 재생을 시작합니다.");
+  };
+
   const isStripVisible = !isDismissed && rec && rec.videos && rec.videos.length > 0;
 
   if (!isStripVisible && !selectedVideo) return null;
@@ -131,11 +139,18 @@ export function ContextualRecStrip({ onNotify, userScope }: ContextualRecStripPr
             onScroll={handleScroll}
           >
             {rec.videos.map((video, index) => (
-              <button
+              <div
                 key={video.id}
-                type="button"
+                role="button"
+                tabIndex={0}
                 className={styles.card}
                 onClick={() => handleSelectVideo(video)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    handleSelectVideo(video);
+                  }
+                }}
                 title={`${video.title} - 시청하기`}
               >
                 <div className={styles.thumbWrapper}>
@@ -150,9 +165,23 @@ export function ContextualRecStrip({ onNotify, userScope }: ContextualRecStripPr
                 </div>
                 <div className={styles.info}>
                   <div className={styles.title}>{video.title}</div>
-                  <div className={styles.channel}>{video.channelTitle}</div>
+                  <div className={styles.metaRow}>
+                    <div className={styles.channel}>{video.channelTitle}</div>
+                    <button
+                      type="button"
+                      className={styles.pipLaunchBtn}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSelectVideoPiP(video);
+                      }}
+                      title="미니 플레이어(PiP)로 바로 재생"
+                      aria-label={`${video.title} 미니 플레이어로 재생`}
+                    >
+                      <UiIcon name="pip" size={15} />
+                    </button>
+                  </div>
                 </div>
-              </button>
+              </div>
             ))}
           </div>
 

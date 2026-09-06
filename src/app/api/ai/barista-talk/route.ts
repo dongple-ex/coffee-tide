@@ -80,7 +80,21 @@ ${personaGuide}
 
     const rawText = geminiResponseText(aiRes);
     const cleaned = rawText.replace(/```(?:json)?/gi, "").replace(/```/g, "").trim();
-    const parsed = JSON.parse(cleaned);
+    let parsed: { title?: string; content?: string; tag?: string } | null = null;
+    
+    try {
+      parsed = JSON.parse(cleaned);
+    } catch {
+      // 정규식으로 title, content 추출 시도
+      const titleMatch = cleaned.match(/"title"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"/i);
+      const contentMatch = cleaned.match(/"content"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"/i);
+      if (contentMatch) {
+        parsed = {
+          title: titleMatch ? titleMatch[1] : `${baristaName}의 한마디`,
+          content: contentMatch[1],
+        };
+      }
+    }
 
     if (parsed && parsed.title && parsed.content) {
       return NextResponse.json({
