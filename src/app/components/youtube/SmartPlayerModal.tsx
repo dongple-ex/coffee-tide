@@ -890,8 +890,8 @@ export function SmartPlayerModal({
                   type="button"
                   className={styles.headerActionBtn}
                   onClick={() => setIsMini(true)}
-                  data-tooltip="미니 플레이어 (PiP)"
-                  aria-label="미니 플레이어 (PiP)"
+                  data-tooltip="화면속 화면 (PiP)"
+                  aria-label="화면속 화면 (PiP)"
                 >
                   <UiIcon name="pip" size={16} />
                 </button>
@@ -1044,6 +1044,21 @@ export function SmartPlayerModal({
                 }
                 aria-hidden={audioOnly ? "true" : undefined}
               >
+                {!audioOnly && !isMini && (
+                  <button
+                    type="button"
+                    className={styles.videoTopPipBtn}
+                    onClick={() => {
+                      setIsMini(true);
+                      onNotify?.("🎬 화면속 화면(PiP) 모드로 전환되었습니다.");
+                    }}
+                    title="화면속 화면(PiP)으로 보기"
+                    aria-label="화면속 화면(PiP)으로 보기"
+                  >
+                    <UiIcon name="pip" size={14} />
+                    <span>화면속 화면</span>
+                  </button>
+                )}
                 <iframe
                   ref={iframeRef}
                   src={`https://www.youtube-nocookie.com/embed/${ytVideoId}?enablejsapi=1&autoplay=${shouldAutoplay ? 1 : 0}&rel=0&iv_load_policy=3&modestbranding=1&playsinline=1${

@@ -84,10 +84,9 @@ export function UiIcon({ name, size = 18, ...props }: UiIconProps) {
     "external-link": <><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" /></>,
     pip: (
       <>
-        <path d="M21 9V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h5" />
-        <polyline points="7 11 11 11 11 7" />
-        <line x1="6" y1="6" x2="11" y2="11" />
-        <rect x="12" y="11" width="9" height="7" rx="1.5" />
+        <rect x="3" y="7" width="13" height="13" rx="2" />
+        <polyline points="15 3 21 3 21 9" />
+        <line x1="10" y1="14" x2="21" y2="3" />
       </>
     ),
     "pip-restore": (
