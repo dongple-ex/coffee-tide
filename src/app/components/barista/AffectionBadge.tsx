@@ -30,9 +30,11 @@ export function AffectionBadge({
   const [showMemoryModal, setShowMemoryModal] = useState(false);
   const [levelUpLevel, setLevelUpLevel] = useState<number>(1);
 
-  useEffect(() => {
+  const [prevPresetId, setPrevPresetId] = useState(presetId);
+  if (prevPresetId !== presetId) {
+    setPrevPresetId(presetId);
     setAffection(getAffectionState(presetId));
-  }, [presetId]);
+  }
 
   // 실시간 호감도 변경 및 레벨업 이벤트 리스너
   useEffect(() => {

@@ -18,7 +18,10 @@ export function HtmlInCanvasView({ content, title, docType }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const minimapCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  const [status, setStatus] = useState<HtmlInCanvasStatus | null>(null);
+  const [status] = useState<HtmlInCanvasStatus | null>(() => {
+    if (typeof window === "undefined") return null;
+    return checkHtmlInCanvasSupport();
+  });
   const [tilt, setTilt] = useState<{ rotateX: number; rotateY: number; glareX: number; glareY: number }>({
     rotateX: 0,
     rotateY: 0,
@@ -27,12 +30,6 @@ export function HtmlInCanvasView({ content, title, docType }: Props) {
   });
   const [autoFloat, setAutoFloat] = useState(true);
   const [zoom, setZoom] = useState(1);
-
-  // Chrome Canary HTML in Canvas 지원 상태 감지
-  useEffect(() => {
-    const s = checkHtmlInCanvasSupport();
-    setStatus(s);
-  }, []);
 
   // 마우스 이동 시 3D 틸트 & 광택 효과 계산
   const handleMouseMove = useCallback(
@@ -195,11 +192,9 @@ export function HtmlInCanvasView({ content, title, docType }: Props) {
         onMouseLeave={handleMouseLeave}
       >
         {/* WICG <canvas layoutsubtree> 엘리먼트 (Chrome Canary drawElementImage 타깃) */}
-        {/* @ts-ignore - layoutsubtree is an experimental proposal attribute */}
         <canvas
           ref={canvasRef}
-          // @ts-ignore
-          layoutsubtree=""
+          {...({ layoutsubtree: "" } as Record<string, string>)}
           className={styles.htmlInCanvasBackdropCanvas}
           width={800}
           height={600}

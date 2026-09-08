@@ -1,8 +1,8 @@
 # CoffeeTide 모바일 앱 전환 연속성 구현 계획
 
 > **문서 번호**: `doc/12-mobile-session-continuity-plan.md`  
-> **작성 일자**: 2026-08-12  
-> **상태**: 설계 완료 · 소스 미구현  
+> **작성 일자**: 2026-08-12 (2026-09-08 갱신)  
+> **상태**: ✅ 구현 및 검증 완료  
 > **대상 환경**: iPhone Safari/PWA, Android Chrome/PWA  
 > **관련 문서**: [`04-mobile-strategy.md`](./04-mobile-strategy.md), [`11-youtube-viewer-recommendation-bundle-spec.md`](./11-youtube-viewer-recommendation-bundle-spec.md)
 
@@ -314,4 +314,4 @@ sequenceDiagram
 8. 만료·로그아웃·명시적 닫기 정리
 9. iPhone/Android 실기기 검증
 
-소스 구현은 이 문서 검토와 승인 후 별도 작업으로 진행한다.
+(2026-09-08 `src/lib/youtube/continuity.ts` 및 `SmartPlayerModal.tsx` 등에 구현 및 단위/스모크 테스트 완료)

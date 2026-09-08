@@ -8,6 +8,8 @@ export type UnifiedSource =
   | "obsidian"
   | "outlook"
   | "gmail"
+  | "gcalendar"
+  | "gdrive"
   | "notion"
   | "llm"
   | "spark";
@@ -88,6 +90,8 @@ export const SOURCE_LABELS: Record<UnifiedSource, string> = {
   obsidian: "Obsidian",
   outlook: "Outlook",
   gmail: "Gmail",
+  gcalendar: "Google 캘린더",
+  gdrive: "Google 드라이브",
   notion: "Notion",
   llm: "로컬 LLM",
   spark: "Gemini Spark",

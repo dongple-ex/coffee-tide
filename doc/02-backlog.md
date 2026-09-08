@@ -23,7 +23,7 @@
 | :-- | :-- | :-- | :-- |
 | **H1** | 외부 연동(Outlook/Google/Notion) 실계정 E2E 검증 | **P1** | 검증 |
 | ~~H2~~ | 세션 쿠키 토큰 저장 4KB 한계 리스크 | ✅ 구현 (2026-07-31 쿠키 청킹, 실계정 검증은 H1과 함께) | 보안/안정성 |
-| H3 | Google Calendar·Drive 수집 (Calendar 일정 등록은 구현, 수집은 미구현) | P3 | 기능 |
+| ~~H3~~ | Google Calendar·Drive 수집 | ✅ 구현 (2026-09-08 Calendar 회의·Drive 문서 수집 및 부분 실패 격리) | 기능 |
 | ~~D1~~ | 레거시 PKCE 죽은 코드 | ✅ 해당 없음 (plain-fetch OAuth) | 정리 |
 | ~~D2~~ | Notion SDK v5 캐스팅 | ✅ 해소 (REST 직호출) | 정리 |
 | ~~D3~~ | localStorage 배열 무한 증가 | ✅ 구현 (동기화 시 교집합 정리) | 정리 |
@@ -84,10 +84,9 @@
 ### ~~D3~~. localStorage 배열 무한 증가 — ✅ 구현 (2026-07-22)
 - **처리**: `src/app/page.tsx`에서 `fetchMails` 시 수집된 `validIds` 기반으로 `dismissed` 배열 자동 필터링/정리 적용 완료.
 
-### D4. 숨김 메커니즘 2개 공존 — P3
-- **문제**: 규칙 `hide`(자동)와 수동 `dismiss`가 별개로 존재.
-- **제안**: 의도 차이를 UI/문서로 명확히 하거나 통합 검토(예: dismiss를 "이 발신자 항상 숨기기" 규칙으로 승격 제안).
-- **완료 기준**: 사용자가 두 기능의 차이를 혼동하지 않음.
+### ~~D4~~. 숨김 메커니즘 2개 공존 — ✅ 구현 (2026-09-08)
+- **문제**: 규칙 `hide`(조건 기반 영구 자동 숨김)와 개별 항목 `dismiss`(목록에서 임시 닫기)가 둘 다 "숨김"으로 표기되어 사용자 혼동 유발.
+- **처리**: `TaskItemCard`의 외부 항목 제외 액션을 "닫기 (`목록에서 닫기 (현재 화면 제외)`)"로 명확화하고, 규칙의 "자동 숨김"과 개념 및 UI 레이블을 분리 완료.
 
 ## E. UX & 접근성
 
@@ -171,9 +170,13 @@
 - **검증 (2026-07-31)**: ① 7.4KB 페이로드(Outlook 2.6KB+refresh 1.8KB+전 채널) → 3조각 분할·복원 라운드트립 일치, 조각 유실 시 null 안전 실패, 소형 세션 1조각 하위호환 — 스팟 체크 전부 통과. ② dev 서버에서 세션 발급→보호 API→롤링 연장(touchSession) 왕복 200. 검증 3종 세트 통과.
 - **남은 확인**: 실계정 Outlook+Google 동시 연동 상태에서의 실사이즈 검증은 H1과 함께.
 
-### H3. Google Calendar·Drive 수집 — P3
-- **문제**: AI 바리스타의 Calendar 일정·반복 일정 등록은 구현됐으나, 수집은 Gmail만 구현.
-- **제안**: `GmailAdapter` 패턴으로 Calendar 오늘 일정(→`meeting`), Drive 최근 문서(→`reference`) 어댑터 추가.
+### ~~H3~~. Google Calendar·Drive 수집 — ✅ 구현 (2026-09-08)
+- **처리**:
+  - `GoogleCalendarAdapter.fetchTodayMeetings`: 오늘 일정 수집 (`timeMin`/`timeMax` 24시간 범위), 취소된 일정 제외, 회의링크(`hangoutLink` 및 `conferenceData`), 장소, 시작/종료 시간 정보를 포함하여 `source: "gcalendar"`, `category: "meeting"`으로 변환.
+  - `GoogleDriveAdapter.fetchRecentFiles`: 최근 수정된 파일 목록 수집(폴더 제외, `modifiedTime` 기준), 파일 유형 및 webViewLink를 포함하여 `source: "gdrive"`, `category: "reference"`로 변환.
+  - `src/lib/adapters/factory.ts`: `session.googleToken` 보유 시 Gmail, Calendar, Drive 3종을 병렬(`Promise.allSettled`)로 호출하여 부분 실패 격리 및 결과 통합 정렬.
+  - `UnifiedSource`에 `gcalendar`("Google 캘린더"), `gdrive`("Google 드라이브")를 1급 소스로 등록하고 전용 배지 스타일(`.badge_gcalendar`, `.badge_gdrive`) 적용.
+  - 단위 테스트(`googleCalendar.test.ts`, `googleDrive.test.ts`, `factory.test.ts`) 작성 및 통과.
 
 ### H4. 팔로업 브라우저 알림 — ✅ 구현 (2026-07-22)
 - **처리**: `src/lib/push/browserNotification.ts`의 `triggerTaskNotifications` — 긴급/팔로업 초과 업무 발생 시 데스크톱 알림 1회. 중복 방지는 `ct_notified_item_ids`. 권한은 설정 모달의 알림 토글에서 옵트인.
@@ -230,14 +233,14 @@
 - **남은 것 (P1)**: **실키 E2E 검증** — `.env.local`에 `DATA_GO_KR_SERVICE_KEY`(또는 별칭 `WEATHER_API_KEY`)가 현재 미설정. 키 설정 후 활용신청 승인 상태(TAGO 2종)와 실응답 필드명을 확인해야 한다. H1(실계정 E2E)과 묶어 진행 권장.
 - **완료 기준**: 실키로 근접 정류소 검색·도착정보 표시가 실제 동작. 폴백 시 수치가 사라지고 딥링크만 남는 것 확인.
 
-### K10. `page.tsx` / `page.module.css` 분할 — P3 (1~4단계 완료)
-- **진행**: 3,413 → **2,351줄**. 순수 헬퍼 → 설정 6섹션 → 업무 카드 → Copilot 패널 순으로 분리 (구조는 [`01-as-built-reference.md`](./01-as-built-reference.md) §8).
-- **남은 5단계**: 상태 훅 분리(`useManualItems`·`useWeather`·`usePushSubscription`) + `page.module.css`(1,592줄) 컴포넌트별 분할.
-- **완료 기준**: `page.tsx` 1,000줄 이하, 기능 회귀 없음.
+### K10. `page.tsx` / `page.module.css` 분할 — P3 (상태 훅 분리 완료)
+- **진행**: 순수 헬퍼, 설정 섹션, 업무 카드 분리에 이어 **상태 훅 3종(`useManualItems`, `useWeather`, `usePushSubscription`) 분리 완료 (2026-09-08)**. `src/app/hooks/` 디렉터리로 비즈니스 로직 및 상태를 이관하여 `page.tsx`의 가독성과 모듈성을 개선함.
+- **남은 작업**: `page.module.css` 컴포넌트별 점진적 분할.
+- **완료 기준**: `page.tsx` 컴포넌트 및 훅 분리 완료, 기능 회귀 없음.
 
-### K13. 기본 바로가기 프리셋의 하드코딩 경로 — P3
-- **문제**: `DEFAULT_APP_SHORTCUTS`의 "구글안티" 프리셋 경로가 `C:\Users\tstar\...`로 특정 계정명을 포함해 다른 환경에서는 항상 실패한다(K1 이후 실패 사유는 화면에 표시됨).
-- **제안**: 프리셋에서 제거하거나 `%LOCALAPPDATA%` 기반 경로로 교체.
+### ~~K13~~. 기본 바로가기 프리셋의 하드코딩 경로 — ✅ 구현 (2026-09-08)
+- **문제**: `DEFAULT_APP_SHORTCUTS`의 "구글안티" 프리셋 경로가 `C:\Users\tstar\...`로 특정 계정명을 포함해 다른 환경에서는 항상 실패.
+- **처리**: `src/app/api/util/exec-app/route.ts`에 `%LOCALAPPDATA%` 등 윈도우 환경변수 치환 로직(`expandEnvVars`)을 추가하고 기본 프리셋 경로를 `%LOCALAPPDATA%\Programs\Antigravity\Antigravity.exe`로 교체 완료. 단위 테스트 추가.
 
 ---
 

@@ -26,6 +26,8 @@ const SOURCES = new Set<UnifiedSource>([
   "obsidian",
   "outlook",
   "gmail",
+  "gcalendar",
+  "gdrive",
   "notion",
   "llm",
   "spark",

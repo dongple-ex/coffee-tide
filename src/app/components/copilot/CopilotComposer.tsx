@@ -43,7 +43,7 @@ const RECOMMENDED_PROMPTS = [
   },
 ];
 
-import { getQuickReplies, QuickReplyChip } from "@/lib/ai/copilotQuickReplies";
+import { getQuickReplies } from "@/lib/ai/copilotQuickReplies";
 
 interface Props {
   value: string;

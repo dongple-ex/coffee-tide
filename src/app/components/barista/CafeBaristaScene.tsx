@@ -22,7 +22,6 @@ export function CafeBaristaScene({
   presetId = "karina",
   title = "주문하신 오늘의 브리핑 나왔습니다! ☕",
   description = "따뜻한 커피 향과 함께 오늘 꼭 챙겨야 할 중요 업무와 일정을 확인해 보세요.",
-  dateLabel,
   compact = false,
 }: CafeBaristaSceneProps) {
   const effect = getPersonaEffect(presetId, baristaName);

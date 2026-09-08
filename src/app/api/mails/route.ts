@@ -104,7 +104,7 @@ export async function GET(request: NextRequest) {
   // 시간 윈도우 강제 — 채널별 쿼리 푸시다운(outlook/gmail)과 무관하게 여기가 최종 관문.
   // AI 분류 전에 걸러 윈도우 밖 항목에 분류 비용을 쓰지 않는다.
   const merged = collected.flat().filter((i) => isWithinCollectWindow(i.created_at));
-  const { items: classified, aiUsed } = await classifyTasks(merged);
+  const { items: classified } = await classifyTasks(merged);
   classified.sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   );

@@ -1,4 +1,5 @@
-import "server-only";
+import { UnifiedData } from "../types/unified";
+import { AuthExpiredError } from "./outlook";
 
 export class GoogleDriveApiError extends Error {
   constructor(
@@ -36,6 +37,7 @@ export class GoogleDriveAdapter {
         ...(init?.headers ?? {}),
       },
     });
+    if (response.status === 401) throw new AuthExpiredError("google");
     if (!response.ok) {
       const responseBody = (await response.text()).slice(0, 1000);
       throw new GoogleDriveApiError(
@@ -45,6 +47,60 @@ export class GoogleDriveAdapter {
       );
     }
     return response;
+  }
+
+  async fetchRecentFiles(limit = 10, windowDays = 14): Promise<UnifiedData[]> {
+    const sinceDate = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000).toISOString();
+    const query = `trashed=false and mimeType!='application/vnd.google-apps.folder' and modifiedTime>='${sinceDate}'`;
+    const params = new URLSearchParams({
+      q: query,
+      orderBy: "modifiedTime desc",
+      pageSize: String(Math.min(Math.max(1, limit), 50)),
+      fields: "files(id,name,mimeType,modifiedTime,webViewLink,owners(displayName,emailAddress),description,size)",
+    });
+
+    const response = await this.request(
+      `https://www.googleapis.com/drive/v3/files?${params}`
+    );
+
+    const data = (await response.json()) as {
+      files?: Array<{
+        id: string;
+        name?: string;
+        mimeType?: string;
+        modifiedTime?: string;
+        webViewLink?: string;
+        description?: string;
+        owners?: Array<{ displayName?: string; emailAddress?: string }>;
+      }>;
+    };
+    const files = data.files || [];
+
+    return files.map((file): UnifiedData => {
+      const owner = file.owners?.[0];
+      const typeLabel =
+        file.mimeType?.replace("application/vnd.google-apps.", "Google ") ||
+        file.mimeType ||
+        "문서";
+      const modTime = file.modifiedTime ? file.modifiedTime.slice(0, 16).replace("T", " ") : "";
+
+      return {
+        id: `gdrive_${file.id}`,
+        source: "gdrive",
+        sourceApp: "Google Drive",
+        title: file.name || "제목 없는 문서",
+        content: `[${typeLabel}] 최근 수정: ${modTime}${file.description ? `\n설명: ${file.description}` : ""}`.trim(),
+        created_at: file.modifiedTime || new Date().toISOString(),
+        author: {
+          name: owner?.displayName || "Google Drive",
+          email: owner?.emailAddress,
+        },
+        url: file.webViewLink || `https://drive.google.com/file/d/${file.id}/view`,
+        driveUrl: file.webViewLink,
+        category: "reference",
+        status: "pending",
+      };
+    });
   }
 
   private async folderId(name: string, parentId?: string): Promise<string | null> {

@@ -1308,6 +1308,8 @@
 .badge_paste { background: rgba(74, 222, 128, 0.15); color: #a3e635; }
 .badge_outlook { background: rgba(0, 120, 212, 0.2); color: #4db2ff; }
 .badge_gmail { background: rgba(234, 67, 53, 0.18); color: #ff8a80; }
+.badge_gcalendar { background: rgba(66, 133, 244, 0.2); color: #8ab4f8; }
+.badge_gdrive { background: rgba(251, 188, 4, 0.2); color: #fdd663; }
 .badge_notion { background: rgba(255, 255, 255, 0.12); color: #e6ecf5; }
 .badge_obsidian { background: rgba(124, 58, 237, 0.22); color: #b795ff; }
 .badge_local_doc { background: rgba(255, 180, 84, 0.16); color: var(--warn); }
@@ -2675,6 +2677,24 @@
   color: #b91c1c;
 }
 
+:global([data-theme="light"]) .badge_gcalendar {
+  background: rgba(66, 133, 244, 0.1);
+  color: #1a73e8;
+}
+:global([data-theme="mega"]) .badge_gcalendar {
+  background: rgba(37, 99, 235, 0.1);
+  color: #1d4ed8;
+}
+
+:global([data-theme="light"]) .badge_gdrive {
+  background: rgba(234, 134, 0, 0.1);
+  color: #b06000;
+}
+:global([data-theme="mega"]) .badge_gdrive {
+  background: rgba(217, 119, 6, 0.1);
+  color: #b45309;
+}
+
 :global([data-theme="light"]) .badge_notion {
   background: rgba(15, 23, 42, 0.08);
   color: #1f2937;
@@ -3156,6 +3176,18 @@
   background: rgba(220, 38, 38, 0.1);
   color: #b91c1c;
   border: 1px solid rgba(220, 38, 38, 0.25);
+}
+
+:global([data-theme="notebook"]) .badge_gcalendar {
+  background: rgba(66, 133, 244, 0.1);
+  color: #1a73e8;
+  border: 1px solid rgba(66, 133, 244, 0.25);
+}
+
+:global([data-theme="notebook"]) .badge_gdrive {
+  background: rgba(217, 119, 6, 0.1);
+  color: #b45309;
+  border: 1px solid rgba(217, 119, 6, 0.25);
 }
 
 :global([data-theme="notebook"]) .badge_notion {

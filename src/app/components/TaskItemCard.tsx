@@ -77,6 +77,8 @@ export function TaskItemCard({
   const isExternal =
     item.source === "outlook" ||
     item.source === "gmail" ||
+    item.source === "gcalendar" ||
+    item.source === "gdrive" ||
     item.source === "notion" ||
     item.source === "obsidian";
 
@@ -217,10 +219,11 @@ export function TaskItemCard({
               type="button"
               className={styles.btnAction}
               onClick={onDismiss}
-              title="목록에서 숨기기"
+              title="목록에서 닫기 (현재 화면 제외)"
+              aria-label="목록에서 닫기"
             >
               <UiIcon name="close" size={13} />
-              <span>숨기기</span>
+              <span>닫기</span>
             </button>
           ) : (
             <button

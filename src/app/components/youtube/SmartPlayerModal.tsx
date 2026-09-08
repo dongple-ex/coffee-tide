@@ -109,6 +109,7 @@ export function SmartPlayerModal({
   const [isPiPActive, setIsPiPActive] = useState<boolean>(false);
   const [pipType, setPipType] = useState<"audio" | "video">("audio");
   const [pipWindow, setPipWindow] = useState<Window | null>(null);
+  const [pipStartTime, setPipStartTime] = useState<number>(0);
   const pipWindowRef = useRef<Window | null>(null);
   const [isAudioCollapsed, setIsAudioCollapsed] = useState(false);
 
@@ -330,6 +331,7 @@ export function SmartPlayerModal({
         pipWin.document.title = video?.title || "화면속 화면 (PiP)";
 
         setPipType("video");
+        setPipStartTime(Math.floor(currentTimeRef.current));
         setPipWindow(pipWin);
         setIsPiPActive(true);
         onNotify?.("🎬 동영상이 OS 항상 위 화면속 화면(PiP) 창으로 분리되었습니다.");
@@ -1334,7 +1336,7 @@ export function SmartPlayerModal({
         pipType === "video" ? (
           <div className={styles.pipVideoContainer}>
             <iframe
-              src={`https://www.youtube-nocookie.com/embed/${ytVideoId}?enablejsapi=1&autoplay=1&rel=0&iv_load_policy=3&modestbranding=1&playsinline=1&start=${Math.floor(currentTimeRef.current)}`}
+              src={`https://www.youtube-nocookie.com/embed/${ytVideoId}?enablejsapi=1&autoplay=1&rel=0&iv_load_policy=3&modestbranding=1&playsinline=1&start=${pipStartTime}`}
               title={video.title}
               className={styles.pipIframe}
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"

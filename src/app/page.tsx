@@ -23,8 +23,6 @@ import {
   supportsFsAccess,
 } from "@/lib/browser/localFolders";
 import {
-  getNotificationPermission,
-  requestNotificationPermission,
   triggerTaskNotifications,
 } from "@/lib/push/browserNotification";
 import {
@@ -46,7 +44,6 @@ import {
   loadLS,
   saveLS,
   LS_APP_SHORTCUTS,
-  LS_BRIEF_TIME,
   LS_BROWSER_CAT,
   LS_COMMUTE_CONFIG,
   LS_COMMUTE_TIMETABLES,
@@ -60,12 +57,13 @@ import {
   LS_RULES,
   LS_SUB_TASKS,
   LS_THEME,
-  LS_WEATHER_COORDS,
-  LS_WEATHER_ENABLED,
   LS_WORK_NOTES,
   DEFAULT_COMMUTE_TIMETABLES,
 } from "@/lib/localStore";
 import { useModalA11y } from "./hooks/useModalA11y";
+import { useManualItems } from "./hooks/useManualItems";
+import { useWeather } from "./hooks/useWeather";
+import { usePushSubscription } from "./hooks/usePushSubscription";
 import { HeaderControls, Theme } from "./components/HeaderControls";
 import { UiIcon } from "./components/UiIcon";
 import { QuickAddBar } from "./components/QuickAddBar";
@@ -78,7 +76,7 @@ import { CloudDraftReviewCard } from "./components/copilot/CloudDraftReviewCard"
 import { CloudWriteApprovalCard } from "./components/copilot/CloudWriteApprovalCard";
 import { buildQaPairs, CopilotMessage } from "@/lib/copilotPairs";
 import IcedAmericano from "./components/icedAmericano";
-import { WelcomeCard, WeatherData } from "./components/WelcomeCard";
+import { WelcomeCard } from "./components/WelcomeCard";
 import { WeatherWidget } from "./components/WeatherWidget";
 import {
   CHROME_CANARY_AI_ATTRIBUTION,
@@ -100,7 +98,6 @@ const SyncConflictModal = dynamic(() => import("./components/SyncConflictModal")
 const AiCanvasPanel = dynamic(() => import("./components/canvas/AiCanvasPanel").then((m) => m.AiCanvasPanel), { ssr: false });
 const CanvasWindowPortal = dynamic(() => import("./components/canvas/CanvasWindowPortal").then((m) => m.CanvasWindowPortal), { ssr: false });
 const BaristaIdleCompanion = dynamic(() => import("./components/barista/BaristaIdleCompanion").then((m) => m.BaristaIdleCompanion), { ssr: false });
-const CafeBaristaScene = dynamic(() => import("./components/barista/CafeBaristaScene").then((m) => m.CafeBaristaScene), { ssr: false });
 const CommuteCard = dynamic(() => import("./components/CommuteCard").then((m) => m.CommuteCard), { ssr: false });
 const TimerWidget = dynamic(() => import("./components/TimerWidget").then((m) => m.TimerWidget), { ssr: false });
 const CalculatorWidget = dynamic(() => import("./components/CalculatorWidget").then((m) => m.CalculatorWidget), { ssr: false });
@@ -174,7 +171,7 @@ const DEFAULT_APP_SHORTCUTS: AppShortcut[] = [
   {
     id: "preset-google-anti",
     keyword: "구글안티",
-    target: "C:\\Users\\tstar\\AppData\\Local\\Programs\\Antigravity\\Antigravity.exe",
+    target: "%LOCALAPPDATA%\\Programs\\Antigravity\\Antigravity.exe",
     enabled: true,
   },
   {
@@ -295,16 +292,6 @@ export function getDynamicCafeSteps(ctx: DynamicCafeContext): string[] {
   ];
 }
 
-const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "";
-
-function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
-  const padding = "=".repeat((4 - (base64.length % 4)) % 4);
-  const normalized = (base64 + padding).replace(/-/g, "+").replace(/_/g, "/");
-  const raw = atob(normalized);
-  const view = new Uint8Array(new ArrayBuffer(raw.length));
-  for (let i = 0; i < raw.length; i++) view[i] = raw.charCodeAt(i);
-  return view;
-}
 
 type Phase = "loading" | "landing" | "ready";
 
@@ -320,10 +307,49 @@ export default function Home() {
   const [authBusy, setAuthBusy] = useState(false);
   const [authError, setAuthError] = useState<string>();
   const [integrationError, setIntegrationError] = useState<string | null>(null);
+
+  const [toast, setToast] = useState("");
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showToast = useCallback((message: string) => {
+    setToast(message);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(""), 3500);
+  }, []);
+
+  const {
+    manualItems,
+    setManualItems,
+    registerManualTask,
+    addManualItem,
+    setLocalStatus: setLocalStatusHook,
+    deleteLocal,
+    classifyManualItem,
+  } = useManualItems({ showToast });
+
+  const {
+    weatherEnabled,
+    weatherCoords,
+    weatherData,
+    weatherBusy,
+    setWeatherData,
+    fetchWeatherData,
+    enableWeatherLocation,
+    disableWeatherLocation,
+  } = useWeather({ showToast });
+
+  const {
+    pushSupported,
+    pushEndpoint,
+    pushBusy,
+    notifPerm,
+    briefTime,
+    toggleNotification,
+    testPush,
+    saveBriefTime,
+  } = usePushSubscription({ phase, userScope, showToast });
+
   const [serverMails, setServerMails] = useState<UnifiedData[]>([]);
-  const [manualItems, setManualItems] = useState<UnifiedData[]>(() =>
-    loadLS<UnifiedData[]>(LS_MANUAL, [])
-  );
   const [connections, setConnections] = useState<ConnectionState | null>(null);
   const [errors, setErrors] = useState<MailsResponse["errors"]>();
   const [aiError, setAiError] = useState(false);
@@ -359,7 +385,6 @@ export default function Home() {
   const [fetchLimit, setFetchLimit] = useState<number>(() => loadLS<number>(LS_FETCH_LIMIT, 20));
   const [visibleTodoCount, setVisibleTodoCount] = useState<number>(10);
   const [visibleRestCount, setVisibleRestCount] = useState<number>(10);
-  const [notifPerm, setNotifPerm] = useState<NotificationPermission>(getNotificationPermission);
   const [nowTick, setNowTick] = useState(() => Date.now());
 
   const [quickTitle, setQuickTitle] = useState("");
@@ -473,7 +498,7 @@ export default function Home() {
   // 캔버스를 별도 창으로 띄울지 여부. PC에서는 기본으로 별도 창을 쓰고,
   // 캔버스 헤더의 전환 버튼이나 팝업 차단에 따라 현재 창 안의 오버레이로 되돌린다.
   const [canvasPopout, setCanvasPopout] = useState(true);
-  const [canvasDocs, setCanvasDocs] = useState<CanvasDocument[]>([]);
+  const [, setCanvasDocs] = useState<CanvasDocument[]>([]);
   const [activeCanvasDoc, setActiveCanvasDoc] = useState<CanvasDocument | null>(null);
 
   // 로컬 스토리지에서 캔버스 문서 로딩
@@ -807,17 +832,6 @@ export default function Home() {
   const [browserFolders, setBrowserFolders] = useState<BrowserFolderInfo[]>([]);
   const [browserItems, setBrowserItems] = useState<UnifiedData[]>([]);
 
-  const [pushSupported, setPushSupported] = useState<boolean | null>(null);
-  const [pushEndpoint, setPushEndpoint] = useState<string | null>(null);
-  const [pushBusy, setPushBusy] = useState(false);
-  const [briefTime, setBriefTime] = useState(() => loadLS<string>(LS_BRIEF_TIME, "08:30"));
-
-  const [weatherEnabled, setWeatherEnabled] = useState(() => loadLS<boolean>(LS_WEATHER_ENABLED, false));
-  const [weatherCoords, setWeatherCoords] = useState<{ lat: number; lon: number } | null>(() =>
-    loadLS<{ lat: number; lon: number } | null>(LS_WEATHER_COORDS, null)
-  );
-  const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
-  const [weatherBusy, setWeatherBusy] = useState(false);
   const [financeData, setFinanceData] = useState<FinanceSnapshot | null>(null);
   const [financeBusy, setFinanceBusy] = useState(false);
   const [financeLoaded, setFinanceLoaded] = useState(false);
@@ -1119,18 +1133,9 @@ export default function Home() {
     );
   };
 
-  const [toast, setToast] = useState("");
   const [draft, setDraft] = useState<{ title: string; text: string; message: string } | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [busyIds, setBusyIds] = useState<Set<string>>(new Set());
-
-  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const showToast = useCallback((message: string) => {
-    setToast(message);
-    if (toastTimer.current) clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setToast(""), 3500);
-  }, []);
 
   const handleCanaryStatusClick = useCallback(() => {
     if (canaryPreparing) {
@@ -1255,7 +1260,7 @@ export default function Home() {
       setManualItems((prev) => [...newItems, ...prev]);
       showToast(`캔버스에서 추출된 할 일 ${newItems.length}건을 '오늘의 행동 지침'에 등록했습니다.`);
     },
-    [activeCanvasDoc?.title, copilotConfig.baristaName, showToast]
+    [activeCanvasDoc?.title, copilotConfig.baristaName, setManualItems, showToast]
   );
 
   useEffect(() => {
@@ -1272,18 +1277,6 @@ export default function Home() {
       return next;
     });
 
-  // 순수 fetch — 상태 갱신은 호출부(비동기 콜백)에서 한다.
-  // 이렇게 두면 effect 본문에서 동기 setState가 일어나지 않는다(react-hooks/set-state-in-effect).
-  const fetchWeatherData = useCallback(async (lat: number, lon: number): Promise<WeatherData | null> => {
-    try {
-      const res = await fetch(`/api/weather?lat=${lat}&lon=${lon}`);
-      const data = (await res.json()) as { success?: boolean; weather?: WeatherData };
-      return data.success && data.weather ? data.weather : null;
-    } catch (err) {
-      console.warn("[coffeeTide] Weather fetch failed:", err);
-      return null;
-    }
-  }, []);
 
   const fetchFinanceData = useCallback(async (force = false): Promise<boolean> => {
     setFinanceBusy(true);
@@ -1324,32 +1317,6 @@ export default function Home() {
     }
   }, [toggleFinanceWidget]);
 
-  const enableWeatherLocation = useCallback(() => {
-    if (typeof window === "undefined" || !("geolocation" in navigator)) {
-      showToast("이 브라우저는 위치 정보를 지원하지 않아요.");
-      return;
-    }
-    setWeatherBusy(true);
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setWeatherBusy(false);
-        const coords = { lat: position.coords.latitude, lon: position.coords.longitude };
-        setWeatherCoords(coords);
-        setWeatherEnabled(true);
-        saveLS(LS_WEATHER_ENABLED, true);
-        saveLS(LS_WEATHER_COORDS, coords);
-        showToast("위치 허용이 완료되어 날씨 브리핑이 활성화되었습니다.");
-        void fetchWeatherData(coords.lat, coords.lon).then((weather) => {
-          if (weather) setWeatherData(weather);
-        });
-      },
-      (error) => {
-        setWeatherBusy(false);
-        showToast(`위치 권한 오류: ${error.message}`);
-      },
-      { timeout: 10000 }
-    );
-  }, [fetchWeatherData, showToast]);
 
   // 지도 앱 딥링크(카카오 kakaomap://route, 네이버 nmap://route/*)는 좌표가 필수다.
   // 별도 지오코딩 키 없이 좌표를 확보하는 가장 확실한 방법 — 그 자리에서 현재 위치를 찍어 저장한다.
@@ -1412,45 +1379,6 @@ export default function Home() {
     [showToast]
   );
 
-  const disableWeatherLocation = useCallback(() => {
-    setWeatherEnabled(false);
-    setWeatherData(null);
-    saveLS(LS_WEATHER_ENABLED, false);
-    showToast("날씨 브리핑을 껐습니다.");
-  }, [showToast]);
-
-  // 날씨 동기화 — 저장된 좌표가 있으면 그 좌표로, 없으면 1회 위치 조회 후 가져온다.
-  // 상태 갱신은 모두 비동기 콜백(fetch·geolocation) 안에서만 일어난다.
-  useEffect(() => {
-    if (!weatherEnabled) return;
-    let cancelled = false;
-
-    const load = (lat: number, lon: number) => {
-      void fetchWeatherData(lat, lon).then((weather) => {
-        if (!cancelled && weather) setWeatherData(weather);
-      });
-    };
-
-    if (weatherCoords) {
-      load(weatherCoords.lat, weatherCoords.lon);
-    } else if (typeof window !== "undefined" && "geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          if (cancelled) return;
-          const coords = { lat: position.coords.latitude, lon: position.coords.longitude };
-          setWeatherCoords(coords);
-          saveLS(LS_WEATHER_COORDS, coords);
-          load(coords.lat, coords.lon);
-        },
-        () => {},
-        { timeout: 8000 }
-      );
-    }
-
-    return () => {
-      cancelled = true;
-    };
-  }, [weatherEnabled, weatherCoords, fetchWeatherData]);
 
   // ── 서버 동기화 ──────────────────────────────
   const fetchMails = useCallback(async (silent = false, limitOverride?: number): Promise<MailsResponse | null> => {
@@ -1617,7 +1545,6 @@ export default function Home() {
   // 첫 동기화 (localStorage 복원은 useState 지연 초기화로 처리).
   // setState는 fetch 응답 콜백에서만 일어나는 정당한 mount-fetch 패턴.
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     void fetchMails();
   }, [fetchMails]);
 
@@ -1701,7 +1628,7 @@ export default function Home() {
       // 완료 전에 이펙트가 정리되면(로그아웃 등) 다음 ready 진입 시 다시 시도할 수 있게 되돌린다
       if (!cloudHydratedRef.current) cloudHydrationStartedRef.current = false;
     };
-  }, [phase, fetchUserData, syncUserData]);
+  }, [phase, fetchUserData, setManualItems, syncUserData]);
 
   useEffect(() => {
     if (phase !== "ready" || !cloudHydratedRef.current) return;
@@ -1745,28 +1672,16 @@ export default function Home() {
     } finally {
       setIsDataRefreshing(false);
     }
-  }, [isDataRefreshing, fetchMails, scanBrowser, weatherEnabled, weatherCoords, fetchWeatherData, showToast]);
+  }, [isDataRefreshing, fetchMails, scanBrowser, weatherEnabled, weatherCoords, fetchWeatherData, setWeatherData, showToast]);
 
   // 브라우저 폴더 연동 복원 — FSA 지원 감지 + 저장 핸들 스캔 (권한 상태 포함)
   useEffect(() => {
     if (phase !== "ready") return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setFsaSupported(supportsFsAccess());
     void scanBrowser();
   }, [phase, scanBrowser]);
 
   // 영속화 — 외부 시스템(localStorage) 쓰기.
-  // manual 항목은 1급 소스(정본 원칙 2)라 저장 실패(용량 초과)를 조용히 삼키면 데이터 유실로 이어진다.
-  const quotaWarnedRef = useRef(false);
-  useEffect(() => {
-    const ok = saveLS(LS_MANUAL, manualItems);
-    if (!ok && !quotaWarnedRef.current) {
-      quotaWarnedRef.current = true;
-      showToast("앗, 저장 공간이 가득 차서 새 항목을 못 담고 있어요. 큰 업로드 항목을 몇 개 삭제해 주세요.");
-    } else if (ok) {
-      quotaWarnedRef.current = false;
-    }
-  }, [manualItems, showToast]);
   useEffect(() => {
     saveLS(LS_RULES, rules);
   }, [rules]);
@@ -1813,7 +1728,7 @@ export default function Home() {
     };
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
-  }, []);
+  }, [setManualItems]);
 
   // 드라이브 영구 저장은 Google 연동 시에만 기본 ON (정본 원칙 3: 연동은 증강 기능 —
   // 무연동 사용자의 기본 업로드 경로가 '연동하라'는 에러로 시작되면 안 된다).
@@ -1848,31 +1763,6 @@ export default function Home() {
     if (el) el.scrollTop = el.scrollHeight;
   }, [copilotMessages, copilotBusy]);
 
-  // 웹 푸시 — Service Worker 등록 + 기존 구독 복원 (H5)
-  useEffect(() => {
-    if (phase !== "ready") return;
-    void (async () => {
-      if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-        setPushSupported(false);
-        return;
-      }
-      try {
-        const registration = await navigator.serviceWorker.register("/sw.js");
-        const subscription = await registration.pushManager.getSubscription();
-        setPushSupported(true);
-        if (!subscription) { setPushEndpoint(null); return; }
-        // Permission alone is not proof that the server still has this subscription.
-        const response = await fetch("/api/push/subscribe", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ subscription: subscription.toJSON(),
-            briefTime: loadLS(LS_BRIEF_TIME, "08:30"), timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }),
-        }).catch(() => null);
-        setPushEndpoint(response?.ok ? subscription.endpoint : null);
-      } catch {
-        setPushSupported(false);
-      }
-    })();
-  }, [phase, userScope]);
 
   // 웹 푸시 — 업무 스냅샷 동기화 (스케줄 발송의 데이터 소스, 2초 디바운스)
   useEffect(() => {
@@ -2042,26 +1932,11 @@ export default function Home() {
   }, [workflowItems, manualItems]);
 
   // ── G1: 수동 입력 / 붙여넣기 ────────────────
-  function registerManualTask(item: UnifiedData) {
-    setManualItems((previous) => [item, ...previous.filter((current) => current.id !== item.id)]);
-    void classifyManualItem(item);
-  }
-
   async function addManual() {
     const title = quickTitle.trim();
     if (!title) return;
     setQuickTitle("");
-    const item: UnifiedData = {
-      id: `manual-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      source: "manual",
-      title,
-      content: title,
-      created_at: new Date().toISOString(),
-      author: { name: "나" },
-      url: "",
-      status: "pending",
-    };
-    registerManualTask(item);
+    addManualItem(title);
   }
 
   async function saveExpense(expense: {
@@ -2095,23 +1970,6 @@ export default function Home() {
     }
   }
 
-  async function classifyManualItem(item: UnifiedData) {
-    try {
-      const res = await fetch("/api/tasks/classify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items: [item] }),
-      });
-      if (res.ok) {
-        const { items } = (await res.json()) as { items: UnifiedData[] };
-        if (items[0]) {
-          setManualItems((prev) => prev.map((i) => (i.id === item.id ? items[0] : i)));
-        }
-      }
-    } catch {
-      // 분류 실패해도 항목은 유지 (부분 실패 허용)
-    }
-  }
 
   async function importPaste() {
     const text = pasteText.trim();
@@ -2147,26 +2005,11 @@ export default function Home() {
   }
 
   function setLocalStatus(id: string, status: UnifiedData["status"]) {
-    setManualItems((prev) => {
-      const exists = prev.some((i) => i.id === id);
-      if (exists) {
-        return prev.map((i) => (i.id === id ? { ...i, status } : i));
-      }
-      const target = [...serverMails, ...browserItems].find((i) => i.id === id);
-      if (target) {
-        return [{ ...target, status }, ...prev];
-      }
-      return prev;
-    });
-
+    setLocalStatusHook(id, status, [...serverMails, ...browserItems]);
     if (status === "completed") {
       signalTodoCompletion();
       addAffectionExp(copilotConfig.presetId || "karina", "complete_task");
     }
-  }
-
-  function deleteLocal(id: string) {
-    setManualItems((prev) => prev.filter((i) => i.id !== id));
   }
 
   function dismissItem(id: string) {
@@ -2837,160 +2680,6 @@ export default function Home() {
     }
   }
 
-  // ── 웹 푸시 (H5) ────────────────────────────
-  async function subscribePush() {
-    if (!pushSupported || !("Notification" in window)) {
-      showToast("아이폰은 홈 화면에 추가한 CoffeeTide에서 알림을 켜주세요. 지원 브라우저와 알림 권한이 필요합니다.");
-      return;
-    }
-    if (!VAPID_PUBLIC_KEY) {
-      console.warn("웹 푸시 미설정: NEXT_PUBLIC_VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY 환경변수가 필요합니다 (.env.example 참조)");
-      showToast("이 서버는 아직 알림을 내릴 준비가 안 됐어요 — 관리자에게 문의해 주세요.");
-      return;
-    }
-    setPushBusy(true);
-    try {
-      const permission = await Notification.requestPermission();
-      setNotifPerm(permission);
-      if (permission !== "granted") {
-        showToast("알림 권한이 꺼져 있어요 — 주소창 옆 자물쇠(사이트 설정)에서 허용해 주시면 바로 찾아뵐게요!");
-        return;
-      }
-      const registration = await navigator.serviceWorker.ready;
-      const subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
-      });
-      const res = await fetch("/api/push/subscribe", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          subscription: subscription.toJSON(),
-          briefTime,
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        }),
-      });
-      const json = (await res.json().catch(() => ({}))) as { error?: string };
-      if (!res.ok) throw new Error(json.error || `서버가 잠시 말이 없네요 (HTTP ${res.status}). 조금 뒤 다시 시도해 주세요.`);
-      setPushEndpoint(subscription.endpoint);
-      showToast(`브리핑과 AI 작업 완료 알림을 켰습니다. 첫 브리핑은 내일 ${briefTime}에 보내드려요.`);
-    } catch (err) {
-      showToast(
-        err instanceof Error && err.message
-          ? `앗, 알림벨을 달다 놓쳤어요 (${err.message})`
-          : "앗, 알림벨을 달다 놓쳤어요. 잠시 후 다시 시도해 주세요."
-      );
-    } finally {
-      setPushBusy(false);
-    }
-  }
-
-  async function unsubscribePush() {
-    setPushBusy(true);
-    try {
-      const registration = await navigator.serviceWorker.ready;
-      const subscription = await registration.pushManager.getSubscription();
-      const endpoint = subscription?.endpoint ?? pushEndpoint;
-      await subscription?.unsubscribe();
-      if (endpoint) {
-        await fetch("/api/push/unsubscribe", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ endpoint }),
-        });
-      }
-      setPushEndpoint(null);
-      showToast("알겠어요, 당분간 조용히 있을게요.");
-    } catch {
-      showToast("앗, 알림을 끄지 못했어요. 잠시 후 다시 눌러주세요.");
-    } finally {
-      setPushBusy(false);
-    }
-  }
-
-  // subscribePush/unsubscribePush(비메모)를 참조하므로 useCallback을 걸어도 identity가 안정되지 않는다.
-  // 이벤트 핸들러 전용이라 메모이제이션이 필요 없다.
-  async function toggleNotification(enable: boolean) {
-    setPushBusy(true);
-    try {
-      if (enable) {
-        if (pushSupported) {
-          await subscribePush();
-          return;
-        }
-        const res = await requestNotificationPermission();
-        setNotifPerm(res);
-        if (res === "granted") {
-          if (pushSupported && VAPID_PUBLIC_KEY && !pushEndpoint) {
-            try {
-              await subscribePush();
-            } catch (err) {
-              console.warn("Push subscribe error:", err);
-            }
-          } else {
-            showToast("데스크톱 알림 권한이 허용되었습니다.");
-          }
-        } else {
-          showToast("알림 권한이 거부되어 있습니다. 브라우저 설정에서 허용해주세요.");
-        }
-      } else {
-        if (pushEndpoint) {
-          try {
-            await unsubscribePush();
-          } catch (err) {
-            console.warn("Unsubscribe push error:", err);
-          }
-        }
-        setPushEndpoint(null);
-        showToast("알림을 껐습니다.");
-      }
-    } catch (err) {
-      console.warn("Toggle notification error:", err);
-    } finally {
-      setPushBusy(false);
-    }
-  }
-
-  async function testPush() {
-    if (!pushEndpoint) return;
-    setPushBusy(true);
-    try {
-      const res = await fetch("/api/push/test", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ endpoint: pushEndpoint }),
-      });
-      const json = (await res.json().catch(() => ({}))) as { message?: string; error?: string };
-      showToast(json.message ?? json.error ?? `서버가 잠시 말이 없네요 (HTTP ${res.status}). 조금 뒤 다시 시도해 주세요.`);
-    } finally {
-      setPushBusy(false);
-    }
-  }
-
-  async function saveBriefTime(next: string) {
-    setBriefTime(next);
-    saveLS(LS_BRIEF_TIME, next);
-    if (!pushEndpoint) return;
-    try {
-      const registration = await navigator.serviceWorker.ready;
-      const subscription = await registration.pushManager.getSubscription();
-      if (!subscription) return;
-      const res = await fetch("/api/push/subscribe", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          subscription: subscription.toJSON(),
-          briefTime: next,
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        }),
-      });
-      const json = (await res.json().catch(() => ({}))) as { error?: string };
-      if (!res.ok) throw new Error(json.error || `서버가 잠시 말이 없네요 (HTTP ${res.status}). 조금 뒤 다시 시도해 주세요.`);
-      showToast(`발송 시각 ${next}, 기억해뒀어요!`);
-    } catch (err) {
-      showToast(err instanceof Error && err.message ? err.message : "앗, 발송 시각을 못 적어뒀어요. 다시 골라주세요.");
-    }
-  }
 
   async function exportLlmDigest() {
     const res = await fetch("/api/tasks/llm-digest", { method: "POST" });

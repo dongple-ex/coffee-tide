@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
-import type { CanvasDocument, CanvasExtractedTask } from "./types";
-import { saveCanvasDocsToLS, loadCanvasDocsFromLS } from "../ai/canvasAi";
+import type { CanvasDocument } from "./types";
 
 describe("AI Canvas Module", () => {
   it("creates a valid CanvasDocument object with history", () => {

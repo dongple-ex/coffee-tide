@@ -440,7 +440,7 @@ export function AiCanvasPanel({
           <button
             type="button"
             className={styles.canvasAiChip}
-            onClick={() => handleRunAiAction("tone_chaerin" as any)}
+            onClick={() => handleRunAiAction("tone_chaerin")}
             disabled={aiBusy || !document.content.trim()}
           >
             🃏 채린이 톤

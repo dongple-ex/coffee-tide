@@ -1,13 +1,14 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { CafeBaristaScene } from "./CafeBaristaScene";
 import { IDLE_TALK_POOL, formatIdleTalkForPersona, IdleMessageItem } from "@/lib/ai/baristaIdleTalks";
 import { getPersonaEffect } from "@/lib/ai/personaEffects";
 import { AffectionBadge } from "./AffectionBadge";
-import { addAffectionExp } from "@/lib/ai/affectionManager";
 import styles from "../../page.module.css";
+
+const emptySubscribe = () => () => {};
 
 export interface BaristaIdleCompanionProps {
   presetId?: string;
@@ -29,6 +30,7 @@ export function BaristaIdleCompanion({
   onSendMessage,
   enabled = true,
 }: BaristaIdleCompanionProps) {
+  const isClient = useSyncExternalStore(emptySubscribe, () => true, () => false);
   const [isVisible, setIsVisible] = useState(false);
   const [isCardOpen, setIsCardOpen] = useState(false);
   const [currentItem, setCurrentItem] = useState<IdleMessageItem>(() => IDLE_TALK_POOL[0]);
@@ -39,16 +41,15 @@ export function BaristaIdleCompanion({
     isThinking: boolean;
   } | null>(null);
   const [isLoadingNext, setIsLoadingNext] = useState(false);
-  const [talkIndex, setTalkIndex] = useState(0);
+  const talkIndexRef = useRef(0);
   const [quickInput, setQuickInput] = useState("");
-  const [mounted, setMounted] = useState(false);
+
+  const lastActivityRef = useRef<number>(0);
+  const isDismissedRecentlyRef = useRef<boolean>(false);
 
   useEffect(() => {
-    setMounted(true);
+    lastActivityRef.current = Date.now();
   }, []);
-
-  const lastActivityRef = useRef<number>(Date.now());
-  const isDismissedRecentlyRef = useRef<boolean>(false);
 
   // 동적 AI 유머 & 페르소나 토크 비동기 호출
   const fetchDynamicTalk = useCallback(async () => {
@@ -74,22 +75,16 @@ export function BaristaIdleCompanion({
   // 새로운 대화 선택 (로컬 풀 순환 + 동적 생성 시도)
   const pickNextTalk = useCallback(() => {
     setInlineChat(null);
-    setTalkIndex((prev) => {
-      const next = (prev + 1) % IDLE_TALK_POOL.length;
-      setCurrentItem(IDLE_TALK_POOL[next]);
-      setDynamicTalk(null); // 로컬 값으로 즉시 리셋 후 백그라운드 API 호출
-      return next;
-    });
+    const next = (talkIndexRef.current + 1) % IDLE_TALK_POOL.length;
+    talkIndexRef.current = next;
+    setCurrentItem(IDLE_TALK_POOL[next]);
+    setDynamicTalk(null); // 로컬 값으로 즉시 리셋 후 백그라운드 API 호출
     void fetchDynamicTalk();
   }, [fetchDynamicTalk]);
 
   // 유휴 타이머 및 활동 감지
   useEffect(() => {
-    if (!enabled) {
-      setIsVisible(false);
-      setIsCardOpen(false);
-      return;
-    }
+    if (!enabled) return;
 
     const handleActivity = () => {
       lastActivityRef.current = Date.now();
@@ -200,6 +195,8 @@ export function BaristaIdleCompanion({
       : inlineChat.aiText || localFormatted.content
     : dynamicTalk?.content || localFormatted.content;
 
+  if (!enabled) return null;
+
   return (
     <>
       {/* 탭바 우측 상단에 위치할 미니 마스코트 아바타 */}
@@ -235,7 +232,7 @@ export function BaristaIdleCompanion({
       </div>
 
       {/* 클릭 시 혹은 소환 시 열리는 거대한 카드 모달 (createPortal로 Body 레벨 렌더링) */}
-      {isCardOpen && mounted && createPortal(
+      {isCardOpen && isClient && createPortal(
         <div
           className={styles.baristaIdleCard}
           role="complementary"

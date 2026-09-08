@@ -7,7 +7,6 @@ import {
 import {
   IDLE_TALK_POOL,
   formatIdleTalkForPersona,
-  IdleMessageItem,
 } from "@/lib/ai/baristaIdleTalks";
 
 export async function GET(req: NextRequest) {

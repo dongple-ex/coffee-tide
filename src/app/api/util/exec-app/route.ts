@@ -33,15 +33,27 @@ const ALLOWED_URL_SCHEMES = new Set([
  */
 const ALLOWED_EXECUTABLE_EXTS = new Set([".exe", ".lnk", ".app"]);
 
-const MAX_TARGET_LENGTH = 500;
-
-type Classified =
+export type Classified =
   | { kind: "url"; value: string }
   | { kind: "path"; value: string }
   | { kind: "invalid"; reason: string };
 
-function classifyTarget(raw: string): Classified {
-  const trimmed = raw.trim();
+const MAX_TARGET_LENGTH = 500;
+
+/** Windows 환경변수(%VAR%) 또는 POSIX 환경변수($VAR)를 치환 (K13) */
+export function expandEnvVars(target: string): string {
+  if (process.platform === "win32") {
+    return target.replace(/%([a-zA-Z0-9_]+)%/g, (_, varName) => {
+      return process.env[varName] || `%${varName}%`;
+    });
+  }
+  return target.replace(/\$([a-zA-Z0-9_]+)/g, (_, varName) => {
+    return process.env[varName] || `$${varName}`;
+  });
+}
+
+export function classifyTarget(raw: string): Classified {
+  const trimmed = expandEnvVars(raw.trim()).trim();
 
   if (!trimmed) return { kind: "invalid", reason: "실행 대상이 비어 있습니다." };
   if (trimmed.length > MAX_TARGET_LENGTH) {

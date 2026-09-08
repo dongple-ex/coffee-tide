@@ -40,6 +40,34 @@ export const MOCK_MAILS: UnifiedData[] = [
     category: "meeting",
     status: "pending",
   },
+  {
+    id: "mock-gcal-1",
+    source: "gcalendar",
+    sourceApp: "Google Calendar",
+    title: "주간 스프린트 계획 & 리서치 공유 회의",
+    content:
+      "[14:00 ~ 15:00] | 장소: 대회의실 A | 회의링크: https://meet.google.com/ct-weekly-sync\n이번 주 배포 일정 및 로컬 AI 모델 연동 진행 상황 점검",
+    created_at: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
+    author: { name: "강팀장", email: "lead@company.com" },
+    url: "https://calendar.google.com/calendar/r/eventedit/mock-gcal-1",
+    category: "meeting",
+    status: "pending",
+    actionDirective: "오늘 일정 참석 및 사전 준비",
+  },
+  {
+    id: "mock-gdrive-1",
+    source: "gdrive",
+    sourceApp: "Google Drive",
+    title: "2026 하반기 coffeeTide 서비스 아키텍처 사양서.gdoc",
+    content:
+      "[Google Docs] 최근 수정: 오늘 11:30 | 작성자: 박수석\nSupabase Postgres, 로컬 RAG 및 컴패니언 메모리 시스템 명세",
+    created_at: new Date(Date.now() - 4 * 3600 * 1000).toISOString(),
+    author: { name: "박수석", email: "sspark@company.com" },
+    url: "https://drive.google.com/file/d/mock-gdrive-1/view",
+    driveUrl: "https://drive.google.com/file/d/mock-gdrive-1/view",
+    category: "reference",
+    status: "pending",
+  },
 ];
 
 export const MOCK_NOTION_PAGES: UnifiedData[] = [

@@ -23,7 +23,6 @@ export function getQuickReplies({
   baristaName = "AI 바리스타",
   hasUrgentTasks = false,
   taskCount = 0,
-  completedCount = 0,
   canvasEnabled = true,
 }: ContextOptions): QuickReplyChip[] {
   const hour = new Date().getHours();
