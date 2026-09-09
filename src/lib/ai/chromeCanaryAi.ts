@@ -7,6 +7,8 @@
  * 3. 초기 Canary 표면: window.ai.createTextSession
  */
 
+import { sanitizeAiResponse } from "./sanitizeResponse";
+
 export type ChromeCanaryAiStatusCode =
   | "ready"
   | "downloading"
@@ -617,10 +619,11 @@ export async function runChromeCanaryPrompt(
         session = await adapter.create(promptSystem);
         const answer = await runPromptSession(session, promptInput);
         const translatedAnswer = enToKo ? await enToKo.translate(answer) : answer;
-        if (!translatedAnswer.trim()) {
+        const sanitized = sanitizeAiResponse(translatedAnswer.trim());
+        if (!sanitized.trim()) {
           throw new Error("온디바이스 번역 결과가 비어 있습니다.");
         }
-        return translatedAnswer.trim();
+        return sanitized;
       } catch (error) {
         lastError = error;
         console.warn(`[ChromeCanaryAI] ${adapter.name} prompt failed:`, error);

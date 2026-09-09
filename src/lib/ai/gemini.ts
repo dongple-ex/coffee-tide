@@ -29,6 +29,7 @@ import {
 import { errorMessage } from "../errors";
 import type { CanvasAiAction, CanvasExtractedTask } from "../canvas/types";
 import { generateId } from "../ids";
+import { sanitizeAiResponse } from "./sanitizeResponse";
 
 const MODEL = "gemini-flash-latest";
 const COOLDOWN_MS = 1 * 60 * 1000; // 1분 쿨다운 (구글 429 Retry 시간 기준)
@@ -159,7 +160,7 @@ export async function callGemini(
     ignoreCooldown,
     signal
   );
-  return geminiResponseText(response);
+  return sanitizeAiResponse(geminiResponseText(response));
 }
 
 /**

@@ -8,6 +8,9 @@ import {
 describe("routeConversation", () => {
   it.each([
     ["안녕", "social"],
+    ["GKDL", "social"],
+    ["gkdl", "social"],
+    ["dkssud", "social"],
     ["테드 아재개그 잘하네", "social"],
     ["테드 자기소개해봐", "social"],
     ["일반적인 자연스러운 대화 하고싶은데", "social"],

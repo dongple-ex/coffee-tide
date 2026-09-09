@@ -1,4 +1,5 @@
 import type { CopilotUserConfig } from "./harness";
+import { resolveHangulTypoIfNeeded } from "./hangulTypo";
 
 export type ConversationTurnMode =
   | "social"
@@ -38,7 +39,7 @@ const SELF_INTRO_PATTERN =
 const CHITCHAT_PATTERN =
   /(?:사는\s*(?:이야기|얘기)|일상\s*(?:대화|얘기)|잡담|취미|주말|퇴근\s*후?|웹툰|만화|드라마|영화|음악|노래|게임|좋아하|좋아해|추천해\s*줘|심심|놀아줘|수다|자연스러운\s*대화)/i;
 const SOCIAL_PATTERN =
-  /^(?:안녕|하이|헬로|좋은\s*(?:아침|점심|저녁)|반가워|뭐해|잘\s*지내|고마워|감사해|수고했어|잘했어|잘하네|잘한다|멋지다|멋지네|좋아|귀엽|재밌|웃기|심심해|농담|아재개그|칭찬해)(?:[\s!?.~ㅋㅎ]*)$|오늘\s*기분\s*어때|너는\s*(?:어때|누구|뭐야)|나랑\s*(?:얘기|대화)|(?:자기\s*)?소개|사는\s*(?:이야기|얘기)|자연스러운\s*대화|웹툰/i;
+  /^(?:안녕|하이|헬로|좋은\s*(?:아침|점심|저녁)|반가워|뭐해|잘\s*지내|고마워|감사해|수고했어|잘했어|잘하네|잘한다|멋지다|멋지네|좋아|귀엽|재밌|웃기|심심해|농담|아재개그|칭찬해|gkdl|dkssud|hi|hello)(?:[\s!?.~ㅋㅎ]*)$|오늘\s*기분\s*어때|너는\s*(?:어때|누구|뭐야)|나랑\s*(?:얘기|대화)|(?:자기\s*)?소개|사는\s*(?:이야기|얘기)|자연스러운\s*대화|웹툰/i;
 const WORK_OBJECT_PATTERN =
   /업무|할\s*일|일정|메일|회의|문서|보고서|결재|마감|프로젝트|태스크|캘린더|노션|자료|파일|브리핑|우선순위|진행\s*상황|티켓|이슈|배포|코드|서버|오늘\s*일|오늘\s*(?:뭐|무엇)/i;
 const WORK_ACTION_PATTERN =
@@ -57,7 +58,8 @@ export function routeConversation({
   text,
   explicitMode = "auto",
 }: RouteConversationInput): ConversationRoute {
-  const normalized = text.trim().slice(0, 2_000);
+  const typoResult = resolveHangulTypoIfNeeded(text);
+  const normalized = (typoResult.isTypo ? typoResult.corrected : text).trim().slice(0, 2_000);
 
   if (normalized.startsWith("/")) {
     return {

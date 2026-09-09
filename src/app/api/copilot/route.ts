@@ -26,6 +26,8 @@ import {
   type ConversationExplicitMode,
   type ConversationHistoryTurn,
 } from "@/lib/ai/conversation";
+import { resolveHangulTypoIfNeeded } from "@/lib/ai/hangulTypo";
+import { sanitizeAiResponse } from "@/lib/ai/sanitizeResponse";
 import { getConversationFeatureAccess } from "@/lib/ai/conversationFeatureAccess";
 import { acceptAiJob } from "@/lib/ai/jobs/server";
 
@@ -95,7 +97,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(await autonomousSparkResponse(signedInIdentity));
   }
 
-  const question = body.question?.trim() || "오늘 해야 할 일을 브리핑해줘";
+  const rawQuestion = body.question?.trim() || "오늘 해야 할 일을 브리핑해줘";
+  const typoResolution = resolveHangulTypoIfNeeded(rawQuestion);
+  const question = typoResolution.isTypo ? typoResolution.corrected : rawQuestion;
   const clientItems = Array.isArray(body.items) ? body.items.slice(0, 80) : [];
   const history: ConversationHistoryTurn[] = Array.isArray(body.history)
     ? body.history
@@ -283,8 +287,9 @@ export async function POST(request: NextRequest) {
       }
     );
     const companionParsed = parseCompanionResponse(answer);
+    const cleanAnswer = sanitizeAiResponse(companionParsed.message || answer);
     return NextResponse.json({
-      answer: companionParsed.message || answer,
+      answer: cleanAnswer,
       narration: companionParsed.narration,
       suggestions: companionParsed.suggestions,
       mode: conversationRoute.mode,
@@ -419,9 +424,10 @@ export async function POST(request: NextRequest) {
     );
 
     const companionParsed = parseCompanionResponse(answer);
+    const cleanAnswer = sanitizeAiResponse(companionParsed.message || answer);
 
     return NextResponse.json({
-      answer: companionParsed.message || answer,
+      answer: cleanAnswer,
       narration: companionParsed.narration,
       suggestions: companionParsed.suggestions,
       mode: conversationRoute.mode,
