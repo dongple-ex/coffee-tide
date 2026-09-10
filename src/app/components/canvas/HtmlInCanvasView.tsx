@@ -268,16 +268,22 @@ export function HtmlInCanvasView({ content, title, docType }: Props) {
 
   const [zoom, setZoom] = useState(1);
 
-  // 📱 뷰포트 가용 너비 실시간 감지 (반응형 자동 폭 맞춤)
-  const [containerWidth, setContainerWidth] = useState<number>(1000);
+  // 📱 뷰포트 가용 너비/높이 실시간 감지 (반응형 자동 폭/높이 맞춤)
+  const [containerSize, setContainerSize] = useState<{ width: number; height: number }>({
+    width: 1000,
+    height: 640,
+  });
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    setContainerWidth(el.clientWidth);
+    setContainerSize({ width: el.clientWidth, height: el.clientHeight });
 
     const ro = new ResizeObserver((entries) => {
       for (const entry of entries) {
-        setContainerWidth(entry.contentRect.width);
+        setContainerSize({
+          width: entry.contentRect.width,
+          height: entry.contentRect.height,
+        });
       }
     });
     ro.observe(el);
@@ -711,16 +717,20 @@ export function HtmlInCanvasView({ content, title, docType }: Props) {
   const chalkSpotX = effectiveGlareX;
   const chalkSpotY = effectiveGlareY;
 
-  // 📱 축소 모드/모바일 반응형 자동 폭 맞춤 계산 (가용 너비에 맞춰 쏙 들어가도록 배율 보정)
+  // 📱 축소 모드/모바일 반응형 자동 폭/높이 맞춤 계산 (가용 화면에 맞춰 쏙 들어가도록 배율 보정)
   const targetBaseWidth =
     viewStyle === "diary" ? 890 :
     viewStyle === "chalkboard" ? 830 :
     viewStyle === "book" ? 890 : 460;
 
-  const autoFitScale =
-    containerWidth > 0 && containerWidth < targetBaseWidth
-      ? Math.min(1, Math.max(0.35, (containerWidth - 24) / targetBaseWidth))
-      : 1;
+  const targetBaseHeight =
+    viewStyle === "diary" ? 560 :
+    viewStyle === "chalkboard" ? 540 :
+    viewStyle === "book" ? 560 : 480;
+
+  const scaleX = containerSize.width > 0 ? (containerSize.width - 24) / targetBaseWidth : 1;
+  const scaleY = containerSize.height > 0 ? (containerSize.height - 24) / targetBaseHeight : 1;
+  const autoFitScale = Math.min(1, Math.max(0.3, Math.min(scaleX, scaleY)));
 
   const effectiveScale = Number((zoom * autoFitScale).toFixed(3));
 
@@ -822,11 +832,12 @@ export function HtmlInCanvasView({ content, title, docType }: Props) {
           height={640}
         />
 
-        {/* 📱 반응형 자동 폭 맞춤 & 줌 스케일 컨테이너 (애니메이션과 줌 배율 충돌 완전 방지) */}
+        {/* 📱 반응형 자동 폭/높이 맞춤 & 줌 스케일 컨테이너 (정중앙 완벽 정렬 보장) */}
         <div
           className={styles.htmlInCanvasScaleBox}
           style={{
-            transform: `scale(${effectiveScale})`,
+            width: targetBaseWidth,
+            transform: `translate(-50%, -50%) scale(${effectiveScale})`,
           }}
         >
           {/* ================================================================

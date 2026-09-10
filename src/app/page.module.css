@@ -4454,6 +4454,9 @@
 }
 
 .htmlInCanvasScaleBox {
+  position: absolute;
+  top: 50%;
+  left: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4740,6 +4743,8 @@
   line-height: 1.7;
   color: #1e293b !important;
   overflow-y: auto;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .htmlInCanvasPageBody p,
@@ -5952,6 +5957,8 @@
   line-height: 1.68;
   color: #262320 !important;
   padding-right: 4px;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .htmlInCanvasDiaryTitle {
