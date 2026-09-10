@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Chrome Canary "HTML in Canvas" (WICG drawElementImage & layoutsubtree) 브릿지 모듈
  *
  * 표준/제안 스펙:
@@ -46,9 +46,8 @@ export function checkHtmlInCanvasSupport(): HtmlInCanvasStatus {
   };
 }
 
-/**
- * 캔버스 컨텍스트에 DOM 요소를 그리는 안전한 래퍼 함수
- */
+const unsupportedElements = new WeakSet<HTMLElement>();
+
 export function drawElementToCanvas(
   ctx: CanvasRenderingContext2D,
   element: HTMLElement,
@@ -57,6 +56,8 @@ export function drawElementToCanvas(
   width?: number,
   height?: number
 ): boolean {
+  if (unsupportedElements.has(element)) return false;
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const extendedCtx = ctx as any;
   if (typeof extendedCtx.drawElementImage === "function") {
@@ -67,8 +68,9 @@ export function drawElementToCanvas(
         extendedCtx.drawElementImage(element, x, y);
       }
       return true;
-    } catch (err) {
-      console.warn("[HTML in Canvas] drawElementImage execution error:", err);
+    } catch {
+      // nearest ancestor <canvas> 요건 미충족 시 반복 에러 로그 방지
+      unsupportedElements.add(element);
       return false;
     }
   }

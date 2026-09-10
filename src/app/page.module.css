@@ -4448,10 +4448,20 @@
   position: relative;
   overflow: hidden;
   perspective: 1200px;
+  display: grid;
+  place-items: center;
+  padding: 20px 10px;
+}
+
+.htmlInCanvasScaleBox {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 32px 24px;
+  transform-origin: center center;
+  transition: transform 0.15s ease-out;
+  user-select: text;
+  flex-shrink: 0;
+  z-index: 2;
 }
 
 .htmlInCanvasBackdropCanvas {
@@ -4465,66 +4475,1055 @@
   opacity: 0.6;
 }
 
-.htmlInCanvas3DCard {
+/* ==========================================================================
+   4가지 3D 다이내믹 부유 모션 애니메이션
+   ========================================================================== */
+
+/* 1. 🌊 잔잔한 물결 (Gentle Float) */
+.htmlInCanvasFloatGentle {
+  animation: floatGentleMotion 6s ease-in-out infinite;
+}
+
+@keyframes floatGentleMotion {
+  0% {
+    transform: perspective(1400px) rotateX(2deg) rotateY(-2deg) translateY(0px);
+  }
+  50% {
+    transform: perspective(1400px) rotateX(-2deg) rotateY(2deg) translateY(-9px);
+  }
+  100% {
+    transform: perspective(1400px) rotateX(2deg) rotateY(-2deg) translateY(0px);
+  }
+}
+
+/* 2. 🪐 무중력 유영 (Zero-G Drift) */
+.htmlInCanvasFloatZeroG {
+  animation: floatZeroGMotion 10s ease-in-out infinite;
+}
+
+@keyframes floatZeroGMotion {
+  0% {
+    transform: perspective(1400px) rotateX(3deg) rotateY(-4deg) translate3d(0, 0, 0);
+  }
+  25% {
+    transform: perspective(1400px) rotateX(-3deg) rotateY(-2deg) translate3d(6px, -12px, 15px);
+  }
+  50% {
+    transform: perspective(1400px) rotateX(2deg) rotateY(4deg) translate3d(-6px, -6px, 8px);
+  }
+  75% {
+    transform: perspective(1400px) rotateX(-2deg) rotateY(2deg) translate3d(-10px, 6px, 12px);
+  }
+  100% {
+    transform: perspective(1400px) rotateX(3deg) rotateY(-4deg) translate3d(0, 0, 0);
+  }
+}
+
+/* 3. 💫 턴테이블 쇼케이스 (Showcase Orbit) */
+.htmlInCanvasFloatOrbit {
+  animation: floatOrbitMotion 8s ease-in-out infinite;
+}
+
+@keyframes floatOrbitMotion {
+  0% {
+    transform: perspective(1400px) rotateX(2deg) rotateY(-14deg) translateY(0px);
+  }
+  50% {
+    transform: perspective(1400px) rotateX(-1deg) rotateY(14deg) translateY(-6px);
+  }
+  100% {
+    transform: perspective(1400px) rotateX(2deg) rotateY(-14deg) translateY(0px);
+  }
+}
+
+/* 4. 🫀 호흡 펄스 (Heartbeat Breath) */
+.htmlInCanvasFloatBreathe {
+  animation: floatBreatheMotion 4.5s ease-in-out infinite;
+}
+
+@keyframes floatBreatheMotion {
+  0% {
+    transform: perspective(1400px) scale(0.98) rotateX(1deg) rotateY(-1deg);
+  }
+  50% {
+    transform: perspective(1400px) scale(1.02) rotateX(-1deg) rotateY(1deg);
+  }
+  100% {
+    transform: perspective(1400px) scale(0.98) rotateX(1deg) rotateY(-1deg);
+  }
+}
+
+/* ==========================================================================
+   📖 1. 양면 펼침 책 (Two-Page Book Spread) 스타일
+   ========================================================================== */
+
+.htmlInCanvasBookWrapper {
   position: relative;
   z-index: 2;
   width: 100%;
-  max-width: 760px;
-  max-height: calc(90vh - 160px);
-  overflow-y: auto;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  max-width: 980px;
+  min-height: 540px;
+  max-height: calc(88vh - 150px);
+  perspective: 2000px;
   transform-style: preserve-3d;
+  transform-origin: center center;
   will-change: transform;
+  display: flex;
+  flex-direction: column;
 }
 
-.htmlInCanvasFloating {
-  animation: htmlInCanvasFloat 6s ease-in-out infinite;
+.htmlInCanvasBook {
+  position: relative;
+  flex: 1;
+  display: flex;
+  background: #181512;
+  border-radius: 8px 16px 16px 8px;
+  border: 4px solid #29221d;
+  transform-style: preserve-3d;
+  perspective: 1600px;
+  box-shadow: 
+    -6px 0 0 #181512,
+    6px 0 0 #181512,
+    0 8px 0 #0f0c0a,
+    -12px 3px 0 #ede7da,
+    12px 3px 0 #ede7da,
+    0 12px 0 #ded6c5,
+    0 24px 60px rgba(0, 0, 0, 0.45);
+  overflow: visible;
 }
 
-@keyframes htmlInCanvasFloat {
-  0% {
-    transform: perspective(1000px) rotateX(2deg) rotateY(-3deg) translateY(0px);
-  }
-  50% {
-    transform: perspective(1000px) rotateX(-2deg) rotateY(3deg) translateY(-8px);
-  }
-  100% {
-    transform: perspective(1000px) rotateX(2deg) rotateY(-3deg) translateY(0px);
-  }
+/* 중앙 제본 골짜기 — 은은한 자연 섀도우 */
+.htmlInCanvasBookGutter {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(50% - 24px);
+  width: 48px;
+  background: linear-gradient(
+    to right,
+    rgba(0, 0, 0, 0) 0%,
+    rgba(0, 0, 0, 0.04) 20%,
+    rgba(0, 0, 0, 0.14) 40%,
+    rgba(0, 0, 0, 0.28) 48%,
+    rgba(0, 0, 0, 0.35) 50%,
+    rgba(0, 0, 0, 0.28) 52%,
+    rgba(0, 0, 0, 0.14) 60%,
+    rgba(0, 0, 0, 0.04) 80%,
+    rgba(0, 0, 0, 0) 100%
+  );
+  pointer-events: none;
+  z-index: 10;
+}
+
+.htmlInCanvasHalfPage {
+  flex: 1;
+  width: 50%;
+  display: flex;
+  flex-direction: column;
+  background: #fbf9f2;
+  position: relative;
+  min-height: 440px;
+  max-height: calc(88vh - 200px);
+  overflow: hidden;
+  transform-style: preserve-3d;
+  transition: transform 0.2s ease-out;
+  color: #1e293b;
+}
+
+/* 📖 좌측 페이지: 완만한 3D 각도 + 섬세한 원통형 굴곡 조명 */
+.htmlInCanvasLeftPage {
+  transform-origin: right center;
+  transform: perspective(1400px) rotateY(3deg);
+  border-radius: 6px 0 0 6px;
+  background: #fbf9f2;
+}
+
+.htmlInCanvasLeftPage::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 6;
+  background: linear-gradient(
+    to right,
+    rgba(0, 0, 0, 0.06) 0%,
+    rgba(0, 0, 0, 0.01) 6%,
+    rgba(255, 255, 255, 0) 20%,
+    rgba(255, 255, 255, 0.35) 45%,
+    rgba(255, 255, 255, 0.15) 60%,
+    rgba(0, 0, 0, 0.02) 75%,
+    rgba(0, 0, 0, 0.08) 88%,
+    rgba(0, 0, 0, 0.18) 96%,
+    rgba(0, 0, 0, 0.28) 100%
+  );
+}
+
+/* 📖 우측 페이지: 대칭 3D 각도 + 대칭 원통형 굴곡 조명 */
+.htmlInCanvasRightPage {
+  transform-origin: left center;
+  transform: perspective(1400px) rotateY(-3deg);
+  border-radius: 0 8px 8px 0;
+  background: #fbf9f2;
+}
+
+.htmlInCanvasRightPage::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 6;
+  background: linear-gradient(
+    to right,
+    rgba(0, 0, 0, 0.28) 0%,
+    rgba(0, 0, 0, 0.18) 4%,
+    rgba(0, 0, 0, 0.08) 12%,
+    rgba(0, 0, 0, 0.02) 25%,
+    rgba(255, 255, 255, 0.15) 40%,
+    rgba(255, 255, 255, 0.35) 55%,
+    rgba(255, 255, 255, 0) 80%,
+    rgba(0, 0, 0, 0.01) 94%,
+    rgba(0, 0, 0, 0.06) 100%
+  );
+}
+
+/* 좌우 제본 안쪽 여백(Gutter Margin) 확실한 확보 */
+.htmlInCanvasLeftPage .htmlInCanvasPageHeader,
+.htmlInCanvasLeftPage .htmlInCanvasPageFooter {
+  padding-right: 32px;
+  padding-left: 22px;
+}
+.htmlInCanvasLeftPage .htmlInCanvasPageBody {
+  padding: 16px 36px 16px 26px;
+}
+
+.htmlInCanvasRightPage .htmlInCanvasPageHeader,
+.htmlInCanvasRightPage .htmlInCanvasPageFooter {
+  padding-left: 32px;
+  padding-right: 22px;
+}
+.htmlInCanvasRightPage .htmlInCanvasPageBody {
+  padding: 16px 26px 16px 36px;
 }
 
 .htmlInCanvasGlare {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  border-radius: 16px;
-  z-index: 5;
+  border-radius: 8px;
+  z-index: 7;
 }
 
-.htmlInCanvasCardHeader {
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--border);
+.htmlInCanvasPageHeader {
+  padding: 12px 18px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: color-mix(in srgb, var(--card) 95%, var(--accent));
+  background: transparent;
+  min-height: 44px;
 }
 
 .htmlInCanvasTitle {
-  font-size: 1.05rem;
+  font-size: 0.95rem;
   font-weight: 700;
   margin: 0;
-  color: var(--text);
+  color: #1e293b !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 260px;
 }
 
-.htmlInCanvasCardBody {
-  padding: 24px 28px;
+/* 📖 책 본문 잉크 타이포그래피 (고대비 가독성) */
+.htmlInCanvasPageBody {
+  flex: 1;
+  font-size: 0.92rem;
+  line-height: 1.7;
+  color: #1e293b !important;
+  overflow-y: auto;
+}
+
+.htmlInCanvasPageBody p,
+.htmlInCanvasPageBody li,
+.htmlInCanvasPageBody span,
+.htmlInCanvasPageBody div {
+  color: #1e293b !important;
+}
+
+.htmlInCanvasPageBody strong {
+  color: #0f172a !important;
+  font-weight: 700;
+}
+
+.htmlInCanvasPageBody em {
+  color: #475569 !important;
+}
+
+.htmlInCanvasPageBody h1,
+.htmlInCanvasPageBody h2,
+.htmlInCanvasPageBody h3,
+.htmlInCanvasPageBody h4 {
+  color: #0f172a !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08) !important;
+}
+
+.htmlInCanvasPageBody code {
+  background: rgba(0, 0, 0, 0.06) !important;
+  color: #334155 !important;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  font-size: 0.86em;
+  font-family: var(--mono);
+}
+
+.htmlInCanvasPageBody :global(div[class*="quote"]) {
+  background: rgba(0, 0, 0, 0.04) !important;
+  border-left: 3px solid #64748b !important;
+  color: #334155 !important;
+}
+
+.htmlInCanvasPageBody :global(span[class*="actionNarration"]) {
+  background: rgba(0, 0, 0, 0.05) !important;
+  color: #475569 !important;
+}
+
+.htmlInCanvasPageBody :global(hr) {
+  border-top: 1px solid rgba(0, 0, 0, 0.1) !important;
+}
+
+.htmlInCanvasPageFooter {
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.76rem;
+  color: #64748b;
+  font-family: var(--mono);
+}
+
+.htmlInCanvasBookFlippingPage {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 50%;
+  transform-style: preserve-3d;
+  z-index: 12;
+  pointer-events: none;
+}
+
+.htmlInCanvasBookFlipNext {
+  left: 50%;
+  transform-origin: left center;
+  animation: bookTurnNext 0.65s cubic-bezier(0.25, 0.85, 0.35, 1) forwards;
+}
+
+.htmlInCanvasBookFlipPrev {
+  left: 0;
+  transform-origin: right center;
+  animation: bookTurnPrev 0.65s cubic-bezier(0.25, 0.85, 0.35, 1) forwards;
+}
+
+@keyframes bookTurnNext {
+  0% { transform: rotateY(0deg); }
+  100% { transform: rotateY(-180deg); }
+}
+
+@keyframes bookTurnPrev {
+  0% { transform: rotateY(0deg); }
+  100% { transform: rotateY(180deg); }
+}
+
+.htmlInCanvasBookFlipFront {
+  position: absolute;
+  inset: 0;
+  background: #fbf9f2;
+  color: #1e293b;
+  backface-visibility: hidden;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 2px 0 14px rgba(0, 0, 0, 0.15);
+}
+
+.htmlInCanvasBookFlipFront::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(to right, rgba(0, 0, 0, 0.3) 0%, rgba(255, 255, 255, 0.2) 40%, rgba(0, 0, 0, 0.1) 100%);
+  z-index: 5;
+}
+
+.htmlInCanvasBookFlipBack {
+  position: absolute;
+  inset: 0;
+  background: #f5f0e3;
+  color: #1e293b;
+  backface-visibility: hidden;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: -2px 0 14px rgba(0, 0, 0, 0.15);
+}
+
+.htmlInCanvasBookFlipBack::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(to left, rgba(0, 0, 0, 0.3) 0%, rgba(255, 255, 255, 0.2) 40%, rgba(0, 0, 0, 0.1) 100%);
+  z-index: 5;
+}
+
+.htmlInCanvasBookFlipNext .htmlInCanvasBookFlipBack {
+  transform: rotateY(180deg);
+}
+
+.htmlInCanvasBookFlipPrev .htmlInCanvasBookFlipBack {
+  transform: rotateY(-180deg);
+}
+
+.htmlInCanvasBookFlipShadow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  animation: bookShadowPulse 0.65s ease-in-out forwards;
+}
+
+@keyframes bookShadowPulse {
+  0% {
+    background: linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 100%);
+  }
+  50% {
+    background: linear-gradient(to right, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.04) 60%, rgba(0,0,0,0.15) 100%);
+  }
+  100% {
+    background: linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 100%);
+  }
+}
+
+.htmlInCanvasDogEarRight {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 44px;
+  height: 44px;
+  cursor: pointer;
+  z-index: 8;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.htmlInCanvasDogEarRight::before {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 0 0 34px 34px;
+  border-color: transparent transparent var(--bg) transparent;
+}
+
+.htmlInCanvasDogEarRight::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 0 0 33px 33px;
+  border-color: transparent transparent color-mix(in srgb, var(--accent) 35%, var(--card)) transparent;
+  box-shadow: -2px -2px 6px rgba(0, 0, 0, 0.25);
+}
+
+.htmlInCanvasDogEarRight:hover {
+  transform: scale(1.18) translate(-2px, -2px);
+}
+
+.htmlInCanvasDogEarLeft {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 44px;
+  height: 44px;
+  cursor: pointer;
+  z-index: 8;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.htmlInCanvasDogEarLeft::before {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 34px 0 0 34px;
+  border-color: transparent transparent transparent var(--bg);
+}
+
+.htmlInCanvasDogEarLeft::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 33px 0 0 33px;
+  border-color: transparent transparent transparent color-mix(in srgb, var(--accent) 35%, var(--card));
+  box-shadow: 2px -2px 6px rgba(0, 0, 0, 0.25);
+}
+
+.htmlInCanvasDogEarLeft:hover {
+  transform: scale(1.18) translate(2px, -2px);
+}
+
+.htmlInCanvasBook .htmlInCanvasDogEarRight::before {
+  border-color: transparent transparent #181512 transparent;
+}
+
+.htmlInCanvasBook .htmlInCanvasDogEarRight::after {
+  border-color: transparent transparent #ede7da transparent;
+  box-shadow: -2px -2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.htmlInCanvasBook .htmlInCanvasDogEarLeft::before {
+  border-color: transparent transparent transparent #181512;
+}
+
+.htmlInCanvasBook .htmlInCanvasDogEarLeft::after {
+  border-color: transparent transparent transparent #ede7da;
+  box-shadow: 2px -2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.htmlInCanvasBookFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 18px;
+  background: color-mix(in srgb, var(--card) 95%, var(--bg));
+  border-top: 1px solid var(--border);
+  gap: 12px;
+  border-radius: 0 0 8px 8px;
+}
+
+/* ==========================================================================
+   📑 2. 플립 메모장 (Single-Page Flip Pad) 스타일
+   ========================================================================== */
+
+.htmlInCanvasNotebookWrapper {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 780px;
+  min-height: 520px;
+  max-height: calc(88vh - 160px);
+  perspective: 1500px;
+  transform-style: preserve-3d;
+  will-change: transform;
+  display: flex;
+  flex-direction: column;
+}
+
+.htmlInCanvasNotebook {
+  position: relative;
+  flex: 1;
+  display: flex;
+  background: var(--card);
+  border-radius: 12px 16px 16px 12px;
+  border: 1px solid var(--border);
+  transform-style: preserve-3d;
+  box-shadow: 
+    2px 2px 0 color-mix(in srgb, var(--border) 70%, transparent),
+    4px 4px 0 color-mix(in srgb, var(--border) 50%, transparent),
+    6px 6px 0 color-mix(in srgb, var(--border) 35%, transparent),
+    0 24px 60px rgba(0, 0, 0, 0.28);
+}
+
+.htmlInCanvasSpine {
+  width: 44px;
+  background: linear-gradient(to right, color-mix(in srgb, var(--accent) 25%, #1e293b), color-mix(in srgb, var(--accent) 15%, #0f172a));
+  border-radius: 12px 0 0 12px;
+  border-right: 2px solid color-mix(in srgb, var(--border) 60%, rgba(0, 0, 0, 0.4));
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  align-items: center;
+  padding: 24px 0;
+  z-index: 8;
+  box-shadow: inset -3px 0 6px rgba(0, 0, 0, 0.4);
+}
+
+.htmlInCanvasRing {
+  width: 28px;
+  height: 12px;
+  background: linear-gradient(180deg, #e2e8f0 0%, #64748b 50%, #334155 100%);
+  border-radius: 6px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5), inset 0 1px 1px #ffffff;
+  position: relative;
+}
+
+.htmlInCanvasRingHole {
+  position: absolute;
+  right: -10px;
+  top: 1px;
+  width: 10px;
+  height: 10px;
+  background: #0f172a;
+  border-radius: 50%;
+  box-shadow: inset 1px 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.htmlInCanvasNotebookPageContent {
+  flex: 1;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: var(--card);
+  border-radius: 0 16px 16px 0;
+  overflow: hidden;
+  min-height: 440px;
+  max-height: calc(88vh - 200px);
+}
+
+.htmlInCanvasNotebookFlippingPage {
+  position: absolute;
+  inset: 0;
+  transform-origin: left center;
+  transform-style: preserve-3d;
+  z-index: 10;
+  pointer-events: none;
+  border-radius: 0 16px 16px 0;
+}
+
+.htmlInCanvasNotebookFlipNext {
+  animation: notebookFlipNext 0.55s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+}
+
+.htmlInCanvasNotebookFlipPrev {
+  animation: notebookFlipPrev 0.55s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+}
+
+@keyframes notebookFlipNext {
+  0% { transform: rotateY(0deg); }
+  100% { transform: rotateY(-180deg); }
+}
+
+@keyframes notebookFlipPrev {
+  0% { transform: rotateY(-180deg); }
+  100% { transform: rotateY(0deg); }
+}
+
+.htmlInCanvasNotebookFlipFront {
+  position: absolute;
+  inset: 0;
+  background: var(--card);
+  backface-visibility: hidden;
+  border-radius: 0 16px 16px 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 2px 0 10px rgba(0, 0, 0, 0.15);
+}
+
+.htmlInCanvasNotebookFlipBack {
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--card) 92%, var(--muted));
+  backface-visibility: hidden;
+  transform: rotateY(180deg);
+  border-radius: 16px 0 0 16px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-image: radial-gradient(rgba(148, 163, 184, 0.18) 1px, transparent 0);
+  background-size: 16px 16px;
+  box-shadow: -4px 0 15px rgba(0, 0, 0, 0.2);
+}
+
+.htmlInCanvasNotebookFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 18px;
+  background: color-mix(in srgb, var(--card) 95%, var(--bg));
+  border-top: 1px solid var(--border);
+  gap: 12px;
+  border-radius: 0 0 16px 0;
+}
+
+/* ==========================================================================
+   🟡 3. 포스트잇 (Post-it Sticky Note Tear-Off) 스타일
+   ========================================================================== */
+
+.htmlInCanvasPostitWrapper {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 620px;
+  min-height: 500px;
+  perspective: 1600px;
+  transform-style: preserve-3d;
+  will-change: transform;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.htmlInCanvasPostit {
+  position: relative;
+  width: 100%;
+  min-height: 460px;
+  max-height: calc(88vh - 170px);
+  background: #fef08a;
+  color: #1c1917;
+  border-radius: 2px 2px 14px 2px;
+  box-shadow: 
+    2px 3px 0 #fde047,
+    4px 6px 0 #facc15,
+    6px 9px 0 #eab308,
+    0 20px 40px rgba(0, 0, 0, 0.28);
+  display: flex;
+  flex-direction: column;
+  transform-style: preserve-3d;
+  overflow: hidden;
+}
+
+.htmlInCanvasPostit .htmlInCanvasDogEarRight::after {
+  border-color: transparent transparent #eab308 transparent;
+  box-shadow: -2px -2px 6px rgba(113, 63, 18, 0.35);
+}
+
+.htmlInCanvasPostitTape {
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%) rotate(-1deg);
+  width: 120px;
+  height: 28px;
+  background: rgba(254, 240, 138, 0.6);
+  backdrop-filter: blur(2px);
+  border: 1px dashed rgba(202, 138, 4, 0.45);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  z-index: 10;
+  pointer-events: none;
+}
+
+.htmlInCanvasPostitTopAdhesive {
+  height: 42px;
+  background: rgba(234, 179, 8, 0.22);
+  border-bottom: 1px dashed rgba(202, 138, 4, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 18px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #713f12;
+}
+
+.htmlInCanvasPostitBody {
+  flex: 1;
+  padding: 22px 26px;
   font-size: 0.94rem;
-  line-height: 1.65;
+  line-height: 1.7;
+  overflow-y: auto;
+  color: #1c1917 !important;
+}
+
+/* 🟡 포스트잇 본문 잉크 펜 고대비 텍스트 스타일 */
+.htmlInCanvasPostitBody p,
+.htmlInCanvasPostitBody span,
+.htmlInCanvasPostitBody li,
+.htmlInCanvasPostitBody div,
+.htmlInCanvasPostitBody label {
+  color: #1c1917 !important;
+}
+
+.htmlInCanvasPostitBody strong {
+  color: #0f172a !important;
+  font-weight: 700;
+}
+
+.htmlInCanvasPostitBody em {
+  color: #713f12 !important;
+}
+
+.htmlInCanvasPostitBody h1,
+.htmlInCanvasPostitBody h2,
+.htmlInCanvasPostitBody h3,
+.htmlInCanvasPostitBody h4 {
+  color: #451a03 !important;
+  border-bottom: 1px solid rgba(202, 138, 4, 0.3) !important;
+}
+
+.htmlInCanvasPostitBody code {
+  background: rgba(0, 0, 0, 0.08) !important;
+  color: #713f12 !important;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid rgba(202, 138, 4, 0.3);
+  font-size: 0.86em;
+  font-family: var(--mono);
+}
+
+.htmlInCanvasPostitBody :global(div[class*="quote"]) {
+  background: rgba(234, 179, 8, 0.22) !important;
+  border-left: 3px solid #ca8a04 !important;
+  color: #451a03 !important;
+}
+
+.htmlInCanvasPostitBody :global(span[class*="actionNarration"]) {
+  background: rgba(202, 138, 4, 0.18) !important;
+  color: #78350f !important;
+}
+
+.htmlInCanvasPostitBody :global(hr) {
+  border-top: 1px solid rgba(202, 138, 4, 0.35) !important;
+}
+
+.htmlInCanvasPostitTearing {
+  animation: postitTearAway 0.48s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+  pointer-events: none;
+}
+
+@keyframes postitTearAway {
+  0% {
+    transform: rotate(0deg) translate(0, 0);
+    opacity: 1;
+  }
+  25% {
+    transform: rotate(5deg) translate(25px, -15px);
+    opacity: 0.9;
+  }
+  100% {
+    transform: rotate(26deg) translate(180px, 120px) scale(0.85);
+    opacity: 0;
+  }
+}
+
+.htmlInCanvasPostitFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 18px;
+  background: rgba(234, 179, 8, 0.18);
+  border-top: 1px solid rgba(202, 138, 4, 0.28);
+  gap: 10px;
+}
+
+.htmlInCanvasTearBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  border-radius: 8px;
+  background: #eab308;
+  color: #422006;
+  border: 1px solid #ca8a04;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.htmlInCanvasTearBtn:hover {
+  background: #facc15;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.htmlInCanvasTearBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.htmlInCanvasPostitResetBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  border-radius: 8px;
+  background: rgba(254, 240, 138, 0.65);
+  border: 1px solid #ca8a04;
+  color: #713f12;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.htmlInCanvasPostitResetBtn:hover {
+  background: #fde047;
+  color: #422006;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
+}
+
+.htmlInCanvasPostitCounter {
+  font-size: 0.82rem;
+  font-weight: 700;
+  font-family: var(--mono);
+  color: #713f12;
+}
+
+/* ==========================================================================
+   툴바 컨트롤러 & 공통 버튼
+   ========================================================================== */
+
+.htmlInCanvasModeSelect {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border-radius: 8px;
+  background: var(--card);
+  border: 1px solid var(--border);
   color: var(--text);
+  cursor: pointer;
+  outline: none;
+  transition: all 0.15s ease;
+}
+
+.htmlInCanvasModeSelect:hover {
+  border-color: var(--accent);
+}
+
+.canvasBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 11px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border-radius: 8px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--text);
+  cursor: pointer;
+  outline: none;
+  transition: all 0.15s ease;
+  line-height: 1.4;
+}
+
+.canvasBtn:hover {
+  background: color-mix(in srgb, var(--accent) 14%, var(--card));
+  border-color: var(--accent);
+  color: var(--text);
+  transform: translateY(-1px);
+}
+
+.canvasBtnActive {
+  background: color-mix(in srgb, var(--accent) 18%, var(--card));
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 0 10px var(--accent-dim);
+}
+
+.canvasBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  font-family: var(--mono);
+}
+
+.canvasBadgeCanary {
+  background: rgba(34, 197, 94, 0.14);
+  border: 1px solid rgba(34, 197, 94, 0.35);
+  color: #4ade80;
+}
+
+.canvasDocTypeBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 5px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  background: color-mix(in srgb, var(--accent) 15%, var(--card));
+  color: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.htmlInCanvasNavBtns {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.htmlInCanvasFlipBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border-radius: 8px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.htmlInCanvasFlipBtn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 15%, var(--card));
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.htmlInCanvasFlipBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.htmlInCanvasPageIndicator {
+  font-size: 0.82rem;
+  font-weight: 700;
+  font-family: var(--mono);
+  color: var(--text);
+  padding: 3px 10px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-radius: 6px;
+}
+
+.htmlInCanvasPageDots {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.htmlInCanvasDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--text) 25%, transparent);
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.2s ease;
+}
+
+.htmlInCanvasDotActive {
+  width: 24px;
+  border-radius: 4px;
+  background: var(--accent);
 }
 
 .htmlInCanvasMinimapWrapper {
@@ -4542,12 +5541,32 @@
 }
 
 .htmlInCanvasMinimapHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   font-size: 0.68rem;
   font-weight: 600;
   color: #94a3b8;
   padding: 4px 8px;
   background: rgba(0, 0, 0, 0.2);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.htmlInCanvasMinimapCloseBtn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 0.72rem;
+  line-height: 1;
+  padding: 2px 5px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.htmlInCanvasMinimapCloseBtn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
 }
 
 .htmlInCanvasMinimapCanvas {
@@ -4781,5 +5800,526 @@
 @keyframes balloonPop {
   0% { opacity: 0; transform: scale(0.85); }
   100% { opacity: 1; transform: scale(1); }
+}
+
+/* ==========================================================================
+   📔 6공 투명 PVC 링 다이어리 (6-Ring Binder Diary) 스타일
+   ========================================================================== */
+
+.htmlInCanvasDiaryWrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  user-select: text;
+  transform-style: preserve-3d;
+  transform-origin: center center;
+  will-change: transform;
+}
+
+.htmlInCanvasDiary {
+  position: relative;
+  width: 860px;
+  height: 612px;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45), 0 4px 16px rgba(0, 0, 0, 0.2);
+  background: #a2c3dc;
+}
+
+/* 실물 사진 배경 (투명 PVC 커버, 메탈 똑딱이 버튼, 스카이블루 배경) */
+.htmlInCanvasDiaryBgImg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+  user-select: none;
+  transform: scale(1.06) rotate(5.9deg);
+  transform-origin: center center;
+}
+
+/* 좌/우 페이지 공통 속지 컨테이너 (정밀 좌표 배치) */
+.htmlInCanvasDiaryPageLeft,
+.htmlInCanvasDiaryPageRight {
+  position: absolute;
+  top: 36px;
+  bottom: 38px;
+  background-color: #fcfbf7;
+  background-image: 
+    linear-gradient(to right, rgba(160, 185, 205, 0.22) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(160, 185, 205, 0.22) 1px, transparent 1px);
+  background-size: 16px 16px;
+  box-shadow: 
+    0 4px 15px rgba(0, 0, 0, 0.12),
+    inset 0 0 20px rgba(230, 220, 200, 0.35);
+  display: flex;
+  flex-direction: column;
+  z-index: 5;
+}
+
+/* 좌측 속지: 왼쪽 외곽에서 중앙 링 왼쪽까지 */
+.htmlInCanvasDiaryPageLeft {
+  left: 46px;
+  width: 352px;
+  border-radius: 6px 3px 3px 6px;
+  padding: 16px 22px 14px 20px;
+  border-right: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+/* 우측 속지: 중앙 링 오른쪽에서 오른쪽 외곽까지 */
+.htmlInCanvasDiaryPageRight {
+  right: 46px;
+  width: 352px;
+  border-radius: 3px 6px 6px 3px;
+  padding: 16px 20px 14px 22px;
+  border-left: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+/* 다이어리 헤더 */
+.htmlInCanvasDiaryHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1.5px solid rgba(90, 110, 130, 0.25);
+  padding-bottom: 6px;
+  margin-bottom: 10px;
+  gap: 8px;
+}
+
+.htmlInCanvasDiaryHeaderLeft,
+.htmlInCanvasDiaryHeaderRight {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+}
+
+.htmlInCanvasDiaryHeaderLeft :global(span[class*="canvasDocTypeBadge"]) {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.htmlInCanvasDiaryDate {
+  font-size: 0.72rem;
+  font-family: var(--mono);
+  color: #57534e;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.htmlInCanvasDiaryCircledNum {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1.5px solid #ea580c;
+  color: #ea580c;
+  font-weight: 700;
+  font-size: 0.68rem;
+}
+
+.htmlInCanvasDiaryPageNum {
+  font-size: 0.76rem;
+  font-family: var(--mono);
+  font-weight: 700;
+  color: #78716c;
+}
+
+.htmlInCanvasDiaryTag {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #0369a1;
+  background: rgba(186, 230, 253, 0.6);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.htmlInCanvasDiarySpreadBadge {
+  font-size: 0.72rem;
+  color: #78716c;
+  font-family: var(--mono);
+}
+
+/* 다이어리 본문 텍스트 */
+.htmlInCanvasDiaryBody {
+  flex: 1;
+  overflow-y: auto;
+  font-size: 0.88rem;
+  line-height: 1.68;
+  color: #262320 !important;
+  padding-right: 4px;
+}
+
+.htmlInCanvasDiaryTitle {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #1c1917 !important;
+  margin: 0 0 10px;
+  display: inline-block;
+  background: linear-gradient(120deg, rgba(254, 240, 138, 0.65) 0%, rgba(254, 240, 138, 0.1) 100%);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+/* 다이어리 잉크 펜 스타일 */
+.htmlInCanvasDiaryBody p,
+.htmlInCanvasDiaryBody span,
+.htmlInCanvasDiaryBody li,
+.htmlInCanvasDiaryBody label {
+  color: #262320 !important;
+}
+
+.htmlInCanvasDiaryBody strong {
+  color: #0c0a09 !important;
+  font-weight: 700;
+  background: rgba(254, 240, 138, 0.4);
+  padding: 0 2px;
+  border-radius: 2px;
+}
+
+.htmlInCanvasDiaryBody em {
+  color: #0369a1 !important;
+}
+
+.htmlInCanvasDiaryBody h1,
+.htmlInCanvasDiaryBody h2,
+.htmlInCanvasDiaryBody h3,
+.htmlInCanvasDiaryBody h4 {
+  color: #1e293b !important;
+  border-bottom: 1px dashed rgba(100, 116, 139, 0.35) !important;
+  padding-bottom: 4px;
+  margin-top: 14px;
+  margin-bottom: 8px;
+}
+
+.htmlInCanvasDiaryBody code {
+  background: rgba(0, 0, 0, 0.06) !important;
+  color: #0369a1 !important;
+  padding: 2px 5px;
+  border-radius: 4px;
+  font-size: 0.86em;
+  font-family: var(--mono);
+}
+
+.htmlInCanvasDiaryBody :global(div[class*="quote"]) {
+  background: rgba(254, 243, 199, 0.45) !important;
+  border-left: 3px solid #f59e0b !important;
+  color: #451a03 !important;
+  padding: 6px 10px !important;
+  border-radius: 0 6px 6px 0;
+}
+
+.htmlInCanvasDiaryBody :global(span[class*="actionNarration"]) {
+  background: rgba(186, 230, 253, 0.5) !important;
+  color: #0369a1 !important;
+}
+
+.htmlInCanvasDiaryBody :global(hr) {
+  border-top: 1px dashed rgba(148, 163, 184, 0.4) !important;
+}
+
+/* 다이어리 푸터 */
+.htmlInCanvasDiaryFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid rgba(90, 110, 130, 0.2);
+  padding-top: 8px;
+  margin-top: 10px;
+  font-size: 0.72rem;
+  font-family: var(--mono);
+  color: #a8a29e;
+}
+
+/* ==========================================================================
+   🏫 앤틱 교실 칠판 (Blackboard with Chalk & Spotlight) 스타일
+   ========================================================================== */
+
+.htmlInCanvasChalkboardWrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  user-select: text;
+  transform-style: preserve-3d;
+  transform-origin: center center;
+  will-change: transform;
+}
+
+.htmlInCanvasChalkboard {
+  position: relative;
+  width: 800px;
+  height: 570px;
+  /* 클래식 원목 칠판 프레임 */
+  border: 14px solid #3d2314;
+  outline: 2px solid #5a351e;
+  border-radius: 12px;
+  background-color: #15271e;
+  /* 칠판 녹색 그라디언트 + 분필 가루 질감 */
+  background-image: 
+    radial-gradient(ellipse at 50% 40%, #1e382b 0%, #122119 100%),
+    radial-gradient(circle at 20% 30%, rgba(255, 255, 255, 0.03) 0%, transparent 60%),
+    radial-gradient(circle at 80% 70%, rgba(255, 255, 255, 0.02) 0%, transparent 50%);
+  box-shadow: 
+    0 24px 60px rgba(0, 0, 0, 0.65),
+    0 6px 18px rgba(0, 0, 0, 0.4),
+    inset 0 0 40px rgba(0, 0, 0, 0.7);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* 🔦 칠판 표면 에메랄드 웜 스포트라이트 광원 레이어: 텍스트 뒤(z-index: 2)에서 깊이감 형성 */
+.htmlInCanvasChalkSpotlight {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  transition: background 0.06s ease-out;
+}
+
+/* 칠판 헤더 */
+.htmlInCanvasChalkHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 22px 10px;
+  border-bottom: 2px dashed rgba(255, 255, 255, 0.2);
+  font-family: 'Gaegu', 'Nanum Pen Script', cursive, sans-serif;
+  z-index: 5;
+}
+
+.htmlInCanvasChalkBadge {
+  font-size: 0.84rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px dashed #fef08a;
+  color: #fef08a;
+  background: rgba(254, 240, 138, 0.12);
+  letter-spacing: 0.5px;
+}
+
+.htmlInCanvasChalkDate {
+  font-size: 0.98rem;
+  color: rgba(255, 255, 255, 0.85);
+  letter-spacing: 0.5px;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.8);
+}
+
+.htmlInCanvasChalkIndicator {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #a5f3fc;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.8), 0 0 1px #a5f3fc;
+}
+
+/* 칠판 분필체 본문 텍스트 (또렷하고 선명한 분필 엣지) */
+.htmlInCanvasChalkBody {
+  flex: 1;
+  padding: 20px 30px 16px;
+  overflow-y: auto;
+  font-family: 'Nanum Pen Script', 'Gaegu', cursive, sans-serif !important;
+  font-size: 1.4rem;
+  line-height: 1.75;
+  color: #ffffff !important;
+  text-rendering: geometricPrecision;
+  -webkit-font-smoothing: antialiased;
+  text-shadow: 
+    0 1px 1px rgba(0, 0, 0, 0.8),
+    0 0 1px rgba(255, 255, 255, 0.95);
+  letter-spacing: 0.5px;
+  z-index: 5;
+}
+
+/* 분필 본문 요소별 디테일 */
+.htmlInCanvasChalkBody p,
+.htmlInCanvasChalkBody span,
+.htmlInCanvasChalkBody li,
+.htmlInCanvasChalkBody label {
+  color: #ffffff !important;
+  font-family: 'Nanum Pen Script', 'Gaegu', cursive, sans-serif !important;
+  font-size: 1.38rem;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.8), 0 0 1px rgba(255, 255, 255, 0.9);
+}
+
+.htmlInCanvasChalkBody strong {
+  color: #fef08a !important;
+  font-weight: 700;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.8), 0 0 1px #fef08a;
+}
+
+.htmlInCanvasChalkBody em {
+  color: #a5f3fc !important;
+  font-style: normal;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.8), 0 0 1px #a5f3fc;
+}
+
+.htmlInCanvasChalkBody h1,
+.htmlInCanvasChalkBody h2,
+.htmlInCanvasChalkBody h3,
+.htmlInCanvasChalkBody h4 {
+  font-family: 'Gaegu', 'Nanum Pen Script', cursive, sans-serif !important;
+  color: #fef08a !important;
+  border-bottom: 2px dashed rgba(254, 240, 138, 0.45) !important;
+  padding-bottom: 6px;
+  margin-top: 14px;
+  margin-bottom: 10px;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.85), 0 0 1px #fef08a;
+}
+
+.htmlInCanvasChalkBody h1 { font-size: 1.85rem; }
+.htmlInCanvasChalkBody h2 { font-size: 1.65rem; }
+.htmlInCanvasChalkBody h3 { font-size: 1.48rem; }
+
+.htmlInCanvasChalkBody code {
+  background: rgba(0, 0, 0, 0.45) !important;
+  color: #bbf7d0 !important;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px dashed rgba(187, 247, 208, 0.5);
+  font-size: 1.05em;
+  font-family: var(--mono) !important;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.9);
+}
+
+.htmlInCanvasChalkBody :global(div[class*="quote"]) {
+  background: rgba(0, 0, 0, 0.22) !important;
+  border-left: 4px solid #fef08a !important;
+  color: #fef08a !important;
+  padding: 8px 14px !important;
+  border-radius: 0 8px 8px 0;
+  margin: 10px 0;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.8);
+}
+
+.htmlInCanvasChalkBody :global(hr) {
+  border-top: 2px dashed rgba(255, 255, 255, 0.25) !important;
+  margin: 16px 0;
+}
+
+/* 하단 원목 분필 받침대 (Chalk Tray) */
+.htmlInCanvasChalkTray {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 18px;
+  background: linear-gradient(180deg, #422616 0%, #2f190e 100%);
+  border-top: 3px solid #5a351e;
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.4);
+  gap: 12px;
+  z-index: 10;
+}
+
+.htmlInCanvasChalkProps {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 흰색 분필 소품 */
+.htmlInCanvasChalkStickWhite {
+  width: 28px;
+  height: 8px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #ffffff 0%, #cbd5e1 100%);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+/* 노란색 분필 소품 */
+.htmlInCanvasChalkStickYellow {
+  width: 28px;
+  height: 8px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #fef08a 0%, #eab308 100%);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+/* 민트색 분필 소품 */
+.htmlInCanvasChalkStickMint {
+  width: 24px;
+  height: 8px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #a5f3fc 0%, #06b6d4 100%);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+/* 칠판 지우개 소품 */
+.htmlInCanvasChalkEraser {
+  width: 44px;
+  height: 14px;
+  border-radius: 4px;
+  background: #8b5a2b;
+  border-top: 2px solid #a67c52;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+}
+
+.htmlInCanvasChalkEraserFelt {
+  width: 100%;
+  height: 5px;
+  background: #334155;
+  border-radius: 0 0 3px 3px;
+}
+
+/* 칠판 네비게이션 버튼 */
+.htmlInCanvasChalkNavBtns {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.htmlInCanvasChalkBtn {
+  font-family: 'Gaegu', cursive;
+  font-size: 0.95rem;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px dashed rgba(255, 255, 255, 0.4);
+  color: #f8fafc;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.htmlInCanvasChalkBtn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.25);
+  border-color: #fef08a;
+  color: #fef08a;
+  transform: translateY(-1px);
+}
+
+.htmlInCanvasChalkBtn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.htmlInCanvasChalkDots {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.htmlInCanvasChalkDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.htmlInCanvasChalkDotActive {
+  background: #fef08a;
+  border-color: #fef08a;
+  box-shadow: 0 0 5px rgba(254, 240, 138, 0.8);
+  transform: scale(1.25);
 }
 
