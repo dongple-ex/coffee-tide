@@ -14,6 +14,7 @@ export interface HeaderControlsProps {
   onToggleCanvas?: () => void;
   isCanvasOpen?: boolean;
   canvasEnabled?: boolean;
+  onOpenArchive?: () => void;
 }
 
 interface BeforeInstallPromptEvent extends Event {
@@ -29,6 +30,7 @@ export function HeaderControls({
   onToggleCanvas,
   isCanvasOpen,
   canvasEnabled = true,
+  onOpenArchive,
 }: HeaderControlsProps) {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
 
@@ -81,6 +83,16 @@ export function HeaderControls({
             >
               <UiIcon name="assistant" size={14} />
               캔버스
+            </button>
+          )}
+          {onOpenArchive && (
+            <button
+              className={styles.connMenuBtn}
+              onClick={onOpenArchive}
+              title="완료 문서 아카이브 검색"
+              aria-label="완료 문서 아카이브 열기"
+            >
+              🗃 아카이브
             </button>
           )}
           <button

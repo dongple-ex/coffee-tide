@@ -1548,7 +1548,9 @@
 .headerRightControls {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  flex-shrink: 0;
+  margin-left: 8px;
 }
 
 .blinkingBadge {
@@ -4323,26 +4325,28 @@
 .openInCanvasBtn {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-size: 0.74rem;
-  font-weight: 600;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  font-size: 0.82rem;
   color: var(--accent);
   background: var(--accent-dim, rgba(158, 91, 34, 0.08));
   border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
   border-radius: 6px;
-  padding: 3px 8px;
   cursor: pointer;
   transition: all 0.15s ease;
-  margin-left: 6px;
+  flex-shrink: 0;
 }
 
 .openInCanvasBtn:hover {
   background: color-mix(in srgb, var(--accent) 18%, var(--card));
   border-color: var(--accent);
+  transform: translateY(-1px);
 }
 
 .openInCanvasLabel {
-  display: inline;
+  display: none;
 }
 
 @media (max-width: 480px) {
@@ -4377,13 +4381,12 @@
   }
 
   .openInCanvasBtn {
-    gap: 2px;
-    margin-left: 0;
-    padding: 3px 5px;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    font-size: 0.75rem;
     border-radius: 5px;
-    font-size: 0.62rem;
-    line-height: 1.25;
-    white-space: nowrap;
+    margin-left: 0;
   }
 
   .openInCanvasLabel {

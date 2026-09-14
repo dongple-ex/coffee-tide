@@ -97,6 +97,7 @@ const SettingsModal = dynamic(() => import("./components/SettingsModal").then((m
 const SyncConflictModal = dynamic(() => import("./components/SyncConflictModal").then((m) => m.SyncConflictModal), { ssr: false });
 const AiCanvasPanel = dynamic(() => import("./components/canvas/AiCanvasPanel").then((m) => m.AiCanvasPanel), { ssr: false });
 const CanvasWindowPortal = dynamic(() => import("./components/canvas/CanvasWindowPortal").then((m) => m.CanvasWindowPortal), { ssr: false });
+const KnowledgeArchiveModal = dynamic(() => import("./components/archive/KnowledgeArchiveModal").then((m) => m.KnowledgeArchiveModal), { ssr: false });
 const BaristaIdleCompanion = dynamic(() => import("./components/barista/BaristaIdleCompanion").then((m) => m.BaristaIdleCompanion), { ssr: false });
 const CommuteCard = dynamic(() => import("./components/CommuteCard").then((m) => m.CommuteCard), { ssr: false });
 const TimerWidget = dynamic(() => import("./components/TimerWidget").then((m) => m.TimerWidget), { ssr: false });
@@ -107,6 +108,8 @@ const CustomNewsWidget = dynamic(() => import("./components/CustomNewsWidget").t
 const YouTubeBundleWidget = dynamic(() => import("./components/youtube/YouTubeBundleWidget").then((m) => m.YouTubeBundleWidget), { ssr: false });
 import type { CanvasDocument, CanvasDocType, CanvasExtractedTask } from "@/lib/canvas/types";
 import { loadCanvasDocsFromLS, saveCanvasDocsToLS } from "@/lib/ai/canvasAi";
+import { archiveCanvasDocument } from "@/lib/knowledge/archiveClient";
+import type { KnowledgeArchiveDocument } from "@/lib/knowledge/archive";
 import { generateId } from "@/lib/ids";
 import { loadYouTubeContinuitySession, clearYouTubeContinuitySession, computeUserScope } from "@/lib/youtube/continuity";
 import type { CustomSitePreview } from "@/lib/news/types";
@@ -498,8 +501,14 @@ export default function Home() {
   // 캔버스를 별도 창으로 띄울지 여부. PC에서는 기본으로 별도 창을 쓰고,
   // 캔버스 헤더의 전환 버튼이나 팝업 차단에 따라 현재 창 안의 오버레이로 되돌린다.
   const [canvasPopout, setCanvasPopout] = useState(true);
-  const [, setCanvasDocs] = useState<CanvasDocument[]>([]);
+  const [canvasDocs, setCanvasDocs] = useState<CanvasDocument[]>([]);
   const [activeCanvasDoc, setActiveCanvasDoc] = useState<CanvasDocument | null>(null);
+  const [isArchiveOpen, setIsArchiveOpen] = useState(false);
+  const [archiveBusy, setArchiveBusy] = useState(false);
+  const [archiveRefreshToken, setArchiveRefreshToken] = useState(0);
+  const [driveBackupEnabled, setDriveBackupEnabled] = useState<boolean>(() =>
+    loadLS<boolean>(LS_DRIVE_BACKUP_ENABLED, true)
+  );
 
   // 로컬 스토리지에서 캔버스 문서 로딩
   useEffect(() => {
@@ -522,6 +531,67 @@ export default function Home() {
       saveCanvasDocsToLS(next, updatedDoc.id);
       return next;
     });
+  }, []);
+
+  const handleArchiveCanvasDoc = useCallback(async (document: CanvasDocument) => {
+    if (archiveBusy) return;
+    setArchiveBusy(true);
+    try {
+      const result = await archiveCanvasDocument(document, {
+        saveToDrive: driveBackupEnabled,
+        ownerScope: userScope ?? "guest",
+      });
+      const remaining = canvasDocs.filter((candidate) => candidate.id !== document.id);
+      setCanvasDocs(remaining);
+      setActiveCanvasDoc(remaining[0] ?? null);
+      saveCanvasDocsToLS(remaining, remaining[0]?.id ?? null);
+      setIsCanvasOpen(false);
+      setArchiveRefreshToken((current) => current + 1);
+      showToast(
+        result.locations.drive
+          ? "완료 문서 원문을 Google Drive에 보관하고 검색 인덱스를 동기화했습니다."
+          : result.locations.cloud
+          ? result.driveStatus === "not_connected"
+            ? "검색 인덱스는 클라우드에 저장했습니다. Google Drive를 연결하면 다음 완료 문서부터 원문도 Drive에 보관합니다."
+            : result.driveStatus === "auth_expired"
+            ? "검색 인덱스는 저장했습니다. Drive 원문 보관을 다시 사용하려면 Google을 재연결해 주세요."
+            : result.driveStatus === "failed"
+            ? "검색 인덱스는 저장했지만 Drive 원문 보관은 실패했습니다. 잠시 후 다시 완료 처리해 주세요."
+            : "완료 문서를 이 기기와 클라우드 아카이브에 저장했습니다."
+          : "완료 문서를 이 기기의 아카이브에 저장했습니다. 클라우드 연결 전까지 이 기기에서 검색할 수 있습니다."
+      );
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "문서를 아카이브하지 못했습니다.");
+    } finally {
+      setArchiveBusy(false);
+    }
+  }, [archiveBusy, canvasDocs, driveBackupEnabled, showToast, userScope]);
+
+  const handleOpenArchivedDocument = useCallback((archive: KnowledgeArchiveDocument) => {
+    const restored: CanvasDocument = {
+      id: archive.sourceKind === "canvas" ? archive.sourceId : generateId("cdoc"),
+      title: archive.title,
+      type: archive.docType,
+      content: archive.content,
+      createdAt: archive.createdAt,
+      updatedAt: new Date().toISOString(),
+      history: [archive.content],
+      historyIndex: 0,
+    };
+    const next = [restored, ...canvasDocs.filter((document) => document.id !== restored.id)];
+    setCanvasDocs(next);
+    setActiveCanvasDoc(restored);
+    saveCanvasDocsToLS(next, restored.id);
+    setIsArchiveOpen(false);
+    setCanvasPopout(false);
+    setIsCanvasOpen(true);
+    showToast("아카이브 문서를 캔버스에서 다시 열었습니다.");
+  }, [canvasDocs, showToast]);
+
+  const handleOpenArchive = useCallback(() => {
+    setCanvasPopout(false);
+    setIsCanvasOpen(false);
+    setIsArchiveOpen(true);
   }, []);
 
   const openWorkspaceTab = useCallback((tab: WorkspaceTab) => {
@@ -1058,7 +1128,6 @@ export default function Home() {
   };
 
   const [rawEnabled, setRawEnabled] = useState<boolean>(() => loadLS<boolean>(LS_RAW_ENABLED, true));
-  const [driveBackupEnabled, setDriveBackupEnabled] = useState<boolean>(() => loadLS<boolean>(LS_DRIVE_BACKUP_ENABLED, true));
 
   const handleSaveWorkNote = (taskId: string, note: string) => {
     setWorkNotes((prev) => {
@@ -2813,6 +2882,7 @@ export default function Home() {
         onToggleCanvas={handleToggleCanvas}
         isCanvasOpen={isCanvasOpen}
         canvasEnabled={canvasEnabled}
+        onOpenArchive={handleOpenArchive}
       />
 
       {handoffRestoredInfo && (
@@ -4123,6 +4193,9 @@ export default function Home() {
               onChangeDocument={handleUpdateCanvasDoc}
               onClose={() => setIsCanvasOpen(false)}
               onRegisterTasks={handleRegisterCanvasTasks}
+              onArchive={handleArchiveCanvasDoc}
+              onOpenArchive={handleOpenArchive}
+              archiveBusy={archiveBusy}
               personaName={copilotConfig.baristaName || "AI 바리스타"}
               popout
               onTogglePopout={() => setCanvasPopout(false)}
@@ -4155,6 +4228,9 @@ export default function Home() {
                 onChangeDocument={handleUpdateCanvasDoc}
                 onClose={() => setIsCanvasOpen(false)}
                 onRegisterTasks={handleRegisterCanvasTasks}
+                onArchive={handleArchiveCanvasDoc}
+                onOpenArchive={handleOpenArchive}
+                archiveBusy={archiveBusy}
                 personaName={copilotConfig.baristaName || "AI 바리스타"}
                 stacked={compactMode}
                 onTogglePopout={() => setCanvasPopout(true)}
@@ -4162,6 +4238,15 @@ export default function Home() {
             </div>
           </div>
         ))}
+
+      {isArchiveOpen && (
+        <KnowledgeArchiveModal
+          onClose={() => setIsArchiveOpen(false)}
+          onOpenDocument={handleOpenArchivedDocument}
+          ownerScope={userScope ?? "guest"}
+          refreshToken={archiveRefreshToken}
+        />
+      )}
 
     </main>
   );

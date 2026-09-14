@@ -71,6 +71,12 @@ export default function PrivacyPage() {
               자격정보만 보관합니다.
             </li>
             <li>
+              Drive 백업을 켠 상태에서 완료 처리한 캔버스 문서의 원문은 개인 Google Drive에
+              마크다운 파일로 저장됩니다. 빠른 검색과 AI 근거 검색을 위해 제목, Drive 파일
+              위치와 문서 청크는 사용자별 Supabase 저장소에 보관하며, 오프라인 재열기를 위한
+              사본은 현재 기기의 IndexedDB에 캐시합니다.
+            </li>
+            <li>
               Drive 접근은 coffeeTide가 만들었거나 사용자가 선택한 파일에 한정되는 최소 권한을
               사용합니다. 분석 과정에서 Gemini의 임시 파일 저장 기능을 사용하는 경우 처리가
               끝난 뒤 삭제를 요청하며, Google 측 처리와 보관에는 Google의 정책이 적용됩니다.
@@ -91,7 +97,7 @@ export default function PrivacyPage() {
             삭제합니다. 법령상 별도 보관 의무가 생기는 경우에는 해당 기간만 분리 보관합니다.
           </p>
           <p>
-            개인 Google Drive에 저장된 회의 원본과 결과 파일은 사용자가 직접 관리하며,
+            개인 Google Drive에 저장된 회의 원본, 결과 파일과 완료 문서 아카이브는 사용자가 직접 관리하며,
             coffeeTide 계정을 삭제하거나 Drive 연동을 해제해도 자동으로 삭제되지 않습니다.
             해당 파일을 없애려면 Google Drive에서 직접 삭제해야 합니다.
           </p>

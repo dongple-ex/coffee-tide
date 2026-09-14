@@ -3,6 +3,7 @@ import { requireSupabaseUser } from "@/lib/supabase/server";
 import { mapItemRelationFromDb, mapUnifiedItemFromDb } from "@/lib/data/mappers";
 import { searchKnowledge } from "@/lib/knowledge/search";
 import type { KnowledgeSearchRequest } from "@/lib/knowledge/contracts";
+import { searchCloudArchive } from "@/lib/knowledge/archiveServer";
 
 export async function POST(req: NextRequest) {
   const auth = await requireSupabaseUser();
@@ -29,7 +30,29 @@ export async function POST(req: NextRequest) {
     const relations = (relationsResult.data || []).map(mapItemRelationFromDb);
 
     const result = searchKnowledge(items, relations, body);
-    return NextResponse.json(result);
+    if (body.executionPolicy !== "cloud_allowed") {
+      return NextResponse.json(result);
+    }
+
+    const archiveResults = await searchCloudArchive(supabase, body.query, body.limit || 5).catch(() => []);
+    const limit = Math.max(1, Math.min(body.limit || 5, 50));
+    const evidence = [
+      ...result.evidence,
+      ...archiveResults.map((archive) => ({
+        itemId: archive.document.id,
+        chunkId: `${archive.document.id}:best`,
+        title: archive.document.title,
+        excerpt: archive.excerpt,
+        sourceVersion: archive.document.version,
+        updatedAt: archive.document.archivedAt,
+        score: Math.max(archive.score, 0.2),
+        scoreReason: "keyword" as const,
+      })),
+    ]
+      .sort((left, right) => right.score - left.score)
+      .slice(0, limit);
+
+    return NextResponse.json({ ...result, evidence });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Search failed";
     return NextResponse.json({ error: msg }, { status: 500 });

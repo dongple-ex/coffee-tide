@@ -18,6 +18,12 @@ interface DriveFile {
   name?: string;
 }
 
+export interface DriveArchiveFile {
+  id: string;
+  name: string;
+  webViewLink: string;
+}
+
 function safeDriveName(value: string): string {
   return value
     .replace(/[\\/:*?"<>|\u0000-\u001f]/g, "_")
@@ -158,5 +164,76 @@ export class GoogleDriveAdapter {
     const data = (await response.json()) as DriveFile;
     if (!data.id) throw new GoogleDriveApiError("Drive file id missing", 502, "");
     return data;
+  }
+
+  private async findArchiveFile(archiveId: string): Promise<DriveFile | null> {
+    const escapedId = archiveId.replaceAll("'", "\\'");
+    const query = `trashed=false and appProperties has { key='coffeetideArchiveId' and value='${escapedId}' }`;
+    const params = new URLSearchParams({
+      q: query,
+      pageSize: "1",
+      fields: "files(id,name,webViewLink)",
+    });
+    const response = await this.request(`https://www.googleapis.com/drive/v3/files?${params}`);
+    const data = (await response.json()) as { files?: DriveFile[] };
+    return data.files?.[0] ?? null;
+  }
+
+  async saveArchiveMarkdown(options: {
+    archiveId: string;
+    title: string;
+    body: string;
+    contentHash: string;
+    archivedAt: string;
+    timezone?: string;
+  }): Promise<DriveArchiveFile> {
+    const existing = await this.findArchiveFile(options.archiveId);
+    let parentId: string | undefined;
+    if (!existing) {
+      const rootId = await this.ensureFolder("CoffeeTide");
+      const archiveRootId = await this.ensureFolder("완료문서", rootId);
+      const year = new Intl.DateTimeFormat("en", {
+        timeZone: options.timezone || "Asia/Seoul",
+        year: "numeric",
+      }).format(new Date(options.archivedAt));
+      parentId = await this.ensureFolder(year, archiveRootId);
+    }
+
+    const fileName = `${safeDriveName(options.title)}.md`;
+    const metadata = {
+      name: fileName,
+      mimeType: "text/markdown",
+      description: "CoffeeTide 완료 문서 아카이브",
+      appProperties: {
+        coffeetideArchiveId: options.archiveId,
+        coffeetideContentHash: options.contentHash,
+      },
+      ...(parentId ? { parents: [parentId] } : {}),
+    };
+    const form = new FormData();
+    form.append("metadata", new Blob([JSON.stringify(metadata)], { type: "application/json" }));
+    form.append("file", new Blob([options.body], { type: "text/markdown; charset=utf-8" }), fileName);
+    const endpoint = existing
+      ? `https://www.googleapis.com/upload/drive/v3/files/${existing.id}?uploadType=multipart&fields=id,name,webViewLink`
+      : "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink";
+    const response = await this.request(endpoint, {
+      method: existing ? "PATCH" : "POST",
+      body: form,
+    });
+    const data = (await response.json()) as DriveFile;
+    if (!data.id) throw new GoogleDriveApiError("Drive archive file id missing", 502, "");
+    return {
+      id: data.id,
+      name: data.name || fileName,
+      webViewLink: data.webViewLink || `https://drive.google.com/file/d/${data.id}/view`,
+    };
+  }
+
+  async downloadTextFile(fileId: string): Promise<string> {
+    const safeFileId = encodeURIComponent(fileId);
+    const response = await this.request(
+      `https://www.googleapis.com/drive/v3/files/${safeFileId}?alt=media`
+    );
+    return response.text();
   }
 }

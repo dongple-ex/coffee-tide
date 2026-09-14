@@ -134,8 +134,8 @@ export function DataStorageSection({ storageStatus, onRetrySync }: Props) {
             </div>
             <div className={styles.settingToggleDesc} style={{ fontSize: "0.78rem" }}>
               {driveConnected && driveBackupEnabled
-                ? "`CoffeeTide/YYYY-MM-DD/` 일자별 폴더에 회의록/메모 원문 마크다운을 백업합니다."
-                : "Google 연동 및 Drive 백업 설정을 켜면 원문 마크다운이 Drive에 자동 보관됩니다."}
+                ? "회의록·메모는 일자별 폴더에, 완료 문서는 `CoffeeTide/완료문서/YYYY/`에 원문 마크다운으로 보관합니다."
+                : "Google 연동 및 Drive 백업 설정을 켜면 회의록·메모와 완료 문서 원문이 Drive에 자동 보관됩니다."}
             </div>
           </div>
         </div>

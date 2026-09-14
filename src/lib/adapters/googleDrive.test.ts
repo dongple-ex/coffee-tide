@@ -77,4 +77,71 @@ describe("GoogleDriveAdapter", () => {
       await expect(adapter.fetchRecentFiles(10)).rejects.toThrow(GoogleDriveApiError);
     });
   });
+
+  describe("archive documents", () => {
+    it("creates the CoffeeTide archive folders and uploads Markdown", async () => {
+      const responses = [
+        { files: [] },
+        { files: [] },
+        { id: "root" },
+        { files: [] },
+        { id: "archive-root" },
+        { files: [] },
+        { id: "year" },
+        { id: "drive-file", name: "결정사항.md", webViewLink: "https://drive.google.com/file/d/drive-file/view" },
+      ];
+      global.fetch = vi.fn().mockImplementation(async () => ({
+        ok: true,
+        status: 200,
+        json: async () => responses.shift(),
+        text: async () => "",
+      }));
+
+      const adapter = new GoogleDriveAdapter("token");
+      const saved = await adapter.saveArchiveMarkdown({
+        archiveId: "archive:canvas:one",
+        title: "결정사항",
+        body: "# 결정사항\n\n본문",
+        contentHash: "hash",
+        archivedAt: "2026-09-14T00:00:00.000Z",
+      });
+
+      expect(saved.id).toBe("drive-file");
+      expect(saved.webViewLink).toContain("drive-file");
+      expect(global.fetch).toHaveBeenCalledTimes(8);
+      const uploadCall = vi.mocked(global.fetch).mock.calls.at(-1);
+      expect(uploadCall?.[0]).toContain("uploadType=multipart");
+      expect(uploadCall?.[1]?.method).toBe("POST");
+    });
+
+    it("updates an existing archive file instead of creating another copy", async () => {
+      global.fetch = vi.fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => ({ files: [{ id: "existing", name: "old.md" }] }),
+          text: async () => "",
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => ({ id: "existing", name: "new.md" }),
+          text: async () => "",
+        });
+
+      const adapter = new GoogleDriveAdapter("token");
+      await adapter.saveArchiveMarkdown({
+        archiveId: "archive:canvas:one",
+        title: "new",
+        body: "updated",
+        contentHash: "hash-2",
+        archivedAt: "2026-09-14T00:00:00.000Z",
+      });
+
+      const updateCall = vi.mocked(global.fetch).mock.calls[1];
+      expect(updateCall[0]).toContain("/files/existing");
+      expect(updateCall[1]?.method).toBe("PATCH");
+      expect(global.fetch).toHaveBeenCalledTimes(2);
+    });
+  });
 });

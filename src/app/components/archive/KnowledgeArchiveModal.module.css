@@ -1,0 +1,80 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(10, 8, 7, 0.72);
+  backdrop-filter: blur(8px);
+}
+
+.modal {
+  width: min(820px, 100%);
+  max-height: min(760px, 92vh);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: var(--text, #f5f1eb);
+  background: var(--panel, #211b18);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.14));
+  border-radius: 18px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 22px 24px 12px;
+}
+
+.header h2 { margin: 2px 0 0; font-size: 1.35rem; }
+.eyebrow { margin: 0; color: var(--accent, #d59a62); font-size: 0.75rem; font-weight: 700; letter-spacing: 0.08em; }
+.closeButton { border: 0; background: transparent; color: inherit; font-size: 1.8rem; cursor: pointer; }
+
+.searchForm { display: flex; gap: 8px; padding: 10px 24px; }
+.searchForm input {
+  flex: 1;
+  min-width: 0;
+  padding: 12px 14px;
+  color: inherit;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.14));
+  border-radius: 10px;
+}
+.searchForm button, .cardHeader button {
+  padding: 10px 14px;
+  color: #fff;
+  background: var(--accent, #b86f3f);
+  border: 0;
+  border-radius: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.storageNote { margin: 0; padding: 0 24px 12px; color: var(--muted, #aaa099); font-size: 0.82rem; }
+.errorNotice { margin: 0 24px 10px; padding: 9px 11px; color: #ffc7c7; background: rgba(205, 61, 61, 0.13); border-radius: 9px; font-size: 0.82rem; }
+.results { overflow: auto; display: grid; gap: 10px; padding: 4px 24px 24px; }
+.empty { padding: 54px 16px; text-align: center; color: var(--muted, #aaa099); }
+.card { padding: 16px; background: rgba(255, 255, 255, 0.045); border: 1px solid var(--border, rgba(255, 255, 255, 0.12)); border-radius: 14px; }
+.cardHeader { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.cardHeader h3 { margin: 8px 0 0; font-size: 1rem; }
+.card p { margin: 12px 0; color: var(--text-secondary, #d7cec6); line-height: 1.55; white-space: pre-wrap; }
+.keywords { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
+.keywords span { padding: 3px 7px; color: var(--text-secondary, #d7cec6); background: rgba(255, 255, 255, 0.06); border-radius: 999px; font-size: 0.72rem; }
+.typeBadge, .storageBadge { display: inline-block; margin-right: 6px; padding: 3px 7px; border-radius: 999px; background: rgba(213, 154, 98, 0.14); color: var(--accent, #d59a62); font-size: 0.72rem; }
+.storageBadge { background: rgba(111, 162, 203, 0.14); color: #8bc4ef; }
+.meta { display: flex; flex-wrap: wrap; gap: 12px; color: var(--muted, #aaa099); font-size: 0.75rem; }
+.meta a { color: var(--accent, #d59a62); }
+
+@media (max-width: 640px) {
+  .backdrop { padding: 8px; place-items: end center; }
+  .modal { max-height: 94vh; border-radius: 18px 18px 10px 10px; }
+  .header { padding: 18px 16px 10px; }
+  .searchForm { padding: 8px 16px; }
+  .storageNote { padding: 0 16px 10px; }
+  .results { padding: 4px 16px 18px; }
+  .cardHeader { align-items: center; }
+}

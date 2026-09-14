@@ -15,6 +15,7 @@ import { isCalendarCreateRequest } from "@/lib/calendar/types";
 import { extractRegistrationIntent } from "@/lib/ai/intents";
 import { executeCloudTool, listCloudTools } from "@/lib/cloudTools/registry";
 import { searchKnowledge } from "@/lib/knowledge/search";
+import { searchCloudArchive } from "@/lib/knowledge/archiveServer";
 import { filterItemsByExecutionPolicy } from "@/lib/knowledge/policy";
 import { mapItemRelationFromDb, mapUnifiedItemFromDb } from "@/lib/data/mappers";
 import type { ItemRelation, WorkspaceItem } from "@/lib/data/contracts";
@@ -374,14 +375,52 @@ export async function POST(request: NextRequest) {
       executionPolicy: "cloud_allowed",
       limit: 5,
     });
-    evidences = knowledgePkg.evidence.map((e) => ({
-      itemId: e.itemId,
-      title: e.title,
-      excerpt: e.excerpt,
-      scoreReason: e.scoreReason,
+    const archiveMatches = signedInIdentity.supabase
+      ? await searchCloudArchive(signedInIdentity.supabase, question, 5).catch(() => [])
+      : [];
+    const allowedArchiveMatches = archiveMatches.filter((archive) =>
+      archive.document.aiPolicy === "cloud_allowed" &&
+      archive.document.privacyScope !== "local_only"
+    );
+    const archiveItems: WorkspaceItem[] = allowedArchiveMatches.map((archive) => ({
+      id: archive.document.id,
+      source: "local_doc",
+      sourceApp: "완료 문서 아카이브",
+      title: archive.document.title,
+      content: archive.excerpt,
+      created_at: archive.document.createdAt,
+      author: { name: "CoffeeTide 아카이브" },
+      url: "#archive",
+      category: "reference",
+      status: "completed",
+      itemType: "document",
+      attributes: {
+        archivedAt: archive.document.archivedAt,
+        sourceKind: archive.document.sourceKind,
+        chunkCount: archive.document.chunkCount,
+      },
+      version: archive.document.version,
+      privacyScope: archive.document.privacyScope,
+      aiPolicy: archive.document.aiPolicy,
+      updatedAt: archive.document.archivedAt,
     }));
+    evidences = [
+      ...knowledgePkg.evidence.map((e) => ({
+        itemId: e.itemId,
+        title: e.title,
+        excerpt: e.excerpt,
+        scoreReason: e.scoreReason,
+      })),
+      ...allowedArchiveMatches.map((archive) => ({
+        itemId: archive.document.id,
+        title: archive.document.title,
+        excerpt: archive.excerpt,
+        scoreReason: "keyword" as const,
+      })),
+    ].slice(0, 8);
     const evidenceIds = new Set(evidences.map((evidence) => evidence.itemId));
     allowedItems = [
+      ...archiveItems,
       ...policyResult.allowed.filter((item) => evidenceIds.has(item.id)),
       ...policyResult.allowed.filter((item) => !evidenceIds.has(item.id)),
     ].slice(0, 80);

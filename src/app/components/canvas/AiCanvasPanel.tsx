@@ -19,6 +19,9 @@ interface Props {
   onChangeDocument: (doc: CanvasDocument) => void;
   onClose: () => void;
   onRegisterTasks?: (tasks: CanvasExtractedTask[]) => void;
+  onArchive?: (document: CanvasDocument) => Promise<void>;
+  onOpenArchive?: () => void;
+  archiveBusy?: boolean;
   personaName?: string;
   jobScope?: string;
   pushEndpoint?: string | null;
@@ -46,6 +49,9 @@ export function AiCanvasPanel({
   onChangeDocument,
   onClose,
   onRegisterTasks,
+  onArchive,
+  onOpenArchive,
+  archiveBusy = false,
   personaName = "AI 바리스타",
   jobScope,
   pushEndpoint,
@@ -124,6 +130,7 @@ export function AiCanvasPanel({
 
     try {
       const result = await transformCanvasContentClient({
+        docId: document.id,
         content: document.content,
         action,
         customPrompt: promptOverride || customPrompt,
@@ -306,6 +313,29 @@ export function AiCanvasPanel({
           >
             💾 저장
           </button>
+          {onOpenArchive && (
+            <button
+              type="button"
+              className={styles.canvasToolBtn}
+              onClick={onOpenArchive}
+              title="완료 문서 아카이브 검색"
+              aria-label="완료 문서 아카이브 열기"
+            >
+              🗃 아카이브
+            </button>
+          )}
+          {onArchive && (
+            <button
+              type="button"
+              className={`${styles.canvasToolBtn} ${styles.canvasAiChipHighlight}`}
+              onClick={() => void onArchive(document)}
+              disabled={archiveBusy || !document.content.trim()}
+              title="문서를 완료 처리하고 검색 가능한 아카이브에 보관"
+              aria-label="문서 완료 처리 및 아카이브"
+            >
+              {archiveBusy ? "보관 중…" : "✓ 완료·보관"}
+            </button>
+          )}
           <div className={styles.canvasWindowActions}>
             {onTogglePopout && (
               <button
