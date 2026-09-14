@@ -4,6 +4,7 @@
 "use client";
 
 import React, { Fragment, ReactNode } from "react";
+import { parseMarkdownTable } from "@/lib/markdown/table";
 import styles from "./markdownLite.module.css";
 
 /**
@@ -65,16 +66,52 @@ export default function MarkdownLite({ text }: { text: string }) {
     listBuffer = [];
   };
 
-  lines.forEach((line, i) => {
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
     const trimmed = line.trim();
     const listItem = trimmed.match(/^(?:[-*•]|\d+[.)])\s+(.+)$/);
     if (listItem) {
       listBuffer.push(listItem[1]);
-      return;
+      continue;
     }
     flushList(i);
 
-    if (!trimmed) return;
+    if (!trimmed) continue;
+    const table = parseMarkdownTable(lines, i);
+    if (table) {
+      blocks.push(
+        <div key={`table-${i}`} className={styles.tableScroll}>
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                {table.header.map((cell, cellIndex) => (
+                  <th
+                    key={cellIndex}
+                    scope="col"
+                    style={{ textAlign: table.alignments[cellIndex] }}
+                  >
+                    {renderInline(cell)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {table.rows.map((row, rowIndex) => (
+                <tr key={rowIndex}>
+                  {row.map((cell, cellIndex) => (
+                    <td key={cellIndex} style={{ textAlign: table.alignments[cellIndex] }}>
+                      {renderInline(cell)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+      i = table.endIndex;
+      continue;
+    }
     const heading = trimmed.match(/^(#{1,4})\s+(.+)$/);
     if (heading) {
       blocks.push(
@@ -82,7 +119,7 @@ export default function MarkdownLite({ text }: { text: string }) {
           {renderInline(heading[2])}
         </div>
       );
-      return;
+      continue;
     }
     if (trimmed.startsWith(">")) {
       blocks.push(
@@ -90,14 +127,14 @@ export default function MarkdownLite({ text }: { text: string }) {
           {renderInline(trimmed.replace(/^>\s?/, ""))}
         </div>
       );
-      return;
+      continue;
     }
     if (/^-{3,}$/.test(trimmed)) {
       blocks.push(<hr key={i} className={styles.hr} />);
-      return;
+      continue;
     }
     blocks.push(<p key={i} className={styles.p}>{renderInline(trimmed)}</p>);
-  });
+  }
   flushList(lines.length);
 
   return <div className={styles.root}>{blocks}</div>;

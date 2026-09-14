@@ -2300,14 +2300,16 @@ export default function Home() {
       explicitMode?: "talk" | "work";
       persistToFeed?: boolean;
       localHistory?: ChromeCanaryConversationTurn[];
+      trackGlobalBusy?: boolean;
     }
   ): Promise<string | undefined> {
     const persistToFeed = options?.persistToFeed ?? true;
+    const trackGlobalBusy = options?.trackGlobalBusy ?? true;
     if (persistToFeed) {
       setWelcomeCardCollapsed(true);
     }
     const question = (preset ?? copilotInput).trim();
-    if (!question || copilotBusy) return;
+    if (!question || (trackGlobalBusy && copilotBusy)) return;
     const conversationHistory: ChromeCanaryConversationTurn[] = [
       ...copilotMessages.slice(-8).map((message) => ({
         role: message.role === "ai" ? "assistant" as const : "user" as const,
@@ -2333,7 +2335,7 @@ export default function Home() {
     );
 
     if (matchedShortcut) {
-      setCopilotBusy(true);
+      if (trackGlobalBusy) setCopilotBusy(true);
       try {
         const res = await fetch("/api/util/exec-app", {
           method: "POST",
@@ -2364,11 +2366,11 @@ export default function Home() {
         }
         return failShortcut;
       } finally {
-        setCopilotBusy(false);
+        if (trackGlobalBusy) setCopilotBusy(false);
       }
     }
 
-    setCopilotBusy(true);
+    if (trackGlobalBusy) setCopilotBusy(true);
     try {
       const res = await requestAiJob("/api/copilot", {
             question,
@@ -2517,7 +2519,7 @@ export default function Home() {
       }
       return failMsg;
     } finally {
-      setCopilotBusy(false);
+      if (trackGlobalBusy) setCopilotBusy(false);
     }
   }
 
@@ -3145,6 +3147,7 @@ export default function Home() {
                 return await askCopilot(msg, {
                   explicitMode: "talk",
                   persistToFeed: false,
+                  trackGlobalBusy: false,
                   localHistory: previousTurn
                     ? [
                         { role: "user", text: previousTurn.userText },

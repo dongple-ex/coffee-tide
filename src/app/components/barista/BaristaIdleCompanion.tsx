@@ -33,6 +33,7 @@ export function BaristaIdleCompanion({
   const isClient = useSyncExternalStore(emptySubscribe, () => true, () => false);
   const [isVisible, setIsVisible] = useState(false);
   const [isCardOpen, setIsCardOpen] = useState(false);
+  const [isPanelMinimized, setIsPanelMinimized] = useState(false);
   const [currentItem, setCurrentItem] = useState<IdleMessageItem>(() => IDLE_TALK_POOL[0]);
   const [dynamicTalk, setDynamicTalk] = useState<{ title: string; content: string } | null>(null);
   const [inlineChat, setInlineChat] = useState<{
@@ -99,6 +100,7 @@ export function BaristaIdleCompanion({
         pickNextTalk();
         setIsVisible(true);
         setIsCardOpen(false); // 처음에는 미니 아바타만 띄우고, 큰 창은 닫아둠
+        setIsPanelMinimized(false);
       }
     }, 3000);
 
@@ -116,6 +118,7 @@ export function BaristaIdleCompanion({
       pickNextTalk();
       setIsVisible(true);
       setIsCardOpen(true);
+      setIsPanelMinimized(false);
       isDismissedRecentlyRef.current = false;
       lastActivityRef.current = Date.now();
     };
@@ -126,11 +129,13 @@ export function BaristaIdleCompanion({
 
   const handleDismissCard = () => {
     setIsCardOpen(false);
+    setIsPanelMinimized(false);
   };
 
   const handleDismissAll = () => {
     setIsVisible(false);
     setIsCardOpen(false);
+    setIsPanelMinimized(false);
     isDismissedRecentlyRef.current = true;
     lastActivityRef.current = Date.now();
     // 1분간은 다시 뜨지 않도록 쿨다운
@@ -157,6 +162,8 @@ export function BaristaIdleCompanion({
         userText: msg,
         isThinking: true,
       });
+      // 답변 생성은 유지하면서 대시보드 작업 공간을 즉시 돌려준다.
+      setIsPanelMinimized(true);
       try {
         const answer = await onSendMessage(msg, previousTurn);
         if (answer) {
@@ -194,6 +201,11 @@ export function BaristaIdleCompanion({
       ? thinkingMessage
       : inlineChat.aiText || localFormatted.content
     : dynamicTalk?.content || localFormatted.content;
+  const dockStatus = inlineChat?.isThinking
+    ? "답변 준비 중 · 다른 업무를 계속하세요"
+    : inlineChat?.aiText
+      ? "답변 도착 · 눌러서 확인"
+      : "대화 유지 중 · 눌러서 펼치기";
 
   if (!enabled) return null;
 
@@ -208,7 +220,10 @@ export function BaristaIdleCompanion({
           className={styles.baristaIdleMascotCharacter} 
           onClick={(e) => {
             e.stopPropagation();
-            setIsCardOpen((prev) => !prev);
+            setIsCardOpen((prev) => {
+              if (!prev) setIsPanelMinimized(false);
+              return !prev;
+            });
           }}
           title="클릭해서 바리스타 톡 열기/닫기"
           style={{ width: 36, height: 36, borderRadius: "50%", overflow: "hidden", border: "2px solid #C57A57", backgroundColor: "#fff", cursor: "pointer", display: "flex", justifyContent: "center", alignItems: "center" }}
@@ -231,27 +246,76 @@ export function BaristaIdleCompanion({
         </div>
       </div>
 
-      {/* 클릭 시 혹은 소환 시 열리는 거대한 카드 모달 (createPortal로 Body 레벨 렌더링) */}
+      {/* 클릭 시 혹은 소환 시 열리는 독립형 라운지 패널 (createPortal로 Body 레벨 렌더링) */}
       {isCardOpen && isClient && createPortal(
-        <div
-          className={styles.baristaIdleCard}
-          role="complementary"
-          aria-label="바리스타 막간 토크 라운지"
-          onClick={(e) => e.stopPropagation()}
-        >
+        isPanelMinimized ? (
+          <div
+            className={styles.baristaIdleDock}
+            role="complementary"
+            aria-label="접힌 바리스타 막간 토크 라운지"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              className={styles.baristaIdleDockMain}
+              onClick={() => setIsPanelMinimized(false)}
+              aria-label={`${baristaName} 대화 다시 펼치기`}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                className={styles.baristaIdleDockAvatar}
+                src={getPersonaEffect(presetId, baristaName).avatarIdle}
+                alt=""
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = "/barista/barista_male_3d_serving.jpg";
+                }}
+              />
+              <span className={styles.baristaIdleDockText}>
+                <strong>{baristaName}</strong>
+                <span aria-live="polite">{dockStatus}</span>
+              </span>
+            </button>
+            <button
+              type="button"
+              className={styles.baristaIdleDockClose}
+              onClick={handleDismissCard}
+              aria-label="막간 토크 종료"
+              title="종료"
+            >
+              ✕
+            </button>
+          </div>
+        ) : (
+          <div
+            className={styles.baristaIdleCard}
+            role="complementary"
+            aria-label="바리스타 막간 토크 라운지"
+            onClick={(e) => e.stopPropagation()}
+          >
           <div className={styles.baristaIdleHeader}>
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <span className={styles.baristaIdleTitle}>{displayTitle}</span>
             </div>
-            <button
-              type="button"
-              className={styles.baristaIdleCloseBtn}
-              onClick={handleDismissCard}
-              aria-label="막간 토크 닫기"
-              title="닫기"
-            >
-              ✕
-            </button>
+            <div className={styles.baristaIdleHeaderActions}>
+              <button
+                type="button"
+                className={styles.baristaIdleMinimizeBtn}
+                onClick={() => setIsPanelMinimized(true)}
+                aria-label="작게 접고 다른 업무 계속하기"
+                title="작게 접기"
+              >
+                —
+              </button>
+              <button
+                type="button"
+                className={styles.baristaIdleCloseBtn}
+                onClick={handleDismissCard}
+                aria-label="막간 토크 닫기"
+                title="닫기"
+              >
+                ✕
+              </button>
+            </div>
           </div>
 
           <div style={{ marginBottom: "10px" }}>
@@ -340,7 +404,8 @@ export function BaristaIdleCompanion({
               💬 전체 대화창 열기
             </button>
           </div>
-        </div>,
+          </div>
+        ),
         document.body
       )}
     </>
