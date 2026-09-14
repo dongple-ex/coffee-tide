@@ -22,6 +22,7 @@ import type { ItemRelation, WorkspaceItem } from "@/lib/data/contracts";
 import { buildCompanionContextPackage, formatCompanionContextPrompt } from "@/lib/companion/promptContext";
 import { parseCompanionResponse } from "@/lib/companion/episodeSummarizer";
 import { getCompanionFeatureAccess, isCompanionGrowthActive } from "@/lib/companion/featureAccess";
+import { SupabaseCompanionRepository } from "@/lib/companion/repositories/supabase";
 import {
   routeConversation,
   type ConversationExplicitMode,
@@ -31,11 +32,58 @@ import { resolveHangulTypoIfNeeded } from "@/lib/ai/hangulTypo";
 import { sanitizeAiResponse } from "@/lib/ai/sanitizeResponse";
 import { getConversationFeatureAccess } from "@/lib/ai/conversationFeatureAccess";
 import { acceptAiJob } from "@/lib/ai/jobs/server";
+import {
+  isDailyBriefingRequest,
+  selectDailyBriefingEvidenceItems,
+} from "@/lib/ai/copilotFallback";
 
 export const maxDuration = 300;
 
 function mergeById(items: UnifiedData[]): UnifiedData[] {
   return [...new Map(items.map((item) => [item.id, item])).values()];
+}
+
+async function loadCompanionPromptContext(
+  identity: SignedInIdentity,
+  config?: CopilotUserConfig
+): Promise<string | undefined> {
+  try {
+    const supabase = identity.supabase;
+    if (!supabase) return undefined;
+    const { data: settings, error: settingsError } = await supabase
+      .from("user_profiles")
+      .select("companion_growth_enabled, companion_test_cohort")
+      .eq("id", identity.id)
+      .maybeSingle();
+    if (settingsError) return undefined;
+
+    const access = getCompanionFeatureAccess({
+      userCohort: settings?.companion_test_cohort ?? null,
+      userEnabled: settings?.companion_growth_enabled === true,
+    });
+    if (!isCompanionGrowthActive(access)) return undefined;
+
+    const requestedPersonaId = config?.presetId || "karina";
+    const personaId = /^[a-zA-Z0-9_-]{1,64}$/.test(requestedPersonaId)
+      ? requestedPersonaId
+      : "karina";
+    const repo = new SupabaseCompanionRepository(supabase, identity.id);
+    const [profile, memories] = await Promise.all([
+      repo.getProfile(personaId),
+      repo.getMemories("active"),
+    ]);
+    return formatCompanionContextPrompt(buildCompanionContextPackage({
+      personaId,
+      profile,
+      currentMode: profile.currentMode,
+      memories: memories.filter((memory) =>
+        memory.personaScope === "shared" || memory.personaScope === personaId
+      ),
+    }));
+  } catch (error) {
+    console.warn("[Copilot] Companion prompt context unavailable:", error);
+    return undefined;
+  }
 }
 
 async function autonomousSparkResponse(identity: SignedInIdentity) {
@@ -271,6 +319,10 @@ export async function POST(request: NextRequest) {
         needsWorkContext: true,
         allowCloudTools: true,
       };
+  const companionContext = await loadCompanionPromptContext(
+    signedInIdentity,
+    body.copilotConfig
+  );
 
   // 인사·잡담·감정 표현·대화 복구는 업무 신뢰 경계 밖에서 처리한다.
   // Spark, 클라이언트 업무, 서버 지식 검색, Cloud Tool을 전혀 조회하거나 전달하지 않는다.
@@ -285,6 +337,7 @@ export async function POST(request: NextRequest) {
         mode: conversationRoute.mode,
         history,
         allowCloudTools: false,
+        companionContext,
       }
     );
     const companionParsed = parseCompanionResponse(answer);
@@ -375,7 +428,8 @@ export async function POST(request: NextRequest) {
       executionPolicy: "cloud_allowed",
       limit: 5,
     });
-    const archiveMatches = signedInIdentity.supabase
+    const dailyBriefing = isDailyBriefingRequest(question);
+    const archiveMatches = signedInIdentity.supabase && !dailyBriefing
       ? await searchCloudArchive(signedInIdentity.supabase, question, 5).catch(() => [])
       : [];
     const allowedArchiveMatches = archiveMatches.filter((archive) =>
@@ -404,61 +458,58 @@ export async function POST(request: NextRequest) {
       aiPolicy: archive.document.aiPolicy,
       updatedAt: archive.document.archivedAt,
     }));
-    evidences = [
-      ...knowledgePkg.evidence.map((e) => ({
-        itemId: e.itemId,
-        title: e.title,
-        excerpt: e.excerpt,
-        scoreReason: e.scoreReason,
-      })),
-      ...allowedArchiveMatches.map((archive) => ({
-        itemId: archive.document.id,
-        title: archive.document.title,
-        excerpt: archive.excerpt,
-        scoreReason: "keyword" as const,
-      })),
-    ].slice(0, 8);
+    const dailyEvidenceItems = dailyBriefing
+      ? selectDailyBriefingEvidenceItems(policyResult.allowed)
+      : [];
+    evidences = dailyBriefing
+      ? dailyEvidenceItems.map((item) => ({
+          itemId: item.id,
+          title: item.title,
+          excerpt: item.content.slice(0, 240),
+          scoreReason: "recency" as const,
+        }))
+      : [
+          ...knowledgePkg.evidence.map((e) => ({
+            itemId: e.itemId,
+            title: e.title,
+            excerpt: e.excerpt,
+            scoreReason: e.scoreReason,
+          })),
+          ...allowedArchiveMatches.map((archive) => ({
+            itemId: archive.document.id,
+            title: archive.document.title,
+            excerpt: archive.excerpt,
+            scoreReason: "keyword" as const,
+          })),
+        ].slice(0, 8);
     const evidenceIds = new Set(evidences.map((evidence) => evidence.itemId));
-    allowedItems = [
-      ...archiveItems,
-      ...policyResult.allowed.filter((item) => evidenceIds.has(item.id)),
-      ...policyResult.allowed.filter((item) => !evidenceIds.has(item.id)),
-    ].slice(0, 80);
+    allowedItems = dailyBriefing
+      ? [
+          ...dailyEvidenceItems,
+          ...policyResult.allowed.filter((item) => !evidenceIds.has(item.id)),
+        ].slice(0, 80)
+      : [
+          ...archiveItems,
+          ...policyResult.allowed.filter((item) => evidenceIds.has(item.id)),
+          ...policyResult.allowed.filter((item) => !evidenceIds.has(item.id)),
+        ].slice(0, 80);
   } catch {
     // 로그인 사용자의 서버 정책을 확인하지 못하면 클라이언트 사본을 외부 AI에 보내지 않습니다.
     if (signedInIdentity.supabase) allowedItems = [];
     evidences = [];
   }
 
-    const access = getCompanionFeatureAccess();
-    const companionActive = isCompanionGrowthActive(access);
-
-    // 컴패니언 기능 활성 시 안전한 프롬프트 컨텍스트 패키지 조립
-    let updatedConfig = body.copilotConfig;
-    if (companionActive && updatedConfig) {
-      const companionPkg = buildCompanionContextPackage({
-        personaId: updatedConfig.presetId || "karina",
-        currentMode: "momentum",
-      });
-      const companionPromptExtra = formatCompanionContextPrompt(companionPkg);
-      updatedConfig = {
-        ...updatedConfig,
-        customInstructions: updatedConfig.customInstructions
-          ? `${updatedConfig.customInstructions}\n\n${companionPromptExtra}`
-          : companionPromptExtra,
-      };
-    }
-
     const { answer, aiUsed, cloudToolExecution, cloudToolDraft } = await askCopilot(
       question,
       allowedItems,
       body.timezone || "Asia/Seoul",
-      updatedConfig,
+      body.copilotConfig,
       { userId: signedInIdentity.id },
       {
         mode: conversationRoute.mode,
         history,
         allowCloudTools: conversationRoute.allowCloudTools,
+        companionContext,
       }
     );
 

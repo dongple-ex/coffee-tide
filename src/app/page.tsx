@@ -88,8 +88,16 @@ import {
 } from "@/lib/ai/chromeCanaryAi";
 import type { CustomWidgetConfig } from "./components/CustomNewsWidget";
 import { ContextualRecStrip } from "./components/youtube/ContextualRecStrip";
-import { addAffectionExp } from "@/lib/ai/affectionManager";
+import {
+  addAffectionExp,
+  calculateLevelInfo,
+  getAffectionState,
+} from "@/lib/ai/affectionManager";
 import type { ConversationTurnMode } from "@/lib/ai/conversation";
+import {
+  buildChromeCanaryCopilotSystemPrompt,
+  shouldUseChromeCanaryAfterServer,
+} from "@/lib/ai/copilotFallback";
 
 // 초기 화면에 렌더링되지 않는 모달·위젯 패널은 지연 로딩으로 초기 번들에서 제외
 const SettingsModal = dynamic(() => import("./components/SettingsModal").then((m) => m.SettingsModal), { ssr: false });
@@ -2234,15 +2242,31 @@ export default function Home() {
   async function tryChromeCanaryFallback(
     question: string,
     history: ChromeCanaryConversationTurn[],
-    localItems: UnifiedData[]
+    localItems: UnifiedData[],
+    mode: ConversationTurnMode = "work"
   ): Promise<string | null> {
     try {
       const status = await checkChromeCanaryAiStatus();
       setCanaryStatus(status);
       if (status.status !== "ready") return null;
 
-      const personaName = copilotConfig.baristaName || "AI 바리스타";
-      const systemPrompt = `당신은 사용자의 든든하고 친근한 AI 비서이자 바리스타 '${personaName}'입니다. 사용자의 질문에 맞춰 다정하고 명확하게 한국어로 답변해 주세요.`;
+      const presetId = copilotConfig.presetId || "barista";
+      const relationshipLevel = calculateLevelInfo(getAffectionState(presetId).exp).levelInfo.level;
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Seoul";
+      const dateLabel = new Date().toLocaleDateString("ko-KR", {
+        timeZone: timezone,
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        weekday: "long",
+      });
+      const systemPrompt = buildChromeCanaryCopilotSystemPrompt({
+        config: copilotConfig,
+        relationshipLevel,
+        dateLabel,
+        timezone,
+        mode,
+      });
       const localWorkContext = localItems
         .filter((item) => item.status !== "completed" && item.status !== "dismissed")
         .slice(0, 8)
@@ -2424,13 +2448,25 @@ export default function Home() {
       }
       let finalAnswer = json.answer ?? "응답이 지연되고 있습니다. 잠시 후 다시 물어봐 주세요.";
       let isFallback = json.ai_fallback;
+      let finalEvidences = json.evidences;
 
-      // 서버가 정적 폴백을 반환했다면 브라우저 로컬 모델을 먼저 시도한다.
-      if (json.ai_fallback) {
-        const localAnswer = await tryChromeCanaryFallback(question, conversationHistory, merged);
+      // 업무 데이터로 만든 서버 규칙 브리핑은 보존한다. 대화 폴백이나 빈 답변만 로컬 모델로 보강한다.
+      if (shouldUseChromeCanaryAfterServer({
+        aiFallback: json.ai_fallback,
+        answer: json.answer,
+        mode: json.mode,
+      })) {
+        const localAnswer = await tryChromeCanaryFallback(
+          question,
+          conversationHistory,
+          merged,
+          json.mode
+        );
         if (localAnswer) {
           finalAnswer = localAnswer;
           isFallback = false;
+          // 서버 RAG 근거는 온디바이스 모델이 실제로 소비하지 않았으므로 함께 표시하지 않는다.
+          finalEvidences = undefined;
         }
       }
 
@@ -2441,7 +2477,7 @@ export default function Home() {
             role: "ai",
             text: finalAnswer,
             fallback: isFallback,
-            evidences: json.evidences,
+            evidences: finalEvidences,
             mode: json.mode,
           },
         ]);
@@ -2453,7 +2489,12 @@ export default function Home() {
         return error.message;
       }
       // 네트워크·서버 오류에서도 정적 메시지보다 브라우저 로컬 모델을 우선한다.
-      const localAnswer = await tryChromeCanaryFallback(question, conversationHistory, merged);
+      const localAnswer = await tryChromeCanaryFallback(
+        question,
+        conversationHistory,
+        merged,
+        options?.explicitMode === "talk" ? "social" : "work"
+      );
       if (localAnswer) {
         if (persistToFeed) {
           setCopilotMessages((prev) => [

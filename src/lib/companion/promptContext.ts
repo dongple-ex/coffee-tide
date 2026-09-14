@@ -54,6 +54,7 @@ export function buildCompanionContextPackage(params: {
       level,
       title: spec.title,
       allowedToneTraits,
+      preferredAddress: params.profile?.preferredAddress?.trim().slice(0, 40) || undefined,
     },
     currentMode: params.currentMode || params.profile?.currentMode || "momentum",
     sessionSummary: params.sessionSummary,
@@ -70,6 +71,12 @@ export function formatCompanionContextPrompt(pkg: CompanionContextPackage): stri
     `- 현재 작업 모드: ${pkg.currentMode}`,
     `- 허용된 상호작용 특성: ${pkg.relationship.allowedToneTraits.join(", ")}`,
   ];
+
+  if (pkg.relationship.preferredAddress) {
+    lines.push(`- 사용자가 확인한 호칭: ${pkg.relationship.preferredAddress}`);
+  } else {
+    lines.push("- 확인된 사용자 호칭 없음: 직책이나 호칭을 추측하지 말 것");
+  }
 
   if (pkg.sessionSummary) {
     lines.push(`- 세션 요약: ${pkg.sessionSummary}`);

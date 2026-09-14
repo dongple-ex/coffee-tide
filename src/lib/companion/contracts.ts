@@ -228,6 +228,7 @@ export interface CompanionContextPackage {
     level: number;
     title: string;
     allowedToneTraits: string[];
+    preferredAddress?: string;
   };
   currentMode: CompanionCurrentMode;
   sessionSummary?: string;

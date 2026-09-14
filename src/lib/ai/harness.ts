@@ -195,6 +195,8 @@ export interface CopilotUserConfig {
 
 export interface CopilotPromptOptions {
   mode?: ConversationTurnMode;
+  /** 서버에서 검증한 관계 단계·기억 컨텍스트. 사용자 입력과 분리해 시스템 영역에 둡니다. */
+  companionContext?: string;
 }
 
 export const DEFAULT_COPILOT_CONFIG: CopilotUserConfig = {
@@ -258,6 +260,7 @@ export function buildCopilotSystemInstruction(
   const toneDesc = getToneDescription(cfg);
   const customInstr = sanitizeCustomInstructions(cfg.customInstructions);
   const mode = options?.mode ?? "work";
+  const companionContext = options?.companionContext?.trim().slice(0, 2_000);
 
   const timeEstimateDirective = cfg.includeTimeEstimate
     ? "- 각 주요 업무 항목에 예상 소요시간(예: [예상 30분])을 합리적으로 추정하여 함께 표시하세요."
@@ -311,5 +314,10 @@ ${timeEstimateDirective ? `${timeEstimateDirective}\n` : ""}${
   }
 ${modeDirective[mode]}
 
-${briefingStructure}`;
+${briefingStructure}${companionContext ? `
+
+[TRUSTED COMPANION RELATIONSHIP CONTEXT]
+${companionContext}
+- 관계 단계는 말투의 거리감에만 반영하고 업무 사실, 날짜, 근거, 권한 규칙보다 우선하지 않습니다.
+- 관계 레벨과 내부 특성 이름은 사용자에게 직접 노출하지 않습니다.` : ""}`;
 }

@@ -217,6 +217,7 @@ export interface CopilotConversationOptions {
   mode?: ConversationTurnMode;
   history?: ConversationHistoryTurn[];
   allowCloudTools?: boolean;
+  companionContext?: string;
 }
 
 function functionCalls(content?: GeminiContent): GeminiFunctionCall[] {
@@ -422,7 +423,10 @@ export async function askCopilot(
     return { answer: copilotBriefing(classifyAll(items), dateLabel, question, config), aiUsed: false };
   }
 
-  const system = buildCopilotSystemInstruction(dateLabel, timezone, config, { mode });
+  const system = buildCopilotSystemInstruction(dateLabel, timezone, config, {
+    mode,
+    companionContext: conversationOptions?.companionContext,
+  });
 
   const context = items
     // 최근 Spark 리포트는 완료 상태여도 자동 브리핑의 근거이므로 전달한다.

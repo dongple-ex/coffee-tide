@@ -27,4 +27,21 @@ describe("buildCopilotSystemInstruction conversation modes", () => {
     expect(prompt).toContain("생산성 조언을 하지 마세요");
     expect(prompt).toContain("업무 브리핑 형식과 Spark 섹션을 사용하지 마세요");
   });
+
+  it("keeps verified companion context in the trusted system section", () => {
+    const prompt = buildCopilotSystemInstruction(
+      "2026년 9월 14일",
+      "Asia/Seoul",
+      { customInstructions: "답변은 짧게" },
+      {
+        mode: "work",
+        companionContext: "- 관계 단계: Lv.4 각별한 파트너\n- 사용자가 확인한 호칭: 대표님",
+      }
+    );
+
+    expect(prompt).toContain("[TRUSTED COMPANION RELATIONSHIP CONTEXT]");
+    expect(prompt).toContain("Lv.4 각별한 파트너");
+    expect(prompt).toContain("사용자가 확인한 호칭: 대표님");
+    expect(prompt).toContain("관계 단계는 말투의 거리감에만 반영");
+  });
 });
