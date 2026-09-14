@@ -7,30 +7,72 @@ import type { UnifiedData } from "@/lib/types/unified";
 export interface UseManualItemsOptions {
   showToast?: (message: string) => void;
   onTaskCompleted?: () => void;
+  storageScope?: string;
+}
+
+export function manualItemsStorageKey(storageScope: string): string {
+  const normalized = storageScope.trim().replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 80);
+  return `${LS_MANUAL}:${normalized || "guest"}`;
+}
+
+function loadInitialManualItems(storageScope: string): UnifiedData[] {
+  const scopedKey = manualItemsStorageKey(storageScope);
+  const scoped = loadLS<UnifiedData[] | null>(scopedKey, null);
+  if (scoped) return scoped;
+  if (storageScope !== "guest") return [];
+
+  const legacy = loadLS<UnifiedData[]>(LS_MANUAL, []);
+  if (legacy.length > 0) {
+    saveLS(scopedKey, legacy);
+    localStorage.removeItem(LS_MANUAL);
+  }
+  return legacy;
 }
 
 /**
  * 수동 등록 업무(manualItems)의 상태 및 로컬 스토리지 동기화 관리 훅 (K10)
  */
 export function useManualItems(options: UseManualItemsOptions = {}) {
-  const { showToast, onTaskCompleted } = options;
+  const { showToast, onTaskCompleted, storageScope = "guest" } = options;
 
   const [manualItems, setManualItems] = useState<UnifiedData[]>(() =>
-    loadLS<UnifiedData[]>(LS_MANUAL, [])
+    loadInitialManualItems(storageScope)
   );
 
   const quotaWarnedRef = useRef(false);
+  const activeScopeRef = useRef(storageScope);
+  const skipNextPersistRef = useRef(false);
+
+  useEffect(() => {
+    if (activeScopeRef.current === storageScope) return;
+    const previousScope = activeScopeRef.current;
+    const storedItems = loadInitialManualItems(storageScope);
+    const nextItems = previousScope === "guest" && storageScope !== "guest"
+      ? Array.from(new Map([...storedItems, ...manualItems].map((item) => [item.id, item])).values())
+      : storedItems;
+
+    if (previousScope === "guest" && storageScope !== "guest") {
+      saveLS(manualItemsStorageKey("guest"), []);
+    }
+    activeScopeRef.current = storageScope;
+    skipNextPersistRef.current = true;
+    setManualItems(nextItems);
+  }, [manualItems, storageScope]);
 
   // 로컬 스토리지 자동 저장
   useEffect(() => {
-    const ok = saveLS(LS_MANUAL, manualItems);
+    if (skipNextPersistRef.current) {
+      skipNextPersistRef.current = false;
+      return;
+    }
+    const ok = saveLS(manualItemsStorageKey(storageScope), manualItems);
     if (!ok && !quotaWarnedRef.current) {
       quotaWarnedRef.current = true;
       showToast?.("앗, 저장 공간이 가득 차서 새 항목을 못 담고 있어요. 큰 업로드 항목을 몇 개 삭제해 주세요.");
     } else if (ok) {
       quotaWarnedRef.current = false;
     }
-  }, [manualItems, showToast]);
+  }, [manualItems, showToast, storageScope]);
 
   // AI 자동 분류 호출
   const classifyManualItem = useCallback(async (item: UnifiedData) => {

@@ -14,6 +14,36 @@ export interface GuestCloudMergeResult {
   duplicateCount: number;
 }
 
+export const SYNC_CONFLICT_FIELDS = [
+  "title",
+  "content",
+  "status",
+  "category",
+  "actionDirective",
+  "workNote",
+  "subTasks",
+  "rawContent",
+  "driveUrl",
+  "itemType",
+  "sourceRef",
+  "occurredAt",
+  "attributes",
+  "privacyScope",
+  "aiPolicy",
+  "deletedAt",
+] as const satisfies ReadonlyArray<keyof WorkspaceItem>;
+
+export type SyncConflictField = (typeof SYNC_CONFLICT_FIELDS)[number];
+
+export function getSyncConflictFields(
+  localItem: WorkspaceItem,
+  serverItem: WorkspaceItem
+): SyncConflictField[] {
+  return SYNC_CONFLICT_FIELDS.filter((field) =>
+    JSON.stringify(localItem[field] ?? null) !== JSON.stringify(serverItem[field] ?? null)
+  );
+}
+
 function normalizeText(text?: string): string {
   return (text || "").trim().toLowerCase().replace(/\s+/g, " ");
 }
@@ -32,7 +62,7 @@ export function isDuplicateContent(a: WorkspaceItem, b: WorkspaceItem): boolean 
 
 /**
  * 로컬 항목과 서버 항목을 비교하여 충돌 여부를 감지하고 안전하게 병합합니다.
- * content, status, workNote, subTasks가 양쪽에서 다르게 변경되었거나 한쪽이 삭제된 경우 자동 덮어쓰지 않고 충돌을 생성합니다.
+ * 서버에서 갱신 가능한 업무 필드가 양쪽에서 다르거나 한쪽이 삭제된 경우 자동 덮어쓰지 않고 충돌을 생성합니다.
  */
 export function mergeItemChanges(
   localItem: WorkspaceItem,
@@ -53,24 +83,7 @@ export function mergeItemChanges(
   }
 
   // 2. 필드 비교
-  const conflictFields: string[] = [];
-  const fieldsToCheck: Array<keyof WorkspaceItem> = [
-    "content",
-    "status",
-    "workNote",
-    "subTasks",
-    "title",
-    "rawContent",
-  ];
-
-  for (const field of fieldsToCheck) {
-    const localVal = JSON.stringify(localItem[field] ?? null);
-    const serverVal = JSON.stringify(serverItem[field] ?? null);
-
-    if (localVal !== serverVal) {
-      conflictFields.push(String(field));
-    }
-  }
+  const conflictFields = getSyncConflictFields(localItem, serverItem);
 
   // 내용 변경이 전혀 없는 경우
   if (conflictFields.length === 0) {

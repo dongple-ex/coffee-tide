@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import IcedAmericano from "./icedAmericano";
 import { UiIcon } from "./UiIcon";
+import { useHasUnseenUpdate } from "@/lib/appVersion";
 import styles from "../page.module.css";
 
 export type Theme = "dark" | "light" | "simple" | "notebook" | "coffee" | "mega" | "kustom";
@@ -33,6 +34,7 @@ export function HeaderControls({
   onOpenArchive,
 }: HeaderControlsProps) {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const hasUpdate = useHasUnseenUpdate();
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: Event) => {
@@ -101,9 +103,11 @@ export function HeaderControls({
             aria-expanded={showConn}
             aria-haspopup="dialog"
             aria-label="설정 열기/닫기"
+            title={hasUpdate ? "새로운 업데이트가 있습니다" : undefined}
           >
             <UiIcon name="settings" size={14} />
             설정
+            {hasUpdate && <span className={styles.headerUpdateDot} aria-label="새 버전 업데이트 있음" />}
           </button>
           <button className={styles.logoutBtnSmall} onClick={onLogoutHandoff}>
             퇴근하기

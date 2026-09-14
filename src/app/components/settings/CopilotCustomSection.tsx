@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { CopilotUserConfig, PERSONA_PRESETS, PersonaPreset } from "@/lib/ai/harness";
 import type { CompanionFeatureStatus } from "@/lib/companion/contracts";
 import { UiIcon } from "../UiIcon";
@@ -40,6 +40,32 @@ export function CopilotCustomSection({
   const [companionStatusLoading, setCompanionStatusLoading] = useState(true);
   const [companionStatusMessage, setCompanionStatusMessage] = useState<string | null>(null);
   const currentName = config.baristaName ?? "AI 바리스타";
+  const galleryRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = galleryRef.current;
+    if (!el) return;
+
+    const onWheel = (e: WheelEvent) => {
+      if (el.scrollWidth <= el.clientWidth) return;
+      const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+      if (delta === 0) return;
+
+      const isAtStart = el.scrollLeft <= 0 && delta < 0;
+      const isAtEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - 1 && delta > 0;
+      if (isAtStart || isAtEnd) {
+        return;
+      }
+
+      e.preventDefault();
+      el.scrollLeft += delta;
+    };
+
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => {
+      el.removeEventListener("wheel", onWheel);
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -156,7 +182,17 @@ export function CopilotCustomSection({
       </div>
 
       {/* 🏷️ 카테고리 필터 탭 */}
-      <div style={{ display: "flex", gap: "6px", overflowX: "auto", paddingBottom: "8px", marginBottom: "12px" }}>
+      <div
+        style={{
+          display: "flex",
+          gap: "6px",
+          overflowX: "auto",
+          paddingBottom: "8px",
+          marginBottom: "12px",
+          scrollbarWidth: "none",
+          WebkitOverflowScrolling: "touch",
+        }}
+      >
         {CATEGORY_TABS.map((tab) => (
           <button
             key={tab.id}
@@ -181,17 +217,22 @@ export function CopilotCustomSection({
         ))}
       </div>
 
-      {/* 🌟 뤼튼 크랙 감성 캐릭터 카드 갤러리 */}
+      {/* 🌟 뤼튼 크랙 감성 캐릭터 카드 갤러리 (좌우 스크롤) */}
       <div style={{ marginBottom: "16px" }}>
         <div
+          ref={galleryRef}
           style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
+            display: "flex",
+            flexDirection: "row",
+            alignItems: "stretch",
             gap: "10px",
-            maxHeight: "320px",
-            overflowY: "auto",
-            padding: "4px",
+            overflowX: "auto",
+            overflowY: "hidden",
+            padding: "4px 2px 12px 2px",
             borderRadius: "8px",
+            scrollBehavior: "smooth",
+            WebkitOverflowScrolling: "touch",
+            scrollbarWidth: "thin",
           }}
         >
           {filteredPresets.map((preset) => {
@@ -205,6 +246,9 @@ export function CopilotCustomSection({
                 key={preset.id}
                 onClick={() => handleSelectPreset(preset)}
                 style={{
+                  flex: "0 0 200px",
+                  minWidth: "200px",
+                  maxWidth: "220px",
                   padding: "10px 12px",
                   borderRadius: "10px",
                   backgroundColor: isSelected ? "rgba(56, 189, 248, 0.12)" : "rgba(255, 255, 255, 0.03)",

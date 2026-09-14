@@ -19,7 +19,8 @@ import { WeatherSection } from "./settings/WeatherSection";
 import { LocalToolsSection } from "./settings/LocalToolsSection";
 import { DataStorageSection } from "./settings/DataStorageSection";
 import { WeatherData } from "./WelcomeCard";
-import { APP_VERSION } from "@/lib/appVersion";
+import { APP_VERSION, setLastSeenVersion, useHasUnseenUpdate } from "@/lib/appVersion";
+import { WhatsNewModal } from "./version/WhatsNewModal";
 import { ViewWindowSetting, WINDOW_TIERS_DAYS } from "@/lib/collectWindow";
 import type { Theme } from "./HeaderControls";
 import { UiIcon } from "./UiIcon";
@@ -189,6 +190,8 @@ export function SettingsModal({
   const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab);
   const settingsTabBarRef = useRef<HTMLDivElement>(null);
   const [accountDeleteBusy, setAccountDeleteBusy] = useState(false);
+  const [showWhatsNew, setShowWhatsNew] = useState(false);
+  const hasUpdate = useHasUnseenUpdate();
 
   const selectSettingsTab = useCallback((tab: SettingsTab) => {
     setActiveTab(tab);
@@ -271,6 +274,18 @@ export function SettingsModal({
 
   const displayEmail = accountEmail || connections?.googleEmail || connections?.outlookEmail || "게스트";
 
+  if (showWhatsNew) {
+    return (
+      <WhatsNewModal
+        compactMode={compactMode}
+        onClose={() => setShowWhatsNew(false)}
+        onAcknowledged={() => {
+          setLastSeenVersion();
+        }}
+      />
+    );
+  }
+
   return (
     <div className={`${styles.overlay} ${styles.overlayTop}`} onClick={onClose}>
       <div
@@ -285,15 +300,30 @@ export function SettingsModal({
         <div className={styles.settingsStickyShell}>
           {/* 1단: 설정 타이틀 & 버전 & 닫기 버튼 */}
           <div className={styles.stickyModalHeader}>
-            <div className={styles.cardTitle} style={{ margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
-              <UiIcon name="settings" size={20} />
-              <span>설정</span>
-              <span
+            <div
+              className={styles.cardTitle}
+              style={{
+                margin: 0,
+                display: "flex",
+                alignItems: "center",
+                gap: compactMode ? 6 : 8,
+                whiteSpace: "nowrap",
+                flexShrink: 0,
+                minWidth: 0,
+              }}
+            >
+              <UiIcon name="settings" size={compactMode ? 18 : 20} />
+              <span style={{ whiteSpace: "nowrap", flexShrink: 0 }}>설정</span>
+              <button
+                type="button"
                 className={styles.appVersionBadge}
-                aria-label={`coffeeTide 버전 ${APP_VERSION}`}
+                onClick={() => setShowWhatsNew(true)}
+                title="coffeeTide 업데이트 소식 보기"
+                aria-label={`coffeeTide 버전 ${APP_VERSION}, 업데이트 소식 보기`}
               >
                 {APP_VERSION}
-              </span>
+                {hasUpdate && <span className={styles.appVersionNewTag}>NEW</span>}
+              </button>
             </div>
             <button
               className={styles.iconBtn}

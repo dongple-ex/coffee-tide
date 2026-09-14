@@ -1,0 +1,402 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* 기본 일반 뷰 (Normal View) */
+.modal {
+  background: var(--card-bg, #ffffff);
+  color: var(--text, #1f2937);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 16px;
+  box-shadow: 0 20px 30px -8px rgba(0, 0, 0, 0.25), 0 10px 15px -5px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-width: 520px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: slideUp 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideUp {
+  from { transform: translateY(14px) scale(0.98); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border, #e5e7eb);
+  background: color-mix(in srgb, var(--card-bg, #ffffff) 85%, var(--accent, #6366f1) 15%);
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.titleArea {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.icon {
+  font-size: 1.3rem;
+  flex-shrink: 0;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.closeBtn {
+  background: none;
+  border: none;
+  font-size: 1.15rem;
+  color: var(--text-dim, #6b7280);
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 8px;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.closeBtn:hover {
+  background: color-mix(in srgb, var(--border, #e5e7eb) 50%, transparent);
+  color: var(--text, #1f2937);
+}
+
+.body {
+  padding: 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  flex: 1;
+}
+
+.latestSection {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.versionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.versionBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--accent, #6366f1);
+  color: #ffffff;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 9999px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.versionDate {
+  font-size: 0.78rem;
+  color: var(--text-dim, #6b7280);
+}
+
+.releaseTitle {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text, #111827);
+  line-height: 1.4;
+}
+
+.releaseSummary {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-dim, #4b5563);
+  line-height: 1.5;
+}
+
+.itemsList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.itemCard {
+  background: color-mix(in srgb, var(--bg, #f9fafb) 70%, transparent);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  transition: border-color 0.15s;
+}
+
+.itemCard:hover {
+  border-color: color-mix(in srgb, var(--accent, #6366f1) 40%, var(--border, #e5e7eb));
+}
+
+.itemTop {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tagFeat {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: #dcfce7;
+  color: #166534;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.tagEnhance {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: #e0e7ff;
+  color: #3730a3;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.tagFix {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: #fee2e2;
+  color: #991b1b;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.itemTitle {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--text, #111827);
+  line-height: 1.35;
+}
+
+.itemDesc {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-dim, #4b5563);
+  line-height: 1.45;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+.historyToggle {
+  background: none;
+  border: 1px dashed var(--border, #e5e7eb);
+  padding: 9px;
+  border-radius: 8px;
+  color: var(--text-dim, #6b7280);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s;
+}
+
+.historyToggle:hover {
+  background: color-mix(in srgb, var(--bg, #f9fafb) 50%, transparent);
+  color: var(--text, #111827);
+  border-style: solid;
+}
+
+.historySection {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border, #e5e7eb);
+}
+
+.historyCard {
+  border-left: 3px solid var(--border, #e5e7eb);
+  padding-left: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.historyVersion {
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--text, #111827);
+}
+
+.footer {
+  padding: 12px 18px;
+  border-top: 1px solid var(--border, #e5e7eb);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  background: color-mix(in srgb, var(--card-bg, #ffffff) 95%, transparent);
+  flex-shrink: 0;
+}
+
+.confirmBtn {
+  background: var(--accent, #6366f1);
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 7px 16px;
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.confirmBtn:hover {
+  opacity: 0.9;
+}
+
+/* =======================================
+   축소 (컴팩트) 뷰 (Compact View)
+   ======================================= */
+.modalCompact {
+  max-width: 440px;
+  max-height: 88vh;
+  border-radius: 12px;
+}
+
+.headerCompact {
+  padding: 10px 14px;
+}
+
+.titleAreaCompact {
+  gap: 6px;
+}
+
+.titleAreaCompact .icon {
+  font-size: 1.15rem;
+}
+
+.titleAreaCompact .title {
+  font-size: 0.96rem;
+}
+
+.bodyCompact {
+  padding: 12px 14px;
+  gap: 12px;
+}
+
+.bodyCompact .latestSection {
+  gap: 8px;
+}
+
+.bodyCompact .releaseTitle {
+  font-size: 0.92rem;
+}
+
+.bodyCompact .releaseSummary {
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.bodyCompact .itemsList {
+  gap: 6px;
+}
+
+.bodyCompact .itemCard {
+  padding: 8px 10px;
+  gap: 3px;
+  border-radius: 8px;
+}
+
+.bodyCompact .itemTitle {
+  font-size: 0.82rem;
+}
+
+.bodyCompact .itemDesc {
+  font-size: 0.76rem;
+  line-height: 1.35;
+}
+
+.footerCompact {
+  padding: 8px 14px;
+}
+
+.footerCompact .confirmBtn {
+  padding: 6px 14px;
+  font-size: 0.82rem;
+}
+
+/* 화면 너비 480px 이하 모바일 / 좁은 창 자동 축소 뷰 */
+@media (max-width: 480px) {
+  .overlay {
+    padding: 10px;
+  }
+
+  .modal {
+    max-width: 100%;
+    max-height: 92vh;
+    border-radius: 12px;
+  }
+
+  .header {
+    padding: 10px 12px;
+  }
+
+  .title {
+    font-size: 0.95rem;
+  }
+
+  .body {
+    padding: 12px;
+    gap: 10px;
+  }
+
+  .itemCard {
+    padding: 8px 10px;
+    gap: 3px;
+    border-radius: 8px;
+  }
+
+  .itemDesc {
+    font-size: 0.76rem;
+    line-height: 1.35;
+  }
+
+  .footer {
+    padding: 8px 12px;
+  }
+}

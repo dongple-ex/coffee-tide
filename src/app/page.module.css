@@ -1508,13 +1508,11 @@
 
 .chatQuestionHeader {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: 8px;
   background: rgba(99, 102, 241, 0.08);
   border-bottom: 1px solid rgba(99, 102, 241, 0.15);
-  padding: 12px 16px;
-  font-weight: 600;
-  font-size: 0.92rem;
+  padding: 10px 14px;
   color: var(--text);
   cursor: pointer;
   user-select: none;
@@ -1537,12 +1535,36 @@
   animation: borderGlow 1.2s infinite ease-in-out;
 }
 
-.chatQuestionTitle {
+.chatQuestionTopBar {
   display: flex;
   align-items: center;
-  gap: 10px;
-  flex: 1;
-  word-break: break-all;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.chatQuestionMeta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.chatQuestionLabel {
+  opacity: 0.85;
+}
+
+.chatQuestionContent {
+  width: 100%;
+  font-size: 0.92rem;
+  font-weight: 500;
+  line-height: 1.55;
+  color: var(--text);
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  padding-left: 2px;
 }
 
 .headerRightControls {
@@ -2181,6 +2203,7 @@
   padding: 12px 0 6px;
   margin: 0;
   border-bottom: none;
+  gap: 8px;
 }
 
 .appVersionBadge {
@@ -2188,9 +2211,50 @@
   font-weight: 600;
   color: var(--text-dim);
   background: color-mix(in srgb, var(--border) 60%, transparent);
-  padding: 2px 6px;
+  padding: 2px 8px;
   border-radius: 6px;
   letter-spacing: 0.02em;
+  border: 1px solid transparent;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.appVersionBadge:hover {
+  background: color-mix(in srgb, var(--accent, #6366f1) 20%, transparent);
+  border-color: color-mix(in srgb, var(--accent, #6366f1) 40%, transparent);
+  color: var(--text);
+  transform: translateY(-1px);
+}
+
+.appVersionNewTag {
+  font-size: 0.62rem;
+  font-weight: 800;
+  background: #ef4444;
+  color: #ffffff;
+  padding: 1px 4px;
+  border-radius: 4px;
+  letter-spacing: 0.04em;
+  line-height: 1.1;
+  animation: pulseNew 2s infinite ease-in-out;
+}
+
+.headerUpdateDot {
+  width: 6px;
+  height: 6px;
+  background: #ef4444;
+  border-radius: 50%;
+  display: inline-block;
+  margin-left: -2px;
+  animation: pulseNew 2s infinite ease-in-out;
+}
+
+@keyframes pulseNew {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(0.96); }
 }
 
 .stickyModalAccountRow {
@@ -4351,31 +4415,29 @@
 
 @media (max-width: 480px) {
   .chatQuestionHeader {
-    align-items: stretch;
-    flex-direction: column;
     gap: 6px;
-    padding: 9px 10px;
-    font-size: 0.78rem;
-    line-height: 1.35;
+    padding: 8px 10px;
   }
 
-  .chatQuestionTitle {
-    gap: 5px;
-    width: 100%;
-    min-width: 0;
+  .stickyModalHeader {
+    padding: 8px 0 4px;
+    gap: 6px;
+  }
+
+  .appVersionBadge {
+    padding: 2px 6px;
+    font-size: 0.68rem;
+    gap: 4px;
+  }
+
+  .chatQuestionContent {
+    font-size: 0.86rem;
+    line-height: 1.45;
     word-break: keep-all;
     overflow-wrap: anywhere;
   }
 
-  .chatQuestionTitle svg {
-    width: 13px;
-    height: 13px;
-    flex: 0 0 auto;
-  }
-
   .headerRightControls {
-    order: -1;
-    align-self: flex-end;
     gap: 4px;
     flex: 0 0 auto;
   }

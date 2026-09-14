@@ -53,7 +53,6 @@ import {
   LS_HANDOFF_STATE,
   LS_COMPACT_MODE,
   LS_VIEW_WINDOW,
-  LS_MANUAL,
   LS_RULES,
   LS_SUB_TASKS,
   LS_THEME,
@@ -61,7 +60,7 @@ import {
   DEFAULT_COMMUTE_TIMETABLES,
 } from "@/lib/localStore";
 import { useModalA11y } from "./hooks/useModalA11y";
-import { useManualItems } from "./hooks/useManualItems";
+import { manualItemsStorageKey, useManualItems } from "./hooks/useManualItems";
 import { useWeather } from "./hooks/useWeather";
 import { usePushSubscription } from "./hooks/usePushSubscription";
 import { HeaderControls, Theme } from "./components/HeaderControls";
@@ -307,6 +306,10 @@ export default function Home() {
   const [phase, setPhase] = useState<Phase>("loading");
   const [authUserEmail, setAuthUserEmail] = useState<string>();
   const userScope = useMemo(() => computeUserScope(authUserEmail), [authUserEmail]);
+  const manualStorageKey = useMemo(
+    () => manualItemsStorageKey(userScope ?? "guest"),
+    [userScope]
+  );
   const [authBusy, setAuthBusy] = useState(false);
   const [authError, setAuthError] = useState<string>();
   const [integrationError, setIntegrationError] = useState<string | null>(null);
@@ -328,7 +331,7 @@ export default function Home() {
     setLocalStatus: setLocalStatusHook,
     deleteLocal,
     classifyManualItem,
-  } = useManualItems({ showToast });
+  } = useManualItems({ showToast, storageScope: userScope ?? "guest" });
 
   const {
     weatherEnabled,
@@ -377,7 +380,7 @@ export default function Home() {
     retrySync,
     resolveConflict,
     dismissConflict,
-  } = useCloudSync();
+  } = useCloudSync(userScope ?? "guest");
   const cloudHydratedRef = useRef(false);
   // 하이드레이션 요청의 단일 비행 보장 (StrictMode 이중 실행·리렌더 재발사 방지)
   const cloudHydrationStartedRef = useRef(false);
@@ -1672,7 +1675,7 @@ export default function Home() {
           }
           setWorkNotes(restoredWorkNotes);
           setSubTasksMap(restoredSubTasks);
-          saveLS(LS_MANUAL, cloudState.items);
+          saveLS(manualStorageKey, cloudState.items);
           saveLS(LS_CUSTOM_WIDGETS, cloudState.widgets);
           saveLS(LS_RULES, cloudState.rules);
           saveLS(LS_DISMISSED, cloudState.dismissedIds);
@@ -1697,7 +1700,7 @@ export default function Home() {
       // 완료 전에 이펙트가 정리되면(로그아웃 등) 다음 ready 진입 시 다시 시도할 수 있게 되돌린다
       if (!cloudHydratedRef.current) cloudHydrationStartedRef.current = false;
     };
-  }, [phase, fetchUserData, setManualItems, syncUserData]);
+  }, [phase, fetchUserData, manualStorageKey, setManualItems, syncUserData]);
 
   useEffect(() => {
     if (phase !== "ready" || !cloudHydratedRef.current) return;
@@ -1786,7 +1789,7 @@ export default function Home() {
     const onStorage = (e: StorageEvent) => {
       if (e.newValue === null) return;
       try {
-        if (e.key === LS_MANUAL) setManualItems(JSON.parse(e.newValue));
+        if (e.key === manualStorageKey) setManualItems(JSON.parse(e.newValue));
         else if (e.key === LS_RULES) setRules(JSON.parse(e.newValue));
         else if (e.key === LS_DISMISSED) setDismissed(JSON.parse(e.newValue));
         else if (e.key === LS_FOLLOWUP) setFollowupHours(JSON.parse(e.newValue));
@@ -1797,7 +1800,7 @@ export default function Home() {
     };
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
-  }, [setManualItems]);
+  }, [manualStorageKey, setManualItems]);
 
   // 드라이브 영구 저장은 Google 연동 시에만 기본 ON (정본 원칙 3: 연동은 증강 기능 —
   // 무연동 사용자의 기본 업로드 경로가 '연동하라'는 에러로 시작되면 안 된다).
@@ -4050,18 +4053,18 @@ export default function Home() {
 
       {syncConflicts.length > 0 && (
         <SyncConflictModal
+          key={syncConflicts[0]?.itemId}
           conflict={syncConflicts[0] ?? null}
           onClose={() => {
             const conflict = syncConflicts[0];
             if (conflict) dismissConflict(conflict.itemId);
             showToast("동기화 충돌은 다음 동기화 때 다시 안내할게요.");
           }}
-          onResolve={(choice, conflict) => {
-            void resolveConflict(choice, conflict).then((items) => {
-              const unifiedItems = items as UnifiedData[];
-              setManualItems(unifiedItems);
-              saveLS(LS_MANUAL, unifiedItems);
-            });
+          onResolve={async (choice, conflict) => {
+            const items = await resolveConflict(choice, conflict);
+            const unifiedItems = items as UnifiedData[];
+            setManualItems(unifiedItems);
+            saveLS(manualStorageKey, unifiedItems);
           }}
         />
       )}

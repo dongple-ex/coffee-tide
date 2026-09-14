@@ -40,6 +40,8 @@ export interface SyncConflict {
   resolved: boolean;
 }
 
+export type SyncConflictChoice = "keep_local" | "keep_server" | "keep_both";
+
 export interface SyncStatusSummary {
   userId?: string;
   deviceId: string;

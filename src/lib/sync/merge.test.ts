@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { mergeGuestAndCloudItems, mergeItemChanges } from "./merge";
+import { getSyncConflictFields, mergeGuestAndCloudItems, mergeItemChanges } from "./merge";
 import type { WorkspaceItem } from "../data/contracts";
 
 describe("Phase 14-03: 항목 단위 동기화 및 병합/충돌 테스트", () => {
@@ -82,6 +82,46 @@ describe("Phase 14-03: 항목 단위 동기화 및 병합/충돌 테스트", () 
     expect(result.hasConflict).toBe(true);
     expect(result.conflict).toBeDefined();
     expect(result.conflict?.serverItem.deletedAt).toBeDefined();
+    expect(getSyncConflictFields(localModified, serverDeleted)).toContain("deletedAt");
+  });
+
+  it("모달에 표시할 상태·하위 작업·원문 차이를 모두 식별한다", () => {
+    const local = {
+      ...baseItem,
+      status: "pending" as const,
+      subTasks: [{ id: "sub-1", title: "로컬 작업", completed: false }],
+      rawContent: "로컬 원문",
+    };
+    const server = {
+      ...baseItem,
+      status: "completed" as const,
+      subTasks: [{ id: "sub-1", title: "서버 작업", completed: true }],
+      rawContent: "서버 원문",
+    };
+
+    expect(getSyncConflictFields(local, server)).toEqual(
+      expect.arrayContaining(["status", "subTasks", "rawContent"])
+    );
+  });
+
+  it("분류·추가 속성·보관 범위 차이도 손실 없이 충돌로 식별한다", () => {
+    const local: WorkspaceItem = {
+      ...baseItem,
+      category: "urgent",
+      attributes: { project: "local" },
+      privacyScope: "local_only",
+    };
+    const server: WorkspaceItem = {
+      ...baseItem,
+      category: "reference",
+      attributes: { project: "cloud" },
+      privacyScope: "cloud_private",
+    };
+
+    expect(getSyncConflictFields(local, server)).toEqual(
+      expect.arrayContaining(["category", "attributes", "privacyScope"])
+    );
+    expect(mergeItemChanges(local, server).hasConflict).toBe(true);
   });
 
   it("동일 내용(제목/본문) 중복 항목은 duplicate로 감지하여 업로드 목록에서 제외한다", () => {

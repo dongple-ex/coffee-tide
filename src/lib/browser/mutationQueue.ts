@@ -9,7 +9,6 @@ import {
   idbGetMeta,
   idbGetMutations,
   idbDeleteItems,
-  idbRemoveConflict,
   idbRemoveMutations,
   idbSaveConflict,
   idbSaveItems,
@@ -22,23 +21,24 @@ function generateUUID(): string {
   return generateId("mut");
 }
 
-export async function getOrCreateDeviceId(): Promise<string> {
-  const existing = await idbGetMeta("deviceId");
+export async function getOrCreateDeviceId(ownerScope: string): Promise<string> {
+  const existing = await idbGetMeta(ownerScope, "deviceId");
   if (existing) return existing;
 
   const newId = "dev-" + generateUUID();
-  await idbSetMeta("deviceId", newId);
+  await idbSetMeta(ownerScope, "deviceId", newId);
   return newId;
 }
 
 export async function queueMutation(
+  ownerScope: string,
   itemId: string,
   operation: MutationOperation,
   baseVersion?: number,
   payload?: Partial<WorkspaceItem>
 ): Promise<SyncMutation> {
-  const deviceId = await getOrCreateDeviceId();
-  const existing = (await idbGetMutations())
+  const deviceId = await getOrCreateDeviceId(ownerScope);
+  const existing = (await idbGetMutations(ownerScope))
     .filter((mutation) => mutation.itemId === itemId)
     .sort((a, b) => a.clientCreatedAt.localeCompare(b.clientCreatedAt));
 
@@ -48,7 +48,7 @@ export async function queueMutation(
       ...pendingCreate,
       payload: { ...(pendingCreate.payload || {}), ...(payload || {}) },
     };
-    await idbSaveMutation(mergedCreate);
+    await idbSaveMutation(ownerScope, mergedCreate);
     return mergedCreate;
   }
 
@@ -59,7 +59,7 @@ export async function queueMutation(
       baseVersion: pendingUpdate.baseVersion ?? baseVersion,
       payload: { ...(pendingUpdate.payload || {}), ...(payload || {}) },
     };
-    await idbSaveMutation(mergedUpdate);
+    await idbSaveMutation(ownerScope, mergedUpdate);
     return mergedUpdate;
   }
 
@@ -70,7 +70,7 @@ export async function queueMutation(
     const obsoleteUpdates = existing
       .filter((mutation) => mutation.operation === "update")
       .map((mutation) => mutation.mutationId);
-    if (obsoleteUpdates.length > 0) await idbRemoveMutations(obsoleteUpdates);
+    if (obsoleteUpdates.length > 0) await idbRemoveMutations(ownerScope, obsoleteUpdates);
   }
 
   const mutation: SyncMutation = {
@@ -83,7 +83,7 @@ export async function queueMutation(
     clientCreatedAt: new Date().toISOString(),
   };
 
-  await idbSaveMutation(mutation);
+  await idbSaveMutation(ownerScope, mutation);
   return mutation;
 }
 
@@ -97,9 +97,10 @@ export interface FlushResult {
 }
 
 export async function flushMutationQueue(
+  ownerScope: string,
   currentItems: WorkspaceItem[]
 ): Promise<FlushResult> {
-  const mutations = (await idbGetMutations()).sort((a, b) =>
+  const mutations = (await idbGetMutations(ownerScope)).sort((a, b) =>
     a.clientCreatedAt.localeCompare(b.clientCreatedAt)
   );
   if (mutations.length === 0) {
@@ -140,9 +141,9 @@ export async function flushMutationQueue(
         if (result.status === "applied") appliedCount++;
         if (result.status === "duplicate") duplicateCount++;
         if (result.serverItem?.deletedAt) {
-          await idbDeleteItems([result.serverItem.id]);
+          await idbDeleteItems(ownerScope, [result.serverItem.id]);
         } else if (result.serverItem) {
-          await idbSaveItems([result.serverItem]);
+          await idbSaveItems(ownerScope, [result.serverItem]);
         }
       } else if (result.status === "conflict" && result.serverItem) {
         conflictCount++;
@@ -171,7 +172,7 @@ export async function flushMutationQueue(
             resolved: false,
           };
           conflictsFound.push(conflict);
-          await idbSaveConflict(conflict);
+          await idbSaveConflict(ownerScope, conflict);
         }
       } else {
         rejectedCount++;
@@ -179,7 +180,7 @@ export async function flushMutationQueue(
     }
 
     if (appliedIds.length > 0) {
-      await idbRemoveMutations(appliedIds);
+      await idbRemoveMutations(ownerScope, appliedIds);
     }
 
     return {
@@ -202,13 +203,20 @@ export async function flushMutationQueue(
   }
 }
 
-export async function resolveConflictInQueue(itemId: string): Promise<void> {
-  const pending = await idbGetMutations();
-  const staleMutationIds = pending
-    .filter((mutation) => mutation.itemId === itemId)
-    .map((mutation) => mutation.mutationId);
-  if (staleMutationIds.length > 0) {
-    await idbRemoveMutations(staleMutationIds);
-  }
-  await idbRemoveConflict(itemId);
+export async function buildConflictResolutionMutation(
+  ownerScope: string,
+  itemId: string,
+  operation: MutationOperation,
+  baseVersion?: number,
+  payload?: Partial<WorkspaceItem>
+): Promise<SyncMutation> {
+  return {
+    mutationId: generateUUID(),
+    deviceId: await getOrCreateDeviceId(ownerScope),
+    itemId,
+    operation,
+    baseVersion,
+    payload,
+    clientCreatedAt: new Date().toISOString(),
+  };
 }
