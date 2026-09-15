@@ -1,0 +1,16 @@
+.backdrop { position: fixed; inset: 0; z-index: 1600; background: #0007; display: grid; place-items: center; padding: 20px; }
+.dialog { width: min(440px, 100%); max-height: 90vh; overflow-y: auto; background: var(--card, #fff); color: var(--text, #222); border: 1px solid var(--border, #ddd); border-radius: 20px; padding: 24px; box-shadow: 0 20px 60px #0004; text-align: left; font-weight: 400; }
+.dialog header { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.dialog h2 { margin: 0; font-size: 1.1rem; }
+.dialog p { font-size: .85rem; line-height: 1.7; }
+.dialog button { border: 1px solid var(--border, #ddd); background: var(--accent, #ad7450); color: var(--accent-contrast, #fff); border-radius: 9px; padding: 9px 13px; cursor: pointer; }
+.dialog header button { background: transparent; color: inherit; }
+.dialog button:disabled { opacity: .5; cursor: not-allowed; }
+.dialog label { display: block; font-size: .82rem; margin: 22px 0 8px; }
+.codeRow { display: flex; gap: 8px; }
+.codeRow input { width: 100%; min-width: 0; font-family: monospace; font-size: 1.3rem; letter-spacing: .25em; padding: 10px; border: 1px solid var(--border, #ccc); border-radius: 9px; background: var(--bg, #fafafa); color: inherit; }
+.codeRow button { flex-shrink: 0; }
+.note { color: var(--text-dim, #666); border-top: 1px solid var(--border, #ddd); padding-top: 14px; margin-bottom: 0; }
+.error { color: #c85645; }
+.connected { margin-top: 20px; }
+.connected button { margin-right: 8px; }

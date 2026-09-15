@@ -6,6 +6,7 @@ import { CafeBaristaScene } from "./CafeBaristaScene";
 import { IDLE_TALK_POOL, formatIdleTalkForPersona, IdleMessageItem } from "@/lib/ai/baristaIdleTalks";
 import { getPersonaEffect } from "@/lib/ai/personaEffects";
 import { AffectionBadge } from "./AffectionBadge";
+import { DesktopBaristaConnector } from "./DesktopBaristaConnector";
 import styles from "../../page.module.css";
 
 const emptySubscribe = () => () => {};
@@ -20,6 +21,7 @@ export interface BaristaIdleCompanionProps {
     previousTurn?: { userText: string; aiText: string }
   ) => Promise<string | undefined> | void;
   enabled?: boolean;
+  desktopPipEnabled?: boolean;
 }
 
 export function BaristaIdleCompanion({
@@ -29,11 +31,18 @@ export function BaristaIdleCompanion({
   onOpenCopilot,
   onSendMessage,
   enabled = true,
+  desktopPipEnabled = true,
 }: BaristaIdleCompanionProps) {
   const isClient = useSyncExternalStore(emptySubscribe, () => true, () => false);
   const [isVisible, setIsVisible] = useState(false);
   const [isCardOpen, setIsCardOpen] = useState(false);
   const [isPanelMinimized, setIsPanelMinimized] = useState(false);
+  const [isPipOpen, setIsPipOpen] = useState(false);
+  useEffect(() => {
+    const open = () => setIsPipOpen(true);
+    window.addEventListener("coffeetide:open-desktop-barista", open);
+    return () => window.removeEventListener("coffeetide:open-desktop-barista", open);
+  }, []);
   const [currentItem, setCurrentItem] = useState<IdleMessageItem>(() => IDLE_TALK_POOL[0]);
   const [dynamicTalk, setDynamicTalk] = useState<{ title: string; content: string } | null>(null);
   const [inlineChat, setInlineChat] = useState<{
@@ -184,8 +193,6 @@ export function BaristaIdleCompanion({
     }
   };
 
-  if (!enabled || !isVisible) return null;
-
   // 동적으로 가져온 대사가 있으면 우선 사용하고, 없으면 로컬 최신 유머 풀 기반 포맷팅
   const localFormatted = formatIdleTalkForPersona(currentItem, presetId, baristaName);
   const thinkingMessage =
@@ -211,6 +218,7 @@ export function BaristaIdleCompanion({
 
   return (
     <>
+      {isVisible && <>
       {/* 탭바 우측 상단에 위치할 미니 마스코트 아바타 */}
       <div 
         className={styles.baristaIdleMascotContainer}
@@ -275,6 +283,21 @@ export function BaristaIdleCompanion({
                 <span aria-live="polite">{dockStatus}</span>
               </span>
             </button>
+            {desktopPipEnabled && (
+              <button
+                type="button"
+                className={styles.baristaIdleDockClose}
+                onClick={() => {
+                  setIsPipOpen(true);
+                  setIsCardOpen(false);
+                }}
+                aria-label="화면 항상 위(Always-on-Top) 윈도우에 띄우기"
+                title="데스크톱 바리스타 연결"
+                style={{ marginRight: 4, fontSize: "0.82rem" }}
+              >
+                📌
+              </button>
+            )}
             <button
               type="button"
               className={styles.baristaIdleDockClose}
@@ -297,6 +320,21 @@ export function BaristaIdleCompanion({
               <span className={styles.baristaIdleTitle}>{displayTitle}</span>
             </div>
             <div className={styles.baristaIdleHeaderActions}>
+              {desktopPipEnabled && (
+                <button
+                  type="button"
+                  className={styles.baristaIdleMinimizeBtn}
+                  onClick={() => {
+                    setIsPipOpen(true);
+                    setIsCardOpen(false);
+                  }}
+                  aria-label="화면 항상 위(Always-on-Top) 윈도우로 띄우기"
+                  title="데스크톱 바리스타 연결"
+                  style={{ fontSize: "0.85rem", marginRight: 2 }}
+                >
+                  📌
+                </button>
+              )}
               <button
                 type="button"
                 className={styles.baristaIdleMinimizeBtn}
@@ -328,6 +366,14 @@ export function BaristaIdleCompanion({
             title={null}
             description={displayContent}
             onOpenCopilot={handleChatClick}
+            onOpenPip={
+              desktopPipEnabled
+                ? () => {
+                    setIsPipOpen(true);
+                    setIsCardOpen(false);
+                  }
+                : undefined
+            }
             compact
           />
 
@@ -408,6 +454,18 @@ export function BaristaIdleCompanion({
         ),
         document.body
       )}
+
+      </>}
+      {/* 연결은 유휴 말풍선이 숨겨져도 유지한다. */}
+      {desktopPipEnabled && <DesktopBaristaConnector
+        presetId={presetId}
+        baristaName={baristaName}
+        displayTitle={displayTitle}
+        displayContent={displayContent}
+        isOpen={isPipOpen}
+        onClose={() => setIsPipOpen(false)}
+        onOpenCopilot={onOpenCopilot}
+      />}
     </>
   );
 }

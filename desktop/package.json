@@ -1,0 +1,21 @@
+{
+  "name": "coffeetide-barista",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CoffeeTide transparent desktop companion",
+  "main": "main.cjs",
+  "scripts": {
+    "postinstall": "node node_modules/electron/install.js",
+    "prestart": "node prepare.cjs",
+    "presmoke": "node prepare.cjs",
+    "prepackage": "node prepare.cjs",
+    "start": "electron .",
+    "test": "node --test test/*.node.cjs",
+    "smoke": "electron . --smoke-test",
+    "package": "electron-packager . CoffeeTideBarista --platform=win32 --arch=x64 --out=dist --overwrite --ignore=\"^/(test|dist|smoke-output)($|/)\""
+  },
+  "devDependencies": {
+    "electron": "44.3.0",
+    "@electron/packager": "20.3.0"
+  }
+}

@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>CoffeeTide Barista</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body data-appearance="cup">
+  <section id="bubble" data-hit aria-live="polite">
+    <header><span class="dot"></span><strong id="name">AI 바리스타</strong><span id="status">연결 대기</span></header>
+    <p id="speech">CoffeeTide에서 아래 연결 코드를 입력해 주세요.</p>
+    <div id="pairing"><span>연결 코드</span><strong id="pair-code"></strong></div>
+  </section>
+  <div id="character" title="드래그하여 이동">
+    <svg id="cup" viewBox="0 0 64 64" aria-label="CoffeeTide 아이스커피 아이콘" role="img">
+      <!-- 기존 CoffeeTide 로고의 컵·얼음 형태를 사용한다. -->
+      <g class="pet" data-hit>
+        <rect x="35" y="1" width="6" height="24" rx="3" fill="#d8ecff" transform="rotate(14 38 13)"/>
+        <rect x="11" y="13.5" width="42" height="6.5" rx="3" fill="#9fb2c8"/>
+        <path d="M15 20 L49 20 L45.5 57 Q45 61 41 61 L23 61 Q19 61 18.5 57 Z" fill="#9fb2c81f" stroke="#9fb2c8" stroke-width="3" stroke-linejoin="round"/>
+        <path d="M18 31 L46 31 L43.8 55.5 Q43.5 58 41 58 L23 58 Q20.5 58 20.2 55.5 Z" fill="#7a4b2a"/>
+        <rect x="22" y="34" width="9" height="9" rx="2" fill="#e8f4ff" opacity=".92" transform="rotate(-9 26.5 38.5)"/>
+        <rect x="33" y="41" width="9" height="9" rx="2" fill="#d8ecff" opacity=".88" transform="rotate(11 37.5 45.5)"/>
+        <rect x="24" y="47" width="8" height="8" rx="2" fill="#eef7ff" opacity=".82"/>
+      </g>
+    </svg>
+    <div id="photo" data-hit><img id="avatar" src="assets/barista_male_3d_serving.jpg" alt="현재 바리스타" draggable="false"><span>☕</span></div>
+  </div>
+  <nav id="controls" data-hit aria-label="데스크톱 바리스타 조작">
+    <button id="bell" title="커피 한 잔 · 기본 대사">☕</button>
+    <button id="open-web" title="CoffeeTide 대화창 열기">↗</button>
+    <button id="settings-button" title="설정" aria-expanded="false">⚙</button>
+    <button id="hide" title="숨기기 · 트레이에서 다시 열기">−</button>
+  </nav>
+  <section id="settings" data-hit hidden aria-label="캐릭터 설정">
+    <strong>캐릭터 모습</strong>
+    <label><input type="radio" name="appearance" value="cup" checked> ① 아이스커피 아이콘</label>
+    <label><input type="radio" name="appearance" value="photo"> ② 현재 바리스타 사진</label>
+    <small>선택은 저장됩니다. 캐릭터를 끌어 이동하세요.</small>
+  </section>
+  <script src="renderer.js"></script>
+</body>
+</html>

@@ -154,6 +154,7 @@ const LS_CUSTOM_WIDGETS = "ct_custom_widgets";
 const LS_COPILOT_CONFIG = "ct_copilot_config";
 const LS_CANVAS_ENABLED = "ct_exp_canvas_enabled";
 const LS_CONVERSATION_ENABLED = "ct_exp_natural_conversation_enabled";
+const LS_DESKTOP_PIP_ENABLED = "ct_exp_desktop_pip_enabled";
 const GOOGLE_IDENTITY_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? "";
 
 const POLL_MS = 30_000;
@@ -430,6 +431,9 @@ export default function Home() {
   const [conversationEnabled, setConversationEnabled] = useState<boolean>(
     () => loadLS<boolean>(LS_CONVERSATION_ENABLED, true)
   );
+  const [desktopPipEnabled, setDesktopPipEnabled] = useState<boolean>(
+    () => loadLS<boolean>(LS_DESKTOP_PIP_ENABLED, true)
+  );
   const [conversationRuntimeActive, setConversationRuntimeActive] = useState<boolean | null>(null);
   const [sparkBriefing, setSparkBriefing] = useState<string | null>(null);
   const [sparkBriefingLoading, setSparkBriefingLoading] = useState(false);
@@ -615,6 +619,15 @@ export default function Home() {
     }
     if (tab === "widgets") setWidgetTabSignal(false);
   }, []);
+
+  useEffect(() => {
+    const openFromDesktop = () => {
+      if (window.location.hash === "#copilot") openWorkspaceTab("copilot");
+    };
+    openFromDesktop();
+    window.addEventListener("hashchange", openFromDesktop);
+    return () => window.removeEventListener("hashchange", openFromDesktop);
+  }, [openWorkspaceTab]);
 
   const handleTabKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLElement>) => {
@@ -3134,12 +3147,13 @@ export default function Home() {
               <span className={styles.compactTabBadge}>{unreadQaKeys.size + (sparkTabSignal ? 1 : 0)}</span>
             )}
             <BaristaIdleCompanion
+              key={userScope ?? "guest"}
               presetId={copilotConfig.presetId}
               baristaName={copilotConfig.baristaName || "AI 바리스타"}
               onOpenCopilot={() => {
-                if (compactMode) openWorkspaceTab("copilot");
+                openWorkspaceTab("copilot");
                 setTimeout(() => {
-                  const composer = document.querySelector<HTMLInputElement>("input[placeholder*='바리스타']");
+                  const composer = document.querySelector<HTMLTextAreaElement>('textarea[aria-label*="질문 입력"]');
                   composer?.focus();
                 }, 200);
               }}
@@ -3157,6 +3171,7 @@ export default function Home() {
                 });
               }}
               enabled={true}
+              desktopPipEnabled={desktopPipEnabled}
             />
           </button>
           <button
@@ -4028,6 +4043,16 @@ export default function Home() {
               checked
                 ? "실험실 기능: 자연스러운 캐릭터 대화가 켜졌습니다."
                 : "자연 대화 실험이 꺼져 기존 업무 Copilot 방식으로 돌아갑니다."
+            );
+          }}
+          desktopPipEnabled={desktopPipEnabled}
+          onChangeDesktopPipEnabled={(checked) => {
+            setDesktopPipEnabled(checked);
+            saveLS(LS_DESKTOP_PIP_ENABLED, checked);
+            showToast(
+              checked
+                ? "실험실 기능: 데스크톱 플로팅 바리스타가 켜졌습니다."
+                : "데스크톱 플로팅 바리스타 기능이 꺼졌습니다."
             );
           }}
           storageStatus={{

@@ -81,6 +81,8 @@ export interface SettingsModalProps {
   onChangeCanvasEnabled?: (enabled: boolean) => void;
   conversationEnabled?: boolean;
   onChangeConversationEnabled?: (enabled: boolean) => void;
+  desktopPipEnabled?: boolean;
+  onChangeDesktopPipEnabled?: (enabled: boolean) => void;
   storageStatus?: DataStorageStatus;
   onRetrySync?: () => void;
   connections: ConnectionState | null;
@@ -167,6 +169,8 @@ export function SettingsModal({
   onChangeCanvasEnabled,
   conversationEnabled = false,
   onChangeConversationEnabled,
+  desktopPipEnabled = false,
+  onChangeDesktopPipEnabled,
   storageStatus,
   onRetrySync,
   connections,
@@ -515,6 +519,21 @@ export function SettingsModal({
                     aria-label="AI 캔버스 실험실 기능 활성화"
                   />
                 </label>
+                <label className={styles.settingToggleItem}>
+                  <div className={styles.settingToggleCopy}>
+                    <span className={styles.settingToggleTitle}>📌 데스크톱 플로팅 바리스타</span>
+                    <div className={styles.settingToggleDesc}>
+                      전용 CoffeeTideBarista 앱과 연결하여 테두리 없는 캐릭터를 다른 앱 위에 띄웁니다. 캐릭터의 설정에서 ① 아이스커피 아이콘 / ② 현재 바리스타 사진을 선택할 수 있습니다.
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={desktopPipEnabled}
+                    onChange={(e) => onChangeDesktopPipEnabled?.(e.target.checked)}
+                    aria-label="데스크톱 플로팅 바리스타 실험실 기능 활성화"
+                  />
+                </label>
+                {desktopPipEnabled && <button type="button" className={styles.btn} onClick={() => window.dispatchEvent(new Event("coffeetide:open-desktop-barista"))}>데스크톱 바리스타 연결</button>}
               </div>
             </div>
           </div>

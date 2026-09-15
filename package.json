@@ -3,6 +3,10 @@
   "version": "1.2.0",
   "private": true,
   "scripts": {
+    "desktop:install": "npm --prefix desktop ci",
+    "desktop:start": "npm --prefix desktop start",
+    "desktop:test": "npm --prefix desktop test",
+    "desktop:package": "npm --prefix desktop run package",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",

@@ -1,0 +1,135 @@
+const { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain, screen, shell } = require('electron');
+const fs = require('node:fs');
+const path = require('node:path');
+const { pathToFileURL } = require('node:url');
+const { createBridge, appOrigin } = require('./bridge.cjs');
+const { clampPosition, validRegions, hitTest } = require('./geometry.cjs');
+const { openConversation } = require('./navigation.cjs');
+
+const smoke = process.argv.includes('--smoke-test');
+const origin = appOrigin(process.env.COFFEETIDE_URL || 'http://localhost:3000');
+if (smoke) app.setPath('userData', path.join(__dirname, 'smoke-output', 'profile'));
+const WIDTH = 280, HEIGHT = 280;
+let win, tray, bridge, bridgePort, mouseTimer, saveTimer;
+let regions = [];
+let ignored = false;
+let prefs = { appearance: 'cup' };
+let state = { name: 'AI 바리스타', speech: '', accent: '#bd7957', avatar: 'barista_male_3d_serving.jpg', connected: false, code: '', appearance: 'cup' };
+const prefsPath = () => path.join(app.getPath('userData'), 'preferences.json');
+const publish = (next) => {
+  state = { ...state, ...next, appearance: prefs.appearance };
+  if (win && !win.isDestroyed()) win.webContents.send('barista:state', state);
+};
+function savePrefs() {
+  try { fs.mkdirSync(app.getPath('userData'), { recursive: true }); fs.writeFileSync(prefsPath(), JSON.stringify(prefs)); } catch (error) { console.warn('Could not save desktop preferences:', error.message); }
+}
+function setAppearance(value) {
+  if (!['cup', 'photo'].includes(value)) return;
+  prefs.appearance = value; savePrefs(); publish({}); updateMenu();
+}
+function show() { if (win && !win.isDestroyed()) { win.showInactive(); win.setAlwaysOnTop(true, 'floating'); } }
+function openWeb() {
+  void openConversation(bridge, (url) => shell.openExternal(url), origin);
+}
+function updateMenu() {
+  if (!tray) return;
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: '바리스타 보이기', click: show },
+    { label: 'CoffeeTide 열기', click: openWeb },
+    { label: '설정 · 캐릭터 모습', submenu: [
+      { label: '① 아이스커피 아이콘', type: 'radio', checked: prefs.appearance === 'cup', click: () => setAppearance('cup') },
+      { label: '② 현재 바리스타 사진', type: 'radio', checked: prefs.appearance === 'photo', click: () => setAppearance('photo') },
+    ] },
+    { label: '웹 연결 해제 / 코드 재발급', click: () => bridge?.reset() },
+    { label: '화면 안으로 위치 복원', click: () => { const area = screen.getPrimaryDisplay().workArea; win.setPosition(area.x + area.width - WIDTH - 24, area.y + area.height - HEIGHT - 24); show(); } },
+    { type: 'separator' },
+    { label: '종료', click: () => app.quit() },
+  ]));
+}
+
+if (!app.requestSingleInstanceLock()) app.quit();
+else {
+  app.on('second-instance', show);
+  app.whenReady().then(async () => {
+    try {
+      const saved = JSON.parse(fs.readFileSync(prefsPath(), 'utf8'));
+      prefs.appearance = saved.appearance;
+      if (Number.isSafeInteger(saved.position?.x) && Number.isSafeInteger(saved.position?.y)) prefs.position = saved.position;
+    } catch {}
+    if (!['cup', 'photo'].includes(prefs.appearance)) prefs.appearance = 'cup';
+    if (smoke) prefs.appearance = 'cup';
+    const display = prefs.position ? screen.getDisplayNearestPoint(prefs.position) : screen.getPrimaryDisplay();
+    const position = clampPosition(prefs.position || { x: display.workArea.x + display.workArea.width - WIDTH - 24, y: display.workArea.y + display.workArea.height - HEIGHT - 24 }, display.workArea, WIDTH, HEIGHT);
+    win = new BrowserWindow({
+      ...position, width: WIDTH, height: HEIGHT,
+      title: 'CoffeeTide Barista', frame: false, transparent: true,
+      backgroundColor: '#00000000', hasShadow: false, thickFrame: false,
+      alwaysOnTop: true, resizable: false, maximizable: false, fullscreenable: false,
+      skipTaskbar: true, show: false,
+      webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, sandbox: true, nodeIntegration: false, backgroundThrottling: false },
+    });
+    win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+    win.webContents.on('will-navigate', (event) => event.preventDefault());
+    win.webContents.session.setPermissionRequestHandler((_wc, _permission, callback) => callback(false));
+    const rendererUrl = pathToFileURL(path.join(__dirname, 'index.html')).href;
+    const trusted = (event) => event.sender === win.webContents && event.senderFrame?.url === rendererUrl;
+    ipcMain.handle('barista:ready', (event) => trusted(event) ? { ...state, appearance: prefs.appearance } : null);
+    ipcMain.on('barista:open-web', (event) => { if (trusted(event)) openWeb(); });
+    ipcMain.on('barista:hide', (event) => { if (trusted(event)) win.hide(); });
+    ipcMain.on('barista:appearance', (event, value) => { if (trusted(event)) setAppearance(value); });
+    ipcMain.on('barista:regions', (event, value) => { if (trusted(event)) regions = validRegions(value, WIDTH, HEIGHT); });
+    bridge = createBridge({
+      origin, port: smoke ? 0 : 47381,
+      onPair: () => { publish({ connected: true, code: '' }); show(); },
+      onState: (snapshot) => publish({ ...snapshot, connected: true, code: '' }),
+      onDisconnect: (code) => publish({ connected: false, code, speech: '', title: '', name: 'AI 바리스타', accent: '#bd7957', avatar: 'barista_male_3d_serving.jpg' }),
+    });
+    try { bridgePort = await bridge.listen(); publish({ code: bridge.code }); }
+    catch (error) { publish({ error: '연결 포트를 사용할 수 없습니다. 다른 데스크톱 바리스타를 종료한 뒤 다시 실행해 주세요.' }); console.error(error.message); }
+
+    const trayImage = nativeImage.createFromPath(path.join(__dirname, 'assets', 'coffeetide-tray.png')).resize({ width: 24, height: 24 });
+    tray = new Tray(trayImage); tray.setToolTip('CoffeeTide 바리스타 · 더블클릭하여 보이기'); tray.on('double-click', show); updateMenu();
+    win.on('move', () => {
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(() => { if (!win.isDestroyed()) { const [x, y] = win.getPosition(); prefs.position = { x, y }; savePrefs(); } }, 300);
+    });
+    // 네이티브 드래그 영역에서는 DOM mousemove가 발생하지 않는다. 화면 좌표로 불투명 조작 영역만 활성화한다.
+    mouseTimer = setInterval(() => {
+      if (win.isDestroyed() || !win.isVisible()) return;
+      const nextIgnored = !hitTest(screen.getCursorScreenPoint(), win.getBounds(), regions);
+      if (nextIgnored !== ignored) { ignored = nextIgnored; win.setIgnoreMouseEvents(ignored, { forward: true }); }
+    }, 40);
+    await win.loadFile(path.join(__dirname, 'index.html'));
+    if (smoke) {
+      // 앱 소유 로컬 렌더러의 통합 검사. OS 단축키나 시작프로그램은 변경하지 않는다.
+      show();
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      const image = await win.webContents.capturePage();
+      const bitmap = image.toBitmap();
+      const alphaAtCorner = bitmap[3];
+      const report = { fixedSize: !win.isResizable() && !win.isMaximizable(), alwaysOnTop: win.isAlwaysOnTop(), transparentCorner: alphaAtCorner === 0, renderer: await win.webContents.executeJavaScript('({ title: document.title, appearance: document.body.dataset.appearance, codeVisible: document.querySelector("#pair-code").textContent.length === 6 })'), hitRegions: regions.length };
+      fs.mkdirSync(path.join(__dirname, 'smoke-output'), { recursive: true });
+      fs.writeFileSync(path.join(__dirname, 'smoke-output', 'cup.png'), image.toPNG());
+      const post = (route, data, token) => fetch(`http://127.0.0.1:${bridgePort}/${route}`, { method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify(data) });
+      const pairing = await (await post('pair', { code: bridge.code })).json();
+      await post('state', { name: '테스트 바리스타', speech: '렌더링 검사용 샘플 말풍선입니다. ☕', accent: '#438b72', avatar: '/barista/barista_male_3d_serving.jpg' }, pairing.token);
+      await win.webContents.executeJavaScript('document.querySelector("#settings-button").click(); document.querySelector("input[value=photo]").click()');
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      fs.writeFileSync(path.join(__dirname, 'smoke-output', 'settings.png'), (await win.webContents.capturePage()).toPNG());
+      await win.webContents.executeJavaScript('document.querySelector("#settings-button").click()');
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      fs.writeFileSync(path.join(__dirname, 'smoke-output', 'photo.png'), (await win.webContents.capturePage()).toPNG());
+      report.photoMode = await win.webContents.executeJavaScript('document.body.dataset.appearance === "photo" && document.querySelector("#avatar").naturalWidth > 0');
+      report.webStateReceived = await win.webContents.executeJavaScript('document.querySelector("#name").textContent === "테스트 바리스타" && document.querySelector("#speech").textContent.includes("샘플") && document.querySelector("#pairing").hidden');
+      report.preferenceSaved = JSON.parse(fs.readFileSync(prefsPath(), 'utf8')).appearance === 'photo';
+      await post('disconnect', {}, pairing.token);
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      report.disconnectClearedSpeech = state.speech === '' && !state.connected;
+      fs.writeFileSync(path.join(__dirname, 'smoke-output', 'report.json'), JSON.stringify(report, null, 2));
+      console.log(JSON.stringify(report));
+      app.exit(report.transparentCorner && report.alwaysOnTop && report.photoMode && report.renderer.codeVisible && report.webStateReceived && report.preferenceSaved && report.disconnectClearedSpeech && report.hitRegions > 0 ? 0 : 1);
+    } else show();
+  }).catch((error) => { console.error(error); app.exit(1); });
+  app.on('window-all-closed', () => app.quit());
+  app.on('before-quit', () => { clearInterval(mouseTimer); clearTimeout(saveTimer); void bridge?.close(); });
+}

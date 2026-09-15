@@ -14,3 +14,6 @@ scratch/*.log
 # Local Tool Broker registrations and trusted local scripts stay outside Git.
 local-tools.registry.json
 .local-tools/
+desktop/dist/
+desktop/smoke-output/
+desktop/assets/

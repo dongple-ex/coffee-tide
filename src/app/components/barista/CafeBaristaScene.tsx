@@ -15,6 +15,7 @@ export interface CafeBaristaSceneProps {
   dateLabel?: string;
   onOpenCopilot?: () => void;
   compact?: boolean;
+  onOpenPip?: () => void;
 }
 
 export function CafeBaristaScene({
@@ -23,6 +24,7 @@ export function CafeBaristaScene({
   title = "주문하신 오늘의 브리핑 나왔습니다! ☕",
   description = "따뜻한 커피 향과 함께 오늘 꼭 챙겨야 할 중요 업무와 일정을 확인해 보세요.",
   compact = false,
+  onOpenPip,
 }: CafeBaristaSceneProps) {
   const effect = getPersonaEffect(presetId, baristaName);
 
@@ -113,9 +115,36 @@ export function CafeBaristaScene({
       <div className={styles.sceneGrid}>
         {/* 📋 좌측: 브리핑 & 주문 영수증 보드 */}
         <div className={styles.sceneLeft}>
-          {(servedToast || title) && <h2 className={styles.sceneTitle}>{servedToast || title}</h2>}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, flexWrap: "wrap" }}>
+            {(servedToast || title) && <h2 className={styles.sceneTitle} style={{ margin: 0, flex: 1 }}>{servedToast || title}</h2>}
+            {onOpenPip && (
+              <button
+                type="button"
+                onClick={onOpenPip}
+                title="다른 작업 중에도 항상 화면 위에 떠 있도록 바리스타를 윈도우로 띄웁니다 (Always-on-Top)"
+                style={{
+                  border: "1px solid var(--border, rgba(255, 255, 255, 0.2))",
+                  background: "var(--card-hover, rgba(255, 255, 255, 0.1))",
+                  color: "inherit",
+                  borderRadius: "8px",
+                  padding: "4px 9px",
+                  fontSize: "0.76rem",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "4px",
+                  whiteSpace: "nowrap",
+                  flexShrink: 0,
+                }}
+              >
+                <span>📌</span>
+                <span>윈도우에 띄우기</span>
+              </button>
+            )}
+          </div>
 
-          <p className={styles.sceneDescription} style={{ whiteSpace: "pre-line" }}>
+          <p className={styles.sceneDescription} style={{ whiteSpace: "pre-line", marginTop: 8 }}>
             {description ? renderInline(description) : null}
           </p>
         </div>
