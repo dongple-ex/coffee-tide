@@ -75,6 +75,7 @@ else {
     const trusted = (event) => event.sender === win.webContents && event.senderFrame?.url === rendererUrl;
     ipcMain.handle('barista:ready', (event) => trusted(event) ? { ...state, appearance: prefs.appearance } : null);
     ipcMain.on('barista:open-web', (event) => { if (trusted(event)) openWeb(); });
+    ipcMain.on('barista:action', (event, value) => { if (trusted(event)) bridge?.queueAction(value); });
     ipcMain.on('barista:hide', (event) => { if (trusted(event)) win.hide(); });
     ipcMain.on('barista:appearance', (event, value) => { if (trusted(event)) setAppearance(value); });
     ipcMain.on('barista:regions', (event, value) => { if (trusted(event)) regions = validRegions(value, WIDTH, HEIGHT); });
@@ -108,6 +109,8 @@ else {
       const bitmap = image.toBitmap();
       const alphaAtCorner = bitmap[3];
       const report = { fixedSize: !win.isResizable() && !win.isMaximizable(), alwaysOnTop: win.isAlwaysOnTop(), transparentCorner: alphaAtCorner === 0, renderer: await win.webContents.executeJavaScript('({ title: document.title, appearance: document.body.dataset.appearance, codeVisible: document.querySelector("#pair-code").textContent.length === 6 })'), hitRegions: regions.length };
+      const inspectDrag = () => win.webContents.executeJavaScript('(() => { const el = document.querySelector("#drag-handle"); const r = el.getBoundingClientRect(); return el instanceof HTMLElement && getComputedStyle(el).getPropertyValue("-webkit-app-region") === "drag" && document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2) === el; })()');
+      report.cupDragHandle = await inspectDrag();
       fs.mkdirSync(path.join(__dirname, 'smoke-output'), { recursive: true });
       fs.writeFileSync(path.join(__dirname, 'smoke-output', 'cup.png'), image.toPNG());
       const post = (route, data, token) => fetch(`http://127.0.0.1:${bridgePort}/${route}`, { method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify(data) });
@@ -120,6 +123,7 @@ else {
       await new Promise((resolve) => setTimeout(resolve, 100));
       fs.writeFileSync(path.join(__dirname, 'smoke-output', 'photo.png'), (await win.webContents.capturePage()).toPNG());
       report.photoMode = await win.webContents.executeJavaScript('document.body.dataset.appearance === "photo" && document.querySelector("#avatar").naturalWidth > 0');
+      report.photoDragHandle = await inspectDrag();
       report.webStateReceived = await win.webContents.executeJavaScript('document.querySelector("#name").textContent === "테스트 바리스타" && document.querySelector("#speech").textContent.includes("샘플") && document.querySelector("#pairing").hidden');
       report.preferenceSaved = JSON.parse(fs.readFileSync(prefsPath(), 'utf8')).appearance === 'photo';
       await post('disconnect', {}, pairing.token);
@@ -127,7 +131,7 @@ else {
       report.disconnectClearedSpeech = state.speech === '' && !state.connected;
       fs.writeFileSync(path.join(__dirname, 'smoke-output', 'report.json'), JSON.stringify(report, null, 2));
       console.log(JSON.stringify(report));
-      app.exit(report.transparentCorner && report.alwaysOnTop && report.photoMode && report.renderer.codeVisible && report.webStateReceived && report.preferenceSaved && report.disconnectClearedSpeech && report.hitRegions > 0 ? 0 : 1);
+      app.exit(report.transparentCorner && report.alwaysOnTop && report.photoMode && report.renderer.codeVisible && report.webStateReceived && report.preferenceSaved && report.disconnectClearedSpeech && report.hitRegions > 0 && report.cupDragHandle && report.photoDragHandle ? 0 : 1);
     } else show();
   }).catch((error) => { console.error(error); app.exit(1); });
   app.on('window-all-closed', () => app.quit());

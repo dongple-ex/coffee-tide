@@ -10,6 +10,7 @@ interface Props {
   onClose: () => void;
   /** 브라우저가 팝업을 차단해 창을 열지 못했을 때 호출된다 */
   onBlocked?: () => void;
+  onWindowChange?: (window: Window | null) => void;
   children: React.ReactNode;
 }
 
@@ -50,7 +51,7 @@ function syncTheme(target: Window) {
  * 자식 요소를 브라우저의 별도 창에 렌더링하는 포털이다.
  * PC(일반 뷰)에서 캔버스를 모달보다 훨씬 넓은 작업 공간으로 사용하기 위해 쓴다.
  */
-export function CanvasWindowPortal({ title, onClose, onBlocked, children }: Props) {
+export function CanvasWindowPortal({ title, onClose, onBlocked, onWindowChange, children }: Props) {
   // 마운트 지점을 먼저 만들어 두고 별도 창이 열린 뒤에 그 창으로 옮긴다.
   // 이렇게 하면 창이 준비되었는지를 상태로 관리하지 않아도 되므로 불필요한 재렌더링이 발생하지 않는다.
   const [mountNode] = useState<HTMLElement | null>(() => {
@@ -65,11 +66,13 @@ export function CanvasWindowPortal({ title, onClose, onBlocked, children }: Prop
   const externalWindowRef = useRef<Window | null>(null);
   const onCloseRef = useRef(onClose);
   const onBlockedRef = useRef(onBlocked);
+  const onWindowChangeRef = useRef(onWindowChange);
 
   useEffect(() => {
     onCloseRef.current = onClose;
     onBlockedRef.current = onBlocked;
-  }, [onClose, onBlocked]);
+    onWindowChangeRef.current = onWindowChange;
+  }, [onClose, onBlocked, onWindowChange]);
 
   useEffect(() => {
     if (!mountNode) return;
@@ -114,6 +117,7 @@ export function CanvasWindowPortal({ title, onClose, onBlocked, children }: Prop
     body.style.color = "var(--text, #fff)";
 
     body.appendChild(externalWindow.document.adoptNode(mountNode));
+    onWindowChangeRef.current?.(externalWindow);
 
     // 부모 창에서 테마를 바꾸면 별도 창에도 즉시 반영한다.
     const themeObserver = new MutationObserver(() => syncTheme(externalWindow));
@@ -151,6 +155,7 @@ export function CanvasWindowPortal({ title, onClose, onBlocked, children }: Prop
       externalWindow.removeEventListener("pagehide", handleExternalClose);
       window.removeEventListener("beforeunload", handleParentUnload);
       externalWindowRef.current = null;
+      onWindowChangeRef.current?.(null);
       externalWindow.close();
     };
     // 창은 마운트 시점에 한 번만 열어야 하므로 마운트 지점 외의 의존성은 두지 않는다.

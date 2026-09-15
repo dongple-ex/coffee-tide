@@ -15,7 +15,7 @@
   <div id="character" title="드래그하여 이동">
     <svg id="cup" viewBox="0 0 64 64" aria-label="CoffeeTide 아이스커피 아이콘" role="img">
       <!-- 기존 CoffeeTide 로고의 컵·얼음 형태를 사용한다. -->
-      <g class="pet" data-hit>
+      <g class="pet">
         <rect x="35" y="1" width="6" height="24" rx="3" fill="#d8ecff" transform="rotate(14 38 13)"/>
         <rect x="11" y="13.5" width="42" height="6.5" rx="3" fill="#9fb2c8"/>
         <path d="M15 20 L49 20 L45.5 57 Q45 61 41 61 L23 61 Q19 61 18.5 57 Z" fill="#9fb2c81f" stroke="#9fb2c8" stroke-width="3" stroke-linejoin="round"/>
@@ -25,7 +25,8 @@
         <rect x="24" y="47" width="8" height="8" rx="2" fill="#eef7ff" opacity=".82"/>
       </g>
     </svg>
-    <div id="photo" data-hit><img id="avatar" src="assets/barista_male_3d_serving.jpg" alt="현재 바리스타" draggable="false"><span>☕</span></div>
+    <div id="photo"><img id="avatar" src="assets/barista_male_3d_serving.jpg" alt="현재 바리스타" draggable="false"><span>☕</span></div>
+    <div id="drag-handle" data-hit title="캐릭터를 끌어 이동" aria-label="캐릭터 이동 영역"></div>
   </div>
   <nav id="controls" data-hit aria-label="데스크톱 바리스타 조작">
     <button id="bell" title="커피 한 잔 · 기본 대사">☕</button>

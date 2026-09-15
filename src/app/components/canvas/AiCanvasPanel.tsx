@@ -11,6 +11,8 @@ import { transformCanvasContentClient } from "@/lib/ai/canvasAi";
 import { checkChromeCanaryAiStatus, ChromeCanaryAiStatus } from "@/lib/ai/chromeCanaryAi";
 import MarkdownLite from "../markdownLite";
 import { HtmlInCanvasView } from "./HtmlInCanvasView";
+import { computeLineDiffResult } from "@/lib/diff/lineDiff";
+import { VirtualizedCodeViewer } from "./VirtualizedCodeViewer";
 import { UiIcon } from "../UiIcon";
 import styles from "../../page.module.css";
 
@@ -18,6 +20,8 @@ interface Props {
   document: CanvasDocument;
   onChangeDocument: (doc: CanvasDocument) => void;
   onClose: () => void;
+  /** 캔버스 창 최소화 (화면 하단 플로팅 도크로 보관) */
+  onMinimize?: () => void;
   onRegisterTasks?: (tasks: CanvasExtractedTask[]) => void;
   onArchive?: (document: CanvasDocument) => Promise<void>;
   onOpenArchive?: () => void;
@@ -33,7 +37,7 @@ interface Props {
   onTogglePopout?: () => void;
 }
 
-type ViewMode = "edit" | "preview" | "split" | "3d";
+type ViewMode = "edit" | "preview" | "split" | "3d" | "diff";
 
 const DOC_TYPE_LABELS: Record<CanvasDocType, string> = {
   doc: "📄 일반 문서",
@@ -48,6 +52,7 @@ export function AiCanvasPanel({
   document,
   onChangeDocument,
   onClose,
+  onMinimize,
   onRegisterTasks,
   onArchive,
   onOpenArchive,
@@ -68,8 +73,26 @@ export function AiCanvasPanel({
   const [customPrompt, setCustomPrompt] = useState("");
   const [extractedTasks, setExtractedTasks] = useState<CanvasExtractedTask[] | null>(null);
   const [copyNotice, setCopyNotice] = useState(false);
+  const [hideWhitespaceChanges, setHideWhitespaceChanges] = useState(false);
+  const [diffBaseContent, setDiffBaseContent] = useState<string | null>(null);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // 비교 대상 원본 (명시적 diffBaseContent 또는 직전 히스토리)
+  const effectiveBaseContent =
+    diffBaseContent !== null
+      ? diffBaseContent
+      : document.history && (document.historyIndex ?? 0) > 0
+      ? document.history[(document.historyIndex ?? 1) - 1]
+      : "";
+
+  const diffResult = React.useMemo(() => {
+    if (viewMode !== "diff") return { lines: [], simplified: false };
+    return computeLineDiffResult(effectiveBaseContent, document.content, {
+      ignoreWhitespace: hideWhitespaceChanges,
+    });
+  }, [viewMode, effectiveBaseContent, document.content, hideWhitespaceChanges]);
+  const computedDiff = diffResult.lines;
 
   // 1. 크롬 카나리 Built-in AI 지원 여부 진단
   useEffect(() => {
@@ -144,7 +167,9 @@ export function AiCanvasPanel({
       if (action === "extract_tasks" && result.extractedTasks && result.extractedTasks.length > 0) {
         setExtractedTasks(result.extractedTasks);
       } else if (result.content && result.content !== document.content) {
+        setDiffBaseContent(document.content);
         updateContentWithHistory(result.content);
+        setViewMode("diff");
       }
     } catch (e) {
       console.error("[AiCanvas] Transform error:", e);
@@ -292,6 +317,14 @@ export function AiCanvasPanel({
             >
               🎨 3D 인터랙티브
             </button>
+            <button
+              type="button"
+              className={`${styles.canvasModeBtn} ${viewMode === "diff" ? styles.canvasModeBtnActive : ""}`}
+              onClick={() => setViewMode("diff")}
+              title="변경 사항 비교 (Diff 뷰)"
+            >
+              🔍 Diff
+            </button>
           </div>
 
           {/* 복사 & 다운로드 & 닫기 */}
@@ -347,6 +380,18 @@ export function AiCanvasPanel({
                 data-tooltip={popout ? "창 합치기" : "별도 창 팝업"}
               >
                 <UiIcon name="popup" size={16} />
+              </button>
+            )}
+            {onMinimize && (
+              <button
+                type="button"
+                className={styles.canvasActionIconBtn}
+                onClick={onMinimize}
+                title="캔버스 최소화 (도크에 보관)"
+                aria-label="캔버스 최소화"
+                data-tooltip="최소화"
+              >
+                <UiIcon name="minimize" size={16} />
               </button>
             )}
             <button
@@ -405,7 +450,11 @@ export function AiCanvasPanel({
             aria-label="캔버스 실시간 마크다운 미리보기"
           >
             {document.content.trim() ? (
-              <MarkdownLite text={document.content} />
+              document.type === "code" ? (
+                <VirtualizedCodeViewer text={document.content} docType="code" />
+              ) : (
+                <MarkdownLite text={document.content} />
+              )
             ) : (
               <div className={styles.canvasEmptyPreview}>
                 작성된 내용이 여기에 실시간 마크다운으로 렌더링됩니다.
@@ -420,6 +469,169 @@ export function AiCanvasPanel({
             title={document.title}
             docType={DOC_TYPE_LABELS[document.type] || "문서"}
           />
+        )}
+
+        {viewMode === "diff" && (
+          <div
+            style={{
+              padding: "16px",
+              overflowY: "auto",
+              width: "100%",
+              height: "100%",
+              background: "rgba(0, 0, 0, 0.25)",
+              fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: "12px",
+                paddingBottom: "10px",
+                borderBottom: "1px solid var(--border, #333333)",
+                flexWrap: "wrap",
+                gap: "8px",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <span style={{ fontWeight: 700, fontSize: "0.88rem", color: "var(--text, #ffffff)" }}>
+                  🔍 변경 사항 비교 (Diff)
+                </span>
+                <label
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    fontSize: "0.8rem",
+                    cursor: "pointer",
+                    color: "var(--text, #dddddd)",
+                    userSelect: "none",
+                    background: hideWhitespaceChanges ? "rgba(213, 154, 98, 0.15)" : "rgba(255,255,255,0.06)",
+                    border: "1px solid",
+                    borderColor: hideWhitespaceChanges ? "var(--accent, #d59a62)" : "var(--border, #444)",
+                    borderRadius: "6px",
+                    padding: "4px 8px",
+                    transition: "all 0.15s ease",
+                  }}
+                  title="들여쓰기 및 공백만 변경된 줄은 diff 비교에서 제외합니다."
+                >
+                  <input
+                    type="checkbox"
+                    checked={hideWhitespaceChanges}
+                    onChange={(e) => setHideWhitespaceChanges(e.target.checked)}
+                  />
+                  <span>공백 변경 숨김 (Hide Whitespace)</span>
+                </label>
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                {canUndo && (
+                  <button
+                    type="button"
+                    className={styles.canvasToolBtn}
+                    onClick={() => {
+                      handleUndo();
+                      setViewMode("edit");
+                    }}
+                    title="이전 버전으로 되돌리고 편집 모드로 전환"
+                  >
+                    ↺ 이전 복원
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className={`${styles.canvasToolBtn} ${styles.canvasAiChipHighlight}`}
+                  onClick={() => setViewMode("edit")}
+                  title="현재 변경본을 유지하고 편집 모드로 전환"
+                >
+                  ✓ 수정본 채택
+                </button>
+              </div>
+            </div>
+
+            {diffResult.simplified && (
+              <p role="status">변경 구간이 커서 삭제·추가 블록으로 묶어 표시합니다. 원문과 수정본의 모든 줄은 유지됩니다.</p>
+            )}
+            {/* 라인별 Diff 컨테이너 */}
+            <div
+              style={{
+                fontSize: "0.82rem",
+                lineHeight: "1.6",
+                border: "1px solid var(--border, #333333)",
+                borderRadius: "8px",
+                overflow: "hidden",
+                background: "var(--card, #1e1e1e)",
+              }}
+            >
+              {computedDiff.length === 0 ? (
+                <div style={{ padding: "32px", textAlign: "center", color: "var(--text-muted, #888888)" }}>
+                  비교할 변경 사항이 없거나 내용이 동일합니다.
+                </div>
+              ) : (
+                computedDiff.map((line, idx) => {
+                  let bg = "transparent";
+                  let prefix = " ";
+                  let color = "inherit";
+
+                  if (line.type === "added") {
+                    bg = "rgba(46, 160, 67, 0.16)";
+                    prefix = "+";
+                    color = "#3fb950";
+                  } else if (line.type === "removed") {
+                    bg = "rgba(248, 81, 73, 0.16)";
+                    prefix = "-";
+                    color = "#f85149";
+                  }
+
+                  return (
+                    <div
+                      key={idx}
+                      style={{
+                        display: "flex",
+                        background: bg,
+                        borderBottom: "1px solid rgba(255, 255, 255, 0.03)",
+                        whiteSpace: "pre-wrap",
+                        wordBreak: "break-all",
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: "44px",
+                          flexShrink: 0,
+                          textAlign: "right",
+                          paddingRight: "8px",
+                          userSelect: "none",
+                          color: "var(--text-dim, #777777)",
+                          borderRight: "1px solid rgba(255, 255, 255, 0.06)",
+                          fontSize: "0.75rem",
+                          paddingTop: "2px",
+                        }}
+                      >
+                        {line.oldLineNumber || line.newLineNumber || ""}
+                      </div>
+                      <div
+                        style={{
+                          width: "22px",
+                          flexShrink: 0,
+                          textAlign: "center",
+                          userSelect: "none",
+                          fontWeight: 700,
+                          color,
+                          paddingTop: "2px",
+                        }}
+                      >
+                        {prefix}
+                      </div>
+                      <div style={{ flex: 1, padding: "2px 8px", color }}>
+                        {line.value || " "}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
         )}
       </div>
 

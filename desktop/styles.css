@@ -15,7 +15,8 @@ body[data-connected="true"] #status { display: none; }
 #pair-code { font-family: monospace; font-size: 16px; letter-spacing: 3px; color: #574632; }
 #character { position: absolute; width: 100px; height: 96px; right: 26px; top: 144px; }
 #cup { width: 100%; height: 100%; overflow: visible; }
-.pet, #photo { -webkit-app-region: drag; }
+#drag-handle { position: absolute; inset: 0; -webkit-app-region: drag; app-region: drag; cursor: grab; }
+#settings, #controls { -webkit-app-region: no-drag; app-region: no-drag; }
 #photo { display: none; position: absolute; top: 8px; left: 7px; width: 86px; height: 86px; }
 #photo img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; border: 2px solid var(--accent); box-shadow: 0 3px 8px #0003; }
 #photo span { position: absolute; right: 0; bottom: 0; background: #f5ecdf; border-radius: 50%; padding: 3px; font-size: 11px; }

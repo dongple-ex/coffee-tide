@@ -32,7 +32,21 @@
 
 .header h2 { margin: 2px 0 0; font-size: 1.35rem; }
 .eyebrow { margin: 0; color: var(--accent, #d59a62); font-size: 0.75rem; font-weight: 700; letter-spacing: 0.08em; }
-.closeButton { border: 0; background: transparent; color: inherit; font-size: 1.8rem; cursor: pointer; }
+.closeButton {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 1.8rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 8px;
+  line-height: 1;
+  transition: all 0.15s ease;
+}
+
+.closeButton:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
 
 .searchForm { display: flex; gap: 8px; padding: 10px 24px; }
 .searchForm input {
@@ -46,12 +60,28 @@
 }
 .searchForm button, .cardHeader button {
   padding: 10px 14px;
-  color: #fff;
+  color: var(--accent-contrast, #ffffff);
   background: var(--accent, #b86f3f);
-  border: 0;
+  border: 1px solid var(--border, transparent);
   border-radius: 10px;
   font-weight: 700;
   cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.searchForm button:hover:not(:disabled), .cardHeader button:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.searchForm button:active:not(:disabled), .cardHeader button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.searchForm button:disabled, .cardHeader button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .storageNote { margin: 0; padding: 0 24px 12px; color: var(--muted, #aaa099); font-size: 0.82rem; }

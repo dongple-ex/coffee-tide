@@ -104,6 +104,12 @@ function createBridge({ origin, port = 47381, onState = () => {}, onPair = () =>
   return {
     get code() { return code; },
     get connected() { return Boolean(token); },
+    queueAction(name) {
+      if (!token) return false;
+      if (Date.now() - lastSeen > 120000) { reset(); return false; }
+      action = typeof name === 'string' ? name.slice(0, 60) : null;
+      return true;
+    },
     requestOpen() {
       if (!token) return false;
       if (Date.now() - lastSeen > 120000) { reset(); return false; }

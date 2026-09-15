@@ -7,6 +7,7 @@ import { IDLE_TALK_POOL, formatIdleTalkForPersona, IdleMessageItem } from "@/lib
 import { getPersonaEffect } from "@/lib/ai/personaEffects";
 import { AffectionBadge } from "./AffectionBadge";
 import { DesktopBaristaConnector } from "./DesktopBaristaConnector";
+import { DesktopBaristaPip } from "./DesktopBaristaPip";
 import styles from "../../page.module.css";
 
 const emptySubscribe = () => () => {};
@@ -457,15 +458,30 @@ export function BaristaIdleCompanion({
 
       </>}
       {/* 연결은 유휴 말풍선이 숨겨져도 유지한다. */}
-      {desktopPipEnabled && <DesktopBaristaConnector
-        presetId={presetId}
-        baristaName={baristaName}
-        displayTitle={displayTitle}
-        displayContent={displayContent}
-        isOpen={isPipOpen}
-        onClose={() => setIsPipOpen(false)}
-        onOpenCopilot={onOpenCopilot}
-      />}
+      {desktopPipEnabled && (
+        <>
+          <DesktopBaristaConnector
+            presetId={presetId}
+            baristaName={baristaName}
+            displayTitle={displayTitle}
+            displayContent={displayContent}
+            isOpen={isPipOpen}
+            onClose={() => setIsPipOpen(false)}
+            onOpenCopilot={onOpenCopilot}
+            onSendMessage={onSendMessage}
+          />
+          <DesktopBaristaPip
+            presetId={presetId}
+            baristaName={baristaName}
+            displayTitle={displayTitle}
+            displayContent={displayContent}
+            isOpen={isPipOpen}
+            onClose={() => setIsPipOpen(false)}
+            onSendMessage={onSendMessage}
+            onOpenCopilot={onOpenCopilot}
+          />
+        </>
+      )}
     </>
   );
 }

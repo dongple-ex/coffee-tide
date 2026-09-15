@@ -197,6 +197,66 @@ export function SettingsModal({
   const [showWhatsNew, setShowWhatsNew] = useState(false);
   const hasUpdate = useHasUnseenUpdate();
 
+  // ⚡ Windows 전역 단축키 (Alt 두 번 누름) 등록 상태
+  const [winShortcutStatus, setWinShortcutStatus] = useState<{
+    supported: boolean;
+    registered: boolean;
+    loading: boolean;
+  }>({ supported: false, registered: false, loading: true });
+  const [winShortcutBusy, setWinShortcutBusy] = useState(false);
+
+  useEffect(() => {
+    let ignore = false;
+    fetch("/api/util/windows-shortcut")
+      .then((res) => res.json())
+      .then((data) => {
+        if (!ignore) {
+          setWinShortcutStatus({
+            supported: Boolean(data.supported),
+            registered: Boolean(data.registered),
+            loading: false,
+          });
+        }
+      })
+      .catch(() => {
+        if (!ignore) {
+          setWinShortcutStatus({ supported: false, registered: false, loading: false });
+        }
+      });
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  const handleToggleWinShortcut = async () => {
+    setWinShortcutBusy(true);
+    try {
+      if (winShortcutStatus.registered) {
+        const res = await fetch("/api/util/windows-shortcut", { method: "DELETE" });
+        const data = await res.json();
+        if (data.success) {
+          setWinShortcutStatus((prev) => ({ ...prev, registered: false }));
+          onNotify?.("Windows 전역 단축키 등록이 해제되었습니다.");
+        } else {
+          onNotify?.(data.message || "단축키 해제에 실패했습니다.");
+        }
+      } else {
+        const res = await fetch("/api/util/windows-shortcut", { method: "POST" });
+        const data = await res.json();
+        if (data.success) {
+          setWinShortcutStatus((prev) => ({ ...prev, registered: true }));
+          onNotify?.(data.message || "Windows 단축키를 등록하고 실행을 요청했습니다.");
+        } else {
+          onNotify?.(data.message || "단축키 등록에 실패했습니다.");
+        }
+      }
+    } catch {
+      onNotify?.("단축키 설정 중 네트워크 오류가 발생했습니다.");
+    } finally {
+      setWinShortcutBusy(false);
+    }
+  };
+
   const selectSettingsTab = useCallback((tab: SettingsTab) => {
     setActiveTab(tab);
   }, []);
@@ -696,6 +756,45 @@ export function SettingsModal({
                 )}
               </div>
             </div>
+
+            {/* ⚡ Windows 전역 단축키 (Alt 두 번 누름) 카드 */}
+            {winShortcutStatus.supported && (
+              <div className={styles.card} style={{ marginBottom: 16 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
+                  <div style={{ flex: 1, minWidth: 240 }}>
+                    <div className={styles.cardTitle} style={{ fontSize: "0.9rem", marginBottom: 6 }}>
+                      ⚡ Windows 전역 단축키 (Alt 두 번 누름)
+                    </div>
+                    <p className={styles.connNote} style={{ margin: 0, fontSize: "0.8rem", lineHeight: 1.5 }}>
+                      어떤 프로그램(코딩, 엑셀, 문서 등)을 사용하는 중에도 좌측 <b>Alt 키를 두 번 연속 톡톡</b> 누르면 coffeeTide가 즉시 화면 맨 앞으로 호출됩니다.
+                    </p>
+                    <small style={{ display: "block", marginTop: 6, color: "var(--text-dim)", fontSize: "0.74rem" }}>
+                      • Windows 시작프로그램에 자동 등록되어 PC 부팅 시에도 유지됩니다.
+                    </small>
+                  </div>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <button
+                      type="button"
+                      className={`${styles.btn} ${winShortcutStatus.registered ? styles.btnSecondary : styles.btnPrimary}`}
+                      onClick={() => void handleToggleWinShortcut()}
+                      disabled={winShortcutBusy || winShortcutStatus.loading}
+                      style={{
+                        padding: "8px 14px",
+                        fontSize: "0.82rem",
+                        fontWeight: 600,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {winShortcutBusy
+                        ? "처리 중…"
+                        : winShortcutStatus.registered
+                        ? "✅ 등록 완료 (해제하기)"
+                        : "⚡ Windows 단축키 등록"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className={styles.accountManagementCard}>
               <div>

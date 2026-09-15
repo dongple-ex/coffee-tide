@@ -27,9 +27,17 @@ function render(state) {
 byId('open-web').addEventListener('click', () => window.barista.openWeb());
 byId('hide').addEventListener('click', () => window.barista.hide());
 byId('bell').addEventListener('click', () => {
-  localSpeech = '잠깐 쉬어가요. 따뜻한 커피 한 잔 놓고 갈게요. ☕';
+  localSpeech = '바리스타가 커피와 답변을 준비하고 있어요... ☕';
   clearTimeout(toastTimer); render(current);
-  toastTimer = setTimeout(() => { localSpeech = ''; render(current); }, 4000);
+  window.barista.action?.('order-coffee');
+  toastTimer = setTimeout(() => { localSpeech = ''; render(current); }, 6000);
+});
+byId('bubble').addEventListener('click', (e) => {
+  if (e.target.closest('#pairing') || !current.connected) return;
+  localSpeech = '바리스타가 생각 중... 💭';
+  clearTimeout(toastTimer); render(current);
+  window.barista.action?.('trigger-talk');
+  toastTimer = setTimeout(() => { localSpeech = ''; render(current); }, 6000);
 });
 byId('settings-button').addEventListener('click', () => {
   byId('settings').hidden = !byId('settings').hidden;

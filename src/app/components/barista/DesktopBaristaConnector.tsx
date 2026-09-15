@@ -15,9 +15,22 @@ interface Props {
   isOpen: boolean;
   onClose: () => void;
   onOpenCopilot?: () => void;
+  onSendMessage?: (
+    message: string,
+    previousTurn?: { userText: string; aiText: string }
+  ) => Promise<string | undefined> | void;
 }
 
-export function DesktopBaristaConnector({ presetId, baristaName, displayTitle, displayContent, isOpen, onClose, onOpenCopilot }: Props) {
+export function DesktopBaristaConnector({
+  presetId,
+  baristaName,
+  displayTitle,
+  displayContent,
+  isOpen,
+  onClose,
+  onOpenCopilot,
+  onSendMessage,
+}: Props) {
   const [code, setCode] = useState("");
   const [token, setToken] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -25,11 +38,16 @@ export function DesktopBaristaConnector({ presetId, baristaName, displayTitle, d
   const effect = getPersonaEffect(presetId, baristaName);
   const latest = useRef({ name: baristaName, presetId, title: displayTitle, speech: displayContent, accent: effect.accent, avatar: getPersonaAvatar(effect, false) });
   const openCopilot = useRef(onOpenCopilot);
+  const sendMessageRef = useRef(onSendMessage);
+  const triggerSendRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     latest.current = { name: baristaName, presetId, title: displayTitle, speech: displayContent, accent: effect.accent, avatar: getPersonaAvatar(effect, false) };
     openCopilot.current = onOpenCopilot;
-  }, [baristaName, presetId, displayTitle, displayContent, effect, onOpenCopilot]);
+    sendMessageRef.current = onSendMessage;
+    // 대화 내용이나 상태가 바뀌면 지연 없이 즉시 데스크톱으로 전송
+    triggerSendRef.current();
+  }, [baristaName, presetId, displayTitle, displayContent, effect, onOpenCopilot, onSendMessage]);
 
   useEffect(() => {
     if (!token) return;
@@ -53,6 +71,12 @@ export function DesktopBaristaConnector({ presetId, baristaName, displayTitle, d
           openCopilot.current?.();
           // 포커스 허용 여부는 브라우저가 결정한다. 새 탭을 만드는 폴백은 사용하지 않는다.
           window.focus();
+        } else if (!disposed && (result.action === "order-coffee" || result.action === "trigger-talk")) {
+          // 데스크톱 앱에서 주문/대화 요청 시 웹의 AI 엔진(onSendMessage)으로 연동
+          const prompt = result.action === "order-coffee"
+            ? "시그니처 커피 한 잔과 함께 기운 나는 한마디 부탁해! ☕"
+            : "오늘 하루 업무에 집중할 수 있는 꿀팁이나 격려 부탁해! ✨";
+          void sendMessageRef.current?.(prompt);
         }
       } catch {
         failures++;
@@ -62,6 +86,7 @@ export function DesktopBaristaConnector({ presetId, baristaName, displayTitle, d
         }
       } finally { running = false; }
     };
+    triggerSendRef.current = () => void send();
     void send();
     const interval = window.setInterval(() => void send(), 3000);
     const onVisible = () => { if (document.visibilityState === "visible") void send(); };

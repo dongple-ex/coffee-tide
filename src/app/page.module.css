@@ -1767,6 +1767,7 @@
 .copilotForm {
   position: relative;
   display: flex;
+  align-items: flex-end;
   gap: 8px;
   margin-top: 12px;
 }
@@ -1774,6 +1775,15 @@
 .copilotForm .input {
   flex: 1;
   min-width: 0;
+}
+
+.composerTextarea {
+  resize: none;
+  min-height: 38px;
+  max-height: 200px;
+  line-height: 1.45;
+  overflow-y: auto;
+  box-sizing: border-box;
 }
 
 .plusBtn {

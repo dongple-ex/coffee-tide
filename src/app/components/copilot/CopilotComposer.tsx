@@ -1,6 +1,6 @@
 "use client";
 
-import React, { RefObject } from "react";
+import React, { RefObject, useRef, useEffect } from "react";
 import styles from "../../page.module.css";
 import { DOCUMENT_INPUT_ACCEPT } from "@/lib/documents/formats";
 
@@ -46,6 +46,7 @@ const RECOMMENDED_PROMPTS = [
 import { getQuickReplies } from "@/lib/ai/copilotQuickReplies";
 
 interface Props {
+  focusRequest?: number;
   value: string;
   onChange: (value: string) => void;
   onSubmit: () => void;
@@ -76,6 +77,7 @@ interface Props {
 }
 
 export function CopilotComposer({
+  focusRequest = 0,
   value,
   onChange,
   onSubmit,
@@ -101,6 +103,42 @@ export function CopilotComposer({
   placeholder,
 }: Props) {
   const trimmed = value.trim();
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // 입력 내용 길이에 따른 자동 높이 조절 (기본 38px ~ 최대 200px)
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    const nextHeight = Math.min(Math.max(el.scrollHeight, 38), 200);
+    el.style.height = `${nextHeight}px`;
+  }, [value, focusRequest]);
+
+  useEffect(() => {
+    if (!focusRequest) return;
+    const el = textareaRef.current;
+    if (!el || el.disabled) return;
+    el.focus();
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [focusRequest]);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // 한글 IME 조합 중(macOS/Windows) 엔터 시 중복 전송 방지
+    if (e.nativeEvent.isComposing) return;
+
+    if (e.key === "Enter") {
+      if (e.shiftKey) {
+        // Shift + Enter: 다음 줄로 줄바꿈 허용
+        return;
+      }
+      // Enter: 전송
+      e.preventDefault();
+      if (!busy && trimmed) {
+        onSubmit();
+      }
+    }
+  };
+
   const slashMatches = trimmed.startsWith("/")
     ? SLASH_COMMANDS.filter((cmd) => cmd.name.startsWith(trimmed.toLowerCase()))
     : [];
@@ -268,13 +306,15 @@ export function CopilotComposer({
         </>
       )}
 
-      <input
-        className={styles.input}
+      <textarea
+        ref={textareaRef}
+        rows={1}
+        className={`${styles.input} ${styles.composerTextarea}`}
         placeholder={placeholder || `${baristaName}에게 물어보기 (예: "오늘 뭐 해야 해?")`}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onFocus={onFocus}
-        onKeyDown={(e) => e.key === "Enter" && onSubmit()}
+        onKeyDown={handleKeyDown}
         disabled={busy}
         aria-label={`${baristaName} 질문 입력`}
       />
@@ -285,6 +325,7 @@ export function CopilotComposer({
         disabled={busy}
         title="질문"
         style={{
+          height: "38px",
           padding: "8px 12px",
           display: "flex",
           alignItems: "center",
