@@ -12,6 +12,7 @@ function cleanState(value) {
   if (!value || typeof value !== 'object') throw new Error('Invalid state');
   const text = (key, max) => typeof value[key] === 'string' ? value[key].slice(0, max) : '';
   return {
+    webMiniCardControl: value.webMiniCardControl === true,
     name: text('name', 60) || 'AI 바리스타',
     speech: text('speech', 1000),
     title: text('title', 120),
@@ -29,17 +30,19 @@ function equalSecret(a, b) {
   return left.length === right.length && timingSafeEqual(left, right);
 }
 
-function createBridge({ origin, port = 47381, onState = () => {}, onPair = () => {}, onDisconnect = () => {} }) {
+function createBridge({ origin, port = 47381, onState = () => {}, onPair = () => {}, onDisconnect = () => {}, onWindow = async () => false, windowControl = false }) {
   origin = appOrigin(origin);
   let code = String(randomInt(100000, 1000000));
   let token = '';
   let lastSeen = 0;
   let failures = [];
   let action = null;
+  let actionMarker = null;
   const reset = () => {
     token = '';
     lastSeen = 0;
     action = null;
+    actionMarker = null;
     code = String(randomInt(100000, 1000000));
     onDisconnect(code);
   };
@@ -80,14 +83,24 @@ function createBridge({ origin, port = 47381, onState = () => {}, onPair = () =>
         code = String(randomInt(100000, 1000000));
         lastSeen = Date.now();
         onPair();
-        reply(200, { token }); return;
+        reply(200, { token, windowControl }); return;
       }
       if (!token || !equalSecret(req.headers.authorization, `Bearer ${token}`)) { reply(401, { error: '연결을 다시 설정해 주세요.' }); return; }
+      if (req.url === '/window') {
+        if (!['minimize', 'restore'].includes(data.action) ||
+            (data.action === 'minimize' && !/^[a-f0-9]{32}$/.test(data.marker || ''))) {
+          reply(400, { error: 'invalid_window_action' }); return;
+        }
+        if (Date.now() - lastSeen > 120000) { reset(); reply(401, { error: 'expired' }); return; }
+        lastSeen = Date.now();
+        const ok = await onWindow(data.action, data.marker);
+        reply(ok ? 200 : 409, { ok }); return;
+      }
       if (req.url === '/state') {
         const state = cleanState(data);
         lastSeen = Date.now();
         onState(state);
-        reply(200, { action }); action = null; return;
+        reply(200, { action, ...(actionMarker ? { actionMarker } : {}) }); action = null; actionMarker = null; return;
       }
       if (req.url === '/disconnect') { reset(); reply(200, { ok: true }); return; }
       reply(404, { error: 'not_found' });
@@ -104,16 +117,18 @@ function createBridge({ origin, port = 47381, onState = () => {}, onPair = () =>
   return {
     get code() { return code; },
     get connected() { return Boolean(token); },
-    queueAction(name) {
+    queueAction(name, marker) {
       if (!token) return false;
       if (Date.now() - lastSeen > 120000) { reset(); return false; }
       action = typeof name === 'string' ? name.slice(0, 60) : null;
+      actionMarker = /^[a-f0-9]{32}$/.test(marker || '') ? marker : null;
       return true;
     },
     requestOpen() {
       if (!token) return false;
       if (Date.now() - lastSeen > 120000) { reset(); return false; }
       action = 'open-copilot';
+      actionMarker = null;
       return true;
     },
     reset,

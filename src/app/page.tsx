@@ -113,6 +113,7 @@ const ShortcutsWidget = dynamic(() => import("./components/ShortcutsWidget").the
 const FinanceWidget = dynamic(() => import("./components/FinanceWidget").then((m) => m.FinanceWidget), { ssr: false });
 const CustomNewsWidget = dynamic(() => import("./components/CustomNewsWidget").then((m) => m.CustomNewsWidget), { ssr: false });
 const YouTubeBundleWidget = dynamic(() => import("./components/youtube/YouTubeBundleWidget").then((m) => m.YouTubeBundleWidget), { ssr: false });
+const ThreadsBundleWidget = dynamic(() => import("./components/threads/ThreadsBundleWidget").then((m) => m.ThreadsBundleWidget), { ssr: false });
 import type { CanvasDocument, CanvasDocType, CanvasExtractedTask } from "@/lib/canvas/types";
 import { loadCanvasDocsFromLS, saveCanvasDocsToLS } from "@/lib/ai/canvasAi";
 import { archiveCanvasDocument } from "@/lib/knowledge/archiveClient";
@@ -136,6 +137,8 @@ import { SubTask } from "@/lib/types/unified";
 import { CopilotUserConfig, DEFAULT_COPILOT_CONFIG } from "@/lib/ai/harness";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { useCloudSync } from "./hooks/useCloudSync";
+import { isDesktopMainManaged, restoreConnectedMain } from "@/lib/ui/desktopWindowControl";
+import { useGlobalShortcuts } from "./hooks/useGlobalShortcuts";
 import type { ExtractTasksResponse } from "@/lib/types/storage";
 import type { CalendarEventDraft } from "@/lib/calendar/types";
 import type { CloudDraftPayload } from "@/lib/cloudTools/drafts";
@@ -421,6 +424,7 @@ export default function Home() {
   );
   const [copilotInput, setCopilotInput] = useState("");
   const [copilotBusy, setCopilotBusy] = useState(false);
+  const [copilotFocusTick, setCopilotFocusTick] = useState(0);
   const [calendarDraft, setCalendarDraft] = useState<CalendarEventDraft | null>(null);
   const [cloudToolDraft, setCloudToolDraft] = useState<CloudDraftPayload | null>(null);
   const [cloudWriteApproval, setCloudWriteApproval] = useState<CloudWriteApproval | null>(null);
@@ -920,6 +924,30 @@ export default function Home() {
 
   const [theme, setTheme] = useState<Theme>(() => loadLS<Theme>(LS_THEME, "dark"));
   const [showConn, setShowConn] = useState(false);
+
+  useGlobalShortcuts({
+    onTriggerBarista: useCallback(() => {
+      if (isDesktopMainManaged()) { void restoreConnectedMain(); return; }
+      if (desktopPipEnabled && window.documentPictureInPicture) {
+        window.dispatchEvent(new Event("coffeetide:toggle-web-barista"));
+        return;
+      }
+      openWorkspaceTab("copilot");
+      setCopilotFocusTick((prev) => prev + 1);
+    }, [desktopPipEnabled, openWorkspaceTab]),
+    onQuoteText: useCallback((text: string) => {
+      openWorkspaceTab("copilot");
+      if (text) {
+        setCopilotInput((prev) => (prev ? `${prev}\n> ${text}\n` : `> ${text}\n`));
+      }
+      setCopilotFocusTick((prev) => prev + 1);
+    }, [openWorkspaceTab]),
+    onEscape: useCallback(() => {
+      if (showConn) setShowConn(false);
+      if (plusOpen) setPlusOpen(false);
+    }, [showConn, plusOpen]),
+  });
+
 
   // 브라우저 로컬 폴더 (File System Access API) — 원격 배포에서도 폴더 연동
   const [fsaSupported, setFsaSupported] = useState(false);
@@ -2313,6 +2341,7 @@ export default function Home() {
       explicitMode?: "talk" | "work";
       persistToFeed?: boolean;
       localHistory?: ChromeCanaryConversationTurn[];
+      isolatedHistory?: boolean;
       trackGlobalBusy?: boolean;
     }
   ): Promise<string | undefined> {
@@ -2323,7 +2352,9 @@ export default function Home() {
     }
     const question = (preset ?? copilotInput).trim();
     if (!question || (trackGlobalBusy && copilotBusy)) return;
-    const conversationHistory: ChromeCanaryConversationTurn[] = [
+    const conversationHistory: ChromeCanaryConversationTurn[] = options?.isolatedHistory
+      ? (options.localHistory ?? []).slice(-20)
+      : [
       ...copilotMessages.slice(-8).map((message) => ({
         role: message.role === "ai" ? "assistant" as const : "user" as const,
         text: message.text,
@@ -3157,17 +3188,18 @@ export default function Home() {
                   composer?.focus();
                 }, 200);
               }}
-              onSendMessage={async (msg, previousTurn) => {
+              onSendMessage={async (msg, previousTurn, history) => {
                 return await askCopilot(msg, {
                   explicitMode: "talk",
                   persistToFeed: false,
                   trackGlobalBusy: false,
-                  localHistory: previousTurn
+                  isolatedHistory: history !== undefined,
+                  localHistory: history ?? (previousTurn
                     ? [
                         { role: "user", text: previousTurn.userText },
                         { role: "assistant", text: previousTurn.aiText },
                       ]
-                    : undefined,
+                    : undefined),
                 });
               }}
               enabled={true}
@@ -3333,6 +3365,16 @@ export default function Home() {
                 <UiIcon name="video" size={16} />
                 <span>유튜브 번들</span>
               </button>
+              <button
+                type="button"
+                data-widget-id="threads"
+                className={`${styles.widgetChip} ${activeWidget === "threads" ? styles.widgetChipActive : ""}`}
+                onClick={() => handleSelectWidget("threads")}
+                title="Threads 실시간 최신 피드 열기/닫기"
+              >
+                <span aria-hidden="true" style={{ fontSize: "1rem" }}>🧵</span>
+                <span>Threads 피드</span>
+              </button>
               {/* 사용자가 동적으로 등록한 커스텀 위젯 칩들 */}
               {customWidgets.map((w) => (
                 <button
@@ -3443,6 +3485,11 @@ export default function Home() {
             {activeWidget === "youtube" && (
               <div className={styles.widgetPanel}>
                 <YouTubeBundleWidget onNotify={notifyFromWidget} userScope={userScope} />
+              </div>
+            )}
+            {activeWidget === "threads" && (
+              <div className={styles.widgetPanel}>
+                <ThreadsBundleWidget />
               </div>
             )}
             {/* 커스텀 위젯 패널 */}
@@ -3881,6 +3928,7 @@ export default function Home() {
               />
             )}
             <CopilotComposer
+              focusRequest={copilotFocusTick}
               value={copilotInput}
               onChange={setCopilotInput}
               onSubmit={() => void askCopilot()}

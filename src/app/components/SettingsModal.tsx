@@ -196,66 +196,7 @@ export function SettingsModal({
   const [accountDeleteBusy, setAccountDeleteBusy] = useState(false);
   const [showWhatsNew, setShowWhatsNew] = useState(false);
   const hasUpdate = useHasUnseenUpdate();
-
-  // ⚡ Windows 전역 단축키 (Alt 두 번 누름) 등록 상태
-  const [winShortcutStatus, setWinShortcutStatus] = useState<{
-    supported: boolean;
-    registered: boolean;
-    loading: boolean;
-  }>({ supported: false, registered: false, loading: true });
-  const [winShortcutBusy, setWinShortcutBusy] = useState(false);
-
-  useEffect(() => {
-    let ignore = false;
-    fetch("/api/util/windows-shortcut")
-      .then((res) => res.json())
-      .then((data) => {
-        if (!ignore) {
-          setWinShortcutStatus({
-            supported: Boolean(data.supported),
-            registered: Boolean(data.registered),
-            loading: false,
-          });
-        }
-      })
-      .catch(() => {
-        if (!ignore) {
-          setWinShortcutStatus({ supported: false, registered: false, loading: false });
-        }
-      });
-    return () => {
-      ignore = true;
-    };
-  }, []);
-
-  const handleToggleWinShortcut = async () => {
-    setWinShortcutBusy(true);
-    try {
-      if (winShortcutStatus.registered) {
-        const res = await fetch("/api/util/windows-shortcut", { method: "DELETE" });
-        const data = await res.json();
-        if (data.success) {
-          setWinShortcutStatus((prev) => ({ ...prev, registered: false }));
-          onNotify?.("Windows 전역 단축키 등록이 해제되었습니다.");
-        } else {
-          onNotify?.(data.message || "단축키 해제에 실패했습니다.");
-        }
-      } else {
-        const res = await fetch("/api/util/windows-shortcut", { method: "POST" });
-        const data = await res.json();
-        if (data.success) {
-          setWinShortcutStatus((prev) => ({ ...prev, registered: true }));
-          onNotify?.(data.message || "Windows 단축키를 등록하고 실행을 요청했습니다.");
-        } else {
-          onNotify?.(data.message || "단축키 등록에 실패했습니다.");
-        }
-      }
-    } catch {
-      onNotify?.("단축키 설정 중 네트워크 오류가 발생했습니다.");
-    } finally {
-      setWinShortcutBusy(false);
-    }
-  };
+  const [showShortcutsGuide, setShowShortcutsGuide] = useState(false);
 
   const selectSettingsTab = useCallback((tab: SettingsTab) => {
     setActiveTab(tab);
@@ -583,7 +524,7 @@ export function SettingsModal({
                   <div className={styles.settingToggleCopy}>
                     <span className={styles.settingToggleTitle}>📌 데스크톱 플로팅 바리스타</span>
                     <div className={styles.settingToggleDesc}>
-                      전용 CoffeeTideBarista 앱과 연결하여 테두리 없는 캐릭터를 다른 앱 위에 띄웁니다. 캐릭터의 설정에서 ① 아이스커피 아이콘 / ② 현재 바리스타 사진을 선택할 수 있습니다.
+                      설치 없이 웹 미니 카드를 다른 창 위에 띄웁니다. 미니카드가 열리면 본창이 자동으로 최소화되고, 미니카드에서 대화창 열기나 닫기 시 본창이 다시 복원됩니다. 별도 데스크톱 앱과 연결하는 방식도 함께 지원합니다.
                     </div>
                   </div>
                   <input
@@ -593,7 +534,10 @@ export function SettingsModal({
                     aria-label="데스크톱 플로팅 바리스타 실험실 기능 활성화"
                   />
                 </label>
-                {desktopPipEnabled && <button type="button" className={styles.btn} onClick={() => window.dispatchEvent(new Event("coffeetide:open-desktop-barista"))}>데스크톱 바리스타 연결</button>}
+                {desktopPipEnabled && <>
+                  <button type="button" className={styles.btn} onClick={() => window.dispatchEvent(new Event("coffeetide:open-web-barista"))}>웹 미니 카드 띄우기</button>
+                  <button type="button" className={styles.btn} onClick={() => window.dispatchEvent(new Event("coffeetide:open-desktop-barista"))}>데스크톱 앱 연결</button>
+                </>}
               </div>
             </div>
           </div>
@@ -757,44 +701,155 @@ export function SettingsModal({
               </div>
             </div>
 
-            {/* ⚡ Windows 전역 단축키 (Alt 두 번 누름) 카드 */}
-            {winShortcutStatus.supported && (
-              <div className={styles.card} style={{ marginBottom: 16 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
-                  <div style={{ flex: 1, minWidth: 240 }}>
-                    <div className={styles.cardTitle} style={{ fontSize: "0.9rem", marginBottom: 6 }}>
-                      ⚡ Windows 전역 단축키 (Alt 두 번 누름)
-                    </div>
-                    <p className={styles.connNote} style={{ margin: 0, fontSize: "0.8rem", lineHeight: 1.5 }}>
-                      어떤 프로그램(코딩, 엑셀, 문서 등)을 사용하는 중에도 좌측 <b>Alt 키를 두 번 연속 톡톡</b> 누르면 coffeeTide가 즉시 화면 맨 앞으로 호출됩니다.
-                    </p>
-                    <small style={{ display: "block", marginTop: 6, color: "var(--text-dim)", fontSize: "0.74rem" }}>
-                      • Windows 시작프로그램에 자동 등록되어 PC 부팅 시에도 유지됩니다.
-                    </small>
+            {/* ⌨️ 키보드 기본 단축키 안내 아코디언 카드 */}
+            <div className={styles.card} style={{ marginBottom: 16 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                <div style={{ flex: 1, minWidth: 200 }}>
+                  <div className={styles.cardTitle} style={{ fontSize: "0.9rem", marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
+                    <span>⌨️</span> 키보드 단축키
                   </div>
-                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                    <button
-                      type="button"
-                      className={`${styles.btn} ${winShortcutStatus.registered ? styles.btnSecondary : styles.btnPrimary}`}
-                      onClick={() => void handleToggleWinShortcut()}
-                      disabled={winShortcutBusy || winShortcutStatus.loading}
+                  <p className={styles.connNote} style={{ margin: 0, fontSize: "0.78rem" }}>
+                    coffeeTide의 주요 기능을 마우스 없이 빠르게 실행할 수 있습니다.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className={`${styles.btn} ${showShortcutsGuide ? styles.btnSecondary : styles.btnPrimary}`}
+                  onClick={() => setShowShortcutsGuide((prev) => !prev)}
+                  style={{
+                    padding: "7px 14px",
+                    fontSize: "0.82rem",
+                    fontWeight: 600,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                  }}
+                  aria-expanded={showShortcutsGuide}
+                >
+                  <span>{showShortcutsGuide ? "단축키 접기 ▲" : "단축키 보기 ▼"}</span>
+                </button>
+              </div>
+
+              {showShortcutsGuide && (
+                <div
+                  style={{
+                    marginTop: 14,
+                    paddingTop: 12,
+                    borderTop: "1px solid var(--border)",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 8,
+                  }}
+                >
+                  {[
+                    {
+                      keys: ["왼쪽 Shift", "두 번"],
+                      title: "AI 바리스타 즉시 호출 (톡톡)",
+                      desc: "왼쪽 Shift를 빠르게 두 번 눌렀다 떼면 대화창이 열립니다. Windows 데스크톱 바리스타가 실행 중이면 다른 앱에서도 호출할 수 있습니다.",
+                    },
+                    {
+                      keys: ["Ctrl", "L"],
+                      altKeys: ["Ctrl", "I"],
+                      title: "텍스트 인용",
+                      desc: "선택한 텍스트를 AI 바리스타 대화창에 인용 주입합니다.",
+                    },
+                    {
+                      keys: ["Ctrl", "Enter"],
+                      title: "메시지 전송 & 카드 즉시 실행",
+                      desc: "대화창에서 메시지를 전송하거나, AI가 제안한 업무/일정 승인 카드를 즉시 실행합니다.",
+                    },
+                    {
+                      keys: ["Ctrl", "D"],
+                      title: "대화형 작업 취소",
+                      desc: "AI의 확인 질문이나 제안된 작업 카드를 즉시 취소/닫기 처리합니다.",
+                    },
+                    {
+                      keys: ["Esc"],
+                      title: "창 / 모달 닫기",
+                      desc: "현재 열려 있는 설정 창, 상세 패널, 팝업을 즉시 닫습니다.",
+                    },
+                    {
+                      keys: ["Space"],
+                      title: "캔버스 메모 넘기기",
+                      desc: "캔버스 뷰에서 다음 메모로 전환하거나 완료 처리합니다.",
+                    },
+                  ].map((item, idx) => (
+                    <div
+                      key={idx}
                       style={{
-                        padding: "8px 14px",
-                        fontSize: "0.82rem",
-                        fontWeight: 600,
-                        whiteSpace: "nowrap",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        gap: 12,
+                        padding: "8px 10px",
+                        borderRadius: 8,
+                        backgroundColor: "var(--surface-subtle, rgba(0,0,0,0.02))",
+                        border: "1px solid var(--border-subtle, rgba(0,0,0,0.05))",
+                        flexWrap: "wrap",
                       }}
                     >
-                      {winShortcutBusy
-                        ? "처리 중…"
-                        : winShortcutStatus.registered
-                        ? "✅ 등록 완료 (해제하기)"
-                        : "⚡ Windows 단축키 등록"}
-                    </button>
-                  </div>
+                      <div style={{ flex: 1, minWidth: 200 }}>
+                        <div style={{ fontSize: "0.82rem", fontWeight: 600, color: "var(--text)" }}>
+                          {item.title}
+                        </div>
+                        <div style={{ fontSize: "0.74rem", color: "var(--text-dim)", marginTop: 2 }}>
+                          {item.desc}
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                        {item.keys.map((k, kIdx) => (
+                          <React.Fragment key={kIdx}>
+                            {kIdx > 0 && <span style={{ fontSize: "0.75rem", color: "var(--text-dim)" }}>+</span>}
+                            <kbd
+                              style={{
+                                display: "inline-block",
+                                padding: "2px 7px",
+                                fontSize: "0.75rem",
+                                fontFamily: "inherit",
+                                fontWeight: 700,
+                                borderRadius: 5,
+                                border: "1px solid var(--border)",
+                                backgroundColor: "var(--surface)",
+                                boxShadow: "0 1px 2px rgba(0,0,0,0.08)",
+                                color: "var(--text)",
+                              }}
+                            >
+                              {k}
+                            </kbd>
+                          </React.Fragment>
+                        ))}
+                        {item.altKeys && (
+                          <>
+                            <span style={{ fontSize: "0.75rem", color: "var(--text-dim)", margin: "0 2px" }}>/</span>
+                            {item.altKeys.map((k, kIdx) => (
+                              <React.Fragment key={kIdx}>
+                                {kIdx > 0 && <span style={{ fontSize: "0.75rem", color: "var(--text-dim)" }}>+</span>}
+                                <kbd
+                                  style={{
+                                    display: "inline-block",
+                                    padding: "2px 7px",
+                                    fontSize: "0.75rem",
+                                    fontFamily: "inherit",
+                                    fontWeight: 700,
+                                    borderRadius: 5,
+                                    border: "1px solid var(--border)",
+                                    backgroundColor: "var(--surface)",
+                                    boxShadow: "0 1px 2px rgba(0,0,0,0.08)",
+                                    color: "var(--text)",
+                                  }}
+                                >
+                                  {k}
+                                </kbd>
+                              </React.Fragment>
+                            ))}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
 
             <div className={styles.accountManagementCard}>
               <div>

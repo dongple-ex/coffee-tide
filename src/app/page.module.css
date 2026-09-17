@@ -5745,7 +5745,7 @@
 
 .baristaIdleMinimizeBtn:hover,
 .baristaIdleCloseBtn:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--card-hover, rgba(0, 0, 0, 0.06));
   color: var(--text);
 }
 

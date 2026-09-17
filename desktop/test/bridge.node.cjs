@@ -4,6 +4,30 @@ const http = require('node:http');
 const { appOrigin, cleanState, createBridge } = require('../bridge.cjs');
 const { openConversation } = require('../navigation.cjs');
 const origin = 'http://localhost:3000';
+test('native restore identifies its mini session and is delivered only once', async (t) => {
+  const { bridge, post } = await fixture(t);
+  const { token } = await (await post('pair', { code: bridge.code })).json();
+  bridge.queueAction('restore-web-main', 'a'.repeat(32));
+  assert.deepEqual(await (await post('state', {}, token)).json(), { action: 'restore-web-main', actionMarker: 'a'.repeat(32) });
+  assert.deepEqual(await (await post('state', {}, token)).json(), { action: null });
+});
+
+test('window commands require pairing, exact origin and validated actions', async (t) => {
+  const calls = [];
+  const { bridge, post } = await fixture(t, { windowControl: true, onWindow: async (...args) => { calls.push(args); return true; } });
+  const command = { action: 'minimize', marker: 'a'.repeat(32) };
+  assert.equal((await post('window', command)).status, 401);
+  const paired = await (await post('pair', { code: bridge.code })).json();
+  assert.equal(paired.windowControl, true);
+  assert.equal((await post('window', command, paired.token, 'https://untrusted.example')).status, 403);
+  assert.equal((await post('window', { action: 'close' }, paired.token)).status, 400);
+  assert.equal((await post('window', { action: 'minimize', marker: 'Chrome' }, paired.token)).status, 400);
+  assert.deepEqual(calls, []);
+  assert.equal((await post('window', command, paired.token)).status, 200);
+  assert.deepEqual(calls, [['minimize', command.marker]]);
+  await post('disconnect', {}, paired.token);
+  assert.equal((await post('window', { action: 'restore' }, paired.token)).status, 401);
+});
 
 async function fixture(t, options = {}) {
   const bridge = createBridge({ origin, port: 0, ...options });

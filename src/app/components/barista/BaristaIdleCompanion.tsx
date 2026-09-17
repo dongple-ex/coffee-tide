@@ -7,6 +7,7 @@ import { IDLE_TALK_POOL, formatIdleTalkForPersona, IdleMessageItem } from "@/lib
 import { getPersonaEffect } from "@/lib/ai/personaEffects";
 import { AffectionBadge } from "./AffectionBadge";
 import { DesktopBaristaConnector } from "./DesktopBaristaConnector";
+import type { PipChatMessage } from "./pipChat";
 import { DesktopBaristaPip } from "./DesktopBaristaPip";
 import styles from "../../page.module.css";
 
@@ -19,7 +20,8 @@ export interface BaristaIdleCompanionProps {
   onOpenCopilot?: () => void;
   onSendMessage?: (
     message: string,
-    previousTurn?: { userText: string; aiText: string }
+    previousTurn?: { userText: string; aiText: string },
+    history?: PipChatMessage[]
   ) => Promise<string | undefined> | void;
   enabled?: boolean;
   desktopPipEnabled?: boolean;
@@ -39,10 +41,20 @@ export function BaristaIdleCompanion({
   const [isCardOpen, setIsCardOpen] = useState(false);
   const [isPanelMinimized, setIsPanelMinimized] = useState(false);
   const [isPipOpen, setIsPipOpen] = useState(false);
+  const [isWebPipOpen, setIsWebPipOpen] = useState(false);
+  const closeWebPip = useCallback(() => setIsWebPipOpen(false), []);
   useEffect(() => {
     const open = () => setIsPipOpen(true);
+    const openWeb = () => setIsWebPipOpen(true);
+    const toggleWeb = () => setIsWebPipOpen((open) => !open);
     window.addEventListener("coffeetide:open-desktop-barista", open);
-    return () => window.removeEventListener("coffeetide:open-desktop-barista", open);
+    window.addEventListener("coffeetide:open-web-barista", openWeb);
+    window.addEventListener("coffeetide:toggle-web-barista", toggleWeb);
+    return () => {
+      window.removeEventListener("coffeetide:open-desktop-barista", open);
+      window.removeEventListener("coffeetide:open-web-barista", openWeb);
+      window.removeEventListener("coffeetide:toggle-web-barista", toggleWeb);
+    };
   }, []);
   const [currentItem, setCurrentItem] = useState<IdleMessageItem>(() => IDLE_TALK_POOL[0]);
   const [dynamicTalk, setDynamicTalk] = useState<{ title: string; content: string } | null>(null);
@@ -289,7 +301,7 @@ export function BaristaIdleCompanion({
                 type="button"
                 className={styles.baristaIdleDockClose}
                 onClick={() => {
-                  setIsPipOpen(true);
+                  setIsWebPipOpen(true);
                   setIsCardOpen(false);
                 }}
                 aria-label="화면 항상 위(Always-on-Top) 윈도우에 띄우기"
@@ -326,7 +338,7 @@ export function BaristaIdleCompanion({
                   type="button"
                   className={styles.baristaIdleMinimizeBtn}
                   onClick={() => {
-                    setIsPipOpen(true);
+                    setIsWebPipOpen(true);
                     setIsCardOpen(false);
                   }}
                   aria-label="화면 항상 위(Always-on-Top) 윈도우로 띄우기"
@@ -370,7 +382,7 @@ export function BaristaIdleCompanion({
             onOpenPip={
               desktopPipEnabled
                 ? () => {
-                    setIsPipOpen(true);
+                    setIsWebPipOpen(true);
                     setIsCardOpen(false);
                   }
                 : undefined
@@ -457,30 +469,27 @@ export function BaristaIdleCompanion({
       )}
 
       </>}
+      <DesktopBaristaPip
+        presetId={presetId}
+        baristaName={baristaName}
+        displayContent={displayContent}
+        isOpen={desktopPipEnabled && isWebPipOpen}
+        onClose={closeWebPip}
+        onOpenCopilot={onOpenCopilot}
+        onSendMessage={onSendMessage}
+      />
       {/* 연결은 유휴 말풍선이 숨겨져도 유지한다. */}
       {desktopPipEnabled && (
-        <>
-          <DesktopBaristaConnector
-            presetId={presetId}
-            baristaName={baristaName}
-            displayTitle={displayTitle}
-            displayContent={displayContent}
-            isOpen={isPipOpen}
-            onClose={() => setIsPipOpen(false)}
-            onOpenCopilot={onOpenCopilot}
-            onSendMessage={onSendMessage}
-          />
-          <DesktopBaristaPip
-            presetId={presetId}
-            baristaName={baristaName}
-            displayTitle={displayTitle}
-            displayContent={displayContent}
-            isOpen={isPipOpen}
-            onClose={() => setIsPipOpen(false)}
-            onSendMessage={onSendMessage}
-            onOpenCopilot={onOpenCopilot}
-          />
-        </>
+        <DesktopBaristaConnector
+          presetId={presetId}
+          baristaName={baristaName}
+          displayTitle={displayTitle}
+          displayContent={displayContent}
+          isOpen={isPipOpen}
+          onClose={() => setIsPipOpen(false)}
+          onOpenCopilot={onOpenCopilot}
+          onSendMessage={onSendMessage}
+        />
       )}
     </>
   );

@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { getPersonaAvatar, getPersonaEffect } from "@/lib/ai/personaEffects";
+import { registerDesktopWindowControl } from "@/lib/ui/desktopWindowControl";
 import styles from "./desktopBaristaConnector.module.css";
 
 const BRIDGE_URL = "http://127.0.0.1:47381";
@@ -33,6 +34,7 @@ export function DesktopBaristaConnector({
 }: Props) {
   const [code, setCode] = useState("");
   const [token, setToken] = useState<string | null>(null);
+  const [canControlWindow, setCanControlWindow] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const effect = getPersonaEffect(presetId, baristaName);
@@ -52,6 +54,64 @@ export function DesktopBaristaConnector({
   useEffect(() => {
     if (!token) return;
     let disposed = false;
+    let marker: string | null = null;
+    let originalTitle = "";
+    let titleObserver: MutationObserver | null = null;
+    let commands = Promise.resolve(true);
+    const finishRestore = () => {
+      titleObserver?.disconnect();
+      titleObserver = null;
+      if (marker) document.title = originalTitle;
+      marker = null;
+      window.dispatchEvent(new Event("coffeetide:desktop-main-restored"));
+    };
+    const windowCommand = async (action: "minimize" | "restore") => {
+      try {
+        const response = await fetch(`${BRIDGE_URL}/window`, {
+          method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ action, marker }), signal: AbortSignal.timeout(12000),
+        });
+        return response.ok && (await response.json()).ok === true;
+      } catch { return false; }
+    };
+    const restore = () => {
+      commands = commands.then(async () => {
+        if (!marker) return true;
+        const ok = await windowCommand("restore");
+        if (ok) finishRestore();
+        return ok;
+      });
+      return commands;
+    };
+    const unregister = canControlWindow ? registerDesktopWindowControl({
+      active: () => marker !== null,
+      minimize: () => {
+        commands = commands.then(async () => {
+          if (disposed) return false;
+          if (!marker) {
+            originalTitle = document.title.replace(/ \[CoffeeTide:[a-f0-9]{32}\]/g, "");
+            marker = crypto.randomUUID().replaceAll("-", "");
+            const markedTitle = `${originalTitle} [CoffeeTide:${marker}]`;
+            const pinTitle = () => { if (document.title !== markedTitle) document.title = markedTitle; };
+            pinTitle();
+            titleObserver = new MutationObserver(pinTitle);
+            titleObserver.observe(document.head, { childList: true, subtree: true, characterData: true });
+          }
+          const ok = await windowCommand("minimize");
+          if (!ok) {
+            // 실패/시간 초과 직후 실제 최소화가 끝났을 수도 있어 복원을 먼저 시도한다.
+            const restored = await windowCommand("restore");
+            if (restored) {
+              titleObserver?.disconnect(); titleObserver = null;
+              document.title = originalTitle; marker = null;
+            }
+          }
+          return ok;
+        });
+        return commands;
+      },
+      restore,
+    }) : () => {};
     let running = false;
     let failures = 0;
     const send = async () => {
@@ -61,13 +121,15 @@ export function DesktopBaristaConnector({
         const response = await fetch(`${BRIDGE_URL}/state`, {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify(latest.current),
+          body: JSON.stringify({ ...latest.current, webMiniCardControl: canControlWindow }),
           signal: AbortSignal.timeout(3000),
         });
         if (!response.ok) throw new Error("데스크톱 바리스타를 다시 연결해 주세요.");
         const result = await response.json();
         failures = 0;
-        if (!disposed && result.action === "open-copilot") {
+        if (!disposed && result.action === "restore-web-main") {
+          if (marker && result.actionMarker === marker) finishRestore();
+        } else if (!disposed && result.action === "open-copilot") {
           openCopilot.current?.();
           // 포커스 허용 여부는 브라우저가 결정한다. 새 탭을 만드는 폴백은 사용하지 않는다.
           window.focus();
@@ -93,14 +155,23 @@ export function DesktopBaristaConnector({
     document.addEventListener("visibilitychange", onVisible);
     return () => {
       disposed = true;
+      titleObserver?.disconnect();
       window.clearInterval(interval);
       document.removeEventListener("visibilitychange", onVisible);
-      void fetch(`${BRIDGE_URL}/disconnect`, {
+      unregister();
+      void restore().then(() => fetch(`${BRIDGE_URL}/disconnect`, {
         method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: "{}", keepalive: true,
-      }).catch(() => {});
+      })).catch(() => {}).finally(() => {
+        // 네이티브의 연결 해제 복원(최대 2개 명령)이 끝난 뒤 제목 관찰자를 정리한다.
+        window.setTimeout(() => {
+          titleObserver?.disconnect();
+          if (marker && document.title.includes(`[CoffeeTide:${marker}]`)) document.title = originalTitle;
+          marker = null;
+        }, 20000);
+      });
     };
-  }, [token]);
+  }, [token, canControlWindow]);
 
   const pair = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -113,6 +184,7 @@ export function DesktopBaristaConnector({
       });
       const data = await response.json();
       if (!response.ok || typeof data.token !== "string") throw new Error(data.error || "연결하지 못했습니다.");
+      setCanControlWindow(data.windowControl === true);
       setToken(data.token); setCode("");
     } catch (cause) {
       setError(cause instanceof TypeError ? "보조 앱에 연결할 수 없습니다. CoffeeTideBarista를 실행해 주세요. 브라우저가 로컬 네트워크 접근을 물으면 허용해야 연결됩니다." : cause instanceof Error ? cause.message : "연결에 실패했습니다.");
@@ -128,6 +200,7 @@ export function DesktopBaristaConnector({
         {token ? (
           <div role="status" className={styles.connected}>
             <strong>✓ 이 PC의 바리스타와 연결되었습니다.</strong>
+            {canControlWindow && <p>웹 미니카드를 열면 본체를 최소화하고, 왼쪽 Shift 두 번으로 본체를 복원합니다.</p>}
             <p>웹의 이름·색상·사진·현재 말풍선을 전달합니다. 대화 내용은 보조 앱에 저장하지 않습니다.</p>
             <button type="button" onClick={() => setToken(null)}>연결 해제</button>
             <button type="button" onClick={onClose}>완료</button>

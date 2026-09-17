@@ -120,23 +120,9 @@ export function CafeBaristaScene({
             {onOpenPip && (
               <button
                 type="button"
+                className={styles.pipButton}
                 onClick={onOpenPip}
                 title="다른 작업 중에도 항상 화면 위에 떠 있도록 바리스타를 윈도우로 띄웁니다 (Always-on-Top)"
-                style={{
-                  border: "1px solid var(--border, rgba(255, 255, 255, 0.2))",
-                  background: "var(--card-hover, rgba(255, 255, 255, 0.1))",
-                  color: "inherit",
-                  borderRadius: "8px",
-                  padding: "4px 9px",
-                  fontSize: "0.76rem",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "4px",
-                  whiteSpace: "nowrap",
-                  flexShrink: 0,
-                }}
               >
                 <span>📌</span>
                 <span>윈도우에 띄우기</span>

@@ -28,19 +28,19 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
-  white-space: nowrap;
+  flex-wrap: wrap;
 }
 
 .identitySummary {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   min-width: 0;
   flex: 1 1 auto;
   cursor: pointer;
-  white-space: nowrap;
+  overflow: hidden;
 }
 
 .heartIcon {
@@ -53,24 +53,38 @@
   color: var(--text, #1a2333);
   font-size: 0.85rem;
   font-weight: 700;
+  white-space: nowrap;
 }
 
 .taskCount {
   min-width: 0;
+  flex: 0 1 auto;
   overflow: hidden;
   color: var(--text-dim, #5d6b80);
   font-size: 0.74rem;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .perksToggle {
   flex: 0 0 auto;
   color: var(--accent, #0891b2);
   font-size: 0.7rem;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--accent-dim, rgba(8, 145, 178, 0.08));
+  white-space: nowrap;
+  transition: background 0.15s ease;
+}
+
+.identitySummary:hover .perksToggle {
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
 .expSummary {
   flex: 0 0 auto;
+  margin-left: auto;
   color: var(--accent, #0891b2);
   font-size: 0.75rem;
   font-weight: 600;

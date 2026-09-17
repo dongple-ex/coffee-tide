@@ -16,12 +16,14 @@ export interface UseGlobalShortcutsProps extends GlobalShortcutsOptions {
 
 /**
  * Antigravity 2.13.0 스타일의 전역 생산성 단축키 훅
+ * - 왼쪽 Shift 두 번: 웹 미니카드 열기/숨기기 (미지원 시 Copilot 호출)
  * - Ctrl/Cmd + L or I: 드래그한 텍스트를 AI 바리스타에 인용 주입
  * - Ctrl/Cmd + D: 대화형 확인/승인/질문 취소
  * - Ctrl/Cmd + Enter: 대화형 확인/승인 실행
  * - Escape: 모달/패널 닫기 또는 최소화
  */
 export function useGlobalShortcuts({
+  onTriggerBarista,
   onQuoteText,
   onCancelInteractive,
   onSubmitInteractive,
@@ -32,9 +34,9 @@ export function useGlobalShortcuts({
   useEffect(() => {
     if (!enabled || typeof window === "undefined") return;
 
-    const options = { onQuoteText, onCancelInteractive, onSubmitInteractive, onEscape };
+    const options = { onTriggerBarista, onQuoteText, onCancelInteractive, onSubmitInteractive, onEscape };
     const targets = new Set([window, additionalWindow].filter((target): target is Window => Boolean(target)));
     const cleanups = [...targets].map((target) => bindGlobalShortcuts(target, options));
     return () => cleanups.forEach((cleanup) => cleanup());
-  }, [enabled, additionalWindow, onQuoteText, onCancelInteractive, onSubmitInteractive, onEscape]);
+  }, [enabled, additionalWindow, onTriggerBarista, onQuoteText, onCancelInteractive, onSubmitInteractive, onEscape]);
 }

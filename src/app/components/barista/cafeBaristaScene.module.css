@@ -23,6 +23,41 @@
   box-shadow: none;
   background: transparent;
   border: none;
+  color: var(--text);
+}
+
+.pipButton {
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  border-radius: 8px;
+  padding: 4px 9px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.pipButton:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.sceneContainerCompact .pipButton {
+  border: 1px solid var(--border, #dde4ee);
+  background: var(--card-hover, #f1f5f9);
+  color: var(--text, #1a2333);
+}
+
+.sceneContainerCompact .pipButton:hover {
+  background: color-mix(in srgb, var(--accent) 12%, var(--card));
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+  color: var(--accent);
 }
 
 .sceneContainerCompact .sceneGrid {
