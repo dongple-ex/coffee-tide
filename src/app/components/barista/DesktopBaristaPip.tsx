@@ -156,6 +156,8 @@ export function DesktopBaristaPip({
           pipWindowRef.current = null;
           setPipContainer(null);
           onClose();
+        }, { once: true });
+
         // PiP 창이 화면에 안정적으로 뜬 직후(250ms) 본창 최소화 트리거
         setTimeout(() => {
           if (pipWindowRef.current === pipWin && !pipWin.closed) {
