@@ -180,10 +180,14 @@ export function DesktopBaristaPip({
   useEffect(() => {
     wantsOpenRef.current = isOpen;
     if (isOpen && !pipContainer) {
-      void openPipWindow();
+      queueMicrotask(() => {
+        void openPipWindow();
+      });
     } else if (!isOpen && pipContainer && pipWindowRef.current) {
       pipWindowRef.current.close();
-      setPipContainer(null);
+      queueMicrotask(() => {
+        setPipContainer(null);
+      });
       pipWindowRef.current = null;
     }
   }, [isOpen, pipContainer, openPipWindow]);
@@ -193,6 +197,16 @@ export function DesktopBaristaPip({
     const pipWin = pipWindowRef.current;
     pipWindowRef.current = null;
     pipWin?.close();
+  }, []);
+
+  useEffect(() => {
+    const handleRestored = () => {
+      pipWindowRef.current?.close();
+    };
+    window.addEventListener("coffeetide:desktop-main-restored", handleRestored);
+    return () => {
+      window.removeEventListener("coffeetide:desktop-main-restored", handleRestored);
+    };
   }, []);
 
   const toggleCollapsed = () => {

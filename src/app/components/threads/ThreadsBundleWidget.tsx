@@ -73,7 +73,9 @@ export function ThreadsBundleWidget() {
   }, []);
 
   useEffect(() => {
-    void fetchFeeds(channels);
+    queueMicrotask(() => {
+      void fetchFeeds(channels);
+    });
   }, [channels, fetchFeeds]);
 
   // 새 채널 추가 처리

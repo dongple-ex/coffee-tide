@@ -44,6 +44,22 @@ describe("AI work survives mobile connection changes", () => {
     await vi.advanceTimersByTimeAsync(1500);
     expect(await (await promise).json()).toEqual({ answer: "saved while away" });
   });
+  it("continues polling when document is hidden if Document PiP window is open", async () => {
+    vi.stubGlobal("document", { visibilityState: "hidden" });
+    vi.stubGlobal("window", {
+      dispatchEvent: vi.fn(),
+      documentPictureInPicture: { window: {} },
+    });
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(Response.json({ status: "running" }, { status: 202 }))
+      .mockResolvedValueOnce(Response.json({ status: "completed", result: { answer: "pip done" }, httpStatus: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const promise = requestAiJob("/api/copilot", {}, { scope: "alice" });
+    await vi.advanceTimersByTimeAsync(1600);
+    expect(await (await promise).json()).toEqual({ answer: "pip done" });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it("passes through synchronous responses and cleans up rejected submissions", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ error: "storage unavailable" }, { status: 503 })));
     const response = await requestAiJob("/api/copilot", {}, { scope: "alice" });

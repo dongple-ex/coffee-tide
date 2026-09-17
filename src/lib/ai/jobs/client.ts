@@ -73,7 +73,9 @@ export async function requestAiJob(path: string, body: Record<string, unknown>, 
         return Response.json(job.result || { error: "결과를 불러오지 못했습니다." }, { status: job.httpStatus || 500 });
       }
       await new Promise<void>((resolve) => setTimeout(resolve, 1500));
-      if (document.visibilityState === "hidden") continue;
+      const pipActive = typeof window !== "undefined" &&
+        Boolean((window as unknown as { documentPictureInPicture?: { window?: unknown } }).documentPictureInPicture?.window);
+      if (document.visibilityState === "hidden" && !pipActive) continue;
       try { job = await readAiJob(id); }
       catch { /* temporary network loss: keep the same job and retry */ }
       if (job.status === "running" && Date.now() - started > AI_JOB_TIMEOUT_MS + 45_000) throw new AiJobPendingError();

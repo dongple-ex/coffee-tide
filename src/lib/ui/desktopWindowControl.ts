@@ -5,10 +5,6 @@ interface DesktopWindowControl {
 }
 
 let connected: DesktopWindowControl | null = null;
-let localMarker: string | null = null;
-let originalTitle = "";
-let titleObserver: MutationObserver | null = null;
-let fallbackCommands = Promise.resolve(true);
 
 export function registerDesktopWindowControl(control: DesktopWindowControl) {
   connected = control;
@@ -17,89 +13,20 @@ export function registerDesktopWindowControl(control: DesktopWindowControl) {
   };
 }
 
-export function isDesktopMainManaged() {
-  return connected?.active() || localMarker !== null;
-}
-
-async function callFallbackApi(action: "minimize" | "restore", marker: string): Promise<boolean> {
-  try {
-    const res = await fetch("/api/util/window-control", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action, marker }),
-    });
-    if (!res.ok) return false;
-    const data = await res.json();
-    return data.ok === true;
-  } catch {
-    return false;
-  }
-}
-
-function cleanupLocalMarker(notifyRestored = true) {
-  titleObserver?.disconnect();
-  titleObserver = null;
-  if (localMarker && typeof document !== "undefined") {
-    document.title = originalTitle;
-  }
-  localMarker = null;
-  if (notifyRestored && typeof window !== "undefined") {
-    window.dispatchEvent(new Event("coffeetide:desktop-main-restored"));
-  }
+export function isDesktopMainManaged(): boolean {
+  return Boolean(connected?.active());
 }
 
 export function minimizeConnectedMain(): Promise<boolean> {
-  if (connected) {
-    return connected.minimize();
-  }
-
-  // 로컬 Next.js API를 통한 자체 폴백
-  if (typeof window === "undefined" || typeof document === "undefined") {
+  if (!connected) {
     return Promise.resolve(false);
   }
-
-  fallbackCommands = fallbackCommands.then(async () => {
-    if (!localMarker) {
-      originalTitle = document.title.replace(/ \[CoffeeTide:[a-f0-9]{32}\]/g, "");
-      localMarker = crypto.randomUUID().replaceAll("-", "");
-      const markedTitle = `${originalTitle} [CoffeeTide:${localMarker}]`;
-      const pinTitle = () => {
-        if (document.title !== markedTitle) document.title = markedTitle;
-      };
-      pinTitle();
-      titleObserver = new MutationObserver(pinTitle);
-      titleObserver.observe(document.head, { childList: true, subtree: true, characterData: true });
-    }
-
-    // OS 윈도우 타이틀 갱신 대기
-    await new Promise((resolve) => setTimeout(resolve, 150));
-    const ok = await callFallbackApi("minimize", localMarker);
-    if (!ok) {
-      cleanupLocalMarker(false);
-    }
-    return ok;
-  });
-
-  return fallbackCommands;
+  return connected.minimize();
 }
 
 export function restoreConnectedMain(): Promise<boolean> {
-  if (connected) {
-    return connected.restore();
+  if (!connected) {
+    return Promise.resolve(false);
   }
-
-  if (typeof window === "undefined" || !localMarker) {
-    return Promise.resolve(true);
-  }
-
-  fallbackCommands = fallbackCommands.then(async () => {
-    if (!localMarker) return true;
-    const ok = await callFallbackApi("restore", localMarker);
-    if (ok) {
-      cleanupLocalMarker();
-    }
-    return ok;
-  });
-
-  return fallbackCommands;
+  return connected.restore();
 }

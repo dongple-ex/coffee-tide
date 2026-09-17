@@ -3,6 +3,7 @@ import { isDesktopMainManaged, minimizeConnectedMain, registerDesktopWindowContr
 
 it("does nothing without a paired controller and removes access on disconnect", async () => {
   expect(await minimizeConnectedMain()).toBe(false);
+  expect(await restoreConnectedMain()).toBe(false);
   const minimize = vi.fn(async () => true);
   const restore = vi.fn(async () => true);
   const unregister = registerDesktopWindowControl({ minimize, restore, active: () => true });
