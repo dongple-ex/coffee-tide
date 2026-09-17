@@ -36,14 +36,14 @@ async function callFallbackApi(action: "minimize" | "restore", marker: string): 
   }
 }
 
-function cleanupLocalMarker() {
+function cleanupLocalMarker(notifyRestored = true) {
   titleObserver?.disconnect();
   titleObserver = null;
   if (localMarker && typeof document !== "undefined") {
     document.title = originalTitle;
   }
   localMarker = null;
-  if (typeof window !== "undefined") {
+  if (notifyRestored && typeof window !== "undefined") {
     window.dispatchEvent(new Event("coffeetide:desktop-main-restored"));
   }
 }
@@ -71,9 +71,11 @@ export function minimizeConnectedMain(): Promise<boolean> {
       titleObserver.observe(document.head, { childList: true, subtree: true, characterData: true });
     }
 
+    // OS 윈도우 타이틀 갱신 대기
+    await new Promise((resolve) => setTimeout(resolve, 150));
     const ok = await callFallbackApi("minimize", localMarker);
     if (!ok) {
-      cleanupLocalMarker();
+      cleanupLocalMarker(false);
     }
     return ok;
   });

@@ -156,8 +156,12 @@ export function DesktopBaristaPip({
           pipWindowRef.current = null;
           setPipContainer(null);
           onClose();
-        }, { once: true });
-        void minimizeConnectedMain();
+        // PiP 창이 화면에 안정적으로 뜬 직후(250ms) 본창 최소화 트리거
+        setTimeout(() => {
+          if (pipWindowRef.current === pipWin && !pipWin.closed) {
+            void minimizeConnectedMain();
+          }
+        }, 250);
       } catch (err) {
         console.warn("[DesktopBaristaPip] Document PiP 진입 실패:", err);
         onClose();
@@ -187,12 +191,6 @@ export function DesktopBaristaPip({
     const pipWin = pipWindowRef.current;
     pipWindowRef.current = null;
     pipWin?.close();
-  }, []);
-
-  useEffect(() => {
-    const restored = () => { pipWindowRef.current?.close(); };
-    window.addEventListener("coffeetide:desktop-main-restored", restored);
-    return () => window.removeEventListener("coffeetide:desktop-main-restored", restored);
   }, []);
 
   const toggleCollapsed = () => {
