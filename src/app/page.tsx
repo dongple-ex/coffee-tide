@@ -405,6 +405,10 @@ export default function Home() {
   const [visibleRestCount, setVisibleRestCount] = useState<number>(10);
   const [nowTick, setNowTick] = useState(() => Date.now());
 
+  // 🔍 오늘 업무 검색 및 필터 상태
+  const [taskFilterQuery, setTaskFilterQuery] = useState("");
+  const [taskFilterStatus, setTaskFilterStatus] = useState<"all" | "active" | "completed">("all");
+
   const [quickTitle, setQuickTitle] = useState("");
   const [showPaste, setShowPaste] = useState(false);
   const [pasteText, setPasteText] = useState("");
@@ -2068,6 +2072,28 @@ export default function Home() {
     };
   }, [workflowItems, manualItems]);
 
+  // 🔍 검색어 및 상태 필터가 적용된 파생 목록
+  const { filteredTodoItems, filteredRestItems } = useMemo(() => {
+    const q = taskFilterQuery.trim().toLowerCase();
+    function matches(item: UnifiedData) {
+      if (taskFilterStatus === "active" && item.status === "completed") return false;
+      if (taskFilterStatus === "completed" && item.status !== "completed") return false;
+      if (q) {
+        const inTitle = (item.title || "").toLowerCase().includes(q);
+        const inContent = (item.content || "").toLowerCase().includes(q);
+        const inAuthor =
+          (item.author?.name || "").toLowerCase().includes(q) ||
+          (item.author?.email || "").toLowerCase().includes(q);
+        if (!inTitle && !inContent && !inAuthor) return false;
+      }
+      return true;
+    }
+    return {
+      filteredTodoItems: todoItems.filter(matches),
+      filteredRestItems: restItems.filter(matches),
+    };
+  }, [todoItems, restItems, taskFilterQuery, taskFilterStatus]);
+
   // ── G1: 수동 입력 / 붙여넣기 ────────────────
   async function addManual() {
     const title = quickTitle.trim();
@@ -3557,6 +3583,52 @@ export default function Home() {
             />
           </section>
 
+          {/* 🔍 심플 검색 및 상태 필터 바 (아이콘 없이 미니멀) */}
+          <div className={styles.taskFilterBar}>
+            <input
+              type="text"
+              className={styles.taskFilterInput}
+              placeholder="업무 및 메일 검색..."
+              value={taskFilterQuery}
+              onChange={(e) => setTaskFilterQuery(e.target.value)}
+            />
+            <div className={styles.taskFilterChips}>
+              <button
+                type="button"
+                className={`${styles.taskFilterChip} ${taskFilterStatus === "all" ? styles.taskFilterChipActive : ""}`}
+                onClick={() => setTaskFilterStatus("all")}
+              >
+                전체 {workflowItems.length}
+              </button>
+              <button
+                type="button"
+                className={`${styles.taskFilterChip} ${taskFilterStatus === "active" ? styles.taskFilterChipActive : ""}`}
+                onClick={() => setTaskFilterStatus("active")}
+              >
+                미완료 {activeCount}
+              </button>
+              <button
+                type="button"
+                className={`${styles.taskFilterChip} ${taskFilterStatus === "completed" ? styles.taskFilterChipActive : ""}`}
+                onClick={() => setTaskFilterStatus("completed")}
+              >
+                완료 {workflowItems.filter((i) => i.status === "completed").length}
+              </button>
+              {(taskFilterQuery.trim() || taskFilterStatus !== "all") && (
+                <button
+                  type="button"
+                  className={styles.taskFilterResetBtn}
+                  onClick={() => {
+                    setTaskFilterQuery("");
+                    setTaskFilterStatus("all");
+                  }}
+                >
+                  초기화
+                </button>
+              )}
+            </div>
+          </div>
+
           {/* 오늘의 행동 지침 */}
           <section className={`${styles.card} ${styles.colFull} ${styles.colUrgent} ${styles.areaTodo}`}>
             <div
@@ -3564,7 +3636,11 @@ export default function Home() {
               onClick={() => setTodoSectionCollapsed((prev) => !prev)}
             >
               <span className={styles.sectionTitleLabel}><UiIcon name="tasks" size={17} />오늘의 행동 지침</span>
-              <small>{todoItems.length}건</small>
+              <small>
+                {taskFilterQuery.trim() || taskFilterStatus !== "all"
+                  ? `${filteredTodoItems.length}건 / 전체 ${todoItems.length}건`
+                  : `${todoItems.length}건`}
+              </small>
               <button
                 type="button"
                 className={styles.btnReorder}
@@ -3610,22 +3686,26 @@ export default function Home() {
                     </p>
                   )}
                 </div>
+              ) : filteredTodoItems.length === 0 ? (
+                <div className={styles.emptyState}>
+                  <p style={{ margin: 0 }}>조건에 맞는 업무가 없습니다.</p>
+                </div>
               ) : (
                 <>
                   <div className={styles.list}>
-                    {todoItems.slice(0, visibleTodoCount).map(renderItem)}
+                    {filteredTodoItems.slice(0, visibleTodoCount).map(renderItem)}
                   </div>
-                  {todoItems.length > 10 && (
+                  {filteredTodoItems.length > 10 && (
                     <div style={{ display: "flex", justifyContent: "center", marginTop: 12 }}>
-                      {visibleTodoCount < todoItems.length ? (
+                      {visibleTodoCount < filteredTodoItems.length ? (
                         <button
                           type="button"
                           className={styles.connMenuBtn}
                           onClick={() =>
-                            setVisibleTodoCount((prev) => Math.min(prev + 10, todoItems.length))
+                            setVisibleTodoCount((prev) => Math.min(prev + 10, filteredTodoItems.length))
                           }
                         >
-                          ▼ 더 보기 ({todoItems.length - visibleTodoCount}건 남음)
+                          ▼ 더 보기 ({filteredTodoItems.length - visibleTodoCount}건 남음)
                         </button>
                       ) : (
                         <button
@@ -3702,7 +3782,11 @@ export default function Home() {
               onClick={() => setRestSectionCollapsed((prev) => !prev)}
             >
               <span className={styles.sectionTitleLabel}><UiIcon name="inbox" size={17} />받은 항목</span>
-              <small>{restItems.length}건</small>
+              <small>
+                {taskFilterQuery.trim() || taskFilterStatus !== "all"
+                  ? `${filteredRestItems.length}건 / 전체 ${restItems.length}건`
+                  : `${restItems.length}건`}
+              </small>
               <span className={styles.folderToggleIcon} title={restSectionCollapsed ? "섹션 펼치기" : "섹션 접기"}>
                 <svg
                   width="16"
@@ -3731,22 +3815,26 @@ export default function Home() {
                     가져오면 채워드릴게요.
                   </p>
                 </div>
+              ) : filteredRestItems.length === 0 ? (
+                <div className={styles.emptyState}>
+                  <p style={{ margin: 0 }}>조건에 맞는 항목이 없습니다.</p>
+                </div>
               ) : (
                 <>
                   <div className={styles.list}>
-                    {restItems.slice(0, visibleRestCount).map(renderItem)}
+                    {filteredRestItems.slice(0, visibleRestCount).map(renderItem)}
                   </div>
-                  {restItems.length > 10 && (
+                  {filteredRestItems.length > 10 && (
                     <div style={{ display: "flex", justifyContent: "center", marginTop: 12 }}>
-                      {visibleRestCount < restItems.length ? (
+                      {visibleRestCount < filteredRestItems.length ? (
                         <button
                           type="button"
                           className={styles.connMenuBtn}
                           onClick={() =>
-                            setVisibleRestCount((prev) => Math.min(prev + 10, restItems.length))
+                            setVisibleRestCount((prev) => Math.min(prev + 10, filteredRestItems.length))
                           }
                         >
-                          ▼ 더 보기 ({restItems.length - visibleRestCount}건 남음)
+                          ▼ 더 보기 ({filteredRestItems.length - visibleRestCount}건 남음)
                         </button>
                       ) : (
                         <button
