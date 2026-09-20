@@ -3584,7 +3584,7 @@ export default function Home() {
           </section>
 
           {/* 🔍 심플 검색 및 상태 필터 바 (아이콘 없이 미니멀) */}
-          <div className={styles.taskFilterBar}>
+          <div className={`${styles.taskFilterBar} ${styles.colFull}`}>
             <input
               type="text"
               className={styles.taskFilterInput}

@@ -6494,6 +6494,201 @@
   gap: 6px;
 }
 
+.htmlInCanvasChalkIndicator {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #a5f3fc;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.8), 0 0 1px #a5f3fc;
+}
+
+/* 칠판 분필체 본문 텍스트 (또렷하고 선명한 분필 엣지) */
+.htmlInCanvasChalkBody {
+  flex: 1;
+  padding: 20px 30px 16px;
+  overflow-y: auto;
+  font-family: 'Nanum Pen Script', 'Gaegu', cursive, sans-serif !important;
+  font-size: 1.4rem;
+  line-height: 1.75;
+  color: #ffffff !important;
+  text-rendering: geometricPrecision;
+  -webkit-font-smoothing: antialiased;
+  text-shadow: 
+    0 1px 1px rgba(0, 0, 0, 0.8),
+    0 0 1px rgba(255, 255, 255, 0.95);
+  letter-spacing: 0.5px;
+  z-index: 5;
+}
+
+/* 분필 본문 요소별 디테일 */
+.htmlInCanvasChalkBody p,
+.htmlInCanvasChalkBody span,
+.htmlInCanvasChalkBody li,
+.htmlInCanvasChalkBody label {
+  color: #ffffff !important;
+  font-family: 'Nanum Pen Script', 'Gaegu', cursive, sans-serif !important;
+  font-size: 1.38rem;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.8), 0 0 1px rgba(255, 255, 255, 0.9);
+}
+
+.htmlInCanvasChalkBody strong {
+  color: #fef08a !important;
+  font-weight: 700;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.8), 0 0 1px #fef08a;
+}
+
+.htmlInCanvasChalkBody em {
+  color: #a5f3fc !important;
+  font-style: normal;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.8), 0 0 1px #a5f3fc;
+}
+
+.htmlInCanvasChalkBody h1,
+.htmlInCanvasChalkBody h2,
+.htmlInCanvasChalkBody h3,
+.htmlInCanvasChalkBody h4 {
+  font-family: 'Gaegu', 'Nanum Pen Script', cursive, sans-serif !important;
+  color: #fef08a !important;
+  border-bottom: 2px dashed rgba(254, 240, 138, 0.45) !important;
+  padding-bottom: 6px;
+  margin-top: 14px;
+  margin-bottom: 10px;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.85), 0 0 1px #fef08a;
+}
+
+.htmlInCanvasChalkBody h1 { font-size: 1.85rem; }
+.htmlInCanvasChalkBody h2 { font-size: 1.65rem; }
+.htmlInCanvasChalkBody h3 { font-size: 1.48rem; }
+
+.htmlInCanvasChalkBody code {
+  background: rgba(0, 0, 0, 0.45) !important;
+  color: #bbf7d0 !important;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px dashed rgba(187, 247, 208, 0.5);
+  font-size: 1.05em;
+  font-family: var(--mono) !important;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.9);
+}
+
+.htmlInCanvasChalkBody :global(div[class*="quote"]) {
+  background: rgba(0, 0, 0, 0.22) !important;
+  border-left: 4px solid #fef08a !important;
+  color: #fef08a !important;
+  padding: 8px 14px !important;
+  border-radius: 0 8px 8px 0;
+  margin: 10px 0;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.8);
+}
+
+.htmlInCanvasChalkBody :global(hr) {
+  border-top: 2px dashed rgba(255, 255, 255, 0.25) !important;
+  margin: 16px 0;
+}
+
+/* 하단 원목 분필 받침대 (Chalk Tray) */
+.htmlInCanvasChalkTray {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 18px;
+  background: linear-gradient(180deg, #422616 0%, #2f190e 100%);
+  border-top: 3px solid #5a351e;
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.4);
+  gap: 12px;
+  z-index: 10;
+}
+
+.htmlInCanvasChalkProps {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 흰색 분필 소품 */
+.htmlInCanvasChalkStickWhite {
+  width: 28px;
+  height: 8px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #ffffff 0%, #cbd5e1 100%);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+/* 노란색 분필 소품 */
+.htmlInCanvasChalkStickYellow {
+  width: 28px;
+  height: 8px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #fef08a 0%, #eab308 100%);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+/* 민트색 분필 소품 */
+.htmlInCanvasChalkStickMint {
+  width: 24px;
+  height: 8px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #a5f3fc 0%, #06b6d4 100%);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+/* 칠판 지우개 소품 */
+.htmlInCanvasChalkEraser {
+  width: 44px;
+  height: 14px;
+  border-radius: 4px;
+  background: #8b5a2b;
+  border-top: 2px solid #a67c52;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+}
+
+.htmlInCanvasChalkEraserFelt {
+  width: 100%;
+  height: 5px;
+  background: #334155;
+  border-radius: 0 0 3px 3px;
+}
+
+/* 칠판 네비게이션 버튼 */
+.htmlInCanvasChalkNavBtns {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.htmlInCanvasChalkBtn {
+  font-family: 'Gaegu', cursive;
+  font-size: 0.95rem;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px dashed rgba(255, 255, 255, 0.4);
+  color: #f8fafc;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.htmlInCanvasChalkBtn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.25);
+  border-color: #fef08a;
+  color: #fef08a;
+  transform: translateY(-1px);
+}
+
+.htmlInCanvasChalkBtn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.htmlInCanvasChalkDots {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .htmlInCanvasChalkDot {
   width: 8px;
   height: 8px;
@@ -6513,12 +6708,19 @@
 
 /* 🔍 오늘 업무 심플 검색 및 상태 필터 바 (아이콘 없이 미니멀 디자인) */
 .taskFilterBar {
+  grid-column: 1 / -1;
+  order: 2;
+  width: 100%;
   display: flex;
-  gap: 8px;
+  gap: 10px;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  margin-bottom: 12px;
+  margin: 4px 0 14px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border);
+  border-radius: 10px;
 }
 
 .taskFilterInput {
