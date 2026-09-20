@@ -2,7 +2,7 @@
  * 사용자에게 표시하는 coffeeTide 버전 — 설정 화면 및 What's New 모달에 노출된다.
  * 릴리스 시 package.json과 함께 갱신할 것. (version.test.ts에서 동기화 검증)
  */
-export const APP_VERSION = "v1.2.0";
+export const APP_VERSION = "v1.2.1";
 
 export const LS_LAST_SEEN_VERSION = "coffeetide_last_seen_version";
 
@@ -21,6 +21,29 @@ export interface ReleaseNote {
 }
 
 export const RELEASE_HISTORY: ReleaseNote[] = [
+  {
+    version: "v1.2.1",
+    date: "2026-09-20",
+    title: "업무 필터·AI 액션 실행 & Threads 피드 안정화",
+    summary: "중요 업무 핀 고정 및 검색 필터, AI 대화형 업무 조작(자동 완료/메모/답장 초안), Threads 피드 수집 안정화가 적용되었습니다.",
+    items: [
+      {
+        type: "feat",
+        title: "AI 코파일럿 대화형 업무 조작 (Action Execution)",
+        description: "대화창에서 '~ 완료 처리해줘', '~ 찾아줘', '~ 메모 남겨줘' 등 자연어 지시를 내리면 즉각적으로 일감을 찾아 완료하고 메모 및 필터를 동기화합니다.",
+      },
+      {
+        type: "feat",
+        title: "오늘 업무 검색 및 상태별 필터 바",
+        description: "중요 업무 핀 고정 기능과 함께, 텍스트 검색 및 전체·미완료·완료 상태 필터를 통해 일감을 손쉽게 찾을 수 있습니다.",
+      },
+      {
+        type: "fix",
+        title: "Threads 피드 수집 타임아웃 해결 & 파서 개선",
+        description: "Jina Reader 헤더 수정으로 타임아웃을 해결하고, 첨부 이미지/차트 및 상대 시간, 반응 지표(좋아요, 리포스트, 댓글)를 안정적으로 수집합니다.",
+      },
+    ],
+  },
   {
     version: "v1.2.0",
     date: "2026-09-14",
