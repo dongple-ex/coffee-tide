@@ -2040,8 +2040,24 @@ export default function Home() {
   const { todoItems, restItems, llmItems, activeCount, urgentCount, doneCount } = useMemo(() => {
     const todo = workflowItems.filter((i) => getWorkflowSection(i) === "todo");
     const rest = workflowItems.filter((i) => getWorkflowSection(i) === "rest");
+
+    // 정렬 규칙: 1) 핀 고정 우선 -> 2) 미완료 상태 우선 -> 3) 시간 최신순(내림차순)
+    const sortedTodo = [...todo].sort((a, b) => {
+      const aPinned = Boolean(a.pinned);
+      const bPinned = Boolean(b.pinned);
+      if (aPinned !== bPinned) return aPinned ? -1 : 1;
+
+      const aDone = a.status === "completed";
+      const bDone = b.status === "completed";
+      if (aDone !== bDone) return aDone ? 1 : -1;
+
+      const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return timeB - timeA;
+    });
+
     return {
-      todoItems: todo,
+      todoItems: sortedTodo,
       restItems: rest,
       llmItems: workflowItems.filter((i) => i.source === "llm"),
       activeCount: workflowItems.filter((i) => i.status !== "completed").length,
