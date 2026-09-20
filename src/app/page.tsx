@@ -98,6 +98,7 @@ import {
   buildChromeCanaryCopilotSystemPrompt,
   shouldUseChromeCanaryAfterServer,
 } from "@/lib/ai/copilotFallback";
+import { parseTaskActionIntent } from "@/lib/ai/taskActions";
 
 // 초기 화면에 렌더링되지 않는 모달·위젯 패널은 지연 로딩으로 초기 번들에서 제외
 const SettingsModal = dynamic(() => import("./components/SettingsModal").then((m) => m.SettingsModal), { ssr: false });
@@ -2454,6 +2455,62 @@ export default function Home() {
       } finally {
         if (trackGlobalBusy) setCopilotBusy(false);
       }
+    }
+
+    // 자연어 일감 제어 (완료·메모·검색·답장 연동)
+    const taskAction = parseTaskActionIntent(question, merged);
+    if (taskAction) {
+      const actionAnswer = taskAction.replyText;
+      if (taskAction.status === "success") {
+        if (taskAction.type === "complete") {
+          const item = taskAction.item;
+          const isExternal =
+            item.source === "gmail" ||
+            item.source === "outlook" ||
+            item.source === "notion" ||
+            item.source === "gcalendar" ||
+            item.source === "obsidian" ||
+            item.id.startsWith(BROWSER_ID_PREFIX);
+          if (isExternal) {
+            void completeExternal(item);
+          } else {
+            setLocalStatus(item.id, "completed");
+          }
+          showToast(`'${item.title}' 일감을 완료 처리했어요!`);
+        } else if (taskAction.type === "add_note") {
+          if (taskAction.note) {
+            handleSaveWorkNote(taskAction.item.id, taskAction.note);
+            showToast(`'${taskAction.item.title}'에 메모를 남겼어요!`);
+          }
+        } else if (taskAction.type === "search_focus") {
+          setTaskFilterQuery(taskAction.keyword);
+          setTaskFilterStatus("all");
+          showToast(`'${taskAction.keyword}' 검색 필터를 적용했어요.`);
+        } else if (taskAction.type === "reply_draft") {
+          const item = taskAction.item;
+          if (taskAction.draftInstruction) {
+            setDraft({
+              title: item.title,
+              text: `안녕하세요,\n\n${taskAction.draftInstruction}\n\n감사합니다.`,
+              message: "AI 바리스타가 답장 초안을 작성했습니다.",
+            });
+          } else {
+            void replyDraft(item);
+          }
+          showToast(`'${item.title}' 답장 초안을 준비했어요.`);
+        }
+      }
+
+      if (persistToFeed) {
+        setCopilotMessages((prev) => [
+          ...prev,
+          {
+            role: "ai",
+            text: actionAnswer,
+          },
+        ]);
+      }
+      return actionAnswer;
     }
 
     if (trackGlobalBusy) setCopilotBusy(true);
