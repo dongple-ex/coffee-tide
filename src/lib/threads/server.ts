@@ -1,6 +1,6 @@
 import { ThreadsChannel, ThreadsPost } from "../types/threads";
 
-const FETCH_TIMEOUT_MS = 12_000;
+const FETCH_TIMEOUT_MS = 15_000;
 
 /**
  * 다양한 형태의 사용자 입력(@username, threads.net URL 등)에서 순수 username 추출
@@ -61,9 +61,17 @@ export function parseThreadsMarkdown(markdown: string, defaultUsername: string):
   let avatarUrl: string | undefined;
   let bio = "";
 
-  const titleMatch = markdown.match(/^##\s+([^\r\n]+)/m);
-  if (titleMatch) {
-    displayName = titleMatch[1].trim();
+  // H1 또는 H2 제목에서 표시 이름 추출 (단, [username](...) 링크 제외)
+  const headerLines = markdown.split("\n").slice(0, 35);
+  for (const line of headerLines) {
+    const m = line.match(/^#{1,3}\s+(.+)$/);
+    if (m) {
+      const candidate = m[1].replace(/\[([^\]]+)\]\([^)]+\)/g, "$1").trim();
+      if (candidate && candidate.toLowerCase() !== defaultUsername.toLowerCase() && !candidate.startsWith("http")) {
+        displayName = candidate;
+        break;
+      }
+    }
   }
 
   const avatarMatch = markdown.match(/!\[Image\s*\d*:[^\]]*profile picture[^\]]*\]\((https:\/\/[^)\s]+)\)/i);
@@ -72,21 +80,24 @@ export function parseThreadsMarkdown(markdown: string, defaultUsername: string):
   }
 
   // 2. 게시물 단위 분할
-  // Threads 마크다운에서 각 게시물은 아바타 링크 [![Image...](...)](https://www.threads.net/@...) 로 시작함
-  const postDelimiterRegex = /\[!\[Image[^\]]*\]\([^)]+\)\]\(https:\/\/www\.threads\.net\/@[^)]+\)/g;
+  // Threads 마크다운에서 각 게시물은 아바타 링크 [![Image...](...)](https://www.threads.(net|com)/@username) 로 시작함
+  // 게시물 내 첨부 이미지 링크(/post/...)와 구분하기 위해 사용자명 끝 또는 슬래시까지만 매칭
+  const postDelimiterRegex = /\[!\[Image[^\]]*\]\([^)]+\)\]\(https:\/\/www\.threads\.(?:net|com)\/@[a-zA-Z0-9._]+\/?\)/g;
   const sections = markdown.split(postDelimiterRegex);
 
   // 첫 번째 섹션(헤더/바이오) 처리
   if (sections.length > 0) {
-    const headerLines = sections[0].split("\n").map((l) => l.trim()).filter(Boolean);
-    const bioCandidates = headerLines.filter(
+    const rawHeaderLines = sections[0].split("\n").map((l) => l.trim()).filter(Boolean);
+    const bioCandidates = rawHeaderLines.filter(
       (line) =>
-        !line.startsWith("##") &&
+        !line.startsWith("#") &&
         !line.startsWith("!") &&
         !line.startsWith("[") &&
-        line !== defaultUsername &&
-        line !== "+ 1" &&
-        !/^\d+$/.test(line)
+        line.toLowerCase() !== defaultUsername.toLowerCase() &&
+        !line.startsWith("+") &&
+        !/^\d+$/.test(line) &&
+        !line.includes("Follow") &&
+        !line.includes("Mention")
     );
     if (bioCandidates.length > 0) {
       bio = bioCandidates.join(" ");
@@ -95,6 +106,8 @@ export function parseThreadsMarkdown(markdown: string, defaultUsername: string):
 
   const posts: ThreadsPost[] = [];
   const postSections = sections.slice(1);
+  const escapedUser = defaultUsername.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const authorLinkRegex = new RegExp(`^\\[@?${escapedUser}\\]\\(https:\\/\\/www\\.threads\\.(?:net|com)\\/@${escapedUser}\\/?\\)$`, "i");
 
   for (let i = 0; i < postSections.length; i++) {
     const rawSection = postSections[i].trim();
@@ -105,10 +118,30 @@ export function parseThreadsMarkdown(markdown: string, defaultUsername: string):
     const textLines: string[] = [];
     const images: string[] = [];
     let permalink = profileUrl;
+    let publishedAt = "최신";
     const metrics: string[] = [];
 
     for (const line of lines) {
       if (!line) continue;
+
+      // 작성자 링크 라인 스킵: [username](https://www.threads.net/@username)
+      if (authorLinkRegex.test(line)) {
+        continue;
+      }
+
+      // 상대 시간 및 게시물 링크 추출: [14m](https://www.threads.net/@user/post/xxx)
+      const timeMatch = line.match(/^\[([^\]]+)\]\((https:\/\/www\.threads\.(?:net|com)\/@[^/]+\/post\/[a-zA-Z0-9_-]+(?:media)?)\)$/);
+      if (timeMatch) {
+        publishedAt = timeMatch[1];
+        permalink = timeMatch[2];
+        continue;
+      }
+
+      // 기타 게시물 permalink 링크 추출 (/post/...)
+      const linkMatch = line.match(/\((https:\/\/www\.threads\.(?:net|com)\/@[^/]+\/post\/[a-zA-Z0-9_-]+(?:media)?)\)/);
+      if (linkMatch && permalink === profileUrl) {
+        permalink = linkMatch[1];
+      }
 
       // 이미지 마크다운 추출
       const imgMatch = line.match(/!\[[^\]]*\]\((https:\/\/[^)\s]+)\)/);
@@ -117,11 +150,8 @@ export function parseThreadsMarkdown(markdown: string, defaultUsername: string):
         continue;
       }
 
-      // 게시물 permalink 링크 추출 (/post/...)
-      const linkMatch = line.match(/\((https:\/\/www\.threads\.net\/@[^/]+\/post\/[a-zA-Z0-9_-]+(?:media)?)\)/);
-      if (linkMatch) {
-        permalink = linkMatch[1];
-      }
+      // 번역 버튼 텍스트 스킵
+      if (line === "Translate") continue;
 
       // 숫자/지표 (좋아요, 리포스트, 댓글 등 e.g. "1.3K", "346")
       if (/^[\d.]+[KMBkmb]?$/.test(line)) {
@@ -130,7 +160,7 @@ export function parseThreadsMarkdown(markdown: string, defaultUsername: string):
       }
 
       // 텍스트 본문 (마크다운 링크나 일반 글)
-      if (!line.startsWith("[![") && !line.startsWith("##")) {
+      if (!line.startsWith("[![") && !line.startsWith("#")) {
         textLines.push(line);
       }
     }
@@ -143,7 +173,7 @@ export function parseThreadsMarkdown(markdown: string, defaultUsername: string):
         authorUsername: defaultUsername,
         authorName: displayName,
         authorAvatar: avatarUrl,
-        publishedAt: "최신",
+        publishedAt,
         url: permalink,
         images,
         likeCount: metrics[0],
@@ -179,7 +209,6 @@ export async function fetchThreadsChannel(input: string): Promise<ThreadsChannel
     const res = await fetch(readerUrl, {
       headers: {
         Accept: "application/json",
-        "X-Target-Selector": "main",
       },
       next: { revalidate: 300 }, // 5분 캐시
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
