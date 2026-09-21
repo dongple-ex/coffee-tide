@@ -196,7 +196,7 @@ export function DesktopBaristaConnector({
     <div className={styles.backdrop} onClick={(event) => { event.stopPropagation(); onClose(); }}>
       <section className={styles.dialog} role="dialog" aria-modal="true" aria-labelledby="desktop-barista-title" onClick={(event) => event.stopPropagation()}>
         <header><h2 id="desktop-barista-title">데스크톱 바리스타 연결</h2><button type="button" onClick={onClose} aria-label="데스크톱 연결 닫기">✕</button></header>
-        <p>테두리 없는 캐릭터가 다른 앱 위에 머무릅니다. CoffeeTideBarista 보조 앱을 먼저 실행해 주세요.</p>
+        <p>테두리 없는 캐릭터가 다른 앱 위에 머무릅니다. <a href="/download/CoffeeTideBarista.zip" download style={{ textDecoration: "underline", color: "var(--accent, #0891b2)" }}>CoffeeTideBarista 보조 앱 다운로드</a> 후 먼저 실행해 주세요.</p>
         {token ? (
           <div role="status" className={styles.connected}>
             <strong>✓ 이 PC의 바리스타와 연결되었습니다.</strong>
