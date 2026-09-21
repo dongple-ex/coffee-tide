@@ -50,7 +50,7 @@ function createBridge({ origin, port = 47381, onState = () => {}, onPair = () =>
     res.setHeader('Cache-Control', 'no-store');
     const reqOrigin = req.headers.origin || '';
     const isLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(reqOrigin);
-    const isVercel = /^https:\/\/coffee-?tide.*\.vercel\.app$/.test(reqOrigin);
+    const isVercel = /\.vercel\.app$/.test(reqOrigin);
     if ((reqOrigin !== origin && !isLocalhost && !isVercel) || !['127.0.0.1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress)) {
       res.writeHead(403).end(); return;
     }
