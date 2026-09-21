@@ -1,6 +1,6 @@
 /**
- * ?�용?�에�??�시?�는 coffeeTide 버전 ???�정 ?�면 �?What's New 모달???�출?�다.
- * 릴리????package.json�??�께 갱신??�? (version.test.ts?�서 ?�기??검�?
+ * 사용자에게 표시하는 coffeeTide 버전 — 설정 화면 및 What's New 모달에 노출된다.
+ * 릴리스 시 package.json과 함께 갱신할 것. (version.test.ts에서 동기화 검증)
  */
 export const APP_VERSION = "v1.2.2";
 
@@ -24,105 +24,106 @@ export const RELEASE_HISTORY: ReleaseNote[] = [
   {
     version: "v1.2.2",
     date: "2026-09-21",
-    title: "����ũ�� �� ���� ���� ����",
-    summary: "��Ʈ��ũ ���� ���� ��ȭ�� ���� ���� ������ ����ũ�� �ٸ���Ÿ�� �������� ���ϴ� ������ �ذ��߽��ϴ�.",
+    title: "����ũ�� �ٸ���Ÿ ���� ��� �߰�",
+    summary: "CoffeeTideBarista ����ũ�� �۰��� ����� ���� ����ȭ �� �ٿ�ε� �˾��� �߰��Ǿ����ϴ�.",
     items: [
       {
-        type: "fix",
-        title: "����ũ�� �ٸ���Ÿ ����(CORS) ����",
-        description: "���� ȯ��(127.0.0.1) �� �̸�����(Vercel) �ּҿ����� ���� �ۿ� ���������� ������ �� �ֵ��� ���� ���� ������ �����߽��ϴ�.",
+        type: "feat",
+        title: "����ũ�� �ٸ���Ÿ ���� �긴��",
+        description: "�� �̴�ī��� ����ũ�� �� ���� ���� ���� �� ������ ���� ����� �����մϴ�.",
       },
     ],
   },
+
   {
     version: "v1.2.1",
     date: "2026-09-20",
-    title: "?�무 ?�터·AI ?�션 ?�행 & Threads ?�드 ?�정??,
-    summary: "중요 ?�무 ?� 고정 �?검???�터, AI ?�?�형 ?�무 조작(?�동 ?�료/메모/?�장 초안), Threads ?�드 ?�집 ?�정?��? ?�용?�었?�니??",
+    title: "업무 필터·AI 액션 실행 & Threads 피드 안정화",
+    summary: "중요 업무 핀 고정 및 검색 필터, AI 대화형 업무 조작(자동 완료/메모/답장 초안), Threads 피드 수집 안정화가 적용되었습니다.",
     items: [
       {
         type: "feat",
-        title: "AI 코파?�럿 ?�?�형 ?�무 조작 (Action Execution)",
-        description: "?�?�창?�서 '~ ?�료 처리?�줘', '~ 찾아�?, '~ 메모 ?�겨�? ???�연??지?��? ?�리�?즉각?�으�??�감??찾아 ?�료?�고 메모 �??�터�??�기?�합?�다.",
+        title: "AI 코파일럿 대화형 업무 조작 (Action Execution)",
+        description: "대화창에서 '~ 완료 처리해줘', '~ 찾아줘', '~ 메모 남겨줘' 등 자연어 지시를 내리면 즉각적으로 일감을 찾아 완료하고 메모 및 필터를 동기화합니다.",
       },
       {
         type: "feat",
-        title: "?�늘 ?�무 검??�??�태�??�터 �?,
-        description: "중요 ?�무 ?� 고정 기능�??�께, ?�스??검??�??�체·미완료·완�??�태 ?�터�??�해 ?�감???�쉽�?찾을 ???�습?�다.",
+        title: "오늘 업무 검색 및 상태별 필터 바",
+        description: "중요 업무 핀 고정 기능과 함께, 텍스트 검색 및 전체·미완료·완료 상태 필터를 통해 일감을 손쉽게 찾을 수 있습니다.",
       },
       {
         type: "fix",
-        title: "Threads ?�드 ?�집 ?�?�아???�결 & ?�서 개선",
-        description: "Jina Reader ?�더 ?�정?�로 ?�?�아?�을 ?�결?�고, 첨�? ?��?지/차트 �??��? ?�간, 반응 지??좋아?? 리포?�트, ?��?)�??�정?�으�??�집?�니??",
+        title: "Threads 피드 수집 타임아웃 해결 & 파서 개선",
+        description: "Jina Reader 헤더 수정으로 타임아웃을 해결하고, 첨부 이미지/차트 및 상대 시간, 반응 지표(좋아요, 리포스트, 댓글)를 안정적으로 수집합니다.",
       },
     ],
   },
   {
     version: "v1.2.0",
     date: "2026-09-14",
-    title: "지???�카?�브 RAG & 3D 캔버??고도??,
-    summary: "?�료 문서 지???�카?�브 검?�과 AI RAG ?�동, 3D ?�이?�리/칠판 뷰어, AI 컴패?�언 기억/?�장 ?�스?�이 ?�입?�었?�니??",
+    title: "지식 아카이브 RAG & 3D 캔버스 고도화",
+    summary: "완료 문서 지식 아카이브 검색과 AI RAG 연동, 3D 다이어리/칠판 뷰어, AI 컴패니언 기억/성장 시스템이 도입되었습니다.",
     items: [
       {
         type: "feat",
-        title: "지???�카?�브 & RAG 검???�이?�라??,
-        description: "캔버?�에???�료??문서�?로컬·?�라?�드·Google Drive???�전?�게 보�??�고, AI 코파?�럿 �?캔버???�장 ??지??증거(Evidence)�??�동 ?�용?�니??",
+        title: "지식 아카이브 & RAG 검색 파이프라인",
+        description: "캔버스에서 완료된 문서를 로컬·클라우드·Google Drive에 안전하게 보관하고, AI 코파일럿 및 캔버스 확장 시 지식 증거(Evidence)로 자동 활용합니다.",
       },
       {
         type: "feat",
-        title: "3D 캔버???�이?�리/칠판 뷰어 & Document PiP",
-        description: "?�면 책자 ?�침 ?�과, 칠판/?�이?�리 질감 ?�마, 반응???�동 ??맞춤, 50% �?�?OS ??�� ??Document PiP 분리 창을 지?�합?�다.",
+        title: "3D 캔버스 다이어리/칠판 뷰어 & Document PiP",
+        description: "양면 책자 펼침 효과, 칠판/다이어리 질감 테마, 반응형 자동 폭 맞춤, 50% 줌 및 OS 항상 위 Document PiP 분리 창을 지원합니다.",
       },
       {
         type: "feat",
-        title: "AI 컴패?�언 Phase 16/17 (기억·?�장·관계성)",
-        description: "?�???�피?�드 기억 �??�동 ?�약, ?�르?�나�?고유 ?�바?�, 친�????�장 ?�진 �??�연?�러???�???�우?�을 구현?�습?�다.",
+        title: "AI 컴패니언 Phase 16/17 (기억·성장·관계성)",
+        description: "대화 에피소드 기억 및 자동 요약, 페르소나별 고유 아바타, 친밀도 성장 엔진 및 자연스러운 대화 라우팅을 구현했습니다.",
       },
       {
         type: "enhance",
-        title: "Google Calendar & Drive ?�집 ?�동 ?�정??,
-        description: "?��? ?�비???�증 ?�태???�른 부�??�패 격리, ?�일 ?�동 백업 �??�전???�백 처리�?강화?�습?�다.",
+        title: "Google Calendar & Drive 수집 연동 안정화",
+        description: "외부 서비스 인증 상태에 따른 부분 실패 격리, 일일 자동 백업 및 안전한 폴백 처리를 강화했습니다.",
       },
       {
         type: "fix",
-        title: "?�국???�모 ?��? ?�동 보정 �?AI ?�답 ?�제",
-        description: "?��? ?�력 ?�류 감�? �?AI ?�스??변????반복/?�행 ?�답 ?�터링을 ?�용?�습?�다.",
+        title: "한국어 자모 오타 자동 보정 및 AI 응답 정제",
+        description: "한글 입력 오류 감지 및 AI 텍스트 변환 시 반복/퇴행 응답 필터링을 적용했습니다.",
       },
     ],
   },
   {
     version: "v1.1.0",
     date: "2026-08-20",
-    title: "모바???�이?�웃 �??�마 최적??,
-    summary: "모바???�면?�서??바리?��? ?�??경험�??�양???�마 ?��??�을 개선?�습?�다.",
+    title: "모바일 레이아웃 및 테마 최적화",
+    summary: "모바일 화면에서의 바리스타 대화 경험과 다양한 테마 스타일을 개선했습니다.",
     items: [
       {
         type: "enhance",
-        title: "모바??�??�이?�웃 & ??리플?�이 개선",
-        description: "모바???�면 ??�� 최적?�된 바리?��? ?�?�창�?깔끔???�?�트 ?�롭?�운 ??리플?�이�?지?�합?�다.",
+        title: "모바일 챗 레이아웃 & 퀵 리플라이 개선",
+        description: "모바일 화면 폭에 최적화된 바리스타 대화창과 깔끔한 셀렉트 드롭다운 퀵 리플라이를 지원합니다.",
       },
       {
         type: "enhance",
-        title: "?�마 ?��???& ?�디바이??AI ?�??,
-        description: "Notebook �??�이???�마 배�? ?�인???�상 �?Chrome Built-in AI 지???�경???�내?�니??",
+        title: "테마 스타일 & 온디바이스 AI 대응",
+        description: "Notebook 및 라이트 테마 배지 시인성 향상 및 Chrome Built-in AI 지원 환경을 안내합니다.",
       },
     ],
   },
   {
     version: "v1.0.0",
     date: "2026-07-15",
-    title: "coffeeTide ?�합 ?�마???�크?�페?�스 출시",
-    summary: "캘린?? ???? ?�메?? AI 코파?�럿???�나�??�합???�마???�크?�페?�스??�?릴리?�입?�다.",
+    title: "coffeeTide 통합 스마트 워크스페이스 출시",
+    summary: "캘린더, 할 일, 이메일, AI 코파일럿이 하나로 통합된 스마트 워크스페이스의 첫 릴리스입니다.",
     items: [
       {
         type: "feat",
-        title: "?�합 ?�스??& ?�침 브리??,
-        description: "Google/Outlook ?�동???�한 ?�정 �??�무 ?�동 ?�집�?AI ?�침 브리?�을 ?�공?�니??",
+        title: "통합 데스크 & 아침 브리핑",
+        description: "Google/Outlook 연동을 통한 일정 및 업무 자동 수집과 AI 아침 브리핑을 제공합니다.",
       },
       {
         type: "feat",
-        title: "AI 바리?��? & ?�마??캔버??,
-        description: "?�연??기반 ?�무 추출, ?�정 ?�록, 문서 ?�성 �??�이?�리 관리�? 지?�합?�다.",
+        title: "AI 바리스타 & 스마트 캔버스",
+        description: "자연어 기반 업무 추출, 일정 등록, 문서 작성 및 다이어리 관리를 지원합니다.",
       },
     ],
   },
@@ -130,7 +131,7 @@ export const RELEASE_HISTORY: ReleaseNote[] = [
 
 import { useSyncExternalStore } from "react";
 
-/** ?�용?��? 마�?막으�??�인??버전??반환?�니?? */
+/** 사용자가 마지막으로 확인한 버전을 반환합니다. */
 export function getLastSeenVersion(): string | null {
   if (typeof window === "undefined") return null;
   try {
@@ -140,7 +141,7 @@ export function getLastSeenVersion(): string | null {
   }
 }
 
-/** ?�재 버전???�인??것으�??�?�합?�다. */
+/** 현재 버전을 확인한 것으로 저장합니다. */
 export function setLastSeenVersion(version: string = APP_VERSION): void {
   if (typeof window === "undefined") return;
   try {
@@ -153,7 +154,7 @@ export function setLastSeenVersion(version: string = APP_VERSION): void {
   }
 }
 
-/** ?�직 ?�인?��? ?��? ?�로???�데?�트가 ?�는지 검?�합?�다. */
+/** 아직 확인하지 않은 새로운 업데이트가 있는지 검사합니다. */
 export function hasUnseenUpdate(): boolean {
   if (typeof window === "undefined") return false;
   const lastSeen = getLastSeenVersion();
@@ -167,7 +168,7 @@ const subscribe = (callback: () => void) => {
   return () => window.removeEventListener("storage", callback);
 };
 
-/** React 18/19 권장 useSyncExternalStore 기반 최신 ?�데?�트 감�? ??*/
+/** React 18/19 권장 useSyncExternalStore 기반 최신 업데이트 감지 훅 */
 export function useHasUnseenUpdate(): boolean {
   return useSyncExternalStore(
     subscribe,
@@ -175,4 +176,3 @@ export function useHasUnseenUpdate(): boolean {
     () => false
   );
 }
-
