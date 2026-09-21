@@ -48,10 +48,13 @@ function createBridge({ origin, port = 47381, onState = () => {}, onPair = () =>
   };
   const server = http.createServer(async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
-    if (req.headers.origin !== origin || !['127.0.0.1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress)) {
+    const reqOrigin = req.headers.origin || '';
+    const isLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(reqOrigin);
+    const isVercel = /^https:\/\/coffee-?tide.*\.vercel\.app$/.test(reqOrigin);
+    if ((reqOrigin !== origin && !isLocalhost && !isVercel) || !['127.0.0.1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress)) {
       res.writeHead(403).end(); return;
     }
-    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Origin', reqOrigin);
     res.setHeader('Vary', 'Origin');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
