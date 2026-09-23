@@ -5,6 +5,7 @@
 
 import React, { Fragment, ReactNode, useState } from "react";
 import { parseMarkdownTable } from "@/lib/markdown/table";
+import { UiIcon } from "./UiIcon";
 import styles from "./markdownLite.module.css";
 
 /** 안전한 클립보드 복사 헬퍼 */
@@ -55,20 +56,10 @@ function MarkdownDivider({ contentToCopy }: { contentToCopy?: string }) {
         type="button"
         className={`${styles.dividerCopyBtn} ${copied ? styles.dividerCopyBtnCopied : ""}`}
         onClick={handleCopy}
-        title="본문 내용 복사"
+        title={copied ? "본문이 복사되었습니다" : "본문 내용 복사"}
         aria-label={copied ? "본문이 복사되었습니다" : "본문 내용 복사"}
       >
-        {copied ? (
-          <>
-            <span aria-hidden="true">✓</span>
-            <span>복사됨</span>
-          </>
-        ) : (
-          <>
-            <span aria-hidden="true">📋</span>
-            <span>복사</span>
-          </>
-        )}
+        <UiIcon name={copied ? "check" : "copy"} size={13} />
       </button>
     </div>
   );

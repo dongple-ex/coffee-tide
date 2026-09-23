@@ -36,7 +36,7 @@ describe("MarkdownLite", () => {
     const html = renderToStaticMarkup(<MarkdownLite text={text} />);
 
     expect(html).toContain('aria-label="본문 내용 복사"');
-    expect(html).toContain("복사");
+    expect(html).toContain("<svg");
     expect(html).toContain("Subject: Bug Report");
   });
 

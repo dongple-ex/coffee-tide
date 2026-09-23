@@ -184,20 +184,10 @@ export function CopilotConversation({
                           copiedPairId === pair.id ? styles.copilotCopyBtnCopied : ""
                         }`}
                         onClick={() => handleCopyAnswer(pair.id, pair.aiText!)}
-                        title="답변 전체 복사"
+                        title={copiedPairId === pair.id ? "답변이 복사되었습니다" : "답변 전체 복사"}
                         aria-label={copiedPairId === pair.id ? "답변이 복사되었습니다" : "답변 전체 복사"}
                       >
-                        {copiedPairId === pair.id ? (
-                          <>
-                            <span aria-hidden="true">✓</span>
-                            <span className={styles.copilotCopyLabel}>복사됨</span>
-                          </>
-                        ) : (
-                          <>
-                            <span aria-hidden="true">📋</span>
-                            <span className={styles.copilotCopyLabel}>전체 복사</span>
-                          </>
-                        )}
+                        <UiIcon name={copiedPairId === pair.id ? "check" : "copy"} size={14} />
                       </button>
                     </div>
                   ) : (
@@ -218,20 +208,10 @@ export function CopilotConversation({
                           copiedPairId === pair.id ? styles.copilotCopyBtnCopied : ""
                         }`}
                         onClick={() => handleCopyAnswer(pair.id, pair.aiText!)}
-                        title="브리핑 전체 복사"
+                        title={copiedPairId === pair.id ? "답변이 복사되었습니다" : "브리핑 전체 복사"}
                         aria-label={copiedPairId === pair.id ? "답변이 복사되었습니다" : "브리핑 전체 복사"}
                       >
-                        {copiedPairId === pair.id ? (
-                          <>
-                            <span aria-hidden="true">✓</span>
-                            <span className={styles.copilotCopyLabel}>복사됨</span>
-                          </>
-                        ) : (
-                          <>
-                            <span aria-hidden="true">📋</span>
-                            <span className={styles.copilotCopyLabel}>전체 복사</span>
-                          </>
-                        )}
+                        <UiIcon name={copiedPairId === pair.id ? "check" : "copy"} size={14} />
                       </button>
                     </div>
                   )}
