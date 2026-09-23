@@ -3,9 +3,76 @@
 
 "use client";
 
-import React, { Fragment, ReactNode } from "react";
+import React, { Fragment, ReactNode, useState } from "react";
 import { parseMarkdownTable } from "@/lib/markdown/table";
 import styles from "./markdownLite.module.css";
+
+/** 안전한 클립보드 복사 헬퍼 */
+export async function copyTextToClipboard(text: string): Promise<boolean> {
+  try {
+    if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+    if (typeof document !== "undefined") {
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      textArea.style.position = "fixed";
+      textArea.style.left = "-9999px";
+      document.body.appendChild(textArea);
+      textArea.select();
+      const success = document.execCommand("copy");
+      document.body.removeChild(textArea);
+      return success;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+/** 구분선과 본문 복사 버튼 */
+function MarkdownDivider({ contentToCopy }: { contentToCopy?: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    if (!contentToCopy) return;
+    const ok = await copyTextToClipboard(contentToCopy);
+    if (ok) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1600);
+    }
+  };
+
+  if (!contentToCopy) {
+    return <hr className={styles.hr} />;
+  }
+
+  return (
+    <div className={styles.dividerRow}>
+      <hr className={styles.dividerLine} />
+      <button
+        type="button"
+        className={`${styles.dividerCopyBtn} ${copied ? styles.dividerCopyBtnCopied : ""}`}
+        onClick={handleCopy}
+        title="본문 내용 복사"
+        aria-label={copied ? "본문이 복사되었습니다" : "본문 내용 복사"}
+      >
+        {copied ? (
+          <>
+            <span aria-hidden="true">✓</span>
+            <span>복사됨</span>
+          </>
+        ) : (
+          <>
+            <span aria-hidden="true">📋</span>
+            <span>복사</span>
+          </>
+        )}
+      </button>
+    </div>
+  );
+}
 
 /**
  * 인라인 마크다운 렌더러
@@ -49,10 +116,22 @@ export function renderInline(text: string): ReactNode {
   });
 }
 
+function extractSectionContent(lines: string[], startIndex: number): string {
+  const contentLines: string[] = [];
+  for (let j = startIndex + 1; j < lines.length; j += 1) {
+    if (/^-{3,}$/.test(lines[j].trim())) {
+      break;
+    }
+    contentLines.push(lines[j]);
+  }
+  return contentLines.join("\n").trim();
+}
+
 export default function MarkdownLite({ text }: { text: string }) {
   const lines = text.split(/\r?\n/);
   const blocks: ReactNode[] = [];
   let listBuffer: string[] = [];
+  let hasDividerCopyRendered = false;
 
   const flushList = (key: number) => {
     if (listBuffer.length === 0) return;
@@ -130,6 +209,14 @@ export default function MarkdownLite({ text }: { text: string }) {
       continue;
     }
     if (/^-{3,}$/.test(trimmed)) {
+      if (!hasDividerCopyRendered) {
+        const nextSection = extractSectionContent(lines, i);
+        if (nextSection) {
+          hasDividerCopyRendered = true;
+          blocks.push(<MarkdownDivider key={i} contentToCopy={nextSection} />);
+          continue;
+        }
+      }
       blocks.push(<hr key={i} className={styles.hr} />);
       continue;
     }

@@ -21,12 +21,20 @@ export async function POST(request: NextRequest) {
     id?: string;
     bodyContent?: string;
     source?: string;
+    instruction?: string;
   };
   if (!body.id || !body.bodyContent) {
     return NextResponse.json({ error: "id와 bodyContent가 필요합니다" }, { status: 400 });
   }
 
-  const draftText = await generateReplyDraft(body.bodyContent);
+  if (body.instruction !== undefined && (typeof body.instruction !== "string" || body.instruction.length > 1000)) {
+    return NextResponse.json({ error: "답장 작성 지시는 1,000자 이내여야 합니다" }, { status: 400 });
+  }
+  const generatedDraft = await generateReplyDraft(body.bodyContent, body.instruction);
+  const draftText = generatedDraft.text;
+  if (!generatedDraft.generated) {
+    return NextResponse.json({ success: true, message: "AI를 사용할 수 없어 기본 예시 문구를 표시합니다. 요청하신 내용에 맞게 직접 수정해 주세요. 임시보관함에는 저장하지 않았습니다.", draftText });
+  }
 
   // Mock 항목이거나 MOCK_MODE면 Graph 저장은 모사하고 초안만 반환
   if (isMockMode() || body.id.startsWith("mock-")) {
@@ -34,7 +42,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Gmail은 초안 저장 미지원(읽기 전용 scope) — 초안 텍스트만 반환
-  if (body.source === "gmail" || !session.outlookToken) {
+  if (body.source !== "outlook" || !session.outlookToken) {
     return NextResponse.json({
       success: true,
       message: "답장 초안 다 썼어요! (Outlook을 연결하면 임시보관함까지 넣어드려요)",

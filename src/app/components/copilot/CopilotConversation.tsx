@@ -1,10 +1,10 @@
 "use client";
 
-import React, { RefObject } from "react";
+import React, { RefObject, useState } from "react";
 import { buildQaPairs, CopilotMessage } from "@/lib/copilotPairs";
 import CafeWait from "../cafeWait";
 import IcedAmericano from "../icedAmericano";
-import MarkdownLite from "../markdownLite";
+import MarkdownLite, { copyTextToClipboard } from "../markdownLite";
 import { EvidencePanel } from "./EvidencePanel";
 import { UiIcon } from "../UiIcon";
 import { AffectionBadge } from "../barista/AffectionBadge";
@@ -55,6 +55,15 @@ export function CopilotConversation({
   canvasEnabled = true,
 }: Props) {
   const pairs = buildQaPairs(messages);
+  const [copiedPairId, setCopiedPairId] = useState<string | null>(null);
+
+  const handleCopyAnswer = async (pairId: string, text: string) => {
+    const ok = await copyTextToClipboard(text);
+    if (ok) {
+      setCopiedPairId(pairId);
+      setTimeout(() => setCopiedPairId(null), 1600);
+    }
+  };
 
   return (
     <div className={styles.copilotBody} ref={bodyRef}>
@@ -162,11 +171,34 @@ export function CopilotConversation({
                   }`}
                 >
                   {isNaturalConversation ? (
-                    <div className={styles.conversationResponseHeader}>
-                      <span aria-hidden="true">💬</span>
-                      <span>
-                        {pair.mode === "repair" ? "대화 모드로 전환했어요" : `${baristaName}와 대화 중`}
-                      </span>
+                    <div className={styles.conversationResponseHeaderRow}>
+                      <div className={styles.conversationResponseHeader}>
+                        <span aria-hidden="true">💬</span>
+                        <span>
+                          {pair.mode === "repair" ? "대화 모드로 전환했어요" : `${baristaName}와 대화 중`}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        className={`${styles.copilotCopyBtn} ${
+                          copiedPairId === pair.id ? styles.copilotCopyBtnCopied : ""
+                        }`}
+                        onClick={() => handleCopyAnswer(pair.id, pair.aiText!)}
+                        title="답변 전체 복사"
+                        aria-label={copiedPairId === pair.id ? "답변이 복사되었습니다" : "답변 전체 복사"}
+                      >
+                        {copiedPairId === pair.id ? (
+                          <>
+                            <span aria-hidden="true">✓</span>
+                            <span className={styles.copilotCopyLabel}>복사됨</span>
+                          </>
+                        ) : (
+                          <>
+                            <span aria-hidden="true">📋</span>
+                            <span className={styles.copilotCopyLabel}>전체 복사</span>
+                          </>
+                        )}
+                      </button>
                     </div>
                   ) : (
                     <div className={styles.coffeeServedBanner}>
@@ -180,6 +212,27 @@ export function CopilotConversation({
                         </span>
                         <span className={styles.coffeeServedSub}>정성껏 추출한 답변을 확인해 보세요.</span>
                       </div>
+                      <button
+                        type="button"
+                        className={`${styles.copilotCopyBtn} ${styles.copilotCopyBtnBanner} ${
+                          copiedPairId === pair.id ? styles.copilotCopyBtnCopied : ""
+                        }`}
+                        onClick={() => handleCopyAnswer(pair.id, pair.aiText!)}
+                        title="브리핑 전체 복사"
+                        aria-label={copiedPairId === pair.id ? "답변이 복사되었습니다" : "브리핑 전체 복사"}
+                      >
+                        {copiedPairId === pair.id ? (
+                          <>
+                            <span aria-hidden="true">✓</span>
+                            <span className={styles.copilotCopyLabel}>복사됨</span>
+                          </>
+                        ) : (
+                          <>
+                            <span aria-hidden="true">📋</span>
+                            <span className={styles.copilotCopyLabel}>전체 복사</span>
+                          </>
+                        )}
+                      </button>
                     </div>
                   )}
                   <MarkdownLite text={pair.aiText} />

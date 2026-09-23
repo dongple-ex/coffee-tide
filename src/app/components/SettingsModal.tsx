@@ -596,10 +596,10 @@ export function SettingsModal({
                       style={{ width: "100%" }}
                       aria-label="테마 색상 선택"
                     >
+                      <option value="notebook">커피타이드 (기본)</option>
                       <option value="dark">다크</option>
                       <option value="light">라이트</option>
                       <option value="simple">심플(다크)</option>
-                      <option value="notebook">커피타이드 (기본)</option>
                       <option value="coffee">에스프레소</option>
                       <option value="mega">메가커피</option>
                       <option value="kustom">커스텀커피</option>

@@ -81,10 +81,9 @@ describe("taskActions", () => {
       expect(resWithCompleted[0].id).toBe("task-completed");
     });
 
-    it("번호(예: 1번)로 대상을 식별한다", () => {
+    it("후보 문맥 없는 번호는 전체 목록에서 선택하지 않는다", () => {
       const res = matchTasks("1번", mockItems);
-      expect(res).toHaveLength(1);
-      expect(res[0].id).toBe("task-1");
+      expect(res).toHaveLength(0);
     });
   });
 
@@ -191,5 +190,45 @@ describe("taskActions", () => {
       expect(parseTaskActionIntent("커피 한 잔 마시고 싶다", mockItems)).toBeNull();
       expect(parseTaskActionIntent("안녕하세요!", mockItems)).toBeNull();
     });
+  });
+});
+
+
+describe("action safety regressions", () => {
+  it("resolves a displayed candidate by ID even if the full list reorders", () => {
+    const pending = parseTaskActionIntent("보고서 완료해줘", mockItems);
+    expect(pending?.status).toBe("ambiguous");
+    if (pending?.status !== "ambiguous") throw new Error("expected candidates");
+    const result = parseTaskActionIntent("1번 완료해줘", [...mockItems].reverse(), pending);
+    expect(result?.status === "success" && result.item.id).toBe("task-2");
+    expect(parseTaskActionIntent("1번 완료해줘", mockItems)?.status).toBe("not_found");
+    expect(parseTaskActionIntent("9번", mockItems, pending)?.status).toBe("not_found");
+    expect(parseTaskActionIntent("1번", mockItems.filter(i => i.id !== "task-2"), pending)?.status).toBe("not_found");
+    expect(parseTaskActionIntent("1번 메모해줘", mockItems, pending)?.status).not.toBe("success");
+  });
+  it("keeps note content through candidate selection and rejects completed candidates", () => {
+    const pending = parseTaskActionIntent("보고서에 팀장 확인 예정이라고 메모 남겨줘", mockItems);
+    if (pending?.status !== "ambiguous") throw new Error("expected candidates");
+    const result = parseTaskActionIntent("2번", mockItems, pending);
+    expect(result?.status === "success" && result.note).toBe("팀장 확인 예정");
+    expect(result?.status === "success" && result.item.id).toBe("task-3");
+    const completed = mockItems.map(i => i.id === "task-3" ? { ...i, status: "completed" as const } : i);
+    expect(parseTaskActionIntent("2번", completed, pending)?.status).toBe("not_found");
+  });
+  it.each([
+    "Supabase 업데이트 확인 완료 여부를 체크해줘",
+    "Supabase 업데이트 확인 완료하지 말고 상태만 체크해줘",
+    "Supabase 업데이트 확인 체크해줘",
+    "Supabase 업데이트 확인에 보류라고 메모 남겨줘 라는 문장을 번역해줘",
+    "김 대리 메일에 답장 써줘 라는 문장의 뜻은?",
+  ])("does not execute non-action text: %s", text => {
+    expect(parseTaskActionIntent(text, mockItems)).toBeNull();
+  });
+  it("supports explicit completion wording and avoids partial-token guesses", () => {
+    expect(parseTaskActionIntent("Supabase 업데이트 확인 완료 처리해줘", mockItems)?.status).toBe("success");
+    expect(parseTaskActionIntent("Supabase 삭제 작업 완료해줘", mockItems)?.status).toBe("not_found");
+  });
+  it("does not draft replies for non-mail tasks", () => {
+    expect(parseTaskActionIntent("Supabase 업데이트 확인에 정중하게 답장 써줘", mockItems)?.status).toBe("not_found");
   });
 });

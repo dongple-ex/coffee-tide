@@ -18,7 +18,7 @@
 
 /* 기본 일반 뷰 (Normal View) */
 .modal {
-  background: var(--card-bg, #ffffff);
+  background: var(--card, #ffffff);
   color: var(--text, #1f2937);
   border: 1px solid var(--border, #e5e7eb);
   border-radius: 16px;
@@ -43,7 +43,7 @@
   justify-content: space-between;
   padding: 16px 20px;
   border-bottom: 1px solid var(--border, #e5e7eb);
-  background: color-mix(in srgb, var(--card-bg, #ffffff) 85%, var(--accent, #6366f1) 15%);
+  background: color-mix(in srgb, var(--card, #ffffff) 85%, var(--accent, #6366f1) 15%);
   gap: 12px;
   flex-shrink: 0;
 }
@@ -65,6 +65,7 @@
   margin: 0;
   font-size: 1.1rem;
   font-weight: 700;
+  color: var(--text, #111827);
   letter-spacing: -0.01em;
   white-space: nowrap;
   overflow: hidden;
@@ -116,7 +117,7 @@
   align-items: center;
   gap: 6px;
   background: var(--accent, #6366f1);
-  color: #ffffff;
+  color: var(--accent-contrast, #ffffff);
   font-size: 0.82rem;
   font-weight: 700;
   padding: 3px 9px;
@@ -153,7 +154,7 @@
 }
 
 .itemCard {
-  background: color-mix(in srgb, var(--bg, #f9fafb) 70%, transparent);
+  background: color-mix(in srgb, var(--card, #ffffff) 60%, var(--bg, #f9fafb));
   border: 1px solid var(--border, #e5e7eb);
   border-radius: 10px;
   padding: 12px 14px;
@@ -176,10 +177,11 @@
 .tagFeat {
   font-size: 0.68rem;
   font-weight: 700;
-  padding: 2px 5px;
+  padding: 2px 6px;
   border-radius: 4px;
-  background: #dcfce7;
-  color: #166534;
+  background: color-mix(in srgb, var(--ok, #16a34a) 15%, transparent);
+  color: var(--ok, #16a34a);
+  border: 1px solid color-mix(in srgb, var(--ok, #16a34a) 30%, transparent);
   flex-shrink: 0;
   white-space: nowrap;
 }
@@ -187,10 +189,11 @@
 .tagEnhance {
   font-size: 0.68rem;
   font-weight: 700;
-  padding: 2px 5px;
+  padding: 2px 6px;
   border-radius: 4px;
-  background: #e0e7ff;
-  color: #3730a3;
+  background: color-mix(in srgb, var(--accent, #6366f1) 15%, transparent);
+  color: var(--accent, #6366f1);
+  border: 1px solid color-mix(in srgb, var(--accent, #6366f1) 30%, transparent);
   flex-shrink: 0;
   white-space: nowrap;
 }
@@ -198,10 +201,11 @@
 .tagFix {
   font-size: 0.68rem;
   font-weight: 700;
-  padding: 2px 5px;
+  padding: 2px 6px;
   border-radius: 4px;
-  background: #fee2e2;
-  color: #991b1b;
+  background: color-mix(in srgb, var(--danger, #dc2626) 15%, transparent);
+  color: var(--danger, #dc2626);
+  border: 1px solid color-mix(in srgb, var(--danger, #dc2626) 30%, transparent);
   flex-shrink: 0;
   white-space: nowrap;
 }
@@ -269,13 +273,13 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  background: color-mix(in srgb, var(--card-bg, #ffffff) 95%, transparent);
+  background: color-mix(in srgb, var(--card, #ffffff) 95%, transparent);
   flex-shrink: 0;
 }
 
 .confirmBtn {
   background: var(--accent, #6366f1);
-  color: #ffffff;
+  color: var(--accent-contrast, #ffffff);
   border: none;
   border-radius: 8px;
   padding: 7px 16px;

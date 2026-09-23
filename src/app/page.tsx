@@ -98,7 +98,8 @@ import {
   buildChromeCanaryCopilotSystemPrompt,
   shouldUseChromeCanaryAfterServer,
 } from "@/lib/ai/copilotFallback";
-import { parseTaskActionIntent } from "@/lib/ai/taskActions";
+import { executeTaskAction, appendTaskNote, type TaskMutationResult } from "@/lib/ai/taskActionExecution";
+import { parseTaskActionIntent, type TaskActionAmbiguous } from "@/lib/ai/taskActions";
 
 // 초기 화면에 렌더링되지 않는 모달·위젯 패널은 지연 로딩으로 초기 번들에서 제외
 const SettingsModal = dynamic(() => import("./components/SettingsModal").then((m) => m.SettingsModal), { ssr: false });
@@ -427,6 +428,8 @@ export default function Home() {
   const [copilotConfig, setCopilotConfig] = useState<CopilotUserConfig>(
     () => loadLS<CopilotUserConfig>(LS_COPILOT_CONFIG, DEFAULT_COPILOT_CONFIG)
   );
+  const taskActionBusyRef = useRef(false);
+  const pendingTaskActions = useRef(new Map<string, { scope: string | undefined; at: number; action: TaskActionAmbiguous }>());
   const [copilotInput, setCopilotInput] = useState("");
   const [copilotBusy, setCopilotBusy] = useState(false);
   const [copilotFocusTick, setCopilotFocusTick] = useState(0);
@@ -927,7 +930,7 @@ export default function Home() {
   const [ruleInput, setRuleInput] = useState("");
   const [ruleBusy, setRuleBusy] = useState(false);
 
-  const [theme, setTheme] = useState<Theme>(() => loadLS<Theme>(LS_THEME, "dark"));
+  const [theme, setTheme] = useState<Theme>(() => loadLS<Theme>(LS_THEME, "notebook"));
   const [showConn, setShowConn] = useState(false);
 
   useGlobalShortcuts({
@@ -2186,7 +2189,7 @@ export default function Home() {
   }
 
   // ── write-back 액션 (phase5) ────────────────
-  async function completeExternal(item: UnifiedData) {
+  async function completeExternal(item: UnifiedData): Promise<TaskMutationResult> {
     // 브라우저 연동(FSA) 항목은 서버를 거치지 않고 클라이언트에서 직접 노트 수정
     if (item.id.startsWith(BROWSER_ID_PREFIX)) {
       markBusy(item.id, true);
@@ -2195,12 +2198,14 @@ export default function Home() {
         signalTodoCompletion();
         showToast("완료 도장 꾹 찍어뒀어요! (노트 체크박스도 갱신)");
         void scanBrowser();
+        return { ok: true, message: "노트 체크박스도 완료로 갱신했습니다." };
       } catch (err) {
-        showToast(err instanceof Error && err.message ? err.message : "앗, 완료 도장을 못 찍었어요. 잠시 후 다시 시도해 주세요.");
+        const message = err instanceof Error && err.message ? err.message : "완료 처리에 실패했습니다.";
+        showToast(message);
+        return { ok: false, message };
       } finally {
         markBusy(item.id, false);
       }
-      return;
     }
     markBusy(item.id, true);
     try {
@@ -2215,30 +2220,36 @@ export default function Home() {
       showToast(json.message ?? "완료 도장 꾹 찍어뒀어요!");
       dismissItem(item.id);
       void fetchMails(true);
+      return { ok: true, message: json.message ?? "완료 처리했습니다." };
     } catch (err) {
-      showToast(err instanceof Error && err.message ? err.message : "앗, 완료 도장을 못 찍었어요. 잠시 후 다시 시도해 주세요.");
+      const message = err instanceof Error && err.message ? err.message : "완료 처리에 실패했습니다.";
+      showToast(message);
+      return { ok: false, message };
     } finally {
       markBusy(item.id, false);
     }
   }
 
-  async function replyDraft(item: UnifiedData) {
+  async function replyDraft(item: UnifiedData, instruction?: string): Promise<TaskMutationResult> {
     markBusy(item.id, true);
     try {
       const res = await fetch("/api/mails/reply-draft", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: item.id, bodyContent: item.content, source: item.source }),
+        body: JSON.stringify({ id: item.id, bodyContent: item.content, source: item.source, instruction }),
       });
       const json = (await res.json()) as {
         draftText?: string;
         message?: string;
         error?: string;
       };
-      if (!json.draftText) throw new Error(json.error);
+      if (!res.ok || !json.draftText) throw new Error(json.error || "초안 생성에 실패했습니다.");
       setDraft({ title: item.title, text: json.draftText, message: json.message ?? "" });
+      return { ok: true, message: json.message ?? "답장 초안을 열었습니다. 내용을 검토해 주세요." };
     } catch (err) {
-      showToast(err instanceof Error && err.message ? err.message : "앗, 초안을 미처 못 적었어요. 한 번만 다시 눌러주세요.");
+      const message = err instanceof Error && err.message ? err.message : "답장 초안 생성에 실패했습니다.";
+      showToast(message);
+      return { ok: false, message };
     } finally {
       markBusy(item.id, false);
     }
@@ -2394,7 +2405,11 @@ export default function Home() {
       setWelcomeCardCollapsed(true);
     }
     const question = (preset ?? copilotInput).trim();
-    if (!question || (trackGlobalBusy && copilotBusy)) return;
+    if (!question || taskActionBusyRef.current || (trackGlobalBusy && copilotBusy)) return;
+    // 후보는 사용자와 대화 창별로 분리하고, 다른 요청/5분 경과 시 폐기한다.
+    const actionChannel = persistToFeed ? "copilot" : options?.isolatedHistory ? "mini" : "companion";
+    const pending = pendingTaskActions.current.get(actionChannel);
+    pendingTaskActions.current.delete(actionChannel);
     const conversationHistory: ChromeCanaryConversationTurn[] = options?.isolatedHistory
       ? (options.localHistory ?? []).slice(-20)
       : [
@@ -2457,59 +2472,29 @@ export default function Home() {
       }
     }
 
-    // 자연어 일감 제어 (완료·메모·검색·답장 연동)
-    const taskAction = parseTaskActionIntent(question, merged);
+    const taskAction = parseTaskActionIntent(question, merged,
+      pending && pending.scope === userScope && Date.now() - pending.at < 300000 ? pending.action : null);
     if (taskAction) {
-      const actionAnswer = taskAction.replyText;
-      if (taskAction.status === "success") {
-        if (taskAction.type === "complete") {
-          const item = taskAction.item;
-          const isExternal =
-            item.source === "gmail" ||
-            item.source === "outlook" ||
-            item.source === "notion" ||
-            item.source === "gcalendar" ||
-            item.source === "obsidian" ||
-            item.id.startsWith(BROWSER_ID_PREFIX);
-          if (isExternal) {
-            void completeExternal(item);
-          } else {
-            setLocalStatus(item.id, "completed");
-          }
-          showToast(`'${item.title}' 일감을 완료 처리했어요!`);
-        } else if (taskAction.type === "add_note") {
-          if (taskAction.note) {
-            handleSaveWorkNote(taskAction.item.id, taskAction.note);
-            showToast(`'${taskAction.item.title}'에 메모를 남겼어요!`);
-          }
-        } else if (taskAction.type === "search_focus") {
-          setTaskFilterQuery(taskAction.keyword);
-          setTaskFilterStatus("all");
-          showToast(`'${taskAction.keyword}' 검색 필터를 적용했어요.`);
-        } else if (taskAction.type === "reply_draft") {
-          const item = taskAction.item;
-          if (taskAction.draftInstruction) {
-            setDraft({
-              title: item.title,
-              text: `안녕하세요,\n\n${taskAction.draftInstruction}\n\n감사합니다.`,
-              message: "AI 바리스타가 답장 초안을 작성했습니다.",
-            });
-          } else {
-            void replyDraft(item);
-          }
-          showToast(`'${item.title}' 답장 초안을 준비했어요.`);
+      let actionAnswer = taskAction.replyText;
+      if (taskAction.status === "ambiguous") {
+        pendingTaskActions.current.set(actionChannel, { scope: userScope, at: Date.now(), action: taskAction });
+      } else if (taskAction.status === "success") {
+        taskActionBusyRef.current = true;
+        if (trackGlobalBusy) setCopilotBusy(true);
+        try {
+          actionAnswer = await executeTaskAction(taskAction, {
+            completeExternal,
+            completeLocal: item => setLocalStatus(item.id, "completed"),
+            appendNote: (item, note) => handleSaveWorkNote(item.id, appendTaskNote(workNotes[item.id] ?? item.workNote, note)),
+            search: keyword => { setTaskFilterQuery(keyword); setTaskFilterStatus("all"); },
+            replyDraft,
+          });
+        } finally {
+          taskActionBusyRef.current = false;
+          if (trackGlobalBusy) setCopilotBusy(false);
         }
       }
-
-      if (persistToFeed) {
-        setCopilotMessages((prev) => [
-          ...prev,
-          {
-            role: "ai",
-            text: actionAnswer,
-          },
-        ]);
-      }
+      if (persistToFeed) setCopilotMessages(prev => [...prev, { role: "ai", text: actionAnswer }]);
       return actionAnswer;
     }
 

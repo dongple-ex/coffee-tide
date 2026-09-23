@@ -17,6 +17,8 @@ export interface TaskActionAmbiguous {
   type: TaskActionType;
   keyword: string;
   candidates: UnifiedData[];
+  note?: string;
+  draftInstruction?: string;
   replyText: string;
 }
 
@@ -72,16 +74,10 @@ export function matchTasks(
   // 1. 미완료 항목 우선 필터링 (명시적 요청이 없는 한)
   const candidatePool = options?.includeCompleted
     ? items
-    : items.filter((i) => i.status !== "completed");
+    : items.filter((i) => i.status !== "completed" && i.status !== "dismissed");
 
-  // 번호 기반 선택 (예: "1번", "첫번째", "#1")
-  const numMatch = cleanKey.match(/^#?(\d+)번?$/);
-  if (numMatch) {
-    const idx = parseInt(numMatch[1], 10) - 1;
-    if (idx >= 0 && idx < candidatePool.length) {
-      return [candidatePool[idx]];
-    }
-  }
+  // 번호는 직전에 제시한 후보 목록에서만 해석한다.
+  if (/^#?\d+번?$/.test(cleanKey)) return [];
 
   // 2. 제목 완전 일치 (대소문자 무시)
   const exactTitleMatches = candidatePool.filter(
@@ -91,7 +87,7 @@ export function matchTasks(
 
   // 3. 제목 서브스트링 포함 일치
   const titleSubstringMatches = candidatePool.filter((item) =>
-    item.title.toLowerCase().includes(cleanKey) || cleanKey.includes(item.title.toLowerCase())
+    item.title.toLowerCase().includes(cleanKey)
   );
   if (titleSubstringMatches.length > 0) return titleSubstringMatches;
 
@@ -100,7 +96,7 @@ export function matchTasks(
   if (tokens.length > 0) {
     const tokenMatches = candidatePool.filter((item) => {
       const lowerTitle = item.title.toLowerCase();
-      return tokens.some((token) => lowerTitle.includes(token));
+      return tokens.every((token) => lowerTitle.includes(token));
     });
     if (tokenMatches.length > 0) return tokenMatches;
   }
@@ -117,10 +113,32 @@ export function matchTasks(
  */
 export function parseTaskActionIntent(
   text: string,
-  items: UnifiedData[]
+  items: UnifiedData[],
+  pending?: TaskActionAmbiguous | null
 ): TaskActionResult | null {
   const trimmed = text.trim();
   if (!trimmed) return null;
+  // 조회·부정·인용 요청은 업무 변경으로 해석하지 않는다.
+  if (/(?:하지\s*(?:마|말|않)|(?:완료|처리)\s*여부|상태\s*만|번역|라는\s*문장)/.test(trimmed)) return null;
+  if (pending) {
+    const selectionPattern = {
+      complete: /^#?(\d+)번?(?:\s*(?:완료(?:해줘)?|선택))?$/,
+      add_note: /^#?(\d+)번?(?:\s*(?:메모(?:해줘)?|선택))?$/,
+      reply_draft: /^#?(\d+)번?(?:\s*(?:답장(?:\s*써줘)?|선택))?$/,
+      search_focus: /^#?(\d+)번?$/,
+    };
+    const selection = trimmed.match(selectionPattern[pending.type]);
+    const candidate = selection
+      ? pending.candidates[Number(selection[1]) - 1]
+      : pending.candidates.find(item => item.title === trimmed.replace(/^['"]|['"]$/g, ""));
+    if (selection || candidate) {
+      const item = candidate && items.find(current => current.id === candidate.id && current.source === candidate.source);
+      if (!item || (pending.type !== "reply_draft" && (item.status === "completed" || item.status === "dismissed"))) {
+        return { status: "not_found", type: pending.type, keyword: trimmed, replyText: "선택한 후보가 없거나 상태가 바뀌었습니다. 업무 제목을 포함해 다시 요청해 주세요." };
+      }
+      return { ...pending, status: "success", item, keyword: item.title, replyText: `선택한 업무: ${item.title}` };
+    }
+  }
 
   // ──────────────────────────────────────────────
   // 1. 메모 작성 의도 (메모 남겨줘, 메모 추가, 메모: ...)
@@ -130,7 +148,7 @@ export function parseTaskActionIntent(
       /^(?:'|")?(.+?)(?:'|")?(?:일감|업무|건|메일|항목)?에\s+(?:메모|노트)\s*[:：]\s*(.+)$/i
     ) ||
     trimmed.match(
-      /^(?:'|")?(.+?)(?:'|")?(?:일감|업무|건|메일|항목)?에\s+(?:['"]?(.+?)['"]?)(?:이라고|라고|로)?\s*(?:메모|노트)(?:를|을)?\s*(?:남겨|적어|기록|추가|저장|써|작성)(?:해줘|줘|달라|바라|요|부탁)?/i
+      /^(?:'|")?(.+?)(?:'|")?(?:일감|업무|건|메일|항목)?에\s+(?:['"]?(.+?)['"]?)(?:이라고|라고|로)?\s*(?:메모|노트)(?:를|을)?\s*(?:남겨|적어|기록|추가|저장|써|작성)(?:해줘|줘|달라|바라|요|부탁)?$/i
     );
 
   if (noteMatch) {
@@ -156,7 +174,8 @@ export function parseTaskActionIntent(
         status: "ambiguous",
         type: "add_note",
         keyword: cleanKey,
-        candidates: matched,
+        note: rawNote,
+        candidates: matched.slice(0, 4),
         replyText: `'${cleanKey}' 관련 일감이 ${matched.length}건 있습니다. 어떤 일감에 메모를 남길까요?\n\n${list}\n\n일감 번호나 전체 제목을 말씀해 주시면 메모를 남겨드릴게요.`,
       };
     }
@@ -173,17 +192,17 @@ export function parseTaskActionIntent(
   // ──────────────────────────────────────────────
   const replyMatch =
     trimmed.match(
-      /^(?:'|")?(.+?)(?:'|")?(?:메일|이메일|업무|건)?에\s+(?:(?:['"]?(.+?)['"]?)(?:이라고|라고|로)?\s*)?(?:답장|회신)(?:을|를)?\s*(?:써줘|작성해줘|만들어줘|준비해줘|초안)/i
+      /^(?:'|")?(.+?)(?:'|")?(?:메일|이메일|업무|건)?에\s+(?:(?:['"]?(.+?)['"]?)(?:이라고|라고|로)?\s*)?(?:답장|회신)(?:을|를)?\s*(?:써줘|작성해줘|만들어줘|준비해줘|초안)$/i
     ) ||
     trimmed.match(
-      /^(?:'|")?(.+?)(?:'|")?(?:메일|이메일)?\s*(?:답장|회신)\s*(?:써줘|작성해줘|초안)/i
+      /^(?:'|")?(.+?)(?:'|")?(?:메일|이메일)?\s*(?:답장|회신)\s*(?:써줘|작성해줘|초안)$/i
     );
 
   if (replyMatch) {
     const rawTarget = replyMatch[1];
     const draftInstruction = replyMatch[2]?.trim();
     const cleanKey = cleanTargetKeyword(rawTarget);
-    const matched = matchTasks(cleanKey, items, { includeCompleted: true });
+    const matched = matchTasks(cleanKey, items.filter(item => item.source === "gmail" || item.source === "outlook"), { includeCompleted: true });
 
     if (matched.length === 1) {
       const item = matched[0];
@@ -202,7 +221,8 @@ export function parseTaskActionIntent(
         status: "ambiguous",
         type: "reply_draft",
         keyword: cleanKey,
-        candidates: matched,
+        draftInstruction,
+        candidates: matched.slice(0, 4),
         replyText: `'${cleanKey}' 관련 항목이 ${matched.length}건 있습니다. 어떤 건에 답장을 쓸까요?\n\n${list}`,
       };
     }
@@ -218,11 +238,11 @@ export function parseTaskActionIntent(
   // 3. 일감 완료 의도 (완료해줘, 완료했어, 끝냈어, 처리해줘, 다했어)
   // ──────────────────────────────────────────────
   const completePattern =
-    /^(?:'|")?(.+?)(?:'|")?(?:일감|업무|할\s*일|건|작업|체크박스)?\s*(?:완료했어|완료했음|완료했다|완료해줘|완료처리|완료|끝냈어|끝냈음|끝냈다|다했어|다했다|마쳤어|마쳤음|처리해줘|처리했어|체크해줘|해결했어|해결해줘)$/i;
+    /^(?:'|")?(.+?)(?:'|")?(?:일감|업무|할\s*일|건|작업|체크박스)?\s*(?:완료했어|완료했음|완료했다|완료해줘|완료\s*처리(?:해줘)?|완료|끝냈어|끝냈음|끝냈다|다했어|다했다|마쳤어|마쳤음|해결했어)$/i;
 
   const isCompleteCmd =
     completePattern.test(trimmed) ||
-    /^(?:완료|체크)\s+(?:'|")?(.+?)(?:'|")?$/i.test(trimmed);
+    /^(?:완료)\s+(?:'|")?(.+?)(?:'|")?$/i.test(trimmed);
 
   if (isCompleteCmd) {
     let rawTarget = "";
@@ -230,7 +250,7 @@ export function parseTaskActionIntent(
     if (m1) {
       rawTarget = m1[1];
     } else {
-      const m2 = trimmed.match(/^(?:완료|체크)\s+(?:'|")?(.+?)(?:'|")?$/i);
+      const m2 = trimmed.match(/^(?:완료)\s+(?:'|")?(.+?)(?:'|")?$/i);
       if (m2) rawTarget = m2[1];
     }
 
@@ -255,7 +275,7 @@ export function parseTaskActionIntent(
         status: "ambiguous",
         type: "complete",
         keyword: cleanKey,
-        candidates: matched,
+        candidates: matched.slice(0, 4),
         replyText: `'${cleanKey}' 관련 일감이 ${matched.length}건 있습니다. 어떤 일감을 완료할까요?\n\n${list}\n\n"1번 완료해줘"처럼 번호를 말씀해 주셔도 바로 완료됩니다.`,
       };
     }

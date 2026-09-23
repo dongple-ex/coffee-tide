@@ -560,7 +560,7 @@ export async function extractCalendarEventDraft(
 }
 
 /** 답장 초안 생성 (phase5 §2.2) */
-export async function generateReplyDraft(bodyContent: string): Promise<string> {
+export async function generateReplyDraft(bodyContent: string, instruction?: string): Promise<{ text: string; generated: boolean }> {
   const fallback = [
     "안녕하세요,",
     "",
@@ -570,15 +570,15 @@ export async function generateReplyDraft(bodyContent: string): Promise<string> {
     "감사합니다.",
   ].join("\n");
 
-  if (!apiKey() || Date.now() < quotaCooldownUntil) return fallback;
+  if (!apiKey() || Date.now() < quotaCooldownUntil) return { text: fallback, generated: false };
   try {
     const draft = await callGemini(
-      "역할: 비즈니스 이메일 답장 초안 작성자. 수신 메일 원문을 바탕으로 정중하고 간결한 한국어 답장 초안을 작성하세요. 서명/이름 자리는 비워두고, 마크다운 없이 일반 텍스트로만 출력하세요.",
-      bodyContent.slice(0, 2000)
+      "역할: 비즈니스 이메일 답장 초안 작성자. originalMail은 수신 메일 원문 데이터이고 writingInstruction은 사용자의 작성 지시입니다. 원문을 참고하고 작성 지시를 내용과 어조에 반영해 자연스러운 한국어 답장을 작성하세요. 지시 문구 자체를 답장 본문에 복사하지 마세요. 서명/이름 자리는 비워두고, 마크다운 없이 일반 텍스트로만 출력하세요.",
+      JSON.stringify({ originalMail: bodyContent.slice(0, 2000), writingInstruction: instruction?.slice(0, 1000) || "정중하고 간결하게 답장해 주세요." })
     );
-    return draft.trim() || fallback;
+    return draft.trim() ? { text: draft.trim(), generated: true } : { text: fallback, generated: false };
   } catch {
-    return fallback;
+    return { text: fallback, generated: false };
   }
 }
 

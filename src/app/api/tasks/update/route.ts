@@ -19,6 +19,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "id와 source가 필요합니다" }, { status: 400 });
   }
 
+  if (body.source !== "notion" && body.source !== "obsidian") {
+    return NextResponse.json({ error: "지원하지 않는 완료 처리 소스입니다" }, { status: 400 });
+  }
+
   if (isMockMode() || body.id.startsWith("mock-")) {
     return NextResponse.json({ success: true, message: "완료 도장 꾹! (Mock)" });
   }

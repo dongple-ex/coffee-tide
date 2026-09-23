@@ -18,8 +18,8 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-// 첫 페인트 전에 저장된 테마를 적용 (다크 플래시 방지)
-const THEME_INIT = `try{var t=JSON.parse(localStorage.getItem("ct_theme"));if(t==="light"||t==="coffee"||t==="notebook"||t==="mega"||t==="kustom"||t==="simple"){document.documentElement.setAttribute("data-theme",t)}}catch(e){}`;
+// 첫 페인트 전에 저장된 테마를 적용 (커피타이드 기본 적용 및 플래시 방지)
+const THEME_INIT = `try{var t=JSON.parse(localStorage.getItem("ct_theme"));if(t==="light"||t==="coffee"||t==="mega"||t==="kustom"||t==="simple"){document.documentElement.setAttribute("data-theme",t)}else if(t==="dark"){document.documentElement.removeAttribute("data-theme")}else{document.documentElement.setAttribute("data-theme","notebook")}}catch(e){document.documentElement.setAttribute("data-theme","notebook")}`;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
