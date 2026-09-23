@@ -141,6 +141,7 @@ import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { useCloudSync } from "./hooks/useCloudSync";
 import { isDesktopMainManaged, restoreConnectedMain } from "@/lib/ui/desktopWindowControl";
 import { useGlobalShortcuts } from "./hooks/useGlobalShortcuts";
+import { usePersonaVoiceChat } from "./hooks/usePersonaVoiceChat";
 import type { ExtractTasksResponse } from "@/lib/types/storage";
 import type { CalendarEventDraft } from "@/lib/calendar/types";
 import type { CloudDraftPayload } from "@/lib/cloudTools/drafts";
@@ -433,6 +434,54 @@ export default function Home() {
   const [copilotInput, setCopilotInput] = useState("");
   const [copilotBusy, setCopilotBusy] = useState(false);
   const [copilotFocusTick, setCopilotFocusTick] = useState(0);
+  const voiceChatActiveRef = useRef(false);
+  const askCopilotRef = useRef<((preset?: string) => Promise<string | undefined>) | null>(null);
+
+  const {
+    isListening: isVoiceListening,
+    isSpeaking: isVoiceSpeaking,
+    interimText: voiceInterimText,
+    startListening: startVoiceListening,
+    stopListening: stopVoiceListening,
+    speak: speakPersonaVoice,
+    stopSpeaking: stopPersonaVoice,
+  } = usePersonaVoiceChat({
+    presetId: copilotConfig.presetId,
+    onTranscriptComplete: (text) => {
+      const trimmed = text.trim();
+      if (trimmed) {
+        voiceChatActiveRef.current = true;
+        setCopilotInput(trimmed);
+        if (askCopilotRef.current) {
+          void askCopilotRef.current(trimmed);
+        }
+      }
+    },
+  });
+
+  // 음성 인식 중 실시간 텍스트를 입력창에 동기화
+  useEffect(() => {
+    if (isVoiceListening && voiceInterimText) {
+      setCopilotInput(voiceInterimText);
+    }
+  }, [isVoiceListening, voiceInterimText]);
+
+  const handleToggleVoice = useCallback(() => {
+    if (isVoiceSpeaking) {
+      stopPersonaVoice();
+      voiceChatActiveRef.current = false;
+      return;
+    }
+    if (isVoiceListening) {
+      stopVoiceListening();
+      return;
+    }
+    voiceChatActiveRef.current = true;
+    const started = startVoiceListening();
+    if (!started) {
+      showToast("마이크 권한을 확인해 주세요.");
+    }
+  }, [isVoiceSpeaking, isVoiceListening, stopPersonaVoice, stopVoiceListening, startVoiceListening, showToast]);
   const [calendarDraft, setCalendarDraft] = useState<CalendarEventDraft | null>(null);
   const [cloudToolDraft, setCloudToolDraft] = useState<CloudDraftPayload | null>(null);
   const [cloudWriteApproval, setCloudWriteApproval] = useState<CloudWriteApproval | null>(null);
@@ -2612,6 +2661,9 @@ export default function Home() {
           },
         ]);
       }
+      if (voiceChatActiveRef.current && finalAnswer) {
+        speakPersonaVoice(finalAnswer, copilotConfig.presetId);
+      }
       return finalAnswer;
     } catch (error) {
       if (error instanceof AiJobPendingError) {
@@ -2636,6 +2688,9 @@ export default function Home() {
             },
           ]);
         }
+        if (voiceChatActiveRef.current && localAnswer) {
+          speakPersonaVoice(localAnswer, copilotConfig.presetId);
+        }
         return localAnswer;
       }
       const failMsg = "앗, 대답을 놓쳤어요. 잠시 후 다시 물어봐 주세요.";
@@ -2645,11 +2700,15 @@ export default function Home() {
           { role: "ai", text: failMsg },
         ]);
       }
+      if (voiceChatActiveRef.current && failMsg) {
+        speakPersonaVoice(failMsg, copilotConfig.presetId);
+      }
       return failMsg;
     } finally {
       if (trackGlobalBusy) setCopilotBusy(false);
     }
   }
+  askCopilotRef.current = askCopilot;
 
   async function prepareCloudWrite(request: CloudWriteRequest) {
     if (cloudWriteBusy) return;
@@ -4102,6 +4161,9 @@ export default function Home() {
                 setSaveToDrive(!saveToDrive);
               }}
               googleConnected={googleConnected}
+              isVoiceListening={isVoiceListening}
+              isVoiceSpeaking={isVoiceSpeaking}
+              onToggleVoice={handleToggleVoice}
             />
           </section>
         </div>

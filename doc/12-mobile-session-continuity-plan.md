@@ -2,11 +2,13 @@
 
 > **문서 번호**: `doc/12-mobile-session-continuity-plan.md`  
 > **작성 일자**: 2026-08-12 (2026-09-08 갱신)  
-> **상태**: ✅ 구현 및 검증 완료  
+> **상태**: 구현 및 당시 검증 기록 보존. 2026-09-23 갱신에서는 iOS/Android 실기기 재검증을 수행하지 않음.
 > **대상 환경**: iPhone Safari/PWA, Android Chrome/PWA  
 > **관련 문서**: [`04-mobile-strategy.md`](./04-mobile-strategy.md), [`11-youtube-viewer-recommendation-bundle-spec.md`](./11-youtube-viewer-recommendation-bundle-spec.md)
 
 ---
+
+서버 AI 작업의 결과 저장·완료 알림·복귀 처리는 이후 추가된 [AI 작업 완료 알림](./ai-completion-notifications.md)을 함께 참조한다. 아래 세션 복원 검증을 푸시 수신이나 모든 모바일 환경의 검증으로 확대 해석하지 않는다.
 
 ## 1. 목적
 

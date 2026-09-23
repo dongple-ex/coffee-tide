@@ -3,6 +3,7 @@
 import React, { RefObject, useRef, useEffect } from "react";
 import styles from "../../page.module.css";
 import { DOCUMENT_INPUT_ACCEPT } from "@/lib/documents/formats";
+import { UiIcon } from "../UiIcon";
 
 /** 입력창에 `/`를 치면 뜨는 자동완성 목록 */
 const SLASH_COMMANDS = [
@@ -74,6 +75,9 @@ interface Props {
   taskCount?: number;
   onSelectQuickReply?: (query: string) => void;
   placeholder?: string;
+  isVoiceListening?: boolean;
+  isVoiceSpeaking?: boolean;
+  onToggleVoice?: () => void;
 }
 
 export function CopilotComposer({
@@ -101,6 +105,9 @@ export function CopilotComposer({
   taskCount = 0,
   onSelectQuickReply,
   placeholder,
+  isVoiceListening = false,
+  isVoiceSpeaking = false,
+  onToggleVoice,
 }: Props) {
   const trimmed = value.trim();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -318,6 +325,37 @@ export function CopilotComposer({
         disabled={busy}
         aria-label={`${baristaName} 질문 입력`}
       />
+
+      {onToggleVoice && (
+        <button
+          type="button"
+          className={`${styles.copilotVoiceBtn} ${
+            isVoiceListening
+              ? styles.copilotVoiceBtnListening
+              : isVoiceSpeaking
+              ? styles.copilotVoiceBtnSpeaking
+              : ""
+          }`}
+          onClick={onToggleVoice}
+          title={
+            isVoiceListening
+              ? "음성 듣기 중지 (클릭 시 전송)"
+              : isVoiceSpeaking
+              ? "답변 음성 중지"
+              : `${baristaName}와 음성으로 대화하기`
+          }
+          aria-label={
+            isVoiceListening
+              ? "음성 듣기 중지"
+              : isVoiceSpeaking
+              ? "답변 음성 중지"
+              : `${baristaName}와 음성으로 대화하기`
+          }
+          disabled={busy && !isVoiceSpeaking}
+        >
+          <UiIcon name="voice-wave" size={18} />
+        </button>
+      )}
 
       <button
         className={`${styles.btn} ${styles.btnPrimary}`}

@@ -1,11 +1,17 @@
 # 17. AI 컴패니언 성장·기억·지속 사용 시스템 설계
 
-> 상태: **핵심 제품 결정 확정 · 구현 전**  
-> 기준일: 2026-09-01  
+> 상태: **성장·기억·삭제·접근 제어 기반 구현 / 전체 제품 설계의 완료를 뜻하지 않음**
+> 현황 갱신: 2026-09-23 (원 설계: 2026-09-01)
 > 적용 대상: CoffeeTide AI 바리스타, Copilot 대화, 업무·집중·회고 흐름  
 > 관련 문서: [`00-product-spec.md`](./00-product-spec.md), [`14-data-storage-ai-knowledge-architecture-plan.md`](./14-data-storage-ai-knowledge-architecture-plan.md), [`16-ai-character-productivity-companion-architecture.md`](./16-ai-character-productivity-companion-architecture.md), [`spec/phase14-06-ai-knowledge-retrieval.md`](./spec/phase14-06-ai-knowledge-retrieval.md)
 
 > 후속 정본: 사용자의 발화를 자연 대화·소통 회복·업무·혼합·실행 요청으로 구분하는 규칙은 [`18-ai-companion-natural-conversation-orchestration-design.md`](./18-ai-companion-natural-conversation-orchestration-design.md)를 따른다. 자연 대화 라우팅과 충돌하는 경우 해당 문서를 우선 적용한다.
+
+## 현재 구현과 활성화 조건
+
+- `src/lib/companion/`과 `/api/companion/*`에 프로필·상호작용·기억·삭제·정책 기반 코드가 존재한다.
+- `featureAccess.ts`의 성장 기본 모드는 `off`, 킬스위치는 기본 활성이다. 환경 설정·사용자별 접근·동의 상태와 원격 스키마가 필요하다.
+- 아래 단계별 체크리스트는 설계 범위이며 코드 존재만으로 전 항목을 완료로 바꾸지 않는다. 운영 활성화·RLS·다중 기기·삭제 E2E는 이번 문서 갱신에서 확인하지 않았다.
 
 ## 1. 문서 목적
 
@@ -47,9 +53,9 @@ CoffeeTide는 하나의 호감도 수치로 모든 것을 표현하지 않고 �
 
 ---
 
-## 3. 현재 기준선과 설계 격차
+## 3. 설계 당시 기준선과 격차 (2026-09-01)
 
-이 기준선은 2026-09-01 로컬 작업 트리를 기준으로 한다. 커밋·원격 반영, 브라우저 확인, 로그인 상태의 Supabase E2E 검증을 의미하지 않는다.
+이 기준선은 2026-09-01 로컬 작업 트리의 설계 근거를 보존한다. 이후 최근 대화 이력·기억·이벤트 원장 기반 구현이 추가되었으므로 현재 상태는 문서 상단 및 01 문서를 따른다. 커밋·원격 반영, 브라우저 확인, 로그인 상태의 Supabase E2E 검증을 의미하지 않는다.
 
 ### 3.1 재사용할 기반
 
@@ -64,7 +70,7 @@ CoffeeTide는 하나의 호감도 수치로 모든 것을 표현하지 않고 �
 | 데이터 기반 | Supabase `unified_items`, `item_relations`, `ai_artifacts` | 구조화 데이터·관계·AI 파생 결과·RLS 기반 | 성장 이벤트와 기억 전용 테이블 추가 |
 | 게스트 저장 | 브라우저 저장소 | 업무·화면 상태·대화 스냅샷 일부 저장 | IndexedDB 기반 로컬 기억 저장소 추가 |
 
-### 3.2 현재 부족한 점
+### 3.2 당시 부족했던 점 (현재 미구현 목록이 아님)
 
 - 대화 UI에는 과거 메시지가 남지만 `/api/copilot` 요청은 현재 질문 한 건만 전달하므로 실제 대화 연속성이 없다.
 - 관계 상태가 브라우저의 `localStorage`에만 있어 기기 간 이어지지 않는다.

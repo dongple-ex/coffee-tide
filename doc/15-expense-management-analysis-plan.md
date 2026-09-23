@@ -1,9 +1,14 @@
 # 15. 비용 관리·월별 분석·영수증 설계 및 구현 계획
 
-> 상태: **설계 완료 · 구현 전**  
-> 기준일: 2026-08-17  
+> 상태: **목록·편집·분석·영수증 UI와 CSV/Sheets API 코드 존재, 실계정 검증은 별도**
+>
+> 현황 갱신: 2026-09-23 (원 설계: 2026-08-17)
 > 구현 담당: Gemini  
 > 관련 문서: [`14-data-storage-ai-knowledge-architecture-plan.md`](./14-data-storage-ai-knowledge-architecture-plan.md), [`spec/phase14-02-data-contract-schema.md`](./spec/phase14-02-data-contract-schema.md), [`spec/phase14-05-cost-voice-quick-capture.md`](./spec/phase14-05-cost-voice-quick-capture.md)
+
+## 현재 구현 주석
+
+`src/app/components/quickCapture/expense/`에 Workspace·List·EditSheet·Dashboard·ReceiptPicker/Gallery·ExportButtons가 있으며 `/api/expenses/*`에 조회·수정·삭제·분석·내보내기 API가 있다. 이는 코드 확인 범위이며 원격 RPC·RLS·영수증 접근·실제 Google Sheets 생성은 이번에 실행하지 않았다. 아래 기준선과 구현 단계는 원 설계 기록이다. 현재 API 요약은 [01 문서](./01-as-built-reference.md)를 따른다.
 
 ## 1. 목적
 
@@ -27,7 +32,7 @@
 
 DB에 이미 존재하는 `tax_deductible`, `reimbursable` 필드는 하위 호환을 위해 유지하되 이번 UI와 API 입력에는 노출하지 않는다.
 
-## 2. 현재 기준선
+## 2. 설계 당시 기준선 (2026-08-17)
 
 ### 이미 구현되어 있고 재사용할 것
 

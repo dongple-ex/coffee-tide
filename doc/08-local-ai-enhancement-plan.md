@@ -1,7 +1,7 @@
 # 08. CoffeeTide 로컬 AI 강화 계획
 
-> 상태: **로컬 모델은 설계 단계 / PDF·XLSX·PPTX 포함 공통 문서 파서 구현**  
-> 기준일: 2026-08-11  
+> 상태: **Chrome 브라우저 모델 경로 구현 / Ollama·LM Studio 공급자는 후속 계획 / 공통 문서 파서·지식 아카이브 검색 구현**
+> 현황 갱신: 2026-09-23 (원 설계: 2026-08-11)
 > 관련 문서: [`01-as-built-reference.md`](./01-as-built-reference.md), [`02-backlog.md`](./02-backlog.md), [`spec/phase6-llm-artifacts.md`](./spec/phase6-llm-artifacts.md), [`09-mcp-access-deferred-plan.md`](./09-mcp-access-deferred-plan.md), [`10-local-tools-document-agent-plan.md`](./10-local-tools-document-agent-plan.md)
 
 ## 1. 목적과 용어
@@ -17,17 +17,20 @@ CoffeeTide가 인터넷이나 Gemini API 상태에 덜 의존하면서 다음 �
 - 등록된 로컬 스크립트의 안전한 도구 실행
 - PDF·Excel·PowerPoint 등 다형식 문서 수집
 
-현재 프로젝트에서 서로 다른 세 기능이 모두 “로컬 AI”처럼 보일 수 있으므로 구분한다.
+현재 프로젝트에서 서로 다른 네 기능이 모두 “로컬 AI”처럼 보일 수 있으므로 구분한다.
 
 | 구분 | 현재 상태 | 실제 의미 |
 |---|---|---|
 | `FallbackEngine` | 구현됨 | 정규식·템플릿 기반 결정적 규칙 엔진. LLM이 아니다. |
 | LLM 산출물 연동 | 구현됨 | Claude Code·Gemini 등이 만든 파일을 읽는 기능. 모델을 실행하지 않는다. |
-| 로컬 모델 추론 | **미구현** | Ollama·LM Studio 같은 로컬 추론 서버에 프롬프트를 보내 답을 생성하는 기능. |
+| 브라우저 모델 추론 | **코드 구현, 환경 의존** | `chromeCanaryAi.ts`가 Chrome Prompt API 가용성·모델 준비를 확인해 실제 모델을 호출. 코드의 Gemma 4 표시는 실기기 모델 확인을 대신하지 않음. |
+| 서버형 로컬 모델 추론 | **후속 계획** | Ollama·LM Studio 같은 로컬 추론 서버 연결. 브라우저 경로와 별개. |
 
-이 문서에서 “로컬 AI 강화”는 세 번째 기능을 추가하되, 첫 번째 규칙 엔진을 최종 안전망으로 유지하는 것을 뜻한다.
+이 문서의 원래 공급자 설계는 서버형 로컬 모델 연결을 목표로 한다. 이후 추가된 브라우저 모델 경로와 구분하며 규칙 엔진을 실제 LLM으로 표현하지 않는다.
 
-## 2. 현재 소스 점검 결과
+## 2. 소스 점검과 이후 구현
+
+2026-09-23 대조: `page.tsx`는 서버 응답의 폴백 상태에 따라 Chrome 온디바이스 대화를 시도한다. 서버 Copilot에 최근 대화 이력을 보내며 지식 검색·완료 문서 아카이브를 근거로 사용한다. 아래 서버 함수별 표와 후속 공급자 설계만으로 현재 대화 경로 전체를 설명하지 않는다.
 
 ### 2.1 현재 처리 흐름
 
@@ -35,6 +38,7 @@ CoffeeTide가 인터넷이나 Gemini API 상태에 덜 의존하면서 다음 �
 UI/API 요청
   ├─ Gemini 키 있음 → 일부 기능은 Gemini 직접 호출
   └─ 키 없음·호출 실패 → FallbackEngine 또는 고정 문구
+       └─ 지원되는 대화 화면은 Chrome Prompt API 가용성에 따라 브라우저 모델 폴백 시도
 
 로컬 문서·LLM 산출물
   → 파일 스캔·발췌
@@ -51,7 +55,7 @@ UI/API 요청
 | 업무 분류 | `classifyTasks()` | **현재 Gemini를 호출하지 않음** | `classifyOne()` 정규식 분류 |
 | AI 바리스타 | `askCopilot()` | Gemini 직접 호출 | 템플릿 브리핑 |
 | 일정 해석 | `extractCalendarEventDraft()` | Gemini JSON 추출 | 초안 생성 불가 안내 |
-| 답장 초안 | `generateReplyDraft()` | Gemini 생성 | 고정된 범용 답장 |
+| 답장 초안 | `generateReplyDraft()` | 원문·작성 지시로 Gemini 생성, generated=true | 기본 예시 문구, generated=false, 외부 저장 생략 |
 | 자연어 규칙 | `parseRule()` | Gemini JSON 추출 | 대표 문형 정규식 |
 | 붙여넣기 추출 | `extractTasks()` | Gemini JSON 추출 | 줄·불릿 휴리스틱 |
 | 뉴스 요약 | `summarizeSiteContent()` | Gemini 요약 | 기존 로컬 핵심 문장 요약 유지 |

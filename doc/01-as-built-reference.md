@@ -1,6 +1,6 @@
 # As-Built 기술 레퍼런스 (구현 현황)
 
-> **기준: 2026-07-27 구현 코드(`f76d065`).** 본 문서는 이 저장소에 실제 구현된 코드의 기술 레퍼런스(엔드포인트·환경변수·데이터모델·인증)입니다 — "지금 코드가 하는 일"의 정본.
+> **기준: 2026-09-23 로컬 코드 `ea4bcb5`, 앱 1.2.2.** 이번 갱신은 소스 대조와 관련 자동 테스트 기준이며, 운영 배포·실계정 연동·실제 기기 동작을 재검증한 결과는 아닙니다. 아래 API 표는 주요 경로 요약입니다.
 >
 > **UI 명칭**: 화면에서는 Copilot을 **"AI 바리스타"** 로 부릅니다(2026-07-17 개명). 본 문서는 코드·API 이름이 `copilot`인 지점만 Copilot으로 표기합니다.
 >
@@ -13,21 +13,23 @@
 
 ## 1. 개요
 
-coffeeTide는 여러 채널의 업무 데이터를 하나의 대시보드로 통합하고, AI로 트리아지하며, 자동화 규칙으로 정리하는 Next.js 16 앱입니다. **무연동 우선**: manual/paste가 1급 소스이며 외부 연동 없이 전 기능이 동작합니다.
+coffeeTide는 여러 채널의 업무 데이터를 하나의 대시보드로 통합하고, AI 대화와 자동화 규칙으로 정리하는 Next.js 16 앱입니다. **무연동 우선**: manual/paste로 업무 등록·관리를 시작할 수 있습니다. 외부 서비스 쓰기·클라우드 저장·모델 생성은 각각 연결·인증·공급자 설정이 필요합니다.
 
 | 구분 | 내용 |
 | :--- | :--- |
-| 채널 | **manual·paste(1급)**, Outlook, Gmail, Notion, Obsidian, 로컬 문서, LLM 산출물 |
+| 채널 | **manual·paste(1급)**, Outlook, Gmail, Google Calendar·Drive, Notion, Obsidian, 로컬 문서, LLM 산출물, Spark |
 | 로그인 | Google Identity Services ID 토큰 로그인 + 게스트 세션 + 서비스별 개별 연동 |
-| AI | Gemini(`gemini-2.5-flash`, REST 직호출: 분류·브리핑·답장·규칙파싱·붙여넣기 추출) + FallbackEngine(전 기능 로컬 대체) |
+| AI | 서버 Gemini + 지원 환경의 Chrome Prompt API + 규칙·템플릿 폴백. 업무 분류는 규칙 기반이며, 모든 기능에 생성형 로컬 대체가 있는 것은 아님 |
 | 자동화 | 규칙 엔진(pin/urgent/mute/hide)·자연어 규칙·팔로업 에스컬레이션·빠른 캡처·dismiss |
-| 생산성 도구 | 슬래시 커맨드 5종, 워크노트·하위작업, 퇴근 핸드오프, 퀵 위젯(타이머·계산기·바로가기·날씨·출퇴근), 단어-앱 바로가기 |
+| 생산성 도구 | 슬래시 커맨드, 대화형 업무 조작, 검색·상태 필터, 워크노트·하위작업, AI 캔버스·지식 아카이브, 퇴근 핸드오프, 퀵 위젯, 단어-앱 바로가기 |
 | 인증 가드 | `src/proxy.ts` (Next 16 규약) |
 | 토큰 | Google/Outlook 선제(만료 60초 전) + 반응형(401 시 1회) 리프레시 |
-| 스타일 | Vanilla CSS Modules, 다크 Bento Grid (Tailwind 미사용) |
+| 스타일 | CSS Modules, 라이트·다크 및 복수 테마. 기본값은 `notebook`(Coffee-Tide 테마), 저장된 사용자 선택 우선 |
+| 작은 창 | 웹 Document PiP 채팅 카드 + 선택적 Windows Electron 보조 앱. 두 방식의 제약·연결 조건은 문서 20 참조 |
 
 ## 2. 인증 & 세션
 
+- **연동 정보 저장**: `integrationStore.ts`가 로그인 사용자의 서버 저장소에서 연결 정보를 읽고, 마이그레이션·저장소가 준비되지 않은 환경은 기존 암호화 쿠키로 폴백한다. 모든 OAuth 토큰이 항상 쿠키에만 있다고 가정하지 않는다.
 - **세션**: `tp_session` (AES-256-GCM 암호화, HttpOnly) + `tp_session_expiry`(평문 보조, proxy 만료 판독용). `src/lib/auth/session.ts`.
   - **B1 반영**: 프로덕션에서 `SESSION_ENCRYPTION_SECRET` 미설정이면 throw(기동 거부). 개발용 fallback만 허용(경고 로그).
   - 만료 7일 + **활동 시 롤링 연장** (B2 반영). `/api/mails` 응답 마지막의 `writeSessionForCurrentUser` → `writeSession`(`src/lib/auth/cookies.ts`)이 쿠키 `maxAge`를 매번 새로 부여 — 30초 폴링이 도는 동안 만료가 계속 밀린다. (과거 문서의 `touchSession`은 같은 일을 하던 중복 래퍼였고 2026-08-22 제거됨.)
@@ -48,10 +50,11 @@ coffeeTide는 여러 채널의 업무 데이터를 하나의 대시보드로 통
 ### UnifiedData (`src/lib/types/unified.ts`)
 `id, source, title, content, created_at, author, url, category?, actionDirective?, status?, delegatable?`
 
-- `source`: `manual | paste | local_doc | obsidian | outlook | gmail | notion | llm` (A1 반영: Gmail 별도 배지)
+- `source`: `manual | paste | local_doc | obsidian | outlook | gmail | gcalendar | gdrive | notion | llm | spark`
 - `category`: `urgent | approval_required | meeting | action_required | reference | ignore`
 - `status`: `pending | held | completed | dismissed`
-- `delegatable?`: 로컬 LLM 도구로 넘길 만한 업무 표식 (phase7). AI 분류 시에만 채워지며 `FallbackEngine`은 채우지 않음 — `undefined`는 "위임 불가"가 아니라 "판별 안 됨"
+- `delegatable?`: 위임 가능 표식의 타입·배지. 현재 규칙 분류 경로는 새 값을 생성하지 않음 — `undefined`는 판별 안 됨
+- `workNote?`, `subTasks?`, `rawContent?`, `driveUrl?`: 메모·하위작업·원문·외부 저장 링크
 
 ### ProcessedData (`src/lib/automation/rules.ts`)
 `UnifiedData` + `pinned?`, `automated?`(적용된 규칙 태그 목록).
@@ -83,7 +86,7 @@ coffeeTide는 여러 채널의 업무 데이터를 하나의 대시보드로 통
 | `ct_dismissed_ids` | 숨긴 외부 항목 id — 동기화 시 현존 id와 교집합으로 자동 정리(D3) (구 `tp_dismissed_ids`) |
 | `ct_followup_hours` | 팔로업 기준 시간(12/24/48) (구 `tp_followup_hours`) |
 | `ct_brief_time` | 아침 브리핑 발송 시각 (기본 08:30) |
-| `ct_theme` | 테마(dark/light/coffee/mega/kustom) |
+| `ct_theme` | 테마(dark/light/coffee/mega/kustom/simple/notebook), 기본 `notebook` |
 | `ct_weather_enabled` · `ct_weather_coords` | 날씨 옵트인 여부와 캐시된 좌표 (I5 — 반복 권한 팝업 방지) |
 | `ct_commute_config` | 출퇴근 설정 — 집/회사 역명, 이동수단, **집·회사 좌표**(지도 앱 딥링크용, 서버 미전송) |
 | `ct_app_shortcuts` | 단어-앱 바로가기 레시피 (J2) |
@@ -118,10 +121,10 @@ coffeeTide는 여러 채널의 업무 데이터를 하나의 대시보드로 통
 | `/api/local-tools` | GET/POST | 로컬 PC에 명시적으로 등록한 읽기 전용 PowerShell·Python·Node 도구 목록 조회, 실행 미리보기, 5분 유효 1회 승인 토큰 기반 실행. Vercel 등 클라우드 배포에서는 403 |
 | `/api/cloud-tools` | GET/POST | 인증된 사용자의 Vercel 서버 도구 목록·실행. 정적으로 등록된 읽기 전용 또는 외부 변경 없는 검토용 초안 TypeScript 도구만 허용하며 입력 스키마, 1분 호출 제한, 제한 시간·출력 크기를 검사한다 |
 | `/api/weather` | GET | 좌표(`lat`/`lon`) → **기상청 초단기실황+초단기예보**(공공데이터포털, LCC 격자 변환) 1순위 → OpenWeatherMap 폴백. 지역명은 BigDataCloud 역지오코딩으로 한글 동/구. 좌표는 **소수점 2자리로 절삭해 외부 호출**(K9), 서버 메모리 캐시 20분, 좌표 미저장. 키 미설정/조회 실패 시 `success:false` (그리팅은 시간대 폴백) |
-| `/api/commute` | GET | 출퇴근 길찾기 카드 데이터. KST 05~12시 출근 모드, 그 외 퇴근 모드로 출발·도착지 자동 전환. **⚠️ 시각·소요시간·요금·혼잡도는 현재 하드코딩된 예시 값** — 실연동은 K2(공공데이터포털 TAGO·도로공사) 예정. 지도 링크는 이 응답에 없다(§5 지도 앱 연동) |
+| `/api/commute` | GET | TAGO 정류소 버스 도착정보 조회, 45초 캐시. 키·정류소 설정 누락 또는 실패 시 안내와 빈 도착 목록 반환. 자차 소요시간은 생성하지 않고 지도 앱으로 안내. 실제 키·지역별 결과 검증은 별도 |
 | `/api/util/exec-app` | POST | 단어-앱 바로가기 실행 (J2, **데스크톱 전용**). 셸을 거치지 않는 `spawn` + 스킴/확장자 화이트리스트. 클라우드 배포(`VERCEL` 등)·`DISABLE_LOCAL_EXEC=true`에서는 403 (§5 로컬 실행기) |
 | `/api/rules/parse` | POST | 자연어 → 자동화 규칙 변환 |
-| `/api/mails/reply-draft` | POST | AI 답장 초안 (+ Outlook 임시보관함 저장; Gmail은 초안 텍스트만) |
+| `/api/mails/reply-draft` | POST | 원문과 `instruction`(최대 1,000자)을 분리해 답장 생성. Outlook 소스·연동 조건에서만 임시보관함 저장. AI 실패 시 기본 예시임을 표시하고 외부 저장 생략 |
 | `/api/util/select-folder` | GET | 네이티브 폴더 선택 (Windows 전용, PowerShell 다이얼로그) |
 | `/api/push/subscribe` · `unsubscribe` | POST | 웹 푸시 구독 등록(발송 시각·타임존 포함)/해제 (H5) |
 | `/api/push/state` | POST | 업무 스냅샷 동기화 — 스케줄 발송의 데이터 소스 (2초 디바운스, 최대 50건) |
@@ -139,10 +142,16 @@ coffeeTide는 여러 채널의 업무 데이터를 하나의 대시보드로 통
 | `/api/expenses/export` | GET | 현재 필터 기준 UTF-8 BOM CRLF CSV 다운로드 (수식 주입 방어, 최대 10,000건) (Phase 15) |
 | `/api/expenses/export/google-sheets/preview` | POST | Google Sheets 4개 시트 및 통화별 차트 생성 사전 미리보기 (Phase 15) |
 | `/api/expenses/export/google-sheets` | POST | Google Sheets 4개 시트(`비용내역`, `월별합계`, `분류별분석`, `대시보드`) 및 통화별 차트 멱등 생성, RAW 값 기록, 부분 실패 보상 삭제 (Phase 15) |
-| `/api/voice/transcribe` | POST | 음성 오디오 멀티모달 STT 전사 및 선택적 원본 보관 (Phase 14-05) |
+| `/api/voice/transcribe` | POST | Supabase 인증 후 Gemini 음성 전사. 오디오 4MB·신고 길이 10분 상한 검사, dictation/meeting 모드. 이 경로 자체에는 원본 영구 저장 없음 |
 | `/api/knowledge/search` | POST | 개인정보 정책 및 관계 기반 지식 검색 (Phase 14-06) |
 | `/api/knowledge/context` | POST | AI 바리스타 답변용 Grounded Context 패키지 빌드 (Phase 14-06) |
 | `/api/briefing/daily` | GET/POST | 브리핑 발송 트리거 — 공개 경로, `CRON_SECRET` Bearer 인증 (Vercel Cron용) |
+| `/api/copilot/canvas` | POST | AI 캔버스 변환·확장, 서버 작업 접수와 결과 복원 경로 지원 |
+| `/api/ai/jobs/[id]` | GET | 작업 소유자 확인 후 진행 상태·저장된 결과 조회 |
+| `/api/knowledge/archive` | POST | 완료 캔버스 문서 아카이브 저장, 선택적 Drive 저장 |
+| `/api/knowledge/archive/search` · `/document` | POST | 저장 문서 검색·본문 조회, Copilot/Canvas 근거 연결 |
+| `/api/util/window-control` | POST | Windows 서버 측 보조 경로. action과 32자리 marker 검증. 웹 미니카드의 기본 경로는 이 API가 아닌 페어링된 Electron 브리지 |
+| `/api/companion/*` | 경로별 상이 | 프로필·상호작용·기억·설정·삭제 기반. 기능 모드와 사용자 접근 조건을 따름 |
 
 ## 5. AI & 자동화
 
@@ -170,7 +179,8 @@ coffeeTide는 여러 채널의 업무 데이터를 하나의 대시보드로 통
 | :--- | :--- |
 | `MOCK_MODE` | `true`면 데이터 어댑터를 Mock으로 전환. AI 호출 자체는 이 값이 아니라 `GEMINI_API_KEY`와 각 함수의 폴백 조건으로 결정됨 |
 | `SESSION_ENCRYPTION_SECRET` | 세션 쿠키 AES-256-GCM 키 (32바이트 base64) — **프로덕션 필수** |
-| `GEMINI_API_KEY` | Gemini API 키. 미설정 시 로컬 FallbackEngine |
+| `GEMINI_API_KEY` | 서버 Gemini 키. 기능별 규칙/예시 폴백 또는 명시적 실패. 모든 API가 생성 결과를 대체하지는 않음 |
+| `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` | Supabase 인증·사용자 저장소·서버 관리 기능. service-role 키는 서버 전용 |
 | `DISABLE_CLOUD_TOOL_AGENT` | `true`면 자연어 Cloud Tool 자동 선택만 비활성. 명시적 `/tool` 명령은 유지 |
 | `NEXT_PUBLIC_SITE_URL` | 운영 사이트 기본 URL (`https://coffee-tide.dongple.kr`, 미설정 시 자동 감지) — 모든 OAuth 콜백 URI 자동 생성 기준점 |
 | `NEXT_PUBLIC_MS_CLIENT_ID` / `MS_CLIENT_SECRET` / `MS_TENANT_ID` | Microsoft Entra ID (Outlook 연동 3종, 콜백은 `NEXT_PUBLIC_SITE_URL` 기준 자동 생성) |
@@ -185,37 +195,39 @@ coffeeTide는 여러 채널의 업무 데이터를 하나의 대시보드로 통
 | `CLOUD_TOOL_AUDIT_SALT` | (선택) Cloud Tool 구조화 로그의 사용자 식별자 해시 솔트. 미설정 시 `SESSION_ENCRYPTION_SECRET` 사용 |
 | `NEXT_PUBLIC_VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | 웹 푸시 3종 (`npx web-push generate-vapid-keys`). 미설정 시 알림 기능만 비활성 |
 | `CRON_SECRET` | (선택) `/api/briefing/daily` 외부 크론 인증 토큰 — Vercel Cron은 자동으로 Bearer 헤더에 첨부 |
-| `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | (선택) 푸시 프로필 저장소. 미설정 시 파일(`data/push-profiles.json`) — 서버리스 배포는 필수 |
+| `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | 푸시 프로필·서버 AI 작업 저장소. 서버리스 AI 작업에는 Redis 필요. 작업 저장소는 `KV_REST_API_URL` / `KV_REST_API_TOKEN` 별칭도 지원 |
+| `COMPANION_GROWTH_MODE` / `DISABLE_COMPANION_GROWTH` | 성장·기억 기능의 접근 제어. 기본 mode `off`, 킬스위치 기본 활성. 기반 코드 존재만으로 운영 활성화를 뜻하지 않음 |
+| `COFFEETIDE_URL` | Electron 실행 시 기본 웹 origin·미연결 상태에서 열 주소. 웹 빌드 환경 변수와 구분 |
 
-- OAuth 리다이렉트 URI: 로컬 `http://localhost:3000/api/auth/...`, 배포 `https://coffeeTide.dongple.kr/api/auth/...`.
+- OAuth 리다이렉트 URI: 로컬 `http://localhost:3000/api/auth/...`, 기본 배포 주소 `https://coffee-tide.dongple.kr/api/auth/...`. 실제 공급자 등록 상태는 별도 확인.
 
-## 7. 알려진 한계 / TODO
+## 7. 알려진 한계 / 후속 확인
 
-남은 항목은 **[doc/02-backlog.md](./02-backlog.md)** 및 **[doc/03-source-fix-plan.md](./03-source-fix-plan.md)** 참조. 요약:
+- 운영 배포 상태·실계정 OAuth/write-back·실제 기기 푸시는 이번 갱신에서 확인하지 않았다. 코드 구현과 분리해 백로그 H1·M1~M4에서 추적한다.
+- `/api/commute`는 TAGO 연동 코드가 있으나 실제 키·정류소 검증은 별도다. 예시 소요시간을 반환하던 이전 설명은 현재 코드와 다르다.
+- 쿠키 청킹은 구현되어 있다. 실제 대형 OAuth 토큰 조합 검증은 H1에 남긴다.
+- Calendar·Drive 수집과 hide/dismiss 정리는 구현되어 있다. 이를 미구현으로 취급하지 않는다.
+- `classifyTasks()`는 규칙 분류만 수행한다. Gemini 분류 캐시·위임 판정 생산자가 구현되어 있다고 안내하지 않는다.
+- Chrome Prompt API를 통한 브라우저 모델 경로는 구현되어 있지만 지원·모델 준비·번역 가능 여부에 의존한다. 코드의 모델 이름 표시는 설치된 런타임 모델 검증과 다르다. Ollama/LM Studio 연결은 별도 계획이다.
+- 서버 AI 작업은 결과 저장과 복귀 복원을 지원하지만 서버 재시작 후 작업을 자동 재실행하는 영구 큐는 아니다.
+- 웹 PiP는 브라우저 상단 바를 제거하지 않는다. 전역 왼쪽 Shift 단축키·본체 최소화는 Windows 보조 앱 조건을 따른다.
+- 데스크톱 CORS 허용 범위는 설정 origin 하나보다 넓다. 문서 20과 백로그 M2를 참조한다.
+- `page.tsx`에 대화·업무·창 연결 로직이 많이 남아 있다. 상태 훅 분리는 진행됐지만 전체 분리는 완료되지 않았다.
 
-- **`/api/commute`가 하드코딩 예시 값** — 공공데이터포털 실연동 대기 (**K2**). 화면에는 `🧪 예시 데이터` 배지로 명시 중
-- 외부 OAuth(Outlook/Google)·Notion 실계정 E2E 미검증 — MOCK 스모크만 통과 (**H1**)
-- 지도 앱 딥링크 실기기 미검증 — 데스크톱에서 웹 경로만 확인 (**K12**, H1과 함께)
-- 세션 쿠키에 토큰 전체 저장 → 대형 토큰 시 4KB 한계 리스크 (**H2**)
-- Google Calendar 일정 **등록**은 구현됐지만 Calendar·Drive **수집**은 미구현(Gmail만 수집) (**H3**)
-- 채널당 10건 고정 (C3), hide/dismiss 이원화 (D4)
-- AI 분류 캐시는 서버 메모리 `Map`으로 선언돼 있으나 현재 결과 저장 코드가 없어 실질적으로 동작하지 않음
-- 실제 로컬 모델 추론은 미구현. 현재 로컬 AI 표시는 규칙 기반 `FallbackEngine` 또는 LLM 산출물 파일 스캔을 뜻함 ([`08-local-ai-enhancement-plan.md`](./08-local-ai-enhancement-plan.md))
-- `page.tsx` 3,561줄 — 분할 진행 중, 목표 1,000줄 (**K10** 5단계 남음)
+## 8. 주요 코드 구조
 
-## 8. 코드 구조 (K10 분할 반영, 2026-07-27)
-
+```text
+src/lib/ai/                    conversation, chromeCanaryAi, taskActions, taskActionExecution, jobs
+src/lib/knowledge/             검색, 정책, 완료 문서 archive, 클라우드/Drive 저장
+src/lib/companion/             성장·기억·접근 제어·삭제 기반
+src/lib/ui/                    shortcuts, desktopWindowControl
+src/app/hooks/                 useManualItems, useWeather, usePushSubscription, useCloudSync 등
+src/app/components/copilot/    대화·입력·AI 작업 복원
+src/app/components/barista/    페이지 내 컴패니언, DesktopBaristaPip, DesktopBaristaConnector
+src/app/page.tsx               화면 상태와 대화/업무/창 제어 연결
+src/app/api/                   서버 API (각 route.ts가 계약의 정본)
+desktop/                       Electron 브리지·트레이·Windows 키/창 제어
 ```
-src/lib/            localStore · mergeView · labels · copilotPairs · mapLinks · env   (순수 모듈)
-src/app/hooks/      useModalA11y
-src/app/components/ TaskItemCard · WelcomeCard · CommuteCard · 위젯 4종
-      ├ settings/   AutomationRules · Notification · Weather · Commute · Shortcuts · Connections
-      └ copilot/    CopilotConversation · CopilotComposer
-src/app/page.tsx    상태 소유 + 데이터 흐름 (표현은 위 컴포넌트에 위임)
-```
-
-- 분리한 컴포넌트는 `page.module.css`를 그대로 import합니다(CSS 모듈 다중 import). CSS 분할은 K10 5단계.
-- 컴포넌트는 값 + `onChange` 콜백만 받는 표현 컴포넌트이며, 상태와 영속화는 `page.tsx`가 소유합니다.
 
 ## 9. 데이터·저장소·AI 지식 아키텍처 (Phase 14 구현 현황)
 
@@ -235,3 +247,24 @@ src/app/page.tsx    상태 소유 + 데이터 흐름 (표현은 위 컴포넌트
   - AI 바리스타 답변 하단 근거 자료 표시 패널 (`EvidencePanel`) 및 업무 카드 원문·연관자료 패널 (`SourceAndRelationsPanel`).
 
 > Phase 14는 자동 검사(`lint`, `typecheck`, `test`, `build`)를 통과했지만, 원격 Supabase RLS·실제 다중 기기·모바일 수동 검증은 아직 완료 게이트가 아니다. 세부 상태는 [`phase14-00-execution-roadmap.md`](./spec/phase14-00-execution-roadmap.md)를 따른다.
+
+## 10. 2026-09 기능 반영과 검증 기록
+
+- **오늘 업무**: 중요 핀 우선 → 미완료 우선 → 생성 시각 최신순 정렬. 제목·본문·메모 등의 텍스트 검색과 전체/미완료/완료 필터가 별도 행에 있다.
+- **대화형 조작**: 완료·메모 추가·검색·답장 초안, 후보 4건·5분 만료·대화 채널 분리. [실행 계약](./21-conversational-task-actions.md) 참조.
+- **지식 아카이브**: 완료 캔버스 문서의 내용 해시·청크·키워드 검색, 로컬/클라우드 저장 및 선택적 Drive 저장 경로. Copilot·Canvas가 허용된 자료를 근거로 사용한다. 임베딩 기반 전면 색인 구현과 동의어는 아니다.
+- **AI 작업 완료 알림**: `requestAiJob` → 서버 `after` 실행 → 결과 저장 → 푸시 → 복귀 복원. [운영 조건](./ai-completion-notifications.md) 참조.
+- **캔버스/대화 UI**: Markdown 표, 3D 다이어리·칠판, 팝업/분할 뷰, 모바일 바리스타 독. 9월 23일에는 대화 복사 SVG 버튼·업데이트 모달 다크 테마·기본 `notebook` 테마가 반영됐다.
+- **미니카드/데스크톱**: [두 창의 차이와 연결 조건](./20-desktop-barista-mini-card.md) 참조.
+- **성장·자연 대화**: 기반 모듈·API·의도 라우팅이 있으며 문서 17·18 전체 설계가 모두 출시된 것은 아니다. 성장 기본 모드는 off다.
+
+이번 갱신에서 실행한 검사:
+
+| 범위 | 결과 |
+|---|---|
+| 업무 의도·실행·답장·완료 API·창 제어, Vitest 5개 파일 | 39개 통과 |
+| `npm run desktop:test` | 17개 통과 |
+| 문서 검사 | 변경 문서 17개 UTF-8 정상, 내부 링크 106개·주요 소스 참조 26개 존재 확인, `git diff --check` 통과 |
+| 전체 빌드·전체 lint·전체 테스트·운영 배포·실계정/실기기 E2E | 이번 문서 작업에서는 실행하지 않음 |
+
+처음의 제한 환경 테스트 실행은 `spawn EPERM`으로 시작하지 못했고, 프로세스 실행이 허용된 환경에서 위 결과를 확인했다. 이전 문서의 다른 날짜 검사 결과는 당시 이력이며 이번 기준의 통과 기록으로 합산하지 않는다.

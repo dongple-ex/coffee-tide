@@ -6830,3 +6830,67 @@
   background: color-mix(in srgb, var(--card) 60%, transparent);
 }
 
+/* Copilot 페르소나 음성 대화 원형 버튼 (스샷 디자인) */
+.copilotVoiceBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border-radius: 50%;
+  background: #18181b;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+  position: relative;
+  user-select: none;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.copilotVoiceBtn:hover:not(:disabled) {
+  transform: scale(1.06);
+  background: #27272a;
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.copilotVoiceBtn:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+/* 듣는 중 상태 (Listening Pulse) */
+.copilotVoiceBtnListening {
+  background: #ef4444 !important;
+  border-color: #f87171 !important;
+  color: #ffffff !important;
+  animation: voicePulse 1.4s infinite cubic-bezier(0.4, 0, 0.6, 1);
+}
+
+/* AI 답변 발화 중 상태 (Speaking Wave) */
+.copilotVoiceBtnSpeaking {
+  background: #2563eb !important;
+  border-color: #60a5fa !important;
+  color: #ffffff !important;
+  animation: voiceSpeakingPulse 1.6s infinite ease-in-out;
+}
+
+@keyframes voicePulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(239, 68, 68, 0);
+  }
+}
+
+@keyframes voiceSpeakingPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 0 7px rgba(37, 99, 235, 0);
+  }
+}
+

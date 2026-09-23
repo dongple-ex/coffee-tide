@@ -1,7 +1,7 @@
 ﻿# coffeeTide 현재 정본 기획서
 
-> 프로젝트명: **coffeeTide** (구 TimePilot) · 서비스 도메인(예정): `coffeeTide.dongple.kr` · 기본 플랫폼: **웹** (모바일 전략: [`04-mobile-strategy.md`](./04-mobile-strategy.md))
-> 이 문서가 제품의 정본 기획입니다. **2026-07-11 MVP 구현 완료** — 구현 현황은 [`01-as-built-reference.md`](./01-as-built-reference.md), 남은 격차는 [`02-backlog.md`](./02-backlog.md) 참조.
+> 프로젝트명: **coffeeTide** (구 TimePilot) · 기본 서비스 주소: `https://coffee-tide.dongple.kr` · 플랫폼: **반응형 웹 + 선택적 Windows 보조 앱**.
+> 갱신: **2026-09-23**, 로컬 소스 `ea4bcb5`, 앱 버전 **1.2.2** 기준. 구현과 운영 검증은 구분한다. 구현 현황은 [`01-as-built-reference.md`](./01-as-built-reference.md), 남은 격차는 [`02-backlog.md`](./02-backlog.md), 모바일은 [`04-mobile-strategy.md`](./04-mobile-strategy.md) 참조.
 > **명칭 안내**: 본 문서의 "Copilot"은 화면에서 **"AI 바리스타"** 로 표시됩니다(2026-07-17 개명). 코드·API 이름은 `copilot` 그대로입니다.
 
 ## 1. 제품 한 줄 정의
@@ -43,13 +43,16 @@ coffeeTide는 **커피 한 잔 하면서 오늘을 정리하는 AI 업무 비서
 | `manual` | 사용자가 직접 추가한 업무 | 기본 | 로컬 완료/삭제 |
 | `paste` | 메모/메일/회의록 붙여넣기에서 추출한 업무 | 기본 | 로컬 완료/삭제 |
 | `local_doc` | 선택한 로컬 폴더의 `.txt`, `.md` 등 문서에서 추출한 업무 | 선택 | 로컬 상태 관리 |
-| `obsidian` | Obsidian Vault 문서에서 추출한 업무 | 선택 | 로컬 상태 관리 |
+| `obsidian` | Obsidian Vault 문서에서 추출한 업무 | 선택 | 체크박스 완료 write-back·캡처·일일 노트 내보내기 |
 | `outlook` | Microsoft Graph 메일 | 선택 | 답장 초안 생성 |
 | `notion` | Notion DB 태스크 | 선택 | 페이지 상태 완료 처리 |
-| `gmail` | Google Gmail·Calendar·Drive | 선택 | Gmail 읽기, AI 바리스타 Calendar 일정 등록(사용자 확인 필수), Drive 앱 파일 저장 |
+| `gmail` | Gmail 메일 수집 | 선택 | 읽기 및 답장 초안 텍스트, Gmail 임시보관함 저장은 미지원 |
+| `gcalendar` | Google Calendar 오늘 일정 수집 | 선택 | 수집 항목은 앱 안에서 상태 관리. 별도 일정 등록은 사용자 확인 후 수행 |
+| `gdrive` | Google Drive 최근 문서 수집 | 선택 | 수집 항목은 앱 안에서 상태 관리. 별도 파일 저장은 요청·승인 흐름 사용 |
+| `spark` | Spark 자료·인사이트에서 생성되는 항목 | 선택 | 앱 안에서 상태 관리 |
 | `llm` | 로컬 LLM 도구 산출물(`MEMORY.md` 등) 폴더 스캔 | 선택 | Obsidian 일일 다이제스트 미러링 ([`phase6-llm-artifacts.md`](./spec/phase6-llm-artifacts.md)) |
 
-소스와 무관하게, AI 분류 시 각 항목에 **`delegatable`(위임 가능) 표식**이 부여될 수 있습니다 — "로컬 LLM 도구(Claude Code 등)로 넘길 만한 업무"를 가리키는 힌트이며 실행 버튼이 아닙니다. AI 없이 동작할 때는 채워지지 않으며, 이때 `undefined`는 "위임 불가"가 아니라 "판별 안 됨"입니다. ([`spec/phase7-copilot-briefing.md`](./spec/phase7-copilot-briefing.md) §2.4)
+`delegatable`(위임 가능) 타입·배지는 남아 있지만, 현재 `classifyTasks()`는 규칙 기반 분류만 수행하며 새 위임 판정을 생성하지 않습니다. `undefined`는 위임 불가가 아니라 판별되지 않은 상태입니다.
 
 ## 4. 사용자 흐름 정본
 
@@ -90,9 +93,18 @@ coffeeTide는 **커피 한 잔 하면서 오늘을 정리하는 AI 업무 비서
 - Copilot 응답은 Markdown 원문 노출 대신 카드/섹션 형태로 렌더링해야 합니다. (G6 ✅)
 - Copilot은 현재 날짜와 출처 근거를 명시해야 하며, 임의로 오늘 날짜를 추정하면 안 됩니다. (G4 ✅)
 
+### 5.1 대화·미니카드의 현재 제품 계약
+
+- 자연 대화에는 업무 브리핑 형식을 강제하지 않는다. 업무 근거가 필요한 질문은 관련 데이터와 최근 대화 문맥을 사용한다.
+- 제목을 지정한 완료·메모·검색·답장 요청은 모델 호출 이전의 업무 액션 경로로 처리한다. 복수 후보는 최대 4건을 제시하고 선택을 받는다. 자세한 실행 범위는 [`21-conversational-task-actions.md`](./21-conversational-task-actions.md)를 따른다.
+- Notion·Obsidian 원본 완료와 CoffeeTide 내부 완료를 구분한다. 메모는 기존 내용 뒤에 추가하며, 답장 초안 생성과 외부 임시보관함 저장도 구분한다.
+- 웹 미니카드는 작은 채팅 중심 화면으로 제공하며, `_`는 닫기 대신 내용을 접는다. 브라우저 상단 바 제거는 웹 기능으로 제공하지 않는다.
+- 연결된 Windows 보조 앱이 창 제어를 지원할 때만 미니카드를 열며 본체 최소화를 요청한다. 왼쪽 Shift 두 번으로 복원하며 웹 단독 단축키는 포커스된 창 안에서만 동작한다. 상세는 [`20-desktop-barista-mini-card.md`](./20-desktop-barista-mini-card.md) 참조.
+- 서버 AI 작업은 결과 저장·복귀 복원을 지원한다. 실제 푸시 수신은 배포 설정·기기 권한에 따라 별도 검증한다.
+
 ## 6. 성공 기준
 
 - Outlook/Notion 미연동 상태에서도 사용자가 1분 안에 업무 1건을 등록하고 Copilot 브리핑을 받을 수 있습니다.
 - 로컬 문서 폴더만 연결해도 오늘 해야 할 행동 지침이 생성됩니다.
 - 외부 연동이 실패해도 대시보드는 사용 불가 상태가 되지 않습니다.
-- Copilot 답변에는 기준일, 출처, 다음 행동, 리스크가 명확히 들어갑니다.
+- 업무 브리핑에는 기준일·출처·필요한 다음 행동이 명확히 들어갑니다. 일상 대화에는 해당 형식을 강제하지 않습니다.

@@ -4,7 +4,7 @@
 
 웹 코어를 재사용하면서 가장 빠르게 앱을 출시할 수 있는 프레임워크로 **Capacitor(캐패시터)** 를 추천하며, 이 가이드는 Capacitor를 기준으로 작성되었습니다.
 
-> **가안(draft) 문서입니다.** 아래 §2의 아키텍처 선택은 현재 코드베이스(API Route 26개, 쿠키 세션, Vercel 배포)를 기준으로 확정한 것이지만, 배포 환경이 바뀌면 재검토가 필요합니다.
+> **가안(draft), 현황 주석 갱신 2026-09-23.** 이 문서는 모바일 래퍼 출시 계획입니다. 현재 iOS/Android 네이티브 프로젝트·스토어 출시를 완료한 기록이 아닙니다. Windows Electron 보조 앱은 [20 문서](./20-desktop-barista-mini-card.md)를 따릅니다. 아래 플랫폼 설정·심사 정책은 실제 출시 시점에 최신 공식 안내로 재확인해야 합니다.
 
 ---
 
@@ -14,16 +14,16 @@ Capacitor로 웹앱을 감싸는 방법은 두 가지이며, **어느 쪽을 고
 
 | | A. 정적 번들 방식 | B. 원격 URL 방식 ✅ |
 |---|---|---|
-| 웹 자산 위치 | `out/` 폴더를 앱에 내장 | 서버(`coffeetide.dongple.kr`)에서 로드 |
+| 웹 자산 위치 | `out/` 폴더를 앱에 내장 | 서버(`coffee-tide.dongple.kr`)에서 로드 |
 | `output: 'export'` | 필요 | **불필요** |
-| API Route | ❌ **전부 소멸** | ✅ 그대로 동작 |
-| 쿠키 세션 | ❌ 깨짐 (아래 참조) | ✅ 정상 |
+| API Route | 서버 요청 처리가 필요한 경로는 별도 서버 필요 | 기존 서버 API 사용 |
+| 쿠키 세션 | origin·쿠키·인증 재설계 필요 | 동일 origin 구성 가능, WebView 로그인 검증 필요 |
 | 심사 없는 갱신 | ❌ (유료 Live Update 필요) | ✅ 웹 배포 즉시 반영 |
 | 오프라인 | ✅ | ❌ |
 
 **이 프로젝트는 B(원격 URL)를 채택합니다.** 근거는 두 가지입니다.
 
-**첫째, API Route가 사라집니다.** 현재 `src/app/api/` 아래에 Route Handler가 26개 있습니다.
+**첫째, 요청 시 서버 처리가 필요합니다.** 현재 `src/app/api/`에는 인증·쓰기·AI 등 다수 Route Handler가 있습니다. 고정된 과거 경로 개수로 판단하지 않습니다.
 
 ```
 api/auth/google/callback   api/copilot          api/push/subscribe
@@ -31,9 +31,9 @@ api/auth/signin            api/briefing/daily   api/tasks/classify
 api/upload                 api/mails            ... 외 다수
 ```
 
-`next.config.ts`에 `output: 'export'`를 켜면 Next.js는 이 핸들러들을 **빌드 산출물에서 제외합니다.** 빌드 에러도 나지 않고 조용히 빠지기 때문에, 앱을 실행해 봐야 로그인·Copilot·푸시·업로드가 전부 죽어 있는 걸 발견하게 됩니다.
+설치된 Next.js 문서 `node_modules/next/dist/docs/01-app/02-guides/static-exports.md`에 따르면 정적 export는 정적 응답을 생성하는 GET Route Handler를 지원하지만, 요청의 동적 값·쿠키 등을 사용하는 서버 기능은 지원하지 않습니다. 현재 앱의 인증·POST 쓰기·AI API를 정적 번들만으로 대체할 수 없습니다. ‘모든 Route Handler가 오류 없이 조용히 빠진다’는 이전 설명은 정확하지 않습니다.
 
-**둘째, 쿠키 세션이 깨집니다.** 정적 번들 방식에서 WebView의 origin은 `capacitor://localhost`입니다. 여기서 `https://coffeetide.dongple.kr/api/*`를 호출하면 **크로스 사이트 요청**이 되어, 현재 이 앱이 쓰는 세션 쿠키가 붙지 않습니다(`SameSite`). 원격 URL 방식은 앱 자체가 실제 https origin에서 로드되므로 웹과 완전히 동일하게 동작합니다.
+**둘째, 쿠키 세션이 깨집니다.** 정적 번들 방식에서 WebView의 origin은 `capacitor://localhost`입니다. 여기서 `https://coffee-tide.dongple.kr/api/*`를 호출하면 **크로스 사이트 요청**이 되어, 현재 이 앱이 쓰는 세션 쿠키가 붙지 않습니다(`SameSite`). 원격 URL 방식은 앱 자체가 실제 https origin에서 로드되므로 동일 origin으로 구성할 수 있습니다. 다만 로그인 공급자의 WebView 정책·팝업·리다이렉트·권한 동작은 별도 구현과 검증이 필요합니다.
 
 > **트레이드오프**: B는 Apple 심사 지침 **4.2(최소 기능성)** 반려 위험이 A보다 높습니다. "사파리로 열면 되는 걸 왜 앱으로 냈나"는 지적을 받기 쉽기 때문입니다. §4.2의 대응책을 반드시 함께 적용하세요.
 
@@ -74,7 +74,7 @@ const config: CapacitorConfig = {
   appName: 'coffeeTide',
   webDir: 'public',            // 원격 로드라 실사용은 안 하지만 CLI가 존재를 요구함
   server: {
-    url: 'https://coffeetide.dongple.kr',
+    url: 'https://coffee-tide.dongple.kr',
     cleartext: false,          // https 강제
   },
 };
@@ -201,7 +201,7 @@ Android는 App Links, iOS는 Universal Links 또는 커스텀 URL 스킴 등록�
 
 원격 URL 방식의 가장 큰 실익입니다.
 
-**UI나 프론트엔드 로직(Next.js 코드)이 바뀔 때마다 앱 스토어 심사를 다시 받을 필요가 없습니다.** 앱은 실행 시마다 `coffeetide.dongple.kr`의 최신 페이지를 로드하므로, **Vercel에 웹을 배포하면 모든 사용자의 앱에 즉시 반영됩니다.**
+**UI나 프론트엔드 로직(Next.js 코드)이 바뀔 때마다 앱 스토어 심사를 다시 받을 필요가 없습니다.** 앱은 실행 시마다 `coffee-tide.dongple.kr`의 최신 페이지를 로드하므로, **Vercel에 웹을 배포하면 모든 사용자의 앱에 즉시 반영됩니다.**
 
 단, 아래 변경은 **네이티브 재빌드 및 심사가 필요합니다.**
 - 앱 아이콘 / 스플래시 스크린 변경

@@ -1,5 +1,7 @@
 # CoffeeTide 데스크톱 바리스타 (Windows)
 
+> 문서 갱신: 2026-09-23, 소스 `ea4bcb5`. 웹 미니카드와의 차이·현재 origin 정책·검증 범위는 [doc/20-desktop-barista-mini-card.md](../doc/20-desktop-barista-mini-card.md)를 참조하세요.
+
 투명 배경·테두리 없는 별도 창으로 캐릭터를 다른 앱 위에 표시합니다.
 캐릭터를 드래그해 이동하고, 빈 배경은 아래 앱을 클릭할 수 있습니다.
 
@@ -49,7 +51,7 @@ $env:COFFEETIDE_URL = 'https://your-coffeetide.example'
 npm run desktop:start
 ```
 
-앱은 지정한 웹 origin 하나만 허용합니다. 로컬 HTTP 또는 HTTPS 주소만 설정할 수 있습니다.
+지정한 주소는 기본 웹 origin과 미연결 시 열 주소입니다. 현재 브리지는 이 origin 외에 localhost/127.0.0.1, `.vercel.app`으로 끝나는 origin, `https://coffee-tide.dongple.kr`도 허용합니다. 허용 정책 축소는 백로그 M2의 검토 항목입니다. 사용자 설정 주소는 로컬 HTTP 또는 HTTPS여야 합니다.
 배포된 HTTPS 사이트에서의 연결은 브라우저의 로컬 네트워크 정책에도 영향을 받으므로 별도 환경 검증이 필요합니다.
 
 ## 로컬 데이터와 보안
