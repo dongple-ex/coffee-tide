@@ -257,22 +257,6 @@ export function SmartPlayerModal({
     onNotify?.(`⚡ 재생 속도: ${rate}배속`);
   }, [postIframeCommand, onNotify]);
 
-  // 브라우저 별도 독립 팝업 창 분리 실행
-  const handleOpenExternalPopup = useCallback(() => {
-    const width = 640;
-    const height = 400;
-    const left = Math.max(0, Math.round((window.screen.width - width) / 2));
-    const top = Math.max(0, Math.round((window.screen.height - height) / 2));
-
-    const popupUrl = `https://www.youtube-nocookie.com/embed/${ytVideoId}?autoplay=1&enablejsapi=1&rel=0&iv_load_policy=3&modestbranding=1&start=${Math.floor(currentTimeRef.current)}`;
-    window.open(
-      popupUrl,
-      `yt_popup_${ytVideoId}`,
-      `width=${width},height=${height},top=${top},left=${left},menubar=no,toolbar=no,location=no,status=no,resizable=yes`
-    );
-    onNotify?.("별도 팝업 창으로 영상을 분리했습니다.");
-    onClose();
-  }, [ytVideoId, onNotify, onClose]);
 
   const closeDocumentPiP = useCallback(() => {
     const activeWindow = pipWindowRef.current;
@@ -349,13 +333,13 @@ export function SmartPlayerModal({
         });
         return;
       } catch (e) {
-        console.warn("Document PiP failed, fallback to external popup:", e);
+        console.warn("Document PiP failed:", e);
       }
     }
 
-    // 미지원 브라우저 Fallback: 독립 팝업 창 열기
-    handleOpenExternalPopup();
-  }, [video, onNotify, closeDocumentPiP, postIframeCommand, handleOpenExternalPopup]);
+    // 미지원 브라우저 안내
+    onNotify?.("현재 브라우저는 OS 항상 위 PiP(Document PiP)를 지원하지 않습니다. Chrome 또는 Edge 브라우저를 이용해 주세요.");
+  }, [video, onNotify, closeDocumentPiP, postIframeCommand]);
 
   // OS 항상 위 Document PiP에 오디오 조작 막대만 분리한다.
   const handleToggleDocumentPiP = useCallback(async () => {
@@ -501,10 +485,22 @@ export function SmartPlayerModal({
           seekTo(details.seekTime);
         }
       });
+      // W3C MediaSession enterpictureinpicture 핸들러 연동 (Chrome/Edge 지원)
+      try {
+        navigator.mediaSession.setActionHandler("enterpictureinpicture" as MediaSessionAction, () => {
+          if (audioOnly) {
+            void handleToggleDocumentPiP();
+          } else {
+            void handleOpenVideoPiP();
+          }
+        });
+      } catch {
+        // 브라우저가 enterpictureinpicture 미지원 시 무시
+      }
     } catch {
       // Ignore MediaSession error
     }
-  }, [video, togglePlayPause, skipSeconds, seekTo]);
+  }, [video, togglePlayPause, skipSeconds, seekTo, audioOnly, handleToggleDocumentPiP, handleOpenVideoPiP]);
 
   useEffect(() => {
     return () => {
@@ -938,30 +934,34 @@ export function SmartPlayerModal({
                 <UiIcon name="headphones" size={16} />
               </button>
 
-              {/* OS 항상-위 창은 오디오 집중 모드에서만 제공한다. */}
-              {audioOnly && (
-                <button
-                  type="button"
-                  className={`${styles.headerActionBtn} ${isPiPActive ? styles.headerActionBtnActive : ""}`}
-                  onClick={() => void handleToggleDocumentPiP()}
-                  data-coffeetide-audio-focus-control="true"
-                  data-tooltip="OS 항상 위 PiP 창"
-                  aria-label="OS 항상 위 PiP 창"
-                >
-                  <UiIcon name="pip" size={16} />
-                </button>
-              )}
+              {/* OS 항상 위 Document PiP 창 (주소창/헤더 없는 브라우저 네이티브 PiP) */}
+              <button
+                type="button"
+                className={`${styles.headerActionBtn} ${isPiPActive ? styles.headerActionBtnActive : ""}`}
+                onClick={() => {
+                  if (audioOnly) {
+                    void handleToggleDocumentPiP();
+                  } else {
+                    void handleOpenVideoPiP();
+                  }
+                }}
+                data-coffeetide-focus-control="true"
+                data-tooltip={isPiPActive ? "OS PiP 창 닫기" : "OS 항상 위 PiP 분리"}
+                aria-label={isPiPActive ? "OS PiP 창 닫기" : "OS 항상 위 PiP 분리"}
+              >
+                <UiIcon name={isPiPActive ? "pip-restore" : "pip"} size={16} />
+              </button>
 
-              {/* 인앱 미니 (PiP) 모드 */}
+              {/* 인앱 미니 플레이어 (웹 내부 우하단 고정) */}
               {isMini ? (
                 <button
                   type="button"
                   className={styles.headerActionBtn}
                   onClick={() => setIsMini(false)}
-                  data-tooltip="플레이어 복원"
-                  aria-label="플레이어 복원"
+                  data-tooltip="플레이어 원래 크기로 복원"
+                  aria-label="플레이어 원래 크기로 복원"
                 >
-                  <UiIcon name="pip-restore" size={16} />
+                  <UiIcon name="expand" size={16} />
                 </button>
               ) : (
                 <button
@@ -969,23 +969,12 @@ export function SmartPlayerModal({
                   type="button"
                   className={styles.headerActionBtn}
                   onClick={() => setIsMini(true)}
-                  data-tooltip="화면속 화면 (PiP)"
-                  aria-label="화면속 화면 (PiP)"
+                  data-tooltip="인앱 미니 플레이어 (우하단 고정)"
+                  aria-label="인앱 미니 플레이어 (우하단 고정)"
                 >
-                  <UiIcon name="pip" size={16} />
+                  <UiIcon name="minimize" size={16} />
                 </button>
               )}
-
-              {/* 별도 창 팝업 */}
-              <button
-                type="button"
-                className={styles.headerActionBtn}
-                onClick={handleOpenExternalPopup}
-                data-tooltip="별도 브라우저 창 팝업"
-                aria-label="별도 브라우저 창 팝업"
-              >
-                <UiIcon name="popup" size={16} />
-              </button>
 
               {/* 닫기 */}
               <button

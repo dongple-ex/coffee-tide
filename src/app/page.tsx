@@ -108,6 +108,7 @@ const AiCanvasPanel = dynamic(() => import("./components/canvas/AiCanvasPanel").
 const CanvasWindowPortal = dynamic(() => import("./components/canvas/CanvasWindowPortal").then((m) => m.CanvasWindowPortal), { ssr: false });
 const KnowledgeArchiveModal = dynamic(() => import("./components/archive/KnowledgeArchiveModal").then((m) => m.KnowledgeArchiveModal), { ssr: false });
 const BaristaIdleCompanion = dynamic(() => import("./components/barista/BaristaIdleCompanion").then((m) => m.BaristaIdleCompanion), { ssr: false });
+const DailyReflectionReportModal = dynamic(() => import("./components/companion/DailyReflectionReportModal").then((m) => m.DailyReflectionReportModal), { ssr: false });
 const CommuteCard = dynamic(() => import("./components/CommuteCard").then((m) => m.CommuteCard), { ssr: false });
 const TimerWidget = dynamic(() => import("./components/TimerWidget").then((m) => m.TimerWidget), { ssr: false });
 const CalculatorWidget = dynamic(() => import("./components/CalculatorWidget").then((m) => m.CalculatorWidget), { ssr: false });
@@ -580,8 +581,20 @@ export default function Home() {
   const [canvasDocs, setCanvasDocs] = useState<CanvasDocument[]>([]);
   const [activeCanvasDoc, setActiveCanvasDoc] = useState<CanvasDocument | null>(null);
   const [isArchiveOpen, setIsArchiveOpen] = useState(false);
+  const [showReflectionModal, setShowReflectionModal] = useState(false);
   const [archiveBusy, setArchiveBusy] = useState(false);
   const [archiveRefreshToken, setArchiveRefreshToken] = useState(0);
+
+  // 👑 Lv.5 소울메이트 전용 일일 회고 & 정시 퇴근 리포트 모달 수신 리스너
+  useEffect(() => {
+    const handleOpenReflection = () => {
+      setShowReflectionModal(true);
+    };
+    window.addEventListener("coffeetide:open-reflection-report", handleOpenReflection);
+    return () => {
+      window.removeEventListener("coffeetide:open-reflection-report", handleOpenReflection);
+    };
+  }, []);
   const [driveBackupEnabled, setDriveBackupEnabled] = useState<boolean>(() =>
     loadLS<boolean>(LS_DRIVE_BACKUP_ENABLED, true)
   );
@@ -2014,11 +2027,8 @@ export default function Home() {
   );
   const workflowItems = useMemo(() => merged.filter(isWorkflowTask), [merged]);
 
-  const handleLogoutHandoff = useCallback(async () => {
+  const saveCurrentHandoffSnapshot = useCallback(() => {
     const pendingItems = workflowItems.filter((i) => i.status !== "completed");
-    const summary = pendingItems.map((i) => `- [ ] ${i.title}`).join("\n");
-    const text = `# ☕ coffeeTide Hand-off\n\n## 🚧 내일 이어서 할 일\n${summary}`;
-
     const now = new Date();
     const formattedDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(
       2,
@@ -2042,13 +2052,6 @@ export default function Home() {
     };
 
     saveLS(LS_HANDOFF_STATE, handoffData);
-
-    try {
-      await navigator.clipboard.writeText(text);
-      showToast(`퇴근 처리가 완료되어 업무 ${pendingItems.length}건의 상태를 기록했습니다.`);
-    } catch {
-      showToast(`퇴근 처리가 완료되어 업무 ${pendingItems.length}건의 상태를 저장했습니다.`);
-    }
   }, [
     workflowItems,
     todoSectionCollapsed,
@@ -2057,6 +2060,33 @@ export default function Home() {
     welcomeCardCollapsed,
     compactMode,
     copilotMessages,
+  ]);
+
+  const handleLogoutHandoff = useCallback(async () => {
+    saveCurrentHandoffSnapshot();
+
+    const pendingItems = workflowItems.filter((i) => i.status !== "completed");
+    const summary = pendingItems.map((i) => `- [ ] ${i.title}`).join("\n");
+    const text = `# ☕ coffeeTide Hand-off\n\n## 🚧 내일 이어서 할 일\n${summary}`;
+
+    // 👑 Lv.5 소울메이트 특전: 원클릭 일일 회고 & 정시 퇴근 리포트 자동 생성 모달 실행
+    const presetId = copilotConfig.presetId || "barista";
+    const relationshipLevel = calculateLevelInfo(getAffectionState(presetId).exp).levelInfo.level;
+    if (relationshipLevel >= 5) {
+      setShowReflectionModal(true);
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast(`퇴근 처리가 완료되어 업무 ${pendingItems.length}건의 상태를 기록했습니다.`);
+    } catch {
+      showToast(`퇴근 처리가 완료되어 업무 ${pendingItems.length}건의 상태를 저장했습니다.`);
+    }
+  }, [
+    saveCurrentHandoffSnapshot,
+    workflowItems,
+    copilotConfig.presetId,
     showToast,
   ]);
 
@@ -4573,6 +4603,23 @@ export default function Home() {
           onOpenDocument={handleOpenArchivedDocument}
           ownerScope={userScope ?? "guest"}
           refreshToken={archiveRefreshToken}
+        />
+      )}
+
+      {showReflectionModal && (
+        <DailyReflectionReportModal
+          isOpen={showReflectionModal}
+          onClose={() => setShowReflectionModal(false)}
+          personaId={copilotConfig.presetId || "karina"}
+          baristaName={copilotConfig.baristaName || "AI 바리스타"}
+          completedTasks={merged
+            .filter((i) => i.status === "completed")
+            .map((i) => ({ title: i.title, category: i.category, source: i.source }))}
+          pendingTasks={workflowItems
+            .filter((i) => i.status !== "completed")
+            .map((i) => ({ title: i.title, category: i.category, source: i.source }))}
+          onSaveHandoff={saveCurrentHandoffSnapshot}
+          onToast={showToast}
         />
       )}
 

@@ -12,6 +12,7 @@ export function getPersonaVoiceConfig(presetId?: string): PersonaVoiceConfig {
     case "karina":
       return { pitch: 1.2, rate: 1.05, preferredGender: "female" };
     case "secretary": // 김부장
+    case "kim":
       return { pitch: 0.85, rate: 0.95, preferredGender: "male" };
     case "pm": // 칼퇴봇
       return { pitch: 1.0, rate: 1.25 };
@@ -44,6 +45,7 @@ export interface EdgePersonaVoiceConfig {
 export function getEdgePersonaVoiceConfig(presetId?: string): EdgePersonaVoiceConfig {
   switch (presetId) {
     case "secretary": // 김부장
+    case "kim":
       return { voice: "ko-KR-InJoonNeural", rate: "-5%", pitch: "-8Hz" };
     case "senior_dev": // 테드
       return { voice: "ko-KR-InJoonNeural", rate: "+0%", pitch: "-4Hz" };

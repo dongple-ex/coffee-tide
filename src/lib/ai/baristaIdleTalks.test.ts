@@ -40,4 +40,19 @@ describe("Barista Idle Talks Module", () => {
     expect(ropanTalk.title).toContain("로판 영애");
     expect(ropanTalk.content).toContain("공녀(공자)");
   });
+
+  it("김부장 호감도 Lv.3/Lv.4에 따라 속마음 독백 및 파트너 애칭이 활성화된다", () => {
+    const item = IDLE_TALK_POOL[0];
+
+    const kimLv1 = formatIdleTalkForPersona(item, "secretary", "김부장", 1);
+    expect(kimLv1.content).not.toContain("우리 팀 에이스");
+
+    // Lv.3 이상 시 속마음 인트로 풀 확장
+    const kimLv3 = formatIdleTalkForPersona(item, "secretary", "김부장", 3);
+    expect(kimLv3.title).toContain("김부장");
+
+    // Lv.4 이상 시 파트너 애칭 또는 부장님 인트로
+    const kimLv4 = formatIdleTalkForPersona(item, "secretary", "김부장", 4);
+    expect(kimLv4.title).toContain("김부장");
+  });
 });

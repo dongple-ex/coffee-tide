@@ -45,6 +45,7 @@ const RECOMMENDED_PROMPTS = [
 ];
 
 import { getQuickReplies } from "@/lib/ai/copilotQuickReplies";
+import { getAffectionState, calculateLevelInfo } from "@/lib/ai/affectionManager";
 
 interface Props {
   focusRequest?: number;
@@ -78,6 +79,7 @@ interface Props {
   isVoiceListening?: boolean;
   isVoiceSpeaking?: boolean;
   onToggleVoice?: () => void;
+  relationshipLevel?: number;
 }
 
 export function CopilotComposer({
@@ -108,6 +110,7 @@ export function CopilotComposer({
   isVoiceListening = false,
   isVoiceSpeaking = false,
   onToggleVoice,
+  relationshipLevel,
 }: Props) {
   const trimmed = value.trim();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -155,6 +158,9 @@ export function CopilotComposer({
     baristaName,
     hasUrgentTasks,
     taskCount,
+    relationshipLevel:
+      relationshipLevel ??
+      (presetId ? calculateLevelInfo(getAffectionState(presetId).exp).levelInfo.level : 1),
   });
 
   return (

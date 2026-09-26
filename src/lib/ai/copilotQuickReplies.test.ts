@@ -33,4 +33,28 @@ describe("티키타카 추천 답변 엔진 (Quick Replies)", () => {
     });
     expect(chips.some((c) => c.id === "canvas_action")).toBe(true);
   });
+
+  it("김부장 호감도 레벨에 따라 Lv.2(큐레이션/템플릿), Lv.3(속마음/개그), Lv.4(캔버스 초안) 칩이 단계별로 해금된다", () => {
+    // Lv.1: 기본 칩만 존재
+    const kimLv1 = getQuickReplies({ presetId: "kim", baristaName: "김부장", relationshipLevel: 1 });
+    expect(kimLv1.some((c) => c.id === "kim_talk")).toBe(true);
+    expect(kimLv1.some((c) => c.id === "kim_curation_lv2")).toBe(false);
+    expect(kimLv1.some((c) => c.id === "kim_secret_humor_lv3")).toBe(false);
+    expect(kimLv1.some((c) => c.id === "kim_canvas_draft_lv4")).toBe(false);
+
+    // Lv.2: 큐레이션 및 템플릿 해금
+    const kimLv2 = getQuickReplies({ presetId: "kim", baristaName: "김부장", relationshipLevel: 2 });
+    expect(kimLv2.some((c) => c.id === "kim_curation_lv2")).toBe(true);
+    expect(kimLv2.some((c) => c.id === "kim_template_lv2")).toBe(true);
+    expect(kimLv2.some((c) => c.id === "kim_secret_humor_lv3")).toBe(false);
+
+    // Lv.3: 시크릿 속마음 & 유머 해금
+    const kimLv3 = getQuickReplies({ presetId: "kim", baristaName: "김부장", relationshipLevel: 3 });
+    expect(kimLv3.some((c) => c.id === "kim_secret_humor_lv3")).toBe(true);
+    expect(kimLv3.some((c) => c.id === "kim_canvas_draft_lv4")).toBe(false);
+
+    // Lv.4: 캔버스 기안서 초안 해금
+    const kimLv4 = getQuickReplies({ presetId: "kim", baristaName: "김부장", relationshipLevel: 4 });
+    expect(kimLv4.some((c) => c.id === "kim_canvas_draft_lv4")).toBe(true);
+  });
 });

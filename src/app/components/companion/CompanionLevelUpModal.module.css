@@ -162,6 +162,26 @@
   color: #fda4af;
 }
 
+.tryPerkButton {
+  width: 100%;
+  padding: 12px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  border: none;
+  color: #ffffff;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+  transition: transform 0.15s ease;
+  margin-bottom: 8px;
+}
+
+.tryPerkButton:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.08);
+}
+
 .confirmButton {
   width: 100%;
   padding: 12px;

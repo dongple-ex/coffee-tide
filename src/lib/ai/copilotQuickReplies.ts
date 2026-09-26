@@ -16,6 +16,7 @@ interface ContextOptions {
   taskCount?: number;
   completedCount?: number;
   canvasEnabled?: boolean;
+  relationshipLevel?: number;
 }
 
 export function getQuickReplies({
@@ -24,6 +25,7 @@ export function getQuickReplies({
   hasUrgentTasks = false,
   taskCount = 0,
   canvasEnabled = true,
+  relationshipLevel = 1,
 }: ContextOptions): QuickReplyChip[] {
   const hour = new Date().getHours();
   const chips: QuickReplyChip[] = [];
@@ -70,6 +72,42 @@ export function getQuickReplies({
         query: `*노란 맥심 다방커피를 정성스레 저으며* "부장님! 오늘 결재 싹 털고 6시 땡 칼퇴 가능하겠습니까? 부장님만의 칼퇴 비법 하나 전수해 주시죠!"`,
         category: "roleplay",
       });
+
+      // 💡 김부장 Lv.2 해금: 스마트 업무 큐레이션 및 선호 템플릿 제안
+      if (relationshipLevel >= 2) {
+        chips.push({
+          id: "kim_curation_lv2",
+          label: "💡 [Lv.2 해금] 김부장의 결재 우선순위 큐레이션",
+          query: `*결재판을 가리키며* "부장님! 오늘 남은 업무 중에서 뭐부터 결재 올리고 처리해야 할지 김부장표 우선순위 큐레이션 한번 싹 정리해 주십시오!"`,
+          category: "productivity",
+        });
+        chips.push({
+          id: "kim_template_lv2",
+          label: "📋 [Lv.2 해금] 김부장 스타일 일일 업무보고 템플릿",
+          query: `"부장님! 오늘 임원 보고나 팀 공유용으로 딱 떨어지는 간결한 일일 업무보고 템플릿 하나 작성해 주십시오."`,
+          category: "productivity",
+        });
+      }
+
+      // ✨ 김부장 Lv.3 해금: 시크릿 속마음 대사 및 최신 유머 해금
+      if (relationshipLevel >= 3) {
+        chips.push({
+          id: "kim_secret_humor_lv3",
+          label: "✨ [Lv.3 해금] 부장님 속마음 & 부장님 개그 듣기",
+          query: `*노란 맥심 믹스커피 둘둘셋을 건네며* "부장님! 오늘 회사 생활 솔직한 속마음도 궁금하고, 부장님표 고급 유머 하나만 쏴 주십쇼! ㅋㅋㅋ"`,
+          category: "roleplay",
+        });
+      }
+
+      // 🎨 김부장 Lv.4 해금: AI 캔버스 초안 자동화 및 친밀한 전용 호칭
+      if (relationshipLevel >= 4) {
+        chips.push({
+          id: "kim_canvas_draft_lv4",
+          label: "🎨 [Lv.4 해금] 김부장 기안서 캔버스 초안 자동 생성",
+          query: `"부장님! 오늘 업무들을 바탕으로 바로 결재 올릴 수 있는 '기안 및 주간 보고서' 초안을 AI 캔버스에 깔끔하게 작성해 주십시오."`,
+          category: "productivity",
+        });
+      }
       break;
 
     case "calm":

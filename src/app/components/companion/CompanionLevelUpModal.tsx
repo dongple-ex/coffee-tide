@@ -64,6 +64,26 @@ export function CompanionLevelUpModal({
           </div>
         </div>
 
+        {/* Lv.5 소울메이트 전용 즉시 체험 버튼 */}
+        {newLevel === 5 && (
+          <button
+            type="button"
+            onClick={() => {
+              onClose();
+              if (typeof window !== "undefined") {
+                window.dispatchEvent(
+                  new CustomEvent("coffeetide:open-reflection-report", {
+                    detail: { presetId: personaId, baristaName },
+                  })
+                );
+              }
+            }}
+            className={styles.tryPerkButton}
+          >
+            👑 지금 바로 첫 정시 퇴근 리포트 생성해보기 ✨
+          </button>
+        )}
+
         {/* 닫기 버튼 */}
         <button
           type="button"

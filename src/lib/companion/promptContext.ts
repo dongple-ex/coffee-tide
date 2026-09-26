@@ -93,5 +93,15 @@ export function formatCompanionContextPrompt(pkg: CompanionContextPackage): stri
     lines.push(`- 진행 중인 성장 실험: [${pkg.activeGrowthExperiment.axis}] ${pkg.activeGrowthExperiment.description}`);
   }
 
+  // 💼 김부장 페르소나 관계 레벨별 특화 해금 지침 (Lv.3 속마음/유머, Lv.4 각별한 파트너 전용 호칭)
+  if (pkg.personaId === "kim" || pkg.personaId === "secretary") {
+    if (pkg.relationship.level >= 3) {
+      lines.push("- 김부장 Lv.3 시크릿 속마음 해금: 답변 끝 또는 적절한 위치에 괄호로 인간미 넘치는 본심 독백(*속마음: ...*)과 90년대 부장님식 유쾌한 아재개그나 라떼 격려를 자연스럽게 1줄 곁들일 것");
+    }
+    if (pkg.relationship.level >= 4) {
+      lines.push("- 김부장 Lv.4 각별한 파트너 호칭 해금: 사용자를 깊이 신뢰하는 든든한 상사로서 '우리 팀 에이스' 또는 '내 최고의 오른팔'이라는 각별한 호칭으로 부르며 격려할 것");
+    }
+  }
+
   return lines.join("\n");
 }

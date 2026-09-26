@@ -153,6 +153,24 @@ export function AffectionBadge({
               💬 {levelInfo.secretQuote}
             </div>
           )}
+          {levelInfo.level >= 5 && (
+            <button
+              type="button"
+              onClick={() => {
+                if (typeof window !== "undefined") {
+                  window.dispatchEvent(
+                    new CustomEvent("coffeetide:open-reflection-report", {
+                      detail: { presetId, baristaName },
+                    })
+                  );
+                }
+              }}
+              className={styles.reflectionActionBtn}
+            >
+              <span>👑</span>
+              <span>원클릭 일일 회고 & 정시 퇴근 리포트 생성</span>
+            </button>
+          )}
           <div className={styles.perksFooter}>
             <button
               type="button"

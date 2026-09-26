@@ -184,6 +184,31 @@
   opacity: 0.8;
 }
 
+.reflectionActionBtn {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 6px 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.25);
+  transition: all 0.15s ease;
+  margin-top: 6px;
+  width: 100%;
+  justify-content: center;
+}
+
+.reflectionActionBtn:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.35);
+}
+
 @media (max-width: 480px) {
   .summaryRow {
     gap: 6px;

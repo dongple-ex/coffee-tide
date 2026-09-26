@@ -6,6 +6,7 @@ import { CafeBaristaScene } from "./CafeBaristaScene";
 import { IDLE_TALK_POOL, formatIdleTalkForPersona, IdleMessageItem } from "@/lib/ai/baristaIdleTalks";
 import { getPersonaEffect } from "@/lib/ai/personaEffects";
 import { AffectionBadge } from "./AffectionBadge";
+import { getAffectionState, calculateLevelInfo } from "@/lib/ai/affectionManager";
 import { DesktopBaristaConnector } from "./DesktopBaristaConnector";
 import type { PipChatMessage } from "./pipChat";
 import { DesktopBaristaPip } from "./DesktopBaristaPip";
@@ -207,7 +208,8 @@ export function BaristaIdleCompanion({
   };
 
   // 동적으로 가져온 대사가 있으면 우선 사용하고, 없으면 로컬 최신 유머 풀 기반 포맷팅
-  const localFormatted = formatIdleTalkForPersona(currentItem, presetId, baristaName);
+  const relLevel = calculateLevelInfo(getAffectionState(presetId).exp).levelInfo.level;
+  const localFormatted = formatIdleTalkForPersona(currentItem, presetId, baristaName, relLevel);
   const thinkingMessage =
     presetId === "senior_dev"
       ? "*기계식 키보드를 타닥이며 생각 중...* ☕"

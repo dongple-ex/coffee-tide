@@ -253,7 +253,8 @@ export const IDLE_TALK_POOL: IdleMessageItem[] = [
 export function formatIdleTalkForPersona(
   item: IdleMessageItem,
   presetId = "karina",
-  baristaName = "AI 바리스타"
+  baristaName = "AI 바리스타",
+  relationshipLevel = 1
 ): { title: string; content: string } {
   const punchlineText = item.punchline ? `\n👉 ${item.punchline}` : "";
 
@@ -287,7 +288,22 @@ export function formatIdleTalkForPersona(
         "자네, 커피 식기 전에 부장님이 퀴즈 하나 낼 테니 맞춰보게! (*흐뭇하게 바라본다*)",
         "라떼는 말이야~ 이렇게 일하다가도 웃으면서 스트레스를 풀었다고! 크하하!",
       ];
-      const randomIntro = intros[Math.abs(hashString(item.id)) % intros.length];
+
+      // ✨ Lv.3 이상 시크릿 속마음 인트로 해금
+      if (relationshipLevel >= 3) {
+        intros.push(
+          "이봐, 우리 사이에 이런 말까지 하긴 뭐하지만... (*주위를 슬쩍 살피고 맥심 봉지로 찻잔을 저으며*) 자네에게만 털어놓는 부장님의 진솔한 속마음일세 ㅋㅋㅋ",
+          "어이! (*속마음: '사실 나도 오늘 결재판 다 던져버리고 자네랑 당구 한 게임 치고 싶네만...'*) 큼큼, 부장님이 특급 힐링 썰 하나 풀어줄 테니 들어보게나!"
+        );
+      }
+
+      // 🎨 Lv.4 이상 각별한 파트너 애칭 인트로
+      const partnerIntro =
+        relationshipLevel >= 4 && Math.abs(hashString(item.id)) % 2 === 0
+          ? `어이 우리 팀 에이스! 내 최고의 오른팔 김 대리! 자네를 위해 부장님이 특급 맥심 황금비율로 타왔네. (*어깨를 툭툭 치며*)`
+          : null;
+
+      const randomIntro = partnerIntro || intros[Math.abs(hashString(item.id)) % intros.length];
 
       let body = `${item.emoji} "${item.text}"`;
       if (item.punchline) {

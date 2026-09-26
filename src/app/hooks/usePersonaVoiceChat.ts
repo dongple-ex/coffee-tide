@@ -73,6 +73,9 @@ export function usePersonaVoiceChat(options?: UsePersonaVoiceChatOptions) {
   // 오디오 메모리 및 객체 정리
   const cleanupAudio = useCallback(() => {
     if (audioRef.current) {
+      audioRef.current.onplay = null;
+      audioRef.current.onended = null;
+      audioRef.current.onerror = null;
       audioRef.current.pause();
       audioRef.current.src = "";
       audioRef.current = null;
@@ -183,8 +186,22 @@ export function usePersonaVoiceChat(options?: UsePersonaVoiceChatOptions) {
               speakWithWebSpeech(text, presetId);
             };
 
-            await audio.play();
-            return;
+            try {
+              await audio.play();
+              return;
+            } catch (playErr: unknown) {
+              if (
+                playErr &&
+                typeof playErr === "object" &&
+                "name" in playErr &&
+                (playErr as { name: string }).name === "AbortError"
+              ) {
+                // 발화가 취소/중단된 경우 Web Speech로 중복 발화하지 않고 종료
+                cleanupAudio();
+                return;
+              }
+              throw playErr;
+            }
           }
         }
       } catch (err) {

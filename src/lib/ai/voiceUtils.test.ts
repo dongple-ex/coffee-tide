@@ -17,6 +17,10 @@ describe("voiceUtils", () => {
       expect(secretary.pitch).toBeLessThan(1.0);
       expect(secretary.preferredGender).toBe("male");
 
+      const kim = getPersonaVoiceConfig("kim");
+      expect(kim.pitch).toBe(secretary.pitch);
+      expect(kim.preferredGender).toBe("male");
+
       const pm = getPersonaVoiceConfig("pm");
       expect(pm.rate).toBeGreaterThan(1.1);
 
@@ -35,6 +39,10 @@ describe("voiceUtils", () => {
       const secretary = getEdgePersonaVoiceConfig("secretary");
       expect(secretary.voice).toBe("ko-KR-InJoonNeural");
       expect(secretary.rate).toBe("-5%");
+
+      const kim = getEdgePersonaVoiceConfig("kim");
+      expect(kim.voice).toBe("ko-KR-InJoonNeural");
+      expect(kim.pitch).toBe(secretary.pitch);
 
       const pm = getEdgePersonaVoiceConfig("pm");
       expect(pm.rate).toBe("+25%");
