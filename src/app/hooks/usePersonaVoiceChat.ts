@@ -40,8 +40,10 @@ export function usePersonaVoiceChat(options?: UsePersonaVoiceChatOptions) {
   const [interimText, setInterimText] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const recognitionRef = useRef<any>(null);
+  const recognitionRef = useRef<IWindowSpeechRecognition | null>(null);
+  const recognitionGenerationRef = useRef(0);
+  const speechGenerationRef = useRef(0);
+  const speechAbortRef = useRef<AbortController | null>(null);
   const voicesRef = useRef<SpeechSynthesisVoice[]>([]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioUrlRef = useRef<string | null>(null);
@@ -60,12 +62,11 @@ export function usePersonaVoiceChat(options?: UsePersonaVoiceChatOptions) {
     };
 
     updateVoices();
-    window.speechSynthesis.onvoiceschanged = updateVoices;
+    window.speechSynthesis.addEventListener("voiceschanged", updateVoices);
 
     return () => {
       if (window.speechSynthesis) {
-        window.speechSynthesis.onvoiceschanged = null;
-        window.speechSynthesis.cancel();
+        window.speechSynthesis.removeEventListener("voiceschanged", updateVoices);
       }
     };
   }, []);
@@ -88,6 +89,9 @@ export function usePersonaVoiceChat(options?: UsePersonaVoiceChatOptions) {
 
   // 발화 중단 (Edge-TTS 및 Web Speech 취소)
   const stopSpeaking = useCallback(() => {
+    speechGenerationRef.current += 1;
+    speechAbortRef.current?.abort();
+    speechAbortRef.current = null;
     cleanupAudio();
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
       window.speechSynthesis.cancel();
@@ -98,6 +102,11 @@ export function usePersonaVoiceChat(options?: UsePersonaVoiceChatOptions) {
   // 컴포넌트 언마운트 시 클린업
   useEffect(() => {
     return () => {
+      recognitionGenerationRef.current += 1;
+      recognitionRef.current?.abort();
+      recognitionRef.current = null;
+      speechGenerationRef.current += 1;
+      speechAbortRef.current?.abort();
       cleanupAudio();
       if (typeof window !== "undefined" && "speechSynthesis" in window) {
         window.speechSynthesis.cancel();
@@ -107,7 +116,8 @@ export function usePersonaVoiceChat(options?: UsePersonaVoiceChatOptions) {
 
   // 폴백용 Web Speech 발화 함수
   const speakWithWebSpeech = useCallback(
-    (text: string, presetId?: string) => {
+    (text: string, presetId: string | undefined, generation: number) => {
+      if (generation !== speechGenerationRef.current) return;
       if (typeof window === "undefined" || !("speechSynthesis" in window)) {
         setIsSpeaking(false);
         return;
@@ -127,18 +137,18 @@ export function usePersonaVoiceChat(options?: UsePersonaVoiceChatOptions) {
       }
 
       utterance.onstart = () => {
-        setIsSpeaking(true);
+        if (generation === speechGenerationRef.current) setIsSpeaking(true);
       };
 
       utterance.onend = () => {
-        setIsSpeaking(false);
+        if (generation === speechGenerationRef.current) setIsSpeaking(false);
       };
 
       utterance.onerror = (e) => {
         if (e.error !== "canceled" && e.error !== "interrupted") {
           console.warn("[VoiceChat] Speech synthesis error:", e);
         }
-        setIsSpeaking(false);
+        if (generation === speechGenerationRef.current) setIsSpeaking(false);
       };
 
       window.speechSynthesis.speak(utterance);
@@ -153,6 +163,9 @@ export function usePersonaVoiceChat(options?: UsePersonaVoiceChatOptions) {
       if (!text) return;
 
       stopSpeaking();
+      const generation = speechGenerationRef.current;
+      const controller = new AbortController();
+      speechAbortRef.current = controller;
 
       const presetId = presetIdOverride || optionsRef.current?.presetId;
 
@@ -162,34 +175,42 @@ export function usePersonaVoiceChat(options?: UsePersonaVoiceChatOptions) {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ text, presetId }),
+          signal: controller.signal,
         });
+        if (generation !== speechGenerationRef.current) return;
 
         if (response.ok) {
           const blob = await response.blob();
+          if (generation !== speechGenerationRef.current) return;
           if (blob.size > 0) {
             const url = URL.createObjectURL(blob);
             audioUrlRef.current = url;
             const audio = new Audio(url);
             audioRef.current = audio;
+            let fallbackStarted = false;
 
             audio.onplay = () => {
-              setIsSpeaking(true);
+              if (generation === speechGenerationRef.current) setIsSpeaking(true);
             };
 
             audio.onended = () => {
+              if (generation !== speechGenerationRef.current) return;
               setIsSpeaking(false);
               cleanupAudio();
             };
 
             audio.onerror = () => {
+              if (generation !== speechGenerationRef.current || fallbackStarted) return;
+              fallbackStarted = true;
               cleanupAudio();
-              speakWithWebSpeech(text, presetId);
+              speakWithWebSpeech(text, presetId, generation);
             };
 
             try {
               await audio.play();
               return;
             } catch (playErr: unknown) {
+              if (generation !== speechGenerationRef.current || fallbackStarted) return;
               if (
                 playErr &&
                 typeof playErr === "object" &&
@@ -205,11 +226,17 @@ export function usePersonaVoiceChat(options?: UsePersonaVoiceChatOptions) {
           }
         }
       } catch (err) {
+        if (generation !== speechGenerationRef.current || controller.signal.aborted) return;
         console.warn("[VoiceChat] Edge-TTS error, falling back to Web Speech:", err);
+      } finally {
+        if (speechAbortRef.current === controller) speechAbortRef.current = null;
       }
 
       // 2차 폴백: 브라우저 Web Speech API
-      speakWithWebSpeech(text, presetId);
+      if (generation === speechGenerationRef.current) {
+        cleanupAudio();
+        speakWithWebSpeech(text, presetId, generation);
+      }
     },
     [stopSpeaking, cleanupAudio, speakWithWebSpeech]
   );
@@ -243,6 +270,7 @@ export function usePersonaVoiceChat(options?: UsePersonaVoiceChatOptions) {
       }
 
       try {
+        const generation = ++recognitionGenerationRef.current;
         if (recognitionRef.current) {
           try {
             recognitionRef.current.abort();
@@ -257,11 +285,15 @@ export function usePersonaVoiceChat(options?: UsePersonaVoiceChatOptions) {
         recognition.interimResults = true;
 
         let finalTranscript = "";
+        let recognitionFailed = false;
+        setInterimText("");
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         recognition.onresult = (event: any) => {
+          if (generation !== recognitionGenerationRef.current) return;
+          finalTranscript = "";
           let currentInterim = "";
-          for (let i = event.resultIndex; i < event.results.length; ++i) {
+          for (let i = 0; i < event.results.length; ++i) {
             const res = event.results[i];
             if (res.isFinal) {
               finalTranscript += res[0].transcript;
@@ -274,6 +306,8 @@ export function usePersonaVoiceChat(options?: UsePersonaVoiceChatOptions) {
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         recognition.onerror = (event: any) => {
+          if (generation !== recognitionGenerationRef.current) return;
+          recognitionFailed = true;
           if (event.error !== "no-speech" && event.error !== "aborted") {
             setError(`음성 인식 오류: ${event.error}`);
           }
@@ -281,10 +315,12 @@ export function usePersonaVoiceChat(options?: UsePersonaVoiceChatOptions) {
         };
 
         recognition.onend = () => {
+          if (generation !== recognitionGenerationRef.current) return;
+          recognitionRef.current = null;
           setIsListening(false);
           setInterimText("");
           const textToSubmit = finalTranscript.trim();
-          if (textToSubmit) {
+          if (!recognitionFailed && textToSubmit) {
             if (onComplete) {
               onComplete(textToSubmit);
             } else if (optionsRef.current?.onTranscriptComplete) {
@@ -298,6 +334,8 @@ export function usePersonaVoiceChat(options?: UsePersonaVoiceChatOptions) {
         setIsListening(true);
         return true;
       } catch (err) {
+        recognitionGenerationRef.current += 1;
+        recognitionRef.current = null;
         console.error("[VoiceChat] Failed to start recognition:", err);
         setError("마이크 권한을 확인해주세요.");
         setIsListening(false);

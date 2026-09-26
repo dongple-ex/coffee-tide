@@ -5,6 +5,18 @@ import { CompanionEvent, GrowthMetrics, GrowthSnapshot } from "./contracts";
 
 export const MINIMUM_SAMPLE_THRESHOLD = 3;
 
+function creditedLocalHour(event: CompanionEvent): number {
+  try {
+    return Number(new Intl.DateTimeFormat("en-GB", {
+      timeZone: event.creditedTimezone || "UTC",
+      hour: "2-digit",
+      hourCycle: "h23",
+    }).format(new Date(event.occurredAt)));
+  } catch {
+    return new Date(event.occurredAt).getUTCHours();
+  }
+}
+
 /**
  * 최근 14일 이벤트로부터 실행·집중·정리·회고 4축 지표 정밀 산출 (§5.1)
  * - 최소 표본(3건) 미달 시 '표본 부족' 플래그 설정 및 단정적 표현 회피
@@ -26,7 +38,7 @@ export function analyzeUserGrowth(events: CompanionEvent[], now = Date.now()): G
 
   recentEvents.forEach((e) => {
     // 심야 과로 시간대(23시~05시) 이벤트는 성장 점수 집계에서 제외
-    const hour = new Date(e.occurredAt).getHours();
+    const hour = creditedLocalHour(e);
     const isLateNightOverwork = hour >= 23 || hour < 5;
 
     switch (e.eventType) {

@@ -263,7 +263,7 @@ export function BaristaIdleCompanion({
               justifyContent: "center"
             }}
             onError={(e) => {
-              (e.target as HTMLImageElement).src = "/barista/barista_male_3d_serving.jpg";
+              (e.target as HTMLImageElement).src = "/barista/persona_barista_v2.webp";
             }}
           />
         </div>
@@ -290,7 +290,7 @@ export function BaristaIdleCompanion({
                 src={getPersonaEffect(presetId, baristaName).avatarIdle}
                 alt=""
                 onError={(e) => {
-                  (e.target as HTMLImageElement).src = "/barista/barista_male_3d_serving.jpg";
+                  (e.target as HTMLImageElement).src = "/barista/persona_barista_v2.webp";
                 }}
               />
               <span className={styles.baristaIdleDockText}>

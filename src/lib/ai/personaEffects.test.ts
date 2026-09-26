@@ -1,4 +1,6 @@
 import { describe, it, expect } from "vitest";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import {
   resolvePersonaKind,
   getPersonaEffect,
@@ -19,6 +21,7 @@ const ALL_KINDS: PersonaKind[] = [
   "cheerleader",
   "doggo",
   "cat_master",
+  "custom",
 ];
 
 describe("페르소나 효과 판별", () => {
@@ -37,16 +40,16 @@ describe("페르소나 효과 판별", () => {
     expect(resolvePersonaKind("doggo", "김부장")).toBe("doggo");
   });
 
-  it("custom 프리셋이나 presetId가 없을 때만 이름으로 추정한다", () => {
-    expect(resolvePersonaKind("custom", "칼찌장인 채린이")).toBe("chaerin");
-    expect(resolvePersonaKind("custom", "김부장")).toBe("secretary");
+  it("custom 프리셋은 독립된 캐릭터를 쓰고 presetId가 없을 때만 이름으로 추정한다", () => {
+    expect(resolvePersonaKind("custom", "칼찌장인 채린이")).toBe("custom");
+    expect(resolvePersonaKind("custom", "김부장")).toBe("custom");
     expect(resolvePersonaKind(undefined, "칼퇴봇")).toBe("pm");
     expect(resolvePersonaKind(undefined, "카리나")).toBe("karina");
     expect(resolvePersonaKind(undefined, "뽀삐")).toBe("doggo");
   });
 
   it("알 수 없는 이름은 클래식 바리스타로 되돌린다", () => {
-    expect(resolvePersonaKind("custom", "나만의 비서")).toBe("barista");
+    expect(resolvePersonaKind("custom", "나만의 비서")).toBe("custom");
     expect(resolvePersonaKind(undefined, undefined)).toBe("barista");
   });
 });
@@ -83,10 +86,13 @@ describe("페르소나별 효과 정의", () => {
     expect(getPersonaAvatar(classic, false)).toBe(classic.avatarIdle);
   });
 
-  it("12개 페르소나 전원이 서로 겹치지 않는 고유한 아바타 이미지를 갖는다", () => {
+  it("13개 페르소나 전원이 서로 겹치지 않는 고유한 아바타 이미지를 갖는다", () => {
     const avatarList = ALL_KINDS.map((kind) => getPersonaEffect(kind).avatarIdle);
     const uniqueAvatars = new Set(avatarList);
     // 중복이 전혀 없어야 하므로 전체 개수와 Set의 크기가 같아야 함
     expect(uniqueAvatars.size).toBe(ALL_KINDS.length);
+    for (const avatar of avatarList) {
+      expect(existsSync(join(process.cwd(), "public", avatar.slice(1)))).toBe(true);
+    }
   });
 });

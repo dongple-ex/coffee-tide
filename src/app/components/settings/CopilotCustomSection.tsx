@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { CopilotUserConfig, PERSONA_PRESETS, PersonaPreset } from "@/lib/ai/harness";
+import { getPersonaEffect } from "@/lib/ai/personaEffects";
 import type { CompanionFeatureStatus } from "@/lib/companion/contracts";
 import { UiIcon } from "../UiIcon";
 import { CompanionMemoryModal } from "@/app/components/companion/CompanionMemoryModal";
@@ -271,11 +272,25 @@ export function CopilotCustomSection({
                     </span>
                   )}
                 </div>
-                <div style={{ fontSize: "0.95rem", fontWeight: 700, color: "var(--text, #fff)" }}>
-                  {preset.name}
-                </div>
-                <div style={{ fontSize: "0.75rem", color: "var(--text-dim, #888)", lineHeight: "1.3", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-                  {preset.tagline}
+                <div style={{ display: "flex", alignItems: "center", gap: "9px", minWidth: 0 }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={getPersonaEffect(preset.id).avatarIdle}
+                    alt={`${preset.name} 캐릭터`}
+                    width={54}
+                    height={54}
+                    loading="lazy"
+                    decoding="async"
+                    style={{ width: 54, height: 54, flexShrink: 0, objectFit: "cover", objectPosition: "center 25%", borderRadius: "50%" }}
+                  />
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: "0.88rem", fontWeight: 700, color: "var(--text, #fff)" }}>
+                      {preset.name}
+                    </div>
+                    <div style={{ fontSize: "0.75rem", color: "var(--text-dim, #888)", lineHeight: "1.3", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                      {preset.tagline}
+                    </div>
+                  </div>
                 </div>
               </div>
             );

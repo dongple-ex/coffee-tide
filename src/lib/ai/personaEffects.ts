@@ -173,8 +173,8 @@ const PERSONA_EFFECTS: Record<PersonaKind, PersonaEffect> = {
   karina: {
     kind: "karina",
     accent: "#c084fc",
-    avatarIdle: "/barista/karina_webtoon_idle.jpg",
-    avatarBrewing: "/barista/karina_webtoon_brewing.jpg",
+    avatarIdle: "/barista/persona_karina_v2.webp",
+    avatarBrewing: "/barista/persona_karina_v2.webp",
     ambient: {
       shape: "star",
       colors: ["#f0abfc", "#c4b5fd", "#ffffff", "#fbcfe8", "#a5b4fc"],
@@ -225,8 +225,8 @@ const PERSONA_EFFECTS: Record<PersonaKind, PersonaEffect> = {
   barista: {
     kind: "barista",
     accent: "#f59e0b",
-    avatarIdle: "/barista/barista_3d_serving.jpg",
-    avatarBrewing: "/barista/barista_3d_brewing.jpg",
+    avatarIdle: "/barista/persona_barista_v2.webp",
+    avatarBrewing: "/barista/persona_barista_v2.webp",
     ambient: {
       shape: "steam",
       colors: ["#ffffff", "#fef3c7"],
@@ -269,8 +269,8 @@ const PERSONA_EFFECTS: Record<PersonaKind, PersonaEffect> = {
   secretary: {
     kind: "secretary",
     accent: "#b45309",
-    avatarIdle: "/barista/barista_male_3d_serving.jpg",
-    avatarBrewing: "/barista/barista_male_3d_brewing.jpg",
+    avatarIdle: "/barista/barista_kim_manager.webp",
+    avatarBrewing: "/barista/barista_kim_manager.webp",
     ambient: {
       shape: "steam",
       colors: ["#fde68a", "#d6bf9a", "#ffffff"],
@@ -313,8 +313,8 @@ const PERSONA_EFFECTS: Record<PersonaKind, PersonaEffect> = {
   pm: {
     kind: "pm",
     accent: "#06b6d4",
-    avatarIdle: "/barista/barista_robot_3d.png",
-    avatarBrewing: "/barista/barista_robot_3d.png",
+    avatarIdle: "/barista/persona_pm_v2.webp",
+    avatarBrewing: "/barista/persona_pm_v2.webp",
     ambient: {
       shape: "pixel",
       colors: ["#22d3ee", "#4ade80", "#a3e635", "#ffffff"],
@@ -357,8 +357,8 @@ const PERSONA_EFFECTS: Record<PersonaKind, PersonaEffect> = {
   chaerin: {
     kind: "chaerin",
     accent: "#f43f5e",
-    avatarIdle: "/barista/barista_chaerin_3d.png",
-    avatarBrewing: "/barista/barista_chaerin_3d.png",
+    avatarIdle: "/barista/barista_chaerin_new.webp",
+    avatarBrewing: "/barista/barista_chaerin_new.webp",
     ambient: {
       shape: "crystal",
       colors: ["#67e8f9", "#ffffff", "#c084fc", "#f472b6", "#a5f3fc"],
@@ -401,8 +401,8 @@ const PERSONA_EFFECTS: Record<PersonaKind, PersonaEffect> = {
   ropan: {
     kind: "ropan",
     accent: "#d946ef",
-    avatarIdle: "/barista/ropan_webtoon_idle.jpg",
-    avatarBrewing: "/barista/ropan_webtoon_brewing.jpg",
+    avatarIdle: "/barista/persona_ropan_v2.webp",
+    avatarBrewing: "/barista/persona_ropan_v2.webp",
     ambient: {
       shape: "star",
       colors: ["#fbcfe8", "#f5d0fe", "#e879f9", "#ffffff", "#c084fc"],
@@ -445,8 +445,8 @@ const PERSONA_EFFECTS: Record<PersonaKind, PersonaEffect> = {
   senior_dev: {
     kind: "senior_dev",
     accent: "#10b981",
-    avatarIdle: "/barista/barista_ted_dev.jpg",
-    avatarBrewing: "/barista/barista_ted_dev.jpg",
+    avatarIdle: "/barista/persona_senior_dev_v2.webp",
+    avatarBrewing: "/barista/persona_senior_dev_v2.webp",
     ambient: {
       shape: "pixel",
       colors: ["#10b981", "#34d399", "#059669", "#ffffff"],
@@ -489,8 +489,8 @@ const PERSONA_EFFECTS: Record<PersonaKind, PersonaEffect> = {
   fantasy_mage: {
     kind: "fantasy_mage",
     accent: "#8b5cf6",
-    avatarIdle: "/barista/barista_lumiel_mage.jpg",
-    avatarBrewing: "/barista/barista_lumiel_mage.jpg",
+    avatarIdle: "/barista/persona_fantasy_mage_v2.webp",
+    avatarBrewing: "/barista/persona_fantasy_mage_v2.webp",
     ambient: {
       shape: "star",
       colors: ["#8b5cf6", "#c084fc", "#e879f9", "#ffffff"],
@@ -533,8 +533,8 @@ const PERSONA_EFFECTS: Record<PersonaKind, PersonaEffect> = {
   detective: {
     kind: "detective",
     accent: "#64748b",
-    avatarIdle: "/barista/barista_sherlock_detective.jpg",
-    avatarBrewing: "/barista/barista_sherlock_detective.jpg",
+    avatarIdle: "/barista/persona_detective_v2.webp",
+    avatarBrewing: "/barista/persona_detective_v2.webp",
     ambient: {
       shape: "steam",
       colors: ["#94a3b8", "#cbd5e1", "#ffffff"],
@@ -577,8 +577,8 @@ const PERSONA_EFFECTS: Record<PersonaKind, PersonaEffect> = {
   cheerleader: {
     kind: "cheerleader",
     accent: "#ea580c",
-    avatarIdle: "/barista/barista_captain_cheer.jpg",
-    avatarBrewing: "/barista/barista_captain_cheer.jpg",
+    avatarIdle: "/barista/persona_cheerleader_v2.webp",
+    avatarBrewing: "/barista/persona_cheerleader_v2.webp",
     ambient: {
       shape: "steam",
       colors: ["#fb923c", "#fdba74", "#ffffff"],
@@ -621,8 +621,8 @@ const PERSONA_EFFECTS: Record<PersonaKind, PersonaEffect> = {
   doggo: {
     kind: "doggo",
     accent: "#f59e0b",
-    avatarIdle: "/barista/barista_poppy_doggo.jpg",
-    avatarBrewing: "/barista/barista_poppy_doggo.jpg",
+    avatarIdle: "/barista/persona_doggo_v2.webp",
+    avatarBrewing: "/barista/persona_doggo_v2.webp",
     ambient: {
       shape: "star",
       colors: ["#fde68a", "#fef3c7", "#ffffff", "#f59e0b"],
@@ -665,8 +665,8 @@ const PERSONA_EFFECTS: Record<PersonaKind, PersonaEffect> = {
   cat_master: {
     kind: "cat_master",
     accent: "#ec4899",
-    avatarIdle: "/barista/barista_miya_cat.jpg",
-    avatarBrewing: "/barista/barista_miya_cat.jpg",
+    avatarIdle: "/barista/persona_cat_master_v2.webp",
+    avatarBrewing: "/barista/persona_cat_master_v2.webp",
     ambient: {
       shape: "crystal",
       colors: ["#fbcfe8", "#f472b6", "#ffffff", "#ec4899"],
@@ -709,8 +709,8 @@ const PERSONA_EFFECTS: Record<PersonaKind, PersonaEffect> = {
   custom: {
     kind: "custom",
     accent: "#38bdf8",
-    avatarIdle: "/barista/barista_3d_serving.jpg",
-    avatarBrewing: "/barista/barista_3d_brewing.jpg",
+    avatarIdle: "/barista/barista_custom_automaton.webp",
+    avatarBrewing: "/barista/barista_custom_automaton.webp",
     ambient: {
       shape: "star",
       colors: ["#38bdf8", "#7dd3fc", "#ffffff"],
@@ -761,6 +761,7 @@ const PRESET_TO_KIND: Record<string, PersonaKind> = {
   cheerleader: "cheerleader",
   doggo: "doggo",
   cat_master: "cat_master",
+  custom: "custom",
 };
 
 const NAME_HINTS: { kind: PersonaKind; keywords: string[] }[] = [

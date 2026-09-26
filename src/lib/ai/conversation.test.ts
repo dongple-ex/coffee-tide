@@ -24,6 +24,10 @@ describe("routeConversation", () => {
     ["오늘 뭐부터 해야 해?", "work"],
     ["새로 온 메일 있어?", "work"],
     ["내일 회의를 캘린더에 등록해줘", "command"],
+    ["주말 일정 보여줘", "work"],
+    ["웹툰 관련 보고서 찾아줘", "work"],
+    ["주말에는 뭐 해?", "social"],
+    ["주말인데 너무 지쳤어", "supportive"],
     ["너무 지쳤는데 오늘 할 일 세 개만 정리해줘", "mixed"],
   ] as const)("%s => %s", (text, expectedMode) => {
     expect(routeConversation({ text }).mode).toBe(expectedMode);

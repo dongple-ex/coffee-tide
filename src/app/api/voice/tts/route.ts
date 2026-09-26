@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
         headers: {
           "Content-Type": "audio/mpeg",
           "Content-Length": String(audioBuffer.length),
-          "Cache-Control": "public, max-age=3600",
+          "Cache-Control": "private, no-store",
         },
       });
     } finally {

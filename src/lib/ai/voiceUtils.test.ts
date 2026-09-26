@@ -24,6 +24,10 @@ describe("voiceUtils", () => {
       const pm = getPersonaVoiceConfig("pm");
       expect(pm.rate).toBeGreaterThan(1.1);
 
+      expect(getPersonaVoiceConfig("cheerleader").preferredGender).toBe("male");
+      expect(getPersonaVoiceConfig("doggo").rate).toBeGreaterThan(1);
+      expect(getPersonaVoiceConfig("cat_master").pitch).toBeGreaterThan(1);
+
       const def = getPersonaVoiceConfig(undefined);
       expect(def.pitch).toBe(1.0);
       expect(def.rate).toBe(1.0);
@@ -46,6 +50,10 @@ describe("voiceUtils", () => {
 
       const pm = getEdgePersonaVoiceConfig("pm");
       expect(pm.rate).toBe("+25%");
+
+      expect(getEdgePersonaVoiceConfig("cheerleader").voice).toBe("ko-KR-InJoonNeural");
+      expect(getEdgePersonaVoiceConfig("doggo").pitch).toBe("+15Hz");
+      expect(getEdgePersonaVoiceConfig("cat_master").pitch).toBe("+12Hz");
 
       const def = getEdgePersonaVoiceConfig(undefined);
       expect(def.voice).toBe("ko-KR-SunHiNeural");
@@ -79,6 +87,10 @@ describe("voiceUtils", () => {
 
     it("handles empty or falsy text gracefully", () => {
       expect(cleanTextForSpeech("")).toBe("");
+    });
+
+    it("keeps emphasized dialogue while dropping stage directions", () => {
+      expect(cleanTextForSpeech("**중요해요** *웃으며* 바로 확인해 주세요.")).toBe("중요해요 바로 확인해 주세요.");
     });
   });
 

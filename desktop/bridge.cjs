@@ -18,8 +18,8 @@ function cleanState(value) {
     title: text('title', 120),
     accent: /^#[0-9a-f]{6}$/i.test(value.accent) ? value.accent : '#bd7957',
     presetId: text('presetId', 60),
-    avatar: typeof value.avatar === 'string' && /^\/barista\/[a-z0-9_-]+\.(png|jpg)$/i.test(value.avatar)
-      ? value.avatar.split('/').pop() : 'barista_male_3d_serving.jpg',
+    avatar: typeof value.avatar === 'string' && /^\/barista\/[a-z0-9_-]+\.(png|jpg|webp)$/i.test(value.avatar)
+      ? value.avatar.split('/').pop() : 'persona_barista_v2.webp',
   };
 }
 

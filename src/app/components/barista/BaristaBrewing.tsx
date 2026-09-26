@@ -14,7 +14,6 @@ export interface BaristaBrewingProps {
   showBubbleOnHover?: boolean;
   personaName?: string;
   visualMode?: "3d" | "svg";
-  gender?: "female" | "male";
   presetId?: string;
 }
 
@@ -27,7 +26,6 @@ export function BaristaBrewing({
   showBubbleOnHover = true,
   personaName = "AI 바리스타",
   visualMode = "3d",
-  gender,
   presetId,
 }: BaristaBrewingProps) {
   const [isHovered, setIsHovered] = useState(false);
@@ -36,13 +34,7 @@ export function BaristaBrewing({
   // 페르소나 판별과 효과 선택은 공용 모듈이 전담한다.
   const effect = getPersonaEffect(presetId, personaName);
 
-  // gender를 명시적으로 지정한 경우에만 아바타 성별을 덮어쓴다.
-  const imageSrc =
-    gender === "male" && effect.kind !== "secretary"
-      ? isBrewing
-        ? "/barista/barista_male_3d_brewing.jpg"
-        : "/barista/barista_male_3d_serving.jpg"
-      : getPersonaAvatar(effect, isBrewing);
+  const imageSrc = getPersonaAvatar(effect, isBrewing);
 
   const isIced = effect.cupDecoration === "glint";
 

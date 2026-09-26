@@ -19,7 +19,7 @@ let hotkeyStatus = 'starting';
 let regions = [];
 let ignored = false;
 let prefs = { appearance: 'cup' };
-let state = { name: 'AI 바리스타', speech: '', accent: '#bd7957', avatar: 'barista_male_3d_serving.jpg', connected: false, code: '', appearance: 'cup' };
+let state = { name: 'AI 바리스타', speech: '', accent: '#bd7957', avatar: 'persona_barista_v2.webp', connected: false, code: '', appearance: 'cup' };
 const prefsPath = () => path.join(app.getPath('userData'), 'preferences.json');
 const publish = (next) => {
   state = { ...state, ...next, appearance: prefs.appearance };
@@ -121,7 +121,7 @@ if (!gotLock) {
       onWindow: (action, marker) => action === 'minimize' ? mainWindowControl.minimize(marker) : mainWindowControl.restore(),
       onDisconnect: (code) => {
         void mainWindowControl.restore();
-        publish({ connected: false, webMiniCardControl: false, code, speech: '', title: '', name: 'AI 바리스타', accent: '#bd7957', avatar: 'barista_male_3d_serving.jpg' });
+        publish({ connected: false, webMiniCardControl: false, code, speech: '', title: '', name: 'AI 바리스타', accent: '#bd7957', avatar: 'persona_barista_v2.webp' });
       },
     });
     try { bridgePort = await bridge.listen(); publish({ code: bridge.code }); }
@@ -162,7 +162,7 @@ if (!gotLock) {
       summon();
       const summonAction = await (await post('state', {}, pairing.token)).json();
       report.hotkeySummon = win.isVisible() && summonAction.action === 'open-copilot';
-      await post('state', { name: '테스트 바리스타', speech: '렌더링 검사용 샘플 말풍선입니다. ☕', accent: '#438b72', avatar: '/barista/barista_male_3d_serving.jpg' }, pairing.token);
+      await post('state', { name: '테스트 바리스타', speech: '렌더링 검사용 샘플 말풍선입니다. ☕', accent: '#438b72', avatar: '/barista/persona_barista_v2.webp' }, pairing.token);
       await win.webContents.executeJavaScript('document.querySelector("#settings-button").click(); document.querySelector("input[value=photo]").click()');
       await new Promise((resolve) => setTimeout(resolve, 300));
       fs.writeFileSync(path.join(__dirname, 'smoke-output', 'settings.png'), (await win.webContents.capturePage()).toPNG());

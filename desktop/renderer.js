@@ -46,7 +46,7 @@ byId('settings-button').addEventListener('click', () => {
 });
 for (const radio of document.querySelectorAll('[name="appearance"]')) radio.addEventListener('change', () => window.barista.appearance(radio.value));
 byId('avatar').addEventListener('error', () => {
-  if (!byId('avatar').src.endsWith('barista_male_3d_serving.jpg')) byId('avatar').src = 'assets/barista_male_3d_serving.jpg';
+  if (!byId('avatar').src.endsWith('persona_barista_v2.webp')) byId('avatar').src = 'assets/persona_barista_v2.webp';
 });
 new ResizeObserver(reportRegions).observe(byId('bubble'));
 window.barista.onState(render);

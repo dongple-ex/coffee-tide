@@ -45,7 +45,7 @@ test('only configured origins and safe local assets are accepted', () => {
   const safe = cleanState({ name: 'a'.repeat(80), speech: '가'.repeat(1200), avatar: '/barista/../../secret.png', accent: 'url(https://example.com)' });
   assert.equal(safe.name.length, 60);
   assert.equal(safe.speech.length, 1000);
-  assert.equal(safe.avatar, 'barista_male_3d_serving.jpg');
+  assert.equal(safe.avatar, 'persona_barista_v2.webp');
   assert.equal(safe.accent, '#bd7957');
 });
 
@@ -62,6 +62,7 @@ test('pairing gates state; action is consumed once; disconnect revokes credentia
   assert.deepEqual(await (await post('state', { speech: '안녕하세요 ☕', avatar: '/barista/barista_robot_3d.png' }, token)).json(), { action: 'open-copilot' });
   assert.equal(snapshot.speech, '안녕하세요 ☕');
   assert.equal(snapshot.avatar, 'barista_robot_3d.png');
+  assert.equal(cleanState({ avatar: '/barista/persona_karina_v2.webp' }).avatar, 'persona_karina_v2.webp');
   assert.deepEqual(await (await post('state', {}, token)).json(), { action: null });
   assert.equal((await post('state', {}, 'wrong')).status, 401);
   await post('disconnect', {}, token);

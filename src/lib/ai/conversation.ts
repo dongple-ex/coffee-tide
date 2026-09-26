@@ -102,17 +102,6 @@ export function routeConversation({
     };
   }
 
-  // 자기소개 및 일상 대화/잡담 신호는 최우선 소셜 대화로 즉시 라우팅
-  if (SELF_INTRO_PATTERN.test(normalized) || CHITCHAT_PATTERN.test(normalized)) {
-    return {
-      mode: "social",
-      confidence: "high",
-      reason: "social_chitchat_or_self_intro",
-      needsWorkContext: false,
-      allowCloudTools: false,
-    };
-  }
-
   const supportive = SUPPORT_PATTERN.test(normalized);
   const social = SOCIAL_PATTERN.test(normalized);
   const work =
@@ -129,11 +118,33 @@ export function routeConversation({
     };
   }
 
+  // 명시적인 업무 요청은 주말/웹툰 같은 주제어가 포함되어도 업무로 처리한다.
+  if (work) {
+    const command = COMMAND_PATTERN.test(normalized);
+    return {
+      mode: command ? "command" : "work",
+      confidence: "high",
+      reason: command ? "work_command" : "work_request",
+      needsWorkContext: true,
+      allowCloudTools: command,
+    };
+  }
+
   if (supportive) {
     return {
       mode: "supportive",
       confidence: "high",
       reason: "support_signal",
+      needsWorkContext: false,
+      allowCloudTools: false,
+    };
+  }
+
+  if (SELF_INTRO_PATTERN.test(normalized) || CHITCHAT_PATTERN.test(normalized)) {
+    return {
+      mode: "social",
+      confidence: "high",
+      reason: "social_chitchat_or_self_intro",
       needsWorkContext: false,
       allowCloudTools: false,
     };
@@ -156,17 +167,6 @@ export function routeConversation({
       reason: "missing_target",
       needsWorkContext: false,
       allowCloudTools: false,
-    };
-  }
-
-  if (work) {
-    const command = COMMAND_PATTERN.test(normalized);
-    return {
-      mode: command ? "command" : "work",
-      confidence: "high",
-      reason: command ? "work_command" : "work_request",
-      needsWorkContext: true,
-      allowCloudTools: command,
     };
   }
 

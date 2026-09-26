@@ -52,7 +52,7 @@ export function BaristaPipCard({ avatar, speech, turns, collapsed, onToggleColla
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={avatar} alt="" onError={(event) => {
         const image = event.currentTarget;
-        if (!image.src.endsWith("/barista/barista_male_3d_serving.jpg")) image.src = "/barista/barista_male_3d_serving.jpg";
+        if (!image.src.endsWith("/barista/persona_barista_v2.webp")) image.src = "/barista/persona_barista_v2.webp";
       }} />
     </button>
   );

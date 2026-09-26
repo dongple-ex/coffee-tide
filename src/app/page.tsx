@@ -477,7 +477,7 @@ export default function Home() {
       stopVoiceListening();
       return;
     }
-    voiceChatActiveRef.current = true;
+    voiceChatActiveRef.current = false;
     const started = startVoiceListening();
     if (!started) {
       showToast("마이크 권한을 확인해 주세요.");
@@ -2484,7 +2484,15 @@ export default function Home() {
       setWelcomeCardCollapsed(true);
     }
     const question = (preset ?? copilotInput).trim();
-    if (!question || taskActionBusyRef.current || (trackGlobalBusy && copilotBusy)) return;
+    if (!question || taskActionBusyRef.current || (trackGlobalBusy && copilotBusy)) {
+      voiceChatActiveRef.current = false;
+      return;
+    }
+    const voiceResponseRequested = voiceChatActiveRef.current;
+    voiceChatActiveRef.current = false;
+    const speakVoiceResponse = (answer: string) => {
+      if (voiceResponseRequested && answer) void speakPersonaVoice(answer, copilotConfig.presetId);
+    };
     // 후보는 사용자와 대화 창별로 분리하고, 다른 요청/5분 경과 시 폐기한다.
     const actionChannel = persistToFeed ? "copilot" : options?.isolatedHistory ? "mini" : "companion";
     const pending = pendingTaskActions.current.get(actionChannel);
@@ -2574,6 +2582,7 @@ export default function Home() {
         }
       }
       if (persistToFeed) setCopilotMessages(prev => [...prev, { role: "ai", text: actionAnswer }]);
+      speakVoiceResponse(actionAnswer);
       return actionAnswer;
     }
 
@@ -2691,9 +2700,7 @@ export default function Home() {
           },
         ]);
       }
-      if (voiceChatActiveRef.current && finalAnswer) {
-        speakPersonaVoice(finalAnswer, copilotConfig.presetId);
-      }
+      speakVoiceResponse(finalAnswer);
       return finalAnswer;
     } catch (error) {
       if (error instanceof AiJobPendingError) {
@@ -2718,9 +2725,7 @@ export default function Home() {
             },
           ]);
         }
-        if (voiceChatActiveRef.current && localAnswer) {
-          speakPersonaVoice(localAnswer, copilotConfig.presetId);
-        }
+        speakVoiceResponse(localAnswer);
         return localAnswer;
       }
       const failMsg = "앗, 대답을 놓쳤어요. 잠시 후 다시 물어봐 주세요.";
@@ -2730,9 +2735,7 @@ export default function Home() {
           { role: "ai", text: failMsg },
         ]);
       }
-      if (voiceChatActiveRef.current && failMsg) {
-        speakPersonaVoice(failMsg, copilotConfig.presetId);
-      }
+      speakVoiceResponse(failMsg);
       return failMsg;
     } finally {
       if (trackGlobalBusy) setCopilotBusy(false);

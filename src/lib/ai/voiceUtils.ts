@@ -24,11 +24,14 @@ export function getPersonaVoiceConfig(presetId?: string): PersonaVoiceConfig {
       return { pitch: 1.05, rate: 0.9, preferredGender: "female" };
     case "detective": // 셜록
       return { pitch: 0.95, rate: 1.05, preferredGender: "male" };
-    case "fitness": // 캡틴
+    case "cheerleader": // 캡틴 준
+    case "fitness": // 이전 저장값 호환
       return { pitch: 0.8, rate: 1.0, preferredGender: "male" };
-    case "poppy": // 뽀삐
+    case "doggo": // 뽀삐
+    case "poppy": // 이전 저장값 호환
       return { pitch: 1.3, rate: 1.15 };
-    case "cat": // 치즈냥이
+    case "cat_master": // 미야
+    case "cat": // 이전 저장값 호환
       return { pitch: 1.25, rate: 1.1 };
     default:
       return { pitch: 1.0, rate: 1.0 };
@@ -49,15 +52,18 @@ export function getEdgePersonaVoiceConfig(presetId?: string): EdgePersonaVoiceCo
       return { voice: "ko-KR-InJoonNeural", rate: "-5%", pitch: "-8Hz" };
     case "senior_dev": // 테드
       return { voice: "ko-KR-InJoonNeural", rate: "+0%", pitch: "-4Hz" };
-    case "fitness": // 캡틴
+    case "cheerleader": // 캡틴 준
+    case "fitness": // 이전 저장값 호환
       return { voice: "ko-KR-InJoonNeural", rate: "+5%", pitch: "-10Hz" };
     case "detective": // 셜록
       return { voice: "ko-KR-InJoonNeural", rate: "+5%", pitch: "-2Hz" };
     case "pm": // 칼퇴봇
       return { voice: "ko-KR-SunHiNeural", rate: "+25%", pitch: "+0Hz" };
-    case "poppy": // 뽀삐
+    case "doggo": // 뽀삐
+    case "poppy": // 이전 저장값 호환
       return { voice: "ko-KR-SunHiNeural", rate: "+12%", pitch: "+15Hz" };
-    case "cat": // 치즈냥이
+    case "cat_master": // 미야
+    case "cat": // 이전 저장값 호환
       return { voice: "ko-KR-SunHiNeural", rate: "+8%", pitch: "+12Hz" };
     case "ropan": // 베아트리체
       return { voice: "ko-KR-SunHiNeural", rate: "-5%", pitch: "+4Hz" };
@@ -87,7 +93,8 @@ export function cleanTextForSpeech(text: string): string {
 
   // 3. 행동 지문 제거 (예: *미소 지으며 커피잔을 건넨다*, (*속마음: 칼퇴하고 싶다*), (*안경을 고쳐 쓰며*))
   cleaned = cleaned.replace(/\(\*[\s\S]*?\*\)/g, ""); // (*...*)
-  cleaned = cleaned.replace(/\*[^*\n]+\*/g, ""); // *...*
+  cleaned = cleaned.replace(/\*\*([^*\n]+)\*\*/g, "$1"); // **강조**는 대사 유지
+  cleaned = cleaned.replace(/(?<!\*)\*[^*\n]+\*(?!\*)/g, ""); // *...*
   cleaned = cleaned.replace(/\([^(|\n]*속마음:[^)]*\)/gi, ""); // (속마음: ...)
 
   // 4. 시스템/대괄호 태그 제거 (예: [시스템 가동], [칼퇴 필수 1] -> 칼퇴 필수 1)
