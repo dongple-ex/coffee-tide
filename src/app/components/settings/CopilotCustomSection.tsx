@@ -287,6 +287,11 @@ export function CopilotCustomSection({
                     <div style={{ fontSize: "0.88rem", fontWeight: 700, color: "var(--text, #fff)" }}>
                       {preset.name}
                     </div>
+                    {preset.officeRole && (
+                      <div style={{ fontSize: "0.72rem", color: "var(--accent, #38bdf8)", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {preset.officeRole}
+                      </div>
+                    )}
                     <div style={{ fontSize: "0.75rem", color: "var(--text-dim, #888)", lineHeight: "1.3", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
                       {preset.tagline}
                     </div>
@@ -297,14 +302,69 @@ export function CopilotCustomSection({
           })}
         </div>
 
-        {/* 💬 실시간 캐릭터 대화 & 행동 지문 미리보기 */}
+        {/* 💬 실시간 캐릭터 오피스 프로필 & 대화 미리보기 */}
         <div className={styles.personaPreviewCard} style={{ marginTop: "12px" }}>
-          <div className={styles.personaPreviewHeader} style={{ display: "flex", justifyContent: "space-between" }}>
+          <div className={styles.personaPreviewHeader} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "6px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
               <UiIcon name="assistant" size={15} />
-              <span><b>{selectedPreset.name}</b>의 세계관 대화 예시</span>
+              <span><b>{selectedPreset.name}</b>의 오피스 프로필</span>
             </div>
-            <span style={{ fontSize: "0.75rem", color: "var(--text-dim, #888)" }}>{selectedPreset.badge}</span>
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              {selectedPreset.officeRole && (
+                <span style={{ fontSize: "0.74rem", padding: "2px 8px", borderRadius: "10px", background: "color-mix(in srgb, var(--accent) 15%, transparent)", color: "var(--accent)", fontWeight: 600 }}>
+                  {selectedPreset.officeRole}
+                </span>
+              )}
+              <span style={{ fontSize: "0.74rem", color: "var(--text-dim, #888)" }}>{selectedPreset.badge}</span>
+            </div>
+          </div>
+
+          {/* 📖 오피스 백스토리 & 시나리오 */}
+          {selectedPreset.story && (
+            <div
+              style={{
+                fontSize: "0.8rem",
+                lineHeight: "1.55",
+                color: "var(--text)",
+                background: "color-mix(in srgb, var(--card) 90%, transparent)",
+                padding: "10px 12px",
+                borderRadius: "6px",
+                border: "1px solid var(--border)",
+                borderLeft: "3px solid var(--accent)",
+                marginBottom: "8px",
+              }}
+            >
+              <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "var(--accent)", marginBottom: "4px", display: "flex", alignItems: "center", gap: "4px" }}>
+                <span>💼 오피스 스토리 & 배경 시나리오</span>
+              </div>
+              <div style={{ whiteSpace: "pre-line" }}>{selectedPreset.story}</div>
+            </div>
+          )}
+
+          {/* 🏷️ 핵심 업무 전문성 태그 */}
+          {selectedPreset.workExpertise && selectedPreset.workExpertise.length > 0 && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "10px" }}>
+              {selectedPreset.workExpertise.map((item, idx) => (
+                <span
+                  key={idx}
+                  style={{
+                    fontSize: "0.72rem",
+                    padding: "2px 8px",
+                    borderRadius: "6px",
+                    background: "var(--card)",
+                    color: "var(--text)",
+                    border: "1px solid var(--border)",
+                    fontWeight: 500,
+                  }}
+                >
+                  #{item}
+                </span>
+              ))}
+            </div>
+          )}
+
+          <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "var(--text-dim, #888)", marginBottom: "4px" }}>
+            💬 대화 예시
           </div>
           <div className={styles.personaPreviewBubble}>
             <b>{selectedPreset.baristaName}</b>: &ldquo;{previewGreeting}&rdquo;

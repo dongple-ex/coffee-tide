@@ -316,11 +316,18 @@ export function formatIdleTalkForPersona(
       };
     }
 
-    // 3. 칼퇴봇 (pm): 효율 제일주의 AI 시스템
+    // 3. 칼퇴봇 (pm): 효율 제일주의 AI 시스템 / 18시 셧다운 & 스펙아웃 방어
     case "pm": {
+      const intros = [
+        "🤖 [시스템 알림: 유휴 스레드 감지] 아젠다 없는 1시간 회의는 15분 스탠드업으로 즉시 압축 권고합니다. (*모니터 깜빡임*)",
+        "🚨 [시스템 알림: 스펙 아웃] 요구사항 추가 요청을 감지했습니다. '이번 스프린트 범위가 아닙니다'를 선제 발동하시겠습니까? (*타이머 작동*)",
+        "⚡ [시스템 알림: 정시 퇴근 KPI] 18:00 정시 셧다운까지 남은 집중 블록을 계산 중입니다. 뇌 캐시 정리를 권장합니다.",
+      ];
+      const randomIntro = intros[Math.abs(hashString(item.id)) % intros.length];
+
       return {
         title: `⚡ ${baristaName} [업무 리프레시 엔진]`,
-        content: `[시스템 알림: 유휴 스레드 감지] (*블루라이트 스캔 중*)\n${item.emoji} ${item.text}${punchlineText}\n\n📊 [분석 지표]: 3초간의 뇌 휴식이 정시 퇴근(칼퇴) 성공 확률을 14.8% 상승시킵니다. 집중력 충전 후 재개하십시오.`,
+        content: `${randomIntro}\n\n${item.emoji} ${item.text}${punchlineText}\n\n📊 [분석 지표]: 3초간의 뇌 휴식이 정시 퇴근(칼퇴) 성공 확률을 14.8% 상승시킵니다. 집중력 충전 후 재개하십시오.`,
       };
     }
 
@@ -330,6 +337,7 @@ export function formatIdleTalkForPersona(
         "야, 너 지금 모니터 보면서 멍때리고 있지? 딱 걸렸다 ㅋㅋㅋ (*팔짱을 끼며*)",
         "야야, 졸려 죽겠지? 이거 듣고 잠이나 깨라 풉! (*머그잔을 툭 밀어준다*)",
         "심심해서 온 거 아니거든? 그냥 너 노는 거 감시하러 왔지~ (*볼을 빵빵하게 부풀린다*)",
+        "야, 옥상 비상계단에서 믹스커피 한잔 때리고 올래? 팀장님 결재판 던지는 거 봤지? ㅋㅋㅋ",
       ];
       const randomIntro = intros[Math.abs(hashString(item.id)) % intros.length];
 
@@ -344,69 +352,125 @@ export function formatIdleTalkForPersona(
       };
     }
 
-    // 5. 로판 영애 (ropan): 베아트리체 공녀 (갭모에)
+    // 5. 로판 영애 (ropan): 베아트리체 공녀 (영지 회계 감사 & 영수증 10원 오차 극대노 갭모에)
     case "ropan": {
+      const intros = [
+        "오, 친애하는 공녀(공자)여... 영지 결산 영수증에서 10원의 오차를 발견하고 극대노하던 중이었답니다. (*찻잔을 우아하게 들며*)",
+        "부가세 신고 마감일이 다가오는데, 어찌 증빙 서류를 풀칠도 안 하고 제출하는 무엄한 자가 있단 말입니까! (*속마음: '아 진짜 영수증 풀칠 지옥 탈출하고 마라탕이나 시켜먹고 싶다...'*)",
+        "황태자 전하의 무리한 예산 증액 품의서를 결재 반려하고 오는 길입니다. 우아한 티타임으로 심신을 정화하시지요.",
+      ];
+      const randomIntro = intros[Math.abs(hashString(item.id)) % intros.length];
+
       return {
         title: `🥀 ${baristaName}의 영애 티타임`,
-        content: `오, 친애하는 공녀(공자)여... 과도한 정무로 심신이 고단하시군요. (*찻잔을 우아하게 들며*)\n${item.emoji} "${item.text}"${punchlineText}\n\n(*속마음: '하... 황태자고 제국이고 다 때려치우고 오늘 칼퇴해서 마라탕이나 시켜먹고 싶다 진짜... ㅋㅋㅋ'*)\n부디 우아한 차 한 잔으로 기력을 회복하시옵소서. ☕✨`,
+        content: `${randomIntro}\n\n${item.emoji} "${item.text}"${punchlineText}\n\n부디 품격 있는 차 한 잔으로 기력을 회복하시옵소서. 오차 없는 완벽한 결재를 위하여! ☕✨`,
       };
     }
 
-    // 6. 테드 (senior_dev): 판교 시니어 개발자
+    // 6. 테드 (senior_dev): 판교 10년 차 테크리드 (금요일 배포 금지 / 쿼리 인덱스 사수)
     case "senior_dev": {
+      const intros = [
+        "금요일 17시 배포하려는 손가락 멈추세요. 주말에 온콜 알람으로 울고 싶지 않으시면요. (*샷 3개 추가 아메리카노를 건네며*)",
+        "DB 풀 인덱스 스캔 돌려놓고 멍때리는 중이시죠? 쿼리 플랜 뜯어보기 전에 뇌 캐시부터 비웁시다. (*기계식 키보드를 툭툭*)",
+        "레거시 코드 건드렸다가 사이드 이펙트 터졌나요? 괜찮습니다, git revert는 언제나 우리 편이니까요.",
+      ];
+      const randomIntro = intros[Math.abs(hashString(item.id)) % intros.length];
+
       return {
         title: `💻 ${baristaName}의 터미널 브레이크`,
-        content: `샷 추가 완료했습니다. 콘솔 에러 잡기 전에 잠깐 뇌 캐시 비우시죠. (*키보드를 타닥이며*)\n${item.emoji} "${item.text}"${punchlineText}\n\n핫픽스 없이 무장애로 칼퇴 갑시다. 💻☕`,
+        content: `${randomIntro}\n\n${item.emoji} "${item.text}"${punchlineText}\n\n핫픽스 없이 무장애로 칼퇴 갑시다. 샷 추가는 개발자의 생명수니까요. 💻☕`,
       };
     }
 
-    // 7. 루미엘 (fantasy_mage): 별빛 대마법사
+    // 7. 루미엘 (fantasy_mage): 별빛 대마법사 (데이터 파이프라인 정화 & 오버피팅 퇴치)
     case "fantasy_mage": {
+      const intros = [
+        "여행자여, 방대한 데이터 파이프라인에서 메모리 누수와 오버피팅의 암흑 마법을 정화하고 돌아왔습니다. ✨ (*지팡이를 가볍게 흔든다*)",
+        "차원의 크론탭(CronTab)이 자정에 대규모 배치 작업을 예고하고 있군요. 마나 에스프레소 한 모금으로 마나를 충전하세요.",
+        "복잡한 쿼리의 심연을 들여다보다가 고대 아티팩트의 지혜를 발견했습니다. 잠시 시선을 돌려보시지요.",
+      ];
+      const randomIntro = intros[Math.abs(hashString(item.id)) % intros.length];
+
       return {
         title: `🪄 ${baristaName}의 별빛 아케인 톡`,
-        content: `여행자여, 차원의 틈새에서 흥미로운 마법적 지식을 발견했습니다. ✨ (*지팡이를 흔든다*)\n${item.emoji} "${item.text}"${punchlineText}\n\n마나 에스프레소의 축복이 당신의 오늘 퀘스트와 함께하길! 🔮`,
+        content: `${randomIntro}\n\n${item.emoji} "${item.text}"${punchlineText}\n\n마나 에스프레소의 축복이 당신의 오늘 업무 퀘스트와 함께하길! 🔮`,
       };
     }
 
-    // 8. 셜록 (detective): 명탐정 비서
+    // 8. 셜록 (detective): 명탐정 비서 (캘린더 이중예약 / 유령 회의실 사전 적발)
     case "detective": {
+      const intros = [
+        "흠! 캘린더에서 수상한 냄새가 나는군요. 14시와 15시 회의가 30분 겹치는 '이중 예약' 밀실 트릭을 사전 적발했습니다! (*돋보기를 번뜩이며*)",
+        "누가 '검토 부탁드립니다' 메일에 3일째 회신을 안 하고 있는지, Re: 스레드의 디지털 지문을 추적 완료했습니다. (*수첩을 탁 덮으며*)",
+        "예약만 걸어두고 아무도 안 들어가는 4층 유령 회의실의 미스터리를 풀었습니다. 블로커 검거 준비 완료입니다.",
+      ];
+      const randomIntro = intros[Math.abs(hashString(item.id)) % intros.length];
+
       return {
         title: `🔍 ${baristaName}의 추리 브리핑`,
-        content: `사소한 단서 속에 결정적 진실이 숨겨져 있는 법입니다. (*돋보기를 들여다보며*)\n${item.emoji} "${item.text}"${punchlineText}\n\n모든 퍼즐이 맞춰졌으니 이제 블로커를 검거하러 가시죠. 🕵️‍♂️`,
+        content: `${randomIntro}\n\n${item.emoji} "${item.text}"${punchlineText}\n\n모든 퍼즐이 맞춰졌으니 이제 블로커를 검거하러 가시죠. 🕵️‍♂️`,
       };
     }
 
-    // 9. 캡틴 준 (cheerleader): 열혈 멘토
+    // 9. 캡틴 준 (cheerleader): 열혈 멘토 (오피스 피지컬 & 거북목 기립근 사수)
     case "cheerleader": {
+      const intros = [
+        "회원님!! 지금 거북목 각도 45도에 흉추 말려있습니다! 기립근 사수하십시오!! 🔥 (*가슴을 탕 치며 스쿼트 자세 시범*)",
+        "오후 3시는 집중력 데드리프트의 마지막 세트입니다! 여기서 놓치면 오늘 퇴근 폼 다 무너집니다! 자, 어깨 펴고!",
+        "지치셨습니까?! 번아웃 따위 우리 팀 사전에 없습니다! 턱 당기고, 심호흡 3초 실시!!",
+      ];
+      const randomIntro = intros[Math.abs(hashString(item.id)) % intros.length];
+
       return {
         title: `🔥 ${baristaName}의 파워 펌핑 타임`,
-        content: `회원님!! 지치셨습니까?! 포기란 배추 셀 때나 쓰는 말입니다!! 🔥 (*가슴을 탕 치며*)\n${item.emoji} "${item.text}"${punchlineText}\n\n오후 3세트 집중력 완주 가즈아!! 할 수 있습니다 회원님!! 💪`,
+        content: `${randomIntro}\n\n${item.emoji} "${item.text}"${punchlineText}\n\n오후 3세트 집중력 완주 가즈아!! 할 수 있습니다 회원님!! 💪`,
       };
     }
 
-    // 10. 뽀삐 (doggo): 댕댕이 인턴
+    // 10. 뽀삐 (doggo): 댕댕이 인턴 (사원증 목에 건 마스코트 / 복사기 용지 채우기)
     case "doggo": {
+      const intros = [
+        "선배님! 뽀삐가 결재판 들고 총총총 뛰어왔어요 멍! 사원증 목에 걸고 꼬리콥터 붕붕 도는 중! 🐾 (*앞발로 결재 도장 콩 찍음*)",
+        "선배님 복사기 용지 채우는 거 뽀삐가 도와드렸어요! 칭찬의 쓰담쓰담 1회 적립 부탁드립니다 멍멍! 🐶✨",
+        "선배님 지금 졸리시죠? 뽀삐가 탕비실에서 제일 맛있는 과자 몰래 물어왔어요 멍!",
+      ];
+      const randomIntro = intros[Math.abs(hashString(item.id)) % intros.length];
+
       return {
         title: `🐶 ${baristaName}의 멍뭉 토크 왈!`,
-        content: `선배님! 뽀삐가 꼬리콥터 붕붕 돌리면서 재밌는 거 물어왔어요 멍! 🐾 (*꼬리를 세차게 흔들며*)\n${item.emoji} "${item.text}"${punchlineText}\n\n선배님 웃어주시니까 뽀삐 기분 너무너무 좋아요 멍멍! 🐶✨`,
+        content: `${randomIntro}\n\n${item.emoji} "${item.text}"${punchlineText}\n\n선배님 웃어주시니까 뽀삐 기분 너무너무 좋아요 멍멍! 🐶✨`,
       };
     }
 
-    // 11. 미야 (cat_master): 냥이 점장
+    // 11. 미야 (cat_master): 냥이 점장 (마감 5분 전 키보드 식빵 굽기 / 강제 셧다운 힐링)
     case "cat_master": {
+      const intros = [
+        "흥, 마감 5분 전인데 모니터만 뚫어져라 보고 있길래 키보드 위에 식빵 굽고 누웠다 냥. 강제 휴식이다 냥! (*앞발 젤리를 내밀며*)",
+        "집사 녀석, 목 뻐근해서 삐걱거리는 소리가 여기까지 들린다 냥. 내 골골송 테라피 1분 청취를 특별히 허락하겠다 냥. (*새침하게 눈을 깜빡*)",
+        "일을 빨리 끝내야 나한테 츄르를 바칠 수 있지 않겠냥? 멍때리지 말고 후딱 정리해라 냥.",
+      ];
+      const randomIntro = intros[Math.abs(hashString(item.id)) % intros.length];
+
       return {
         title: `🐾 ${baristaName} 점장님의 냥냥 한마디`,
-        content: `흥, 집사 멍때리고 있는 거 한심해서 특별히 하나 알려준다 냥. (*앞발로 툭 건드리며*)\n${item.emoji} "${item.text}"${punchlineText}\n\n빨리 일 치우고 츄르나 내놔라 냥! 🐱🐾`,
+        content: `${randomIntro}\n\n${item.emoji} "${item.text}"${punchlineText}\n\n빨리 일 치우고 간식이나 내놔라 냥! 🐱🐾`,
       };
     }
 
-    // 12. 에단 (barista): 클래식 바리스타 & 기본
+    // 12. 에단 (barista): 클래식 바리스타 (사내 카페 10년 차 / 기획서 반려 표정 간파 맞춤 커피)
     case "barista":
     case "custom":
     default: {
+      const intros = [
+        "손님, 방금 엘리베이터에서 내리시는 발걸음 소리만 듣고도 기획서 반려의 기운이 느껴져 다크 로스팅으로 준비했습니다. (*따뜻한 머그잔을 건네며*)",
+        "사내 카페 10년 동안 수많은 직장인의 희로애락을 지켜봤습니다. 지친 오후엔 이 커피의 잔향이 가장 든든한 방패가 되어줄 겁니다.",
+        "잠시 화면에서 시선을 거두시고, 원두의 첫 향을 음미해보세요. 복잡했던 생각들이 차분히 정돈될 겁니다.",
+      ];
+      const randomIntro = intros[Math.abs(hashString(item.id)) % intros.length];
+
       return {
         title: `☕ ${baristaName}의 향긋한 쉼표`,
-        content: `잠시 숨을 고르시는 손님을 위해 작은 미소를 준비했습니다. (*따뜻한 머그잔을 건네며*)\n\n${item.emoji} ${item.text}${punchlineText}\n\n따뜻한 커피 향과 함께 기분 좋은 오후 보내세요. ✨`,
+        content: `${randomIntro}\n\n${item.emoji} ${item.text}${punchlineText}\n\n따뜻한 커피 향과 함께 기분 좋은 오후 보내세요. ✨`,
       };
     }
   }
