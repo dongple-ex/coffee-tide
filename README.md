@@ -5,7 +5,8 @@
 coffeeTide는 직접 입력과 붙여넣기만으로 바로 시작할 수 있고, 필요할 때 Google·Outlook·Notion·Obsidian 같은 외부 서비스를 연결해 확장하는 Next.js 기반 업무 대시보드입니다.
 
 - 기본 운영 도메인: `https://coffee-tide.dongple.kr`
-- 앱 버전: `1.2.2` (문서 대조: 2026-09-23, 로컬 `ea4bcb5`)
+- 앱 버전: `1.2.3`
+- 문서 대조 기준: 2026-09-23, 로컬 `ea4bcb5` (당시 앱 1.2.2)
 - 기술 스택: Next.js 16.3 · React 19 · TypeScript · Supabase · Vitest
 
 ## 핵심 기능

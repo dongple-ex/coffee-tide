@@ -2,7 +2,7 @@
  * 사용자에게 표시하는 coffeeTide 버전 — 설정 화면 및 What's New 모달에 노출된다.
  * 릴리스 시 package.json과 함께 갱신할 것. (version.test.ts에서 동기화 검증)
  */
-export const APP_VERSION = "v1.2.2";
+export const APP_VERSION = "v1.2.3";
 
 export const LS_LAST_SEEN_VERSION = "coffeetide_last_seen_version";
 
@@ -21,6 +21,24 @@ export interface ReleaseNote {
 }
 
 export const RELEASE_HISTORY: ReleaseNote[] = [
+  {
+    version: "v1.2.3",
+    date: "2026-09-27",
+    title: "페르소나 이미지와 AI 대화 개선",
+    summary: "13개 페르소나의 고유 사진을 새로 적용하고 음성 대화와 일상·업무 대화 분기를 안정화했습니다.",
+    items: [
+      {
+        type: "enhance",
+        title: "페르소나별 고유 사진",
+        description: "각 캐릭터의 역할에 맞는 새 사진을 웹과 데스크톱 바리스타에 적용하고 설정 화면에서 미리 볼 수 있습니다.",
+      },
+      {
+        type: "fix",
+        title: "음성 대화 및 업무 요청 분류 안정화",
+        description: "음성 중지 후 지연 재생을 막고, 일상 주제가 포함된 업무 요청도 올바르게 처리합니다.",
+      },
+    ],
+  },
   {
     version: "v1.2.2",
     date: "2026-09-21",
