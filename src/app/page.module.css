@@ -2999,6 +2999,28 @@
   color: #fafafa !important;
 }
 
+:global([data-theme="simple"]) .baristaIdleActionBtn {
+  background: #27272a !important;
+  color: #fafafa !important;
+  border-color: #3f3f46 !important;
+}
+
+:global([data-theme="simple"]) .baristaIdleActionBtn:hover {
+  background: #3f3f46 !important;
+  color: #ffffff !important;
+}
+
+:global([data-theme="simple"]) .baristaIdleActionPrimary {
+  background: #fafafa !important;
+  color: #18181b !important;
+  border-color: #fafafa !important;
+}
+
+:global([data-theme="simple"]) .baristaIdleActionPrimary:hover {
+  background: #e4e4e7 !important;
+  color: #18181b !important;
+}
+
 /* ── 반응형 (M1: ≤720px 단일 컬럼, ≤480px 밀도 완화) ── */
 @media (max-width: 900px) {
   .colInput,
@@ -5891,7 +5913,7 @@
 
 .baristaIdleActionPrimary {
   background: var(--accent);
-  color: #ffffff;
+  color: var(--accent-contrast, #ffffff);
   border-color: var(--accent);
 }
 
@@ -5981,7 +6003,7 @@
 }
 .baristaIdleMascotActionBtn:hover {
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-contrast, #fff);
   border-color: var(--accent);
 }
 

@@ -10,6 +10,8 @@ import { getAffectionState, calculateLevelInfo } from "@/lib/ai/affectionManager
 import { DesktopBaristaConnector } from "./DesktopBaristaConnector";
 import type { PipChatMessage } from "./pipChat";
 import { DesktopBaristaPip } from "./DesktopBaristaPip";
+import { usePersonaVoiceChat } from "@/app/hooks/usePersonaVoiceChat";
+import { UiIcon } from "../UiIcon";
 import styles from "../../page.module.css";
 
 const emptySubscribe = () => () => {};
@@ -150,12 +152,99 @@ export function BaristaIdleCompanion({
     return () => window.removeEventListener("coffeetide:summon-barista", handleSummon);
   }, [enabled, pickNextTalk]);
 
+  const submitMessage = useCallback(
+    async (msg: string, isVoice = false) => {
+      const trimmed = msg.trim();
+      if (!trimmed || inlineChat?.isThinking) return;
+      const previousTurn = inlineChat?.aiText
+        ? { userText: inlineChat.userText, aiText: inlineChat.aiText }
+        : undefined;
+      setQuickInput("");
+      if (onSendMessage) {
+        setInlineChat({
+          userText: trimmed,
+          isThinking: true,
+        });
+        if (!isVoice) {
+          setIsPanelMinimized(true);
+        }
+        try {
+          const answer = await onSendMessage(trimmed, previousTurn);
+          if (answer) {
+            setInlineChat({
+              userText: trimmed,
+              aiText: answer,
+              isThinking: false,
+            });
+            if (isVoice) {
+              void speakVoice(answer, presetId);
+            }
+          } else {
+            setInlineChat((prev) => (prev ? { ...prev, isThinking: false } : null));
+          }
+        } catch {
+          setInlineChat((prev) => (prev ? { ...prev, isThinking: false } : null));
+        }
+      } else {
+        handleDismissAll();
+        onOpenCopilot?.();
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [inlineChat, onSendMessage, onOpenCopilot, presetId]
+  );
+
+  const {
+    isListening: isVoiceListening,
+    isSpeaking: isVoiceSpeaking,
+    interimText: voiceInterimText,
+    startListening: startVoiceListening,
+    stopListening: stopVoiceListening,
+    speak: speakVoice,
+    stopSpeaking: stopVoiceSpeaking,
+  } = usePersonaVoiceChat({
+    presetId,
+    onTranscriptComplete: (finalTranscript) => {
+      const trimmed = finalTranscript.trim();
+      if (trimmed) {
+        setQuickInput(trimmed);
+        void submitMessage(trimmed, true);
+      }
+    },
+  });
+
+  // 음성 인식 중 실시간 텍스트를 입력창에 동기화
+  useEffect(() => {
+    if (isVoiceListening && voiceInterimText) {
+      setQuickInput(voiceInterimText);
+    }
+  }, [isVoiceListening, voiceInterimText]);
+
+  const handleToggleVoice = useCallback(() => {
+    if (isVoiceSpeaking) {
+      stopVoiceSpeaking();
+      return;
+    }
+    if (isVoiceListening) {
+      stopVoiceListening();
+      return;
+    }
+    const started = startVoiceListening();
+    if (!started) {
+      console.warn("[BaristaIdleCompanion] Microphone start failed.");
+    }
+  }, [isVoiceSpeaking, isVoiceListening, stopVoiceSpeaking, stopVoiceListening, startVoiceListening]);
+
   const handleDismissCard = () => {
+    stopVoiceSpeaking();
+    stopVoiceListening();
     setIsCardOpen(false);
     setIsPanelMinimized(false);
   };
 
   const handleDismissAll = () => {
+    stopVoiceSpeaking();
+    stopVoiceListening();
     setIsVisible(false);
     setIsCardOpen(false);
     setIsPanelMinimized(false);
@@ -174,37 +263,9 @@ export function BaristaIdleCompanion({
 
   const handleQuickSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const msg = quickInput.trim();
-    if (!msg || inlineChat?.isThinking) return;
-    const previousTurn = inlineChat?.aiText
-      ? { userText: inlineChat.userText, aiText: inlineChat.aiText }
-      : undefined;
-    setQuickInput("");
-    if (onSendMessage) {
-      setInlineChat({
-        userText: msg,
-        isThinking: true,
-      });
-      // 답변 생성은 유지하면서 대시보드 작업 공간을 즉시 돌려준다.
-      setIsPanelMinimized(true);
-      try {
-        const answer = await onSendMessage(msg, previousTurn);
-        if (answer) {
-          setInlineChat({
-            userText: msg,
-            aiText: answer,
-            isThinking: false,
-          });
-        } else {
-          setInlineChat((prev) => (prev ? { ...prev, isThinking: false } : null));
-        }
-      } catch {
-        setInlineChat((prev) => (prev ? { ...prev, isThinking: false } : null));
-      }
-    } else {
-      handleDismissAll();
-      onOpenCopilot?.();
-    }
+    if (isVoiceSpeaking) stopVoiceSpeaking();
+    if (isVoiceListening) stopVoiceListening();
+    await submitMessage(quickInput, false);
   };
 
   // 동적으로 가져온 대사가 있으면 우선 사용하고, 없으면 로컬 최신 유머 풀 기반 포맷팅
@@ -410,10 +471,12 @@ export function BaristaIdleCompanion({
               type="text"
               value={quickInput}
               onChange={(e) => setQuickInput(e.target.value)}
-              disabled={inlineChat?.isThinking}
+              disabled={inlineChat?.isThinking || isVoiceListening}
               placeholder={
                 inlineChat?.isThinking
                   ? `${baristaName}가 답변을 준비하고 있어요...`
+                  : isVoiceListening
+                  ? "음성을 듣고 있어요... (말씀해 주세요)"
                   : `${baristaName}에게 메시지 보내기...`
               }
               style={{
@@ -427,6 +490,59 @@ export function BaristaIdleCompanion({
                 padding: "6px 4px",
               }}
             />
+            <button
+              type="button"
+              className={`${styles.copilotVoiceBtn} ${
+                isVoiceListening
+                  ? styles.copilotVoiceBtnListening
+                  : isVoiceSpeaking
+                  ? styles.copilotVoiceBtnSpeaking
+                  : ""
+              }`}
+              style={{
+                width: "28px",
+                height: "28px",
+                minWidth: "28px",
+                minHeight: "28px",
+                borderRadius: "50%",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+                padding: 0,
+                border: isVoiceListening
+                  ? "1px solid #f87171"
+                  : isVoiceSpeaking
+                  ? "1px solid #60a5fa"
+                  : "1px solid var(--border, rgba(255, 255, 255, 0.15))",
+                background: isVoiceListening
+                  ? "#ef4444"
+                  : isVoiceSpeaking
+                  ? "#2563eb"
+                  : "var(--card, #18181b)",
+                color: "#ffffff",
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+              }}
+              onClick={handleToggleVoice}
+              disabled={inlineChat?.isThinking && !isVoiceSpeaking}
+              title={
+                isVoiceListening
+                  ? "음성 듣기 중지 (클릭 시 전송)"
+                  : isVoiceSpeaking
+                  ? "답변 음성 중지"
+                  : `${baristaName}와 음성으로 대화하기`
+              }
+              aria-label={
+                isVoiceListening
+                  ? "음성 듣기 중지"
+                  : isVoiceSpeaking
+                  ? "답변 음성 중지"
+                  : `${baristaName}와 음성으로 대화하기`
+              }
+            >
+              <UiIcon name="voice-wave" size={14} />
+            </button>
             <button
               type="submit"
               disabled={!quickInput.trim() || inlineChat?.isThinking}
