@@ -2,6 +2,8 @@ import { buildCopilotSystemInstruction, type CopilotUserConfig } from "./harness
 
 export type TerminalAiProvider = "claude_cli" | "codex_cli";
 export interface TerminalAiSettings { executablePath: string; workingDirectory: string; model: string; defaultDirectory?: string }
+export interface TerminalAiModel { value: string; label: string; description: string; reasoningEfforts: string[]; isDefault: boolean }
+export interface TerminalAiModelCatalog { provider: TerminalAiProvider; models: TerminalAiModel[]; source: "claude-agent-sdk" | "codex-app-server"; checkedAt: string }
 export interface TerminalAiStatus {
   provider: TerminalAiProvider;
   account: { loggedIn: boolean | null; email?: string; authMethod?: string; plan?: string; organization?: string };
@@ -19,8 +21,11 @@ export const TERMINAL_AI_USAGE = {
   codex_cli: { label: "Codex 사용량 안내", url: "https://learn.chatgpt.com/docs/developer-commands#view-account-usage-with-usage", description: "Codex 터미널에서 /status로 한도를, /usage로 활동을 확인하세요. CLI 버전에 따라 메뉴가 다를 수 있습니다." },
 };
 const BRIDGE_URL = "http://127.0.0.1:47381";
-interface TerminalConnection { token: string; supported: boolean; accountInfoSupported?: boolean }
+interface TerminalConnection { token: string; supported: boolean; accountInfoSupported?: boolean; modelsSupported?: boolean; modelRequests?: Partial<Record<TerminalAiProvider, Promise<TerminalAiModelCatalog | null>>> }
 let connection: TerminalConnection | null = null;
+let connectionVersion = 0;
+export const terminalAiConnectionVersion = () => connectionVersion;
+export const terminalAiConnectionInitialVersion = () => 0;
 let currentRequest: { id: string; connection: TerminalConnection; abort: AbortController } | null = null;
 const listeners = new Set<() => void>();
 const publish = () => listeners.forEach(listener => listener());
@@ -34,11 +39,11 @@ export function registerTerminalAi(token: string, supported: boolean) {
   cancelTerminalAi();
   const registered = { token, supported };
   statuses.clear();
-  connection = registered; publish();
+  connection = registered; connectionVersion++; publish();
   return () => {
     if (connection === registered) {
       cancelTerminalAi();
-      connection = null; statuses.clear(); publish();
+      connection = null; connectionVersion++; statuses.clear(); publish();
     }
   };
 }
@@ -74,6 +79,34 @@ export async function terminalAiConfig(provider: TerminalAiProvider, settings?: 
 }
 export async function checkTerminalAi(provider: TerminalAiProvider) {
   return post<{ installed: boolean; version: string; executable: string }>(requireConnection(), "check", { provider }, AbortSignal.timeout(15000));
+}
+export async function readTerminalAiModels(provider: TerminalAiProvider): Promise<TerminalAiModelCatalog | null> {
+  const connected = requireConnection();
+  if (connected.modelsSupported === false) return null;
+  const requests = connected.modelRequests ||= {};
+  if (requests[provider]) return requests[provider];
+  const request = (async (): Promise<TerminalAiModelCatalog | null> => {
+    try {
+      const catalog = await post<TerminalAiModelCatalog>(connected, "models", { provider }, AbortSignal.timeout(20000));
+      if (connected !== connection) throw new Error("데스크톱 연결이 변경되었습니다.");
+      const source = provider === "claude_cli" ? "claude-agent-sdk" : "codex-app-server";
+      if (catalog?.provider !== provider || catalog.source !== source || !Array.isArray(catalog.models) || !catalog.models.length || catalog.models.length > 500 || typeof catalog.checkedAt !== "string" || !Number.isFinite(Date.parse(catalog.checkedAt))) throw new Error("모델 목록 형식이 올바르지 않습니다.");
+      const text = (value: unknown, max: number): value is string => typeof value === "string" && value.length <= max && !/[\x00-\x1f\x7f]/.test(value);
+      const seen = new Set<string>();
+      const models = catalog.models.map(model => {
+        if (!model || !text(model.value, 100) || !/^[a-zA-Z0-9_.:/-]+(?:\[[a-zA-Z0-9_-]+\])?$/.test(model.value) || seen.has(model.value) || !text(model.label, 160) || !model.label.trim() || !text(model.description, 500) || typeof model.isDefault !== "boolean" || !Array.isArray(model.reasoningEfforts) || model.reasoningEfforts.length > 16 || !model.reasoningEfforts.every(level => typeof level === "string" && /^[a-z0-9_-]{1,32}$/.test(level))) throw new Error("모델 목록 형식이 올바르지 않습니다.");
+        seen.add(model.value);
+        return { value: model.value, label: model.label, description: model.description, reasoningEfforts: model.reasoningEfforts, isDefault: model.isDefault };
+      });
+      return { provider, source, checkedAt: catalog.checkedAt, models };
+    } catch (error) {
+      if (connected !== connection) throw new Error("데스크톱 연결이 변경되었습니다.");
+      if (error instanceof TerminalAiBridgeError && error.status === 404) { connected.modelsSupported = false; return null; }
+      throw error;
+    }
+  })();
+  requests[provider] = request;
+  try { return await request; } finally { if (requests[provider] === request) delete requests[provider]; }
 }
 function storeStatus(provider: TerminalAiProvider, status: TerminalAiStatus) {
   const allowedUrls = [TERMINAL_AI_USAGE.claude_cli.url, TERMINAL_AI_USAGE.codex_cli.url, "https://platform.claude.com/usage", "https://platform.openai.com/usage"];

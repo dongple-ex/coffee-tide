@@ -12,7 +12,8 @@ const ai = createCliAi({ defaultDirectory: path.join(__dirname, '..', 'smoke-out
     try {
       const installation = await ai.check(selected);
       const result = live ? await ai.chat({ provider: selected, requestId: randomUUID(), prompt: 'CoffeeTide의 CLI 연결을 확인하는 합성 테스트입니다. 도구를 호출하지 말고 한국어로 "연결 확인 완료"라는 한 문장만 답하세요.' }) : null;
-      console.log(JSON.stringify({ provider: selected, version: installation.version, source: live ? 'real_cli' : 'installation_only', ...(result ? { answer: result.answer } : {}) }));
+      if (result && (!result.status?.verifiedAt || !result.status?.checkedAt)) throw new Error('실제 응답 상태가 반환되지 않았습니다.');
+      console.log(JSON.stringify({ provider: selected, version: installation.version, source: live ? 'real_cli' : 'installation_only', ...(result ? { answer: result.answer, accountIdentified: Boolean(result.status.account.email || result.status.account.authMethod), responseVerified: Boolean(result.status.verifiedAt) } : {}) }));
     } catch (error) { failed = true; console.log(JSON.stringify({ provider: selected, error: error.message })); }
   }
   ai.close(); process.exitCode = failed ? 1 : 0;

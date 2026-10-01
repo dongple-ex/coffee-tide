@@ -1,6 +1,8 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
+const { claudeAccount, codexAccount, codexAccountProtocol, usageFor } = require('./cli-account.cjs');
+const { MODEL_ID, normalizeModels, codexModelsProtocol, claudeModels } = require('./cli-models.cjs');
 
 const PROVIDERS = ['claude_cli', 'codex_cli'];
 const MAX_OUTPUT = 1024 * 1024;
@@ -18,7 +20,7 @@ function validateSettings(value = {}) {
     }
     result[key] = text.trim();
   }
-  if (result.model && !/^[a-zA-Z0-9_.:/-]+$/.test(result.model)) throw new CliAiError('모델 이름에 허용되지 않은 문자가 있습니다.');
+  if (result.model && !MODEL_ID.test(result.model)) throw new CliAiError('모델 이름에 허용되지 않은 문자가 있습니다.');
   return result;
 }
 
@@ -95,13 +97,32 @@ function parseReply(provider, stdout) {
   return { answer };
 }
 
-function createCliAi({ defaultDirectory, settings = {}, save = () => {}, spawnProcess = spawn, timeoutMs = 120000, resolve = resolveExecutable, platform = process.platform }) {
+function createCliAi({ defaultDirectory, settings = {}, save = () => {}, onStatus = () => {}, spawnProcess = spawn, timeoutMs = 120000, modelTimeoutMs = 15000, loadClaudeSdk, resolve = resolveExecutable, platform = process.platform, env = process.env }) {
   fs.mkdirSync(defaultDirectory, { recursive: true });
   const configs = {};
   for (const provider of PROVIDERS) {
     try { configs[provider] = validateSettings(settings[provider]); } catch { configs[provider] = validateSettings(); }
   }
   let active = null;
+  let operation = null;
+  const statuses = {};
+  const snapshot = provider => {
+    config(provider);
+    const status = statuses[provider] || { provider, account: { loggedIn: null }, checkedAt: null, verifiedAt: null };
+    return { ...status, usage: usageFor(provider, status.account) };
+  };
+  const updateStatus = (provider, next) => {
+    statuses[provider] = { ...snapshot(provider), ...next };
+    onStatus(snapshot(provider));
+    return snapshot(provider);
+  };
+  const exclusive = async (provider, id, work) => {
+    config(provider);
+    if (operation || active) throw new CliAiError('터미널 AI가 답변 중입니다. 완료하거나 취소한 뒤 다시 보내 주세요.', 409);
+    const owned = { id, cancelled: false };
+    operation = owned;
+    try { return await work(); } finally { if (operation === owned) operation = null; }
+  };
   const config = (provider) => {
     if (!PROVIDERS.includes(provider)) throw new CliAiError('지원하지 않는 터미널 AI입니다.');
     return { ...configs[provider], defaultDirectory };
@@ -114,15 +135,21 @@ function createCliAi({ defaultDirectory, settings = {}, save = () => {}, spawnPr
     return { executable: resolve(provider, current.executablePath), cwd, model: current.model };
   };
   const cancel = (requestId) => {
+    if (operation && (!requestId || operation.id === requestId)) {
+      operation.cancelled = true;
+      active?.abort(new CliAiError('터미널 AI 요청을 취소했습니다.', 409));
+      return true;
+    }
     if (!active || (requestId && active.id !== requestId)) return false;
     active.abort(new CliAiError('터미널 AI 요청을 취소했습니다.', 409));
     return true;
   };
-  const run = (requestId, executable, args, cwd, input, limit) => {
+  const run = (requestId, executable, args, cwd, input, limit, protocol, acceptedCodes = [0]) => {
+    if (operation?.cancelled) throw new CliAiError('터미널 AI 요청을 취소했습니다.', 409);
     if (active) throw new CliAiError('터미널 AI가 답변 중입니다. 완료하거나 취소한 뒤 다시 보내 주세요.', 409);
     return new Promise((resolveRun, reject) => {
       let child, timer, settled = false, stopping = false, stdout = '', stderr = '', bytes = 0;
-      let failure = null;
+      let failure = null, pending = '';
       const finish = (error) => {
         if (settled) return;
         settled = true;
@@ -148,44 +175,112 @@ function createCliAi({ defaultDirectory, settings = {}, save = () => {}, spawnPr
       try {
         child = spawnProcess(executable, args, { cwd, shell: false, windowsHide: true, detached: platform !== 'win32', stdio: ['pipe', 'pipe', 'pipe'] });
         child.stdout.setEncoding('utf8'); child.stderr.setEncoding('utf8');
-        child.stdout.on('data', text => { bytes += Buffer.byteLength(text); if (bytes > MAX_OUTPUT) stop(new CliAiError('터미널 AI 출력 크기가 제한을 초과했습니다.', 502)); else stdout += text; });
+        child.stdout.on('data', text => {
+          bytes += Buffer.byteLength(text);
+          if (bytes > MAX_OUTPUT) { stop(new CliAiError('터미널 AI 출력 크기가 제한을 초과했습니다.', 502)); return; }
+          stdout += text;
+          if (protocol && !stopping) {
+            pending += text;
+            const lines = pending.split('\n'); pending = lines.pop();
+            try { for (const line of lines) protocol.onLine(line, child.stdin); }
+            catch { stop(new CliAiError('CLI 정보를 조회하지 못했습니다. CLI를 업데이트하거나 터미널에서 로그인 상태를 확인해 주세요.', 502)); }
+          }
+        });
         child.stderr.on('data', text => {
           bytes += Buffer.byteLength(text);
           if (bytes > MAX_OUTPUT) stop(new CliAiError('터미널 AI 출력 크기가 제한을 초과했습니다.', 502));
           else stderr = (stderr + text).slice(-4000);
         });
         child.once('error', () => finish(new CliAiError('AI 실행 파일을 시작하지 못했습니다. 실행 권한과 경로를 확인해 주세요.', 503)));
-        child.once('close', code => finish(failure || (code !== 0 ? outputError(`${stderr}\n${stdout}`) : null)));
+        child.once('close', code => finish(failure || (!acceptedCodes.includes(code) ? outputError(`${stderr}\n${stdout}`) : null)));
         child.stdin.on('error', () => stop(new CliAiError('터미널 AI에 질문을 전달하지 못했습니다.', 502)));
         timer = setTimeout(() => stop(new CliAiError('터미널 AI 응답 시간이 초과되었습니다. 다시 보내 주세요.', 504)), limit);
-        child.stdin.end(input, 'utf8');
+        if (protocol) child.stdin.write(JSON.stringify(protocol.initial) + '\n');
+        else child.stdin.end(input, 'utf8');
       } catch { finish(new CliAiError('AI 실행 파일을 시작하지 못했습니다.', 503)); }
     });
   };
+  const readAccount = async (provider, requestId) => {
+    try {
+      const { executable, cwd } = execution(provider);
+      let account;
+      if (provider === 'claude_cli') {
+        account = claudeAccount(JSON.parse(await run(requestId, executable, ['auth', 'status'], cwd, '', 15000, undefined, [0, 1])));
+      } else {
+        const protocol = codexAccountProtocol();
+        await run(requestId, executable, ['app-server', '--listen', 'stdio://', '-c', 'model_provider="openai"'], cwd, '', 15000, protocol);
+        account = codexAccount(protocol.result(), Boolean(env.CODEX_API_KEY));
+      }
+      const previous = snapshot(provider);
+      const sameAccount = JSON.stringify(previous.account) === JSON.stringify(account);
+      return updateStatus(provider, { account, checkedAt: new Date().toISOString(), verifiedAt: sameAccount ? previous.verifiedAt : null, lastError: sameAccount ? previous.lastError : undefined });
+    } catch (error) {
+      if (operation?.cancelled) throw error;
+      return updateStatus(provider, { account: { loggedIn: null }, checkedAt: new Date().toISOString(), verifiedAt: null, lastError: '계정 정보를 확인하지 못했습니다. 일반 터미널에서 로그인 상태를 확인해 주세요.' });
+    }
+  };
   return {
     config,
+    models: (provider) => exclusive(provider, `models-${Date.now()}`, async () => {
+      const requestId = operation.id;
+      try {
+        const { executable, cwd } = execution(provider);
+        let rows;
+        if (provider === 'claude_cli') {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(new CliAiError('모델 목록 조회 시간이 초과되었습니다. 다시 시도해 주세요.', 504)), modelTimeoutMs);
+          active = { id: requestId, abort: error => controller.abort(error) };
+          try { rows = await claudeModels({ executable, cwd, signal: controller.signal, loadSdk: loadClaudeSdk }); }
+          finally { clearTimeout(timeout); if (active?.id === requestId) active = null; }
+        } else {
+          const protocol = codexModelsProtocol();
+          await run(requestId, executable, ['app-server', '--listen', 'stdio://', '-c', 'model_provider="openai"'], cwd, '', modelTimeoutMs, protocol);
+          rows = protocol.result();
+        }
+        if (operation.cancelled) throw new CliAiError('모델 목록 조회를 취소했습니다.', 409);
+        return { provider, models: normalizeModels(provider, rows), source: provider === 'claude_cli' ? 'claude-agent-sdk' : 'codex-app-server', checkedAt: new Date().toISOString() };
+      } catch (error) {
+        if (error instanceof CliAiError) throw error;
+        throw new CliAiError('모델 목록을 조회하지 못했습니다. CLI를 업데이트하거나 로그인 상태를 확인해 주세요. 모델 이름을 직접 입력할 수도 있습니다.', 502);
+      }
+    }),
+    status: (provider, refresh = false) => refresh ? exclusive(provider, `account-${Date.now()}`, () => readAccount(provider, operation.id)) : snapshot(provider),
     configure(provider, value) {
-      if (active) throw new CliAiError('답변 중에는 실행 설정을 변경할 수 없습니다.', 409);
+      if (active || operation) throw new CliAiError('답변 중에는 실행 설정을 변경할 수 없습니다.', 409);
       config(provider);
       const next = validateSettings(value);
       const old = configs[provider];
       configs[provider] = next;
       try { execution(provider); save({ ...configs }); } catch (error) { configs[provider] = old; throw error; }
+      if (JSON.stringify(old) !== JSON.stringify(next)) { delete statuses[provider]; onStatus(snapshot(provider)); }
       return config(provider);
     },
     async check(provider) {
-      const { executable, cwd } = execution(provider);
-      const version = (await run(`check-${Date.now()}`, executable, ['--version'], cwd, '', 10000)).trim();
-      if (!version || version.length > 200) throw new CliAiError('CLI 버전 확인에 실패했습니다.', 502);
-      return { provider, executable, version, installed: true };
+      return exclusive(provider, `check-${Date.now()}`, async () => {
+        const { executable, cwd } = execution(provider);
+        const version = (await run(operation.id, executable, ['--version'], cwd, '', 10000)).trim();
+        if (!version || version.length > 200) throw new CliAiError('CLI 버전 확인에 실패했습니다.', 502);
+        return { provider, executable, version, installed: true };
+      });
     },
     async chat({ provider, requestId, prompt }) {
       if (typeof requestId !== 'string' || !/^[a-f0-9-]{36}$/i.test(requestId) || typeof prompt !== 'string' || !prompt.trim() || prompt.includes('\0') || Buffer.byteLength(prompt) > 48000) {
         throw new CliAiError('질문 형식 또는 크기를 확인해 주세요.');
       }
-      const { executable, cwd, model } = execution(provider);
-      const stdout = await run(requestId, executable, buildArguments(provider, model), cwd, prompt, timeoutMs);
-      return { ...parseReply(provider, stdout), provider, requestId, ...(model ? { model } : {}) };
+      return exclusive(provider, requestId, async () => {
+        try {
+          const startedAt = Date.now();
+          const { executable, cwd, model } = execution(provider);
+          await readAccount(provider, requestId);
+          const stdout = await run(requestId, executable, buildArguments(provider, model), cwd, prompt, Math.max(1, timeoutMs - (Date.now() - startedAt)));
+          const reply = parseReply(provider, stdout);
+          const status = updateStatus(provider, { verifiedAt: new Date().toISOString(), lastError: undefined });
+          return { ...reply, provider, requestId, status, ...(model ? { model } : {}) };
+        } catch (error) {
+          updateStatus(provider, { lastError: error instanceof CliAiError ? error.message : '터미널 AI 요청에 실패했습니다.' });
+          throw error;
+        }
+      });
     },
     cancel,
     close: () => cancel(),

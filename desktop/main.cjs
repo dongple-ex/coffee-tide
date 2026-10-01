@@ -19,13 +19,13 @@ if (smoke) {
   app.setPath('userData', profile);
 }
 const WIDTH = 280, HEIGHT = 280;
-let win, tray, bridge, bridgePort, mouseTimer, saveTimer;
+let win, tray, bridge, bridgePort, mouseTimer, saveTimer, cliAi;
 let stopHotkey = () => {};
 let hotkeyStatus = 'starting';
 let regions = [];
 let ignored = false;
 let prefs = { appearance: 'cup' };
-let state = { name: 'AI 바리스타', speech: '', accent: '#bd7957', avatar: 'persona_barista_v2.webp', connected: false, code: '', appearance: 'cup' };
+let state = { name: 'AI 바리스타', speech: '', accent: '#bd7957', avatar: 'persona_barista_v2.webp', connected: false, code: '', appearance: 'cup', chatOpen: false, chatSession: 0 };
 const prefsPath = () => path.join(app.getPath('userData'), 'preferences.json');
 const publish = (next) => {
   state = { ...state, ...next, appearance: prefs.appearance };
@@ -44,6 +44,18 @@ function show() {
     win.setAlwaysOnTop(true, 'screen-saver');
     win.focus();
   }
+}
+function setChatOpen(open) {
+  if (!win || win.isDestroyed() || state.chatOpen === open) return;
+  const bounds = win.getBounds();
+  const area = screen.getDisplayMatching(bounds).workArea;
+  const width = Math.min(open ? 320 : WIDTH, area.width);
+  const height = Math.min(open ? 440 : HEIGHT, area.height);
+  const position = clampPosition({ x: bounds.x + bounds.width - width, y: bounds.y + bounds.height - height }, area, width, height);
+  win.setBounds({ ...position, width, height });
+  ignored = false; win.setIgnoreMouseEvents(false);
+  publish({ chatOpen: open });
+  if (open) show();
 }
 function openWeb() {
   Promise.resolve(openConversation(bridge, (url) => shell.openExternal(url), origin))
@@ -77,7 +89,7 @@ function updateMenu() {
       { label: '② 현재 바리스타 사진', type: 'radio', checked: prefs.appearance === 'photo', click: () => setAppearance('photo') },
     ] },
     { label: '웹 연결 해제 / 코드 재발급', click: () => bridge?.reset() },
-    { label: '화면 안으로 위치 복원', click: () => { const area = screen.getPrimaryDisplay().workArea; win.setPosition(area.x + area.width - WIDTH - 24, area.y + area.height - HEIGHT - 24); show(); } },
+    { label: '화면 안으로 위치 복원', click: () => { const area = screen.getPrimaryDisplay().workArea; const bounds = win.getBounds(); win.setPosition(area.x + area.width - bounds.width - 24, area.y + area.height - bounds.height - 24); show(); } },
     { type: 'separator' },
     { label: '종료', click: () => app.quit() },
   ]));
@@ -120,21 +132,53 @@ if (!gotLock) {
     ipcMain.on('barista:action', (event, value) => { if (trusted(event)) bridge?.queueAction(value); });
     ipcMain.on('barista:hide', (event) => { if (trusted(event)) win.hide(); });
     ipcMain.on('barista:appearance', (event, value) => { if (trusted(event)) setAppearance(value); });
-    ipcMain.on('barista:regions', (event, value) => { if (trusted(event)) regions = validRegions(value, WIDTH, HEIGHT); });
-    const cliAi = createCliAi({
+    ipcMain.on('barista:chat-open', (event, value) => { if (trusted(event) && typeof value === 'boolean') setChatOpen(value); });
+    ipcMain.handle('barista:chat-send', async (event, value) => {
+      if (!trusted(event)) return { error: '허용되지 않은 요청입니다.' };
+      try { return await bridge.requestChat(value); }
+      catch (error) { return { error: error.message }; }
+    });
+    ipcMain.handle('barista:ai-status', async (event) => {
+      if (!trusted(event) || !['claude_cli', 'codex_cli'].includes(state.aiProvider)) return null;
+      const provider = state.aiProvider;
+      try { return await cliAi.status(provider, true); }
+      catch (error) { return { ...cliAi.status(provider), refreshError: error.message }; }
+    });
+    const modelContextMatches = (value) => state.connected && value?.session === state.chatSession && value?.provider === state.aiProvider && ['claude_cli', 'codex_cli'].includes(value.provider);
+    ipcMain.handle('barista:ai-models', async (event, value) => {
+      if (!trusted(event) || !modelContextMatches(value)) return { error: '웹 연결과 선택한 AI를 다시 확인해 주세요.' };
+      try {
+        const catalog = await cliAi.models(value.provider);
+        if (!modelContextMatches(value)) return { error: '연결이 변경되었습니다. 다시 조회해 주세요.' };
+        return { catalog, model: cliAi.config(value.provider).model };
+      } catch (error) { return { error: error.message }; }
+    });
+    ipcMain.handle('barista:ai-model-save', (event, value) => {
+      if (!trusted(event) || !modelContextMatches(value) || typeof value.model !== 'string') return { error: '웹 연결과 선택한 AI를 다시 확인해 주세요.' };
+      try { return { model: cliAi.configure(value.provider, { ...cliAi.config(value.provider), model: value.model }).model }; }
+      catch (error) { return { error: error.message }; }
+    });
+    ipcMain.on('barista:ai-usage', (event) => {
+      if (!trusted(event) || !['claude_cli', 'codex_cli'].includes(state.aiProvider)) return;
+      // URLs originate only from our fixed usageFor table, never the web or IPC input.
+      void shell.openExternal(cliAi.status(state.aiProvider).usage.url).catch(() => {});
+    });
+    ipcMain.on('barista:regions', (event, value) => { if (trusted(event)) { const bounds = win.getBounds(); regions = validRegions(value, bounds.width, bounds.height); } });
+    cliAi = createCliAi({
       defaultDirectory: path.join(app.getPath('userData'), 'ai-workspace'),
       settings: prefs.cliAi,
       save: (settings) => { prefs.cliAi = settings; savePrefs(); },
+      onStatus: (status) => { if (state.aiProvider === status.provider) publish({ terminalAi: status, terminalModel: cliAi.config(status.provider).model }); },
     });
     bridge = createBridge({
       cliAi,
       origin, port: smoke ? 0 : 47381, windowControl: process.platform === "win32",
-      onPair: () => { publish({ connected: true, code: '' }); show(); },
-      onState: (snapshot) => publish({ ...snapshot, connected: true, code: '' }),
+      onPair: () => { publish({ connected: true, code: '', desktopChat: false, chatSession: state.chatSession + 1 }); show(); },
+      onState: (snapshot) => publish({ ...snapshot, terminalAi: ['claude_cli', 'codex_cli'].includes(snapshot.aiProvider) ? cliAi.status(snapshot.aiProvider) : null, terminalModel: ['claude_cli', 'codex_cli'].includes(snapshot.aiProvider) ? cliAi.config(snapshot.aiProvider).model : '', connected: true, code: '' }),
       onWindow: (action, marker) => action === 'minimize' ? mainWindowControl.minimize(marker) : mainWindowControl.restore(),
       onDisconnect: (code) => {
         void mainWindowControl.restore();
-        publish({ connected: false, webMiniCardControl: false, code, speech: '', title: '', name: 'AI 바리스타', accent: '#bd7957', avatar: 'persona_barista_v2.webp' });
+        publish({ connected: false, desktopChat: false, chatSession: state.chatSession + 1, webMiniCardControl: false, aiProvider: 'default', terminalAi: null, code, speech: '', title: '', name: 'AI 바리스타', accent: '#bd7957', avatar: 'persona_barista_v2.webp' });
       },
     });
     try { bridgePort = await bridge.listen(); publish({ code: bridge.code }); }
@@ -148,7 +192,7 @@ if (!gotLock) {
     }
     win.on('move', () => {
       clearTimeout(saveTimer);
-      saveTimer = setTimeout(() => { if (!win.isDestroyed()) { const [x, y] = win.getPosition(); prefs.position = { x, y }; savePrefs(); } }, 300);
+      saveTimer = setTimeout(() => { if (!win.isDestroyed()) { const bounds = win.getBounds(); prefs.position = { x: bounds.x + bounds.width - WIDTH, y: bounds.y + bounds.height - HEIGHT }; savePrefs(); } }, 300);
     });
     // 네이티브 드래그 영역에서는 DOM mousemove가 발생하지 않는다. 화면 좌표로 불투명 조작 영역만 활성화한다.
     mouseTimer = setInterval(() => {
@@ -175,9 +219,19 @@ if (!gotLock) {
       summon();
       const summonAction = await (await post('state', {}, pairing.token)).json();
       report.hotkeySummon = win.isVisible() && summonAction.action === 'open-copilot';
-      await post('state', { name: '테스트 바리스타', speech: '렌더링 검사용 샘플 말풍선입니다. ☕', accent: '#438b72', avatar: '/barista/persona_barista_v2.webp' }, pairing.token);
+      const accountSmoke = process.argv.includes('--smoke-account');
+      await post('state', { name: '테스트 바리스타', speech: '렌더링 검사용 샘플 말풍선입니다. ☕', accent: '#438b72', avatar: '/barista/persona_barista_v2.webp', ...(accountSmoke ? { aiProvider: 'claude_cli' } : {}) }, pairing.token);
       await win.webContents.executeJavaScript('document.querySelector("#settings-button").click(); document.querySelector("input[value=photo]").click()');
       await new Promise((resolve) => setTimeout(resolve, 300));
+      if (accountSmoke) {
+        for (let attempt = 0; attempt < 60; attempt++) {
+          if (!await win.webContents.executeJavaScript('document.querySelector("#ai-refresh").disabled')) break;
+          await new Promise(resolve => setTimeout(resolve, 300));
+        }
+        const email = cliAi.status('claude_cli').account.email;
+        report.realAccountEmailVisible = Boolean(email) && await win.webContents.executeJavaScript(`document.querySelector('#ai-status').textContent.includes(${JSON.stringify(email)})`);
+      }
+      report.settingsContained = await win.webContents.executeJavaScript('(() => { const r = document.querySelector("#settings").getBoundingClientRect(); return r.x >= 0 && r.y >= 0 && r.right <= innerWidth && r.bottom <= innerHeight; })()');
       fs.writeFileSync(path.join(smokeDirectory, 'settings.png'), (await win.webContents.capturePage()).toPNG());
       await win.webContents.executeJavaScript('document.querySelector("#settings-button").click()');
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -186,12 +240,24 @@ if (!gotLock) {
       report.photoDragHandle = await inspectDrag();
       report.webStateReceived = await win.webContents.executeJavaScript('document.querySelector("#name").textContent === "테스트 바리스타" && document.querySelector("#speech").textContent.includes("샘플") && document.querySelector("#pairing").hidden');
       report.preferenceSaved = JSON.parse(fs.readFileSync(prefsPath(), 'utf8')).appearance === 'photo';
+      Object.assign(report, await require('./scripts/model-smoke.cjs')({
+        win, post, token: pairing.token, cliAi,
+        capture: async filename => fs.writeFileSync(path.join(smokeDirectory, filename), (await win.webContents.capturePage()).toPNG()),
+      }));
+      if (process.argv.includes('--smoke-models')) {
+        report.realModelCatalogCounts = {};
+        for (const provider of ['claude_cli', 'codex_cli']) report.realModelCatalogCounts[provider] = (await cliAi.models(provider)).models.length;
+      }
+      Object.assign(report, await require('./scripts/chat-smoke.cjs')({
+        win, post, token: pairing.token,
+        capture: async filename => fs.writeFileSync(path.join(smokeDirectory, filename), (await win.webContents.capturePage()).toPNG()),
+      }));
       await post('disconnect', {}, pairing.token);
       await new Promise((resolve) => setTimeout(resolve, 100));
       report.disconnectClearedSpeech = state.speech === '' && !state.connected;
       fs.writeFileSync(path.join(smokeDirectory, 'report.json'), JSON.stringify(report, null, 2));
       console.log(JSON.stringify(report));
-      app.exit(report.hotkeySummon && report.transparentCorner && report.alwaysOnTop && report.photoMode && report.renderer.codeVisible && report.webStateReceived && report.preferenceSaved && report.disconnectClearedSpeech && report.hitRegions > 0 && report.cupDragHandle && report.photoDragHandle ? 0 : 1);
+      app.exit(report.hotkeySummon && report.transparentCorner && report.alwaysOnTop && report.photoMode && report.renderer.codeVisible && report.webStateReceived && report.preferenceSaved && report.disconnectClearedSpeech && report.hitRegions > 0 && report.cupDragHandle && report.photoDragHandle && report.settingsContained && Object.entries(report).filter(([key]) => key.startsWith('chat') || key.startsWith('modelPicker')).every(([, value]) => value === true) && (!accountSmoke || report.realAccountEmailVisible) ? 0 : 1);
     } else {
       stopHotkey = startLeftShiftHotkey({
         onTrigger: () => { void handleGlobalShift(); },

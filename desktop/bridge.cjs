@@ -13,6 +13,8 @@ function cleanState(value) {
   const text = (key, max) => typeof value[key] === 'string' ? value[key].slice(0, max) : '';
   return {
     webMiniCardControl: value.webMiniCardControl === true,
+    desktopChat: value.desktopChat === true,
+    aiProvider: ['claude_cli', 'codex_cli'].includes(value.aiProvider) ? value.aiProvider : 'default',
     name: text('name', 60) || 'AI 바리스타',
     speech: text('speech', 1000),
     title: text('title', 120),
@@ -30,7 +32,7 @@ function equalSecret(a, b) {
   return left.length === right.length && timingSafeEqual(left, right);
 }
 
-function createBridge({ origin, port = 47381, onState = () => {}, onPair = () => {}, onDisconnect = () => {}, onWindow = async () => false, windowControl = false, cliAi = null }) {
+function createBridge({ origin, port = 47381, onState = () => {}, onPair = () => {}, onDisconnect = () => {}, onWindow = async () => false, windowControl = false, cliAi = null, chatTimeoutMs = 180000 }) {
   origin = appOrigin(origin);
   let code = String(randomInt(100000, 1000000));
   let token = '';
@@ -39,7 +41,18 @@ function createBridge({ origin, port = 47381, onState = () => {}, onPair = () =>
   let failures = [];
   let action = null;
   let actionMarker = null;
+  let chatContext = null;
+  let pendingChat = null;
+  const finishChat = (answer, error) => {
+    if (!pendingChat) return;
+    const pending = pendingChat;
+    pendingChat = null;
+    clearTimeout(pending.timer);
+    if (error) pending.reject(new Error(error)); else pending.resolve({ answer });
+  };
   const reset = () => {
+    finishChat(null, '웹 연결이 해제되었습니다. 다시 연결해 주세요.');
+    chatContext = null;
     cliAi?.cancel();
     token = '';
     pairedOrigin = '';
@@ -75,7 +88,7 @@ function createBridge({ origin, port = 47381, onState = () => {}, onPair = () =>
     try {
       for await (const chunk of req) {
         size += chunk.length;
-        if (size > (req.url === '/ai/chat' ? 65536 : 8192)) { reply(413, { error: 'too_large' }); return; }
+        if (size > (['/ai/chat', '/chat/result'].includes(req.url) ? 65536 : 8192)) { reply(413, { error: 'too_large' }); return; }
         chunks.push(chunk);
       }
       const data = JSON.parse(Buffer.concat(chunks).toString('utf8'));
@@ -86,24 +99,49 @@ function createBridge({ origin, port = 47381, onState = () => {}, onPair = () =>
           failures.push(Date.now()); reply(401, { error: '연결 코드가 일치하지 않습니다.' }); return;
         }
         cliAi?.cancel();
+        finishChat(null, '웹 연결이 변경되었습니다. 다시 질문해 주세요.');
+        chatContext = null;
+        action = null; actionMarker = null;
         token = randomBytes(32).toString('hex');
         pairedOrigin = reqOrigin;
         code = String(randomInt(100000, 1000000));
         lastSeen = Date.now();
         onPair();
-        reply(200, { token, windowControl, terminalAi: Boolean(cliAi) }); return;
+        reply(200, { token, windowControl, terminalAi: Boolean(cliAi), desktopChat: true }); return;
       }
       if (!token || !equalSecret(req.headers.authorization, `Bearer ${token}`)) { reply(401, { error: '연결을 다시 설정해 주세요.' }); return; }
       if (pairedOrigin !== reqOrigin) { reply(403, { error: '페어링한 CoffeeTide 탭에서만 요청할 수 있습니다.' }); return; }
+      if (req.url === '/chat/result') {
+        if (Date.now() - lastSeen > 120000) { reset(); reply(401, { error: 'expired' }); return; }
+        if (!pendingChat || data.requestId !== pendingChat.request.requestId) { reply(409, { error: 'stale_chat_request' }); return; }
+        if (typeof data.error === 'string' && data.error.trim() && data.error.length <= 500) finishChat(null, data.error);
+        else if (typeof data.answer === 'string' && data.answer.trim() && data.answer.length <= 12000) finishChat(data.answer);
+        else { reply(400, { error: 'invalid_chat_result' }); return; }
+        lastSeen = Date.now();
+        reply(200, { ok: true }); return;
+      }
       if (req.url.startsWith('/ai/')) {
         if (!cliAi) { reply(503, { error: '터미널 AI를 지원하는 데스크톱 앱으로 업데이트해 주세요.' }); return; }
         if (Date.now() - lastSeen > 120000) { reset(); reply(401, { error: 'expired' }); return; }
         lastSeen = Date.now();
         if (req.url === '/ai/config') {
           const config = data.settings === undefined ? cliAi.config(data.provider) : cliAi.configure(data.provider, data.settings);
-          reply(200, { config }); return;
+          reply(200, { config, ...(cliAi.status ? { status: cliAi.status(data.provider) } : {}) }); return;
         }
         if (req.url === '/ai/check') { reply(200, await cliAi.check(data.provider)); return; }
+        if (req.url === '/ai/models') {
+          if (!cliAi.models) { reply(404, { error: '모델 목록 조회를 지원하는 데스크톱 앱으로 업데이트해 주세요.' }); return; }
+          const sessionToken = token;
+          const catalog = await cliAi.models(data.provider);
+          if (sessionToken !== token) { reply(401, { error: '연결이 변경되어 요청을 취소했습니다.' }); return; }
+          reply(200, catalog); return;
+        }
+        if (req.url === '/ai/status') {
+          const sessionToken = token;
+          const status = await cliAi.status(data.provider, data.refresh === true);
+          if (sessionToken !== token) { reply(401, { error: '연결이 변경되어 요청을 취소했습니다.' }); return; }
+          reply(200, { status }); return;
+        }
         if (req.url === '/ai/cancel') {
           if (typeof data.requestId !== 'string' || !/^[a-f0-9-]{36}$/i.test(data.requestId)) { reply(400, { error: 'invalid_request_id' }); return; }
           reply(200, { cancelled: cliAi.cancel(data.requestId) }); return;
@@ -133,9 +171,12 @@ function createBridge({ origin, port = 47381, onState = () => {}, onPair = () =>
       }
       if (req.url === '/state') {
         const state = cleanState(data);
+        const nextContext = state.desktopChat ? `${state.presetId}:${state.aiProvider}` : null;
+        if (pendingChat && nextContext !== chatContext) finishChat(null, '캐릭터 또는 AI 설정이 변경되었습니다. 다시 질문해 주세요.');
+        chatContext = nextContext;
         lastSeen = Date.now();
         onState(state);
-        reply(200, { action, ...(actionMarker ? { actionMarker } : {}) }); action = null; actionMarker = null; return;
+        reply(200, { action, ...(actionMarker ? { actionMarker } : {}), ...(pendingChat ? { chatRequest: pendingChat.request } : {}) }); action = null; actionMarker = null; return;
       }
       if (req.url === '/disconnect') { reset(); reply(200, { ok: true }); return; }
       reply(404, { error: 'not_found' });
@@ -152,6 +193,19 @@ function createBridge({ origin, port = 47381, onState = () => {}, onPair = () =>
   return {
     get code() { return code; },
     get connected() { return Boolean(token); },
+    async requestChat(value) {
+      if (!token || Date.now() - lastSeen > 120000) throw new Error('CoffeeTide 웹과 6자리 코드로 연결해 주세요.');
+      if (chatContext === null) throw new Error('연결된 CoffeeTide 웹을 새로고침하고 다시 연결해 주세요.');
+      if (pendingChat) throw new Error('이전 질문의 답변을 기다려 주세요.');
+      if (!value || !/^[a-f0-9-]{36}$/i.test(value.requestId || '') || typeof value.text !== 'string' || !value.text.trim() || value.text.length > 6000 || !['talk', 'work'].includes(value.mode)) throw new Error('질문은 6,000자 이내로 입력해 주세요.');
+      if (!Array.isArray(value.history) || value.history.length > 20 || value.history.some(turn => !turn || !['user', 'assistant'].includes(turn.role) || typeof turn.text !== 'string')) throw new Error('대화 이력 형식이 올바르지 않습니다.');
+      const request = { requestId: value.requestId, text: value.text.trim(), mode: value.mode, history: value.history.slice(-8).map(turn => ({ role: turn.role, text: turn.text.slice(0, 1200) })) };
+      return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => finishChat(null, '응답 대기 시간이 지났습니다. 웹에서 처리 상태를 확인해 주세요.'), chatTimeoutMs);
+        timer.unref();
+        pendingChat = { request, resolve, reject, timer };
+      });
+    },
     queueAction(name, marker) {
       if (!token) return false;
       if (Date.now() - lastSeen > 120000) { reset(); return false; }
@@ -171,7 +225,7 @@ function createBridge({ origin, port = 47381, onState = () => {}, onPair = () =>
       server.once('error', reject);
       server.listen(port, '127.0.0.1', () => resolve(server.address().port));
     }),
-    close: () => new Promise((resolve) => { clearInterval(expiry); cliAi?.close(); server.close(resolve); server.closeAllConnections(); }),
+    close: () => new Promise((resolve) => { finishChat(null, '바리스타가 종료되었습니다.'); clearInterval(expiry); cliAi?.close(); server.close(resolve); server.closeAllConnections(); }),
   };
 }
 

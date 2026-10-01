@@ -25,20 +25,56 @@
         <rect x="24" y="47" width="8" height="8" rx="2" fill="#eef7ff" opacity=".82"/>
       </g>
     </svg>
-    <div id="photo"><img id="avatar" src="assets/persona_barista_v2.webp" alt="현재 바리스타" draggable="false"><span>☕</span></div>
+    <div id="photo"><img id="avatar" src="assets/persona_barista_v2.webp" alt="현재 바리스타" draggable="false"></div>
     <div id="drag-handle" data-hit title="캐릭터를 끌어 이동" aria-label="캐릭터 이동 영역"></div>
+    <button id="chat-toggle" data-hit type="button" title="바리스타와 대화" aria-label="바리스타 대화창 열기" aria-controls="chat" aria-expanded="false">💬</button>
   </div>
+  <section id="chat" data-hit hidden aria-label="바리스타 대화창">
+    <header>
+      <strong>바리스타와 대화</strong>
+      <select id="chat-mode" aria-label="대화 방식"><option value="talk">대화</option><option value="work">업무</option></select>
+      <button id="chat-close" type="button" aria-label="대화창 접기" title="접기 · 답변은 계속 받아요">×</button>
+    </header>
+    <div id="chat-messages" role="log" aria-live="polite" aria-relevant="additions text"><p class="chat-empty">궁금한 내용을 바로 물어보세요.</p></div>
+    <div id="chat-prompts" aria-label="빠른 질문">
+      <button type="button" data-prompt="시그니처 커피 한 잔과 함께 기운 나는 한마디 부탁해! ☕">☕ 커피</button>
+      <button type="button" data-prompt="오늘 하루 힘낼 수 있게 응원해 줘.">응원</button>
+      <button type="button" data-prompt="오늘 해야 할 일을 브리핑해 줘." data-mode="work">오늘 할 일</button>
+    </div>
+    <form id="chat-form">
+      <textarea id="chat-input" rows="2" maxlength="6000" aria-label="바리스타에게 질문" placeholder="질문 입력 · Enter로 전송"></textarea>
+      <button id="chat-send" type="submit">전송</button>
+    </form>
+    <p id="chat-status" role="status"></p>
+  </section>
   <nav id="controls" data-hit aria-label="데스크톱 바리스타 조작">
     <button id="bell" title="커피 한 잔 · 기본 대사">☕</button>
     <button id="open-web" title="CoffeeTide 대화창 열기">↗</button>
     <button id="settings-button" title="설정" aria-expanded="false">⚙</button>
     <button id="hide" title="숨기기 · 트레이에서 다시 열기">−</button>
   </nav>
-  <section id="settings" data-hit hidden aria-label="캐릭터 설정">
+  <section id="settings" data-hit hidden aria-label="바리스타 설정">
+    <strong>터미널 AI 연결</strong>
+    <div id="ai-status" role="status" aria-live="polite">웹 설정에서 사용할 AI를 선택해 주세요.</div>
+    <div class="ai-actions">
+      <button id="ai-refresh" type="button">계정 확인</button>
+      <button id="ai-usage" type="button" hidden>사용량 보기 ↗</button>
+    </div>
+    <small id="ai-usage-hint"></small>
+    <div id="ai-model-settings" hidden>
+      <label for="ai-model">모델 선택</label>
+      <select id="ai-model" aria-describedby="ai-model-message"></select>
+      <input id="ai-model-custom" hidden maxlength="100" aria-label="모델 이름 직접 입력" placeholder="모델 ID 또는 별칭">
+      <div class="ai-actions">
+        <button id="ai-model-refresh" type="button">목록 새로고침</button>
+        <button id="ai-model-save" type="button">모델 저장</button>
+      </div>
+      <small id="ai-model-message" role="status"></small>
+    </div>
+    <hr>
     <strong>캐릭터 모습</strong>
     <label><input type="radio" name="appearance" value="cup" checked> ① 아이스커피 아이콘</label>
     <label><input type="radio" name="appearance" value="photo"> ② 현재 바리스타 사진</label>
-    <small>선택은 저장됩니다. 캐릭터를 끌어 이동하세요.</small>
   </section>
   <script src="renderer.js"></script>
 </body>

@@ -39,6 +39,67 @@ async function fixture(t, options = {}) {
   return { bridge, port, post };
 }
 
+test('native chat round trips through the paired web and retains a request until its reply arrives', async t => {
+  const { bridge, post } = await fixture(t);
+  const { token } = await (await post('pair', { code: bridge.code })).json();
+  const request = { requestId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', text: '샘플 질문', history: [], mode: 'talk' };
+  await assert.rejects(bridge.requestChat(request), /새로고침/);
+  await post('state', { desktopChat: true }, token);
+  const pending = bridge.requestChat(request);
+  await assert.rejects(bridge.requestChat(request), /이전 질문/);
+  bridge.queueAction('order-coffee');
+  const first = await (await post('state', { desktopChat: true }, token)).json();
+  assert.equal(first.action, 'order-coffee');
+  assert.deepEqual(first.chatRequest, request);
+  assert.deepEqual((await (await post('state', { desktopChat: true }, token)).json()).chatRequest, request);
+  const result = { requestId: request.requestId, answer: 'Mock 웹 AI 답변' };
+  assert.equal((await post('chat/result', result)).status, 401);
+  assert.equal((await post('chat/result', result, token, 'http://localhost:3001')).status, 403);
+  assert.equal((await post('chat/result', { ...result, requestId: 'other' }, token)).status, 409);
+  assert.equal((await post('chat/result', { ...result, answer: '' }, token)).status, 400);
+  assert.equal((await post('chat/result', result, token)).status, 200);
+  assert.deepEqual(await pending, { answer: result.answer });
+  assert.equal((await post('chat/result', result, token)).status, 409);
+  assert.equal((await (await post('state', { desktopChat: true }, token)).json()).chatRequest, undefined);
+});
+
+test('native chat bounds history and rejects old results after a persona change or re-pairing', async t => {
+  const { bridge, post } = await fixture(t);
+  const { token } = await (await post('pair', { code: bridge.code })).json();
+  const snapshot = { desktopChat: true, presetId: 'karina', aiProvider: 'default' };
+  await post('state', snapshot, token);
+  const request = { requestId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', text: '샘플 질문', history: Array.from({ length: 20 }, () => ({ role: 'user', text: '가'.repeat(1500) })), mode: 'work' };
+  await assert.rejects(bridge.requestChat({ ...request, text: '가'.repeat(6001) }), /6,000/);
+  await assert.rejects(bridge.requestChat({ ...request, history: [{ role: 'system', text: 'bad' }] }), /이력/);
+  const pending = assert.rejects(bridge.requestChat(request), /설정이 변경/);
+  const received = (await (await post('state', snapshot, token)).json()).chatRequest;
+  assert.equal(received.history.length, 8);
+  assert.equal(received.history[0].text.length, 1200);
+  await post('state', { ...snapshot, presetId: 'senior_dev' }, token);
+  await pending;
+  assert.equal((await post('chat/result', { requestId: request.requestId, answer: 'late' }, token)).status, 409);
+  const second = assert.rejects(bridge.requestChat(request), /연결이 변경/);
+  const next = await (await post('pair', { code: bridge.code })).json();
+  await second;
+  assert.equal((await post('chat/result', { requestId: request.requestId, answer: 'old session' }, token)).status, 401);
+  assert.equal((await (await post('state', snapshot, next.token)).json()).chatRequest, undefined);
+});
+
+test('native chat reports web errors, timeout and disconnect without returning a fake answer', async t => {
+  const { bridge, post } = await fixture(t, { chatTimeoutMs: 50 });
+  const { token } = await (await post('pair', { code: bridge.code })).json();
+  await post('state', { desktopChat: true }, token);
+  const request = { requestId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', text: '샘플', history: [], mode: 'talk' };
+  const failed = assert.rejects(bridge.requestChat(request), /Mock 오류/);
+  await post('chat/result', { requestId: request.requestId, error: 'Mock 오류' }, token);
+  await failed;
+  await assert.rejects(bridge.requestChat(request), /대기 시간/);
+  const disconnected = assert.rejects(bridge.requestChat(request), /해제/);
+  await post('disconnect', {}, token);
+  await disconnected;
+  await assert.rejects(bridge.requestChat(request), /6자리/);
+});
+
 test('AI execution is bound to the paired origin and token, and resets cancel active work', async (t) => {
   const calls = [];
   const cliAi = {
@@ -69,6 +130,42 @@ test('only configured origins and safe local assets are accepted', () => {
   assert.equal(safe.speech.length, 1000);
   assert.equal(safe.avatar, 'persona_barista_v2.webp');
   assert.equal(safe.accent, '#bd7957');
+  assert.equal(cleanState({ aiProvider: 'unknown', terminalAi: { account: { email: 'forged@example.invalid' } } }).aiProvider, 'default');
+  assert.equal(cleanState({ aiProvider: 'claude_cli' }).aiProvider, 'claude_cli');
+  assert.ok(!Object.hasOwn(cleanState({ terminalAi: {} }), 'terminalAi'));
+});
+
+test('model catalog lookup is bound to pairing and discards results after re-pairing', async t => {
+  let resolveModels, called = 0;
+  const cliAi = { models: () => { called++; return new Promise(resolve => { resolveModels = resolve; }); }, cancel: () => {}, close: () => {} };
+  const { bridge, post } = await fixture(t, { cliAi });
+  assert.equal((await post('ai/models', { provider: 'codex_cli' })).status, 401);
+  const paired = await (await post('pair', { code: bridge.code })).json();
+  assert.equal((await post('ai/models', { provider: 'codex_cli' }, paired.token, 'http://localhost:3001')).status, 403);
+  assert.equal(called, 0);
+  const response = post('ai/models', { provider: 'codex_cli' }, paired.token);
+  while (!resolveModels) await new Promise(resolve => setTimeout(resolve, 5));
+  await post('pair', { code: bridge.code });
+  resolveModels({ provider: 'codex_cli', models: [{ value: 'mock-model' }] });
+  assert.equal((await response).status, 401);
+});
+
+test('account status is private to the current pairing, including re-pairing during lookup', async (t) => {
+  let resolveStatus;
+  let calls = 0;
+  const cliAi = { status: () => { calls++; return new Promise(resolve => { resolveStatus = resolve; }); }, cancel: () => {}, close: () => {} };
+  const { bridge, post } = await fixture(t, { cliAi });
+  assert.equal((await post('ai/status', { provider: 'claude_cli', refresh: true })).status, 401);
+  const paired = await (await post('pair', { code: bridge.code })).json();
+  assert.equal((await post('ai/status', {}, paired.token, 'https://other.vercel.app')).status, 403);
+  assert.equal(calls, 0);
+  const pending = post('ai/status', { provider: 'claude_cli', refresh: true }, paired.token);
+  while (!resolveStatus) await new Promise(resolve => setTimeout(resolve, 5));
+  await post('pair', { code: bridge.code });
+  resolveStatus({ account: { email: 'private@example.invalid' } });
+  const response = await pending;
+  assert.equal(response.status, 401);
+  assert.ok(!(await response.text()).includes('private@example.invalid'));
 });
 
 test('pairing gates state; action is consumed once; disconnect revokes credentials', async (t) => {

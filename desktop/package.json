@@ -1,6 +1,6 @@
 {
   "name": "coffeetide-barista",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "description": "CoffeeTide transparent desktop companion",
   "main": "main.cjs",
@@ -12,10 +12,13 @@
     "start": "electron .",
     "test": "node --test test/*.node.cjs",
     "smoke": "electron . --smoke-test",
-    "package": "electron-packager . CoffeeTideBarista --platform=win32 --arch=x64 --out=dist --overwrite --asar.unpackDir=native --ignore=\"^/(test|dist|smoke-output)($|/)\""
+    "package": "electron-packager . CoffeeTideBarista --platform=win32 --arch=x64 --out=dist --overwrite --asar.unpackDir=native --ignore=\"^/(test|dist|smoke-output)($|/)|^/node_modules/@anthropic-ai/claude-agent-sdk-(win32|darwin|linux)-\""
   },
   "devDependencies": {
-    "electron": "44.3.0",
-    "@electron/packager": "20.3.0"
+    "@electron/packager": "20.3.0",
+    "electron": "44.3.0"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "0.3.286"
   }
 }

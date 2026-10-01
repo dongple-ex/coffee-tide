@@ -6,8 +6,10 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { createCliAi, resolveExecutable, buildArguments, parseReply, validateSettings } = require('../cli-ai.cjs');
+const { claudeAccount, codexAccount, codexAccountProtocol, usageFor } = require('../cli-account.cjs');
 
 function fixture(t, behavior, options = {}) {
+  const { authResponse = () => ({ loggedIn: true, authMethod: 'claude.ai', email: 'test@example.invalid', subscriptionType: 'max' }), ...aiOptions } = options;
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'coffeetide-cli-test-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const calls = [];
@@ -18,9 +20,12 @@ function fixture(t, behavior, options = {}) {
     child.stdin = new Writable({ write(chunk, _encoding, next) { input += chunk.toString(); next(); } });
     child.kill = () => { setImmediate(() => child.emit('close', 1)); return true; };
     calls.push({ executable, args, opts, child });
-    child.stdin.once('finish', () => { setImmediate(() => behavior(child, input, args)); });
+    child.stdin.once('finish', () => { setImmediate(() => {
+      if (args[0] === 'auth') { const account = authResponse(); child.stdout.end(JSON.stringify(account)); child.emit('close', account.loggedIn ? 0 : 1); }
+      else behavior(child, input, args);
+    }); });
     return child;
-  }, ...options });
+  }, ...aiOptions });
   t.after(() => ai.close());
   return { ai, calls, dir };
 }
@@ -34,7 +39,7 @@ test('prompt is sent only through stdin without a shell, with bounded tools and 
     child.emit('close', 0);
   });
   assert.equal((await ai.chat({ provider: 'claude_cli', requestId: id, prompt: question })).answer, '한글 답변 ☕');
-  const call = calls[0];
+  const call = calls.find(call => call.args.includes('-p'));
   assert.equal(call.opts.shell, false);
   assert.equal(call.opts.windowsHide, true);
   assert.equal(call.opts.cwd.length > 0, true);
@@ -98,4 +103,76 @@ test('configuration persists paths only and install check does not request infer
   assert.deepEqual(saved.claude_cli, { executablePath: '', workingDirectory: dir, model: 'sonnet' });
   assert.equal((await ai.check('claude_cli')).installed, true);
   assert.equal(calls.length, 1);
+});
+
+test('account metadata is whitelisted and API-key mode never shows a stored subscription identity', () => {
+  const raw = { loggedIn: true, authMethod: 'claude.ai', email: 'test@example.invalid', subscriptionType: 'max', accessToken: 'SECRET', refreshToken: 'SECRET', orgId: 'private-id', orgName: 'Example' };
+  assert.deepEqual(claudeAccount(raw), { loggedIn: true, authMethod: 'Claude 구독', email: raw.email, plan: 'max', organization: 'Example' });
+  assert.deepEqual(claudeAccount({ ...raw, authMethod: 'api_key' }), { loggedIn: true, authMethod: 'API 키' });
+  assert.equal(claudeAccount({ ...raw, email: 'test\n@example.invalid' }).email, undefined);
+  assert.deepEqual(codexAccount({ account: { type: 'chatgpt', email: raw.email, planType: 'pro', accessToken: 'SECRET' } }, true), { loggedIn: true, authMethod: 'API 키' });
+  assert.equal(usageFor('codex_cli', { authMethod: 'API 키' }).url, 'https://platform.openai.com/usage');
+});
+
+test('account refresh never marks inference successful, and changing login or settings clears old success', async (t) => {
+  let email = 'first@example.invalid';
+  let unavailable = false;
+  let saved;
+  const { ai, calls } = fixture(t, child => { child.stdout.end(JSON.stringify({ result: 'Mock answer', subtype: 'success' })); child.emit('close', 0); }, {
+    authResponse: () => unavailable ? {} : ({ loggedIn: true, authMethod: 'claude.ai', email }), save: value => { saved = value; },
+  });
+  const before = await ai.status('claude_cli', true);
+  assert.equal(before.account.email, email);
+  assert.equal(before.verifiedAt, null);
+  assert.equal(calls.length, 1);
+  const reply = await ai.chat({ provider: 'claude_cli', requestId: id, prompt: 'Mock question' });
+  assert.ok(reply.status.verifiedAt);
+  email = 'second@example.invalid';
+  const after = await ai.status('claude_cli', true);
+  assert.equal(after.account.email, email);
+  assert.equal(after.verifiedAt, null);
+  unavailable = true;
+  const unknown = await ai.status('claude_cli', true);
+  assert.equal(unknown.account.email, undefined);
+  assert.equal(unknown.account.loggedIn, null);
+  assert.ok(unknown.lastError);
+  ai.configure('claude_cli', { model: 'sonnet' });
+  assert.equal(ai.status('claude_cli').account.email, undefined);
+  assert.ok(!JSON.stringify(saved).includes('example.invalid'));
+});
+
+test('logged-out auth status is handled explicitly even with CLI exit code one', async (t) => {
+  const { ai } = fixture(t, () => {}, { authResponse: () => ({ loggedIn: false, authMethod: 'none' }) });
+  const status = await ai.status('claude_cli', true);
+  assert.equal(status.account.loggedIn, false);
+  assert.equal(status.verifiedAt, null);
+});
+
+test('Codex account protocol initializes then reads account only, with no model turn', async (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'coffeetide-codex-account-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const methods = [];
+  const ai = createCliAi({ defaultDirectory: dir, platform: 'linux', env: {}, resolve: () => '/registered/codex', spawnProcess: (_exe, args, options) => {
+    assert.equal(args[0], 'app-server');
+    assert.equal(options.shell, false);
+    const child = new EventEmitter(); child.stdout = new PassThrough(); child.stderr = new PassThrough();
+    child.kill = () => { setImmediate(() => child.emit('close', 1)); };
+    child.stdin = new Writable({ write(chunk, _enc, next) {
+      const message = JSON.parse(chunk.toString()); methods.push(message.method); next();
+      if (message.method === 'initialize') setImmediate(() => child.stdout.write(JSON.stringify({ id: 1, result: {} }) + '\n'));
+      if (message.method === 'account/read') setImmediate(() => {
+        const response = JSON.stringify({ id: 2, result: { account: { type: 'chatgpt', email: 'codex@example.invalid', planType: 'pro', token: 'SECRET' } } }) + '\n';
+        child.stdout.write(response.slice(0, 10)); child.stdout.write(response.slice(10));
+      });
+    }, final(next) { next(); setImmediate(() => child.emit('close', 0)); } });
+    return child;
+  } });
+  t.after(() => ai.close());
+  const status = await ai.status('codex_cli', true);
+  assert.deepEqual(methods, ['initialize', 'initialized', 'account/read']);
+  assert.equal(status.account.email, 'codex@example.invalid');
+  assert.ok(!JSON.stringify(status).includes('SECRET'));
+  assert.equal(status.verifiedAt, null);
+  const protocol = codexAccountProtocol();
+  assert.throws(() => protocol.onLine(JSON.stringify({ id: 1, error: {} }), {}));
 });

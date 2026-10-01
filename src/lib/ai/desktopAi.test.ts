@@ -1,8 +1,50 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { askTerminalAi, buildTerminalAiPrompt, readTerminalAiStatus, registerTerminalAi, terminalAiConfig, terminalAiStatus, terminalAiAccountInfoSupported, TERMINAL_AI_USAGE } from "./desktopAi";
+import { askTerminalAi, buildTerminalAiPrompt, readTerminalAiModels, readTerminalAiStatus, registerTerminalAi, terminalAiConfig, terminalAiStatus, terminalAiAccountInfoSupported, TERMINAL_AI_USAGE } from "./desktopAi";
 
 afterEach(() => vi.unstubAllGlobals());
 describe("terminal AI connection", () => {
+  const catalog = { provider: "claude_cli", source: "claude-agent-sdk", checkedAt: "2026-10-02T00:00:00Z", models: [{ value: "sonnet", label: "Mock Sonnet", description: "Test metadata", reasoningEfforts: ["high"], isDefault: false }] };
+  it("loads live model metadata once for overlapping requests and removes unknown fields", async () => {
+    const fetch = vi.fn(async () => new Response(JSON.stringify({ ...catalog, token: "PRIVATE", models: [{ ...catalog.models[0], secret: "PRIVATE" }] })));
+    vi.stubGlobal("fetch", fetch);
+    const unregister = registerTerminalAi("test-token", true);
+    try {
+      const results = await Promise.all([readTerminalAiModels("claude_cli"), readTerminalAiModels("claude_cli")]);
+      expect(fetch).toHaveBeenCalledTimes(1);
+      expect(results[0]).toEqual(catalog);
+      expect(JSON.stringify(results)).not.toContain("PRIVATE");
+      expect(terminalAiStatus("claude_cli")).toBeNull();
+      await readTerminalAiModels("claude_cli");
+      expect(fetch).toHaveBeenCalledTimes(2);
+    } finally { unregister(); }
+  });
+  it("does not present a static model list when an older desktop returns 404", async () => {
+    const fetch = vi.fn(async () => new Response(JSON.stringify({ error: "not_found" }), { status: 404 }));
+    vi.stubGlobal("fetch", fetch);
+    const unregister = registerTerminalAi("test-token", true);
+    try {
+      expect(await readTerminalAiModels("claude_cli")).toBeNull();
+      expect(await readTerminalAiModels("codex_cli")).toBeNull();
+      expect(fetch).toHaveBeenCalledTimes(1);
+    } finally { unregister(); }
+  });
+  it("rejects stale, foreign or malformed model catalogs", async () => {
+    let reply!: (response: Response) => void;
+    const fetch = vi.fn(() => new Promise<Response>(resolve => { reply = resolve; }));
+    vi.stubGlobal("fetch", fetch);
+    const unregisterOld = registerTerminalAi("old-token", true);
+    const old = readTerminalAiModels("claude_cli");
+    const unregister = registerTerminalAi("new-token", true);
+    reply(new Response(JSON.stringify(catalog)));
+    await expect(old).rejects.toThrow("연결이 변경");
+    unregisterOld();
+    try {
+      for (const bad of [{ ...catalog, provider: "codex_cli" }, { ...catalog, source: "static" }, { ...catalog, models: [] }, { ...catalog, models: [{ ...catalog.models[0], value: "bad;command" }] }]) {
+        fetch.mockImplementationOnce(async () => new Response(JSON.stringify(bad)));
+        await expect(readTerminalAiModels("claude_cli")).rejects.toThrow("형식");
+      }
+    } finally { unregister(); }
+  });
   it("keeps legacy desktop chat working and probes an unsupported account endpoint only once per connection", async () => {
     const fetch = vi.fn(async (_url: string, options: RequestInit) => {
       if (_url.endsWith("/status")) return new Response(JSON.stringify({ error: "not_found" }), { status: 404 });

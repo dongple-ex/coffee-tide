@@ -2,7 +2,7 @@
  * 사용자에게 표시하는 coffeeTide 버전 — 설정 화면 및 What's New 모달에 노출된다.
  * 릴리스 시 package.json과 함께 갱신할 것. (version.test.ts에서 동기화 검증)
  */
-export const APP_VERSION = "v1.2.7";
+export const APP_VERSION = "v1.2.8";
 
 export const LS_LAST_SEEN_VERSION = "coffeetide_last_seen_version";
 
@@ -21,6 +21,24 @@ export interface ReleaseNote {
 }
 
 export const RELEASE_HISTORY: ReleaseNote[] = [
+  {
+    version: "v1.2.8",
+    date: "2026-10-02",
+    title: "터미널 AI 모델 목록 자동 조회",
+    summary: "연결된 데스크톱 바리스타에서 Claude와 Codex의 모델 목록을 받아 선택합니다. 목록 새로고침과 직접 입력을 지원하며 저장한 모델은 다음 질문부터 적용됩니다.",
+    items: [
+      {
+        type: "feat",
+        title: "CLI가 제공하는 모델 목록",
+        description: "모델 목록 조회를 지원하는 데스크톱 앱이 필요합니다. 최신 데스크톱 소스 v0.1.2에 적용했으며 기존 v0.1.1 다운로드에는 포함되지 않습니다. 조회 목록은 실행 권한이나 잔여 사용량을 보장하지 않습니다.",
+      },
+      {
+        type: "fix",
+        title: "조회 실패와 기존 모델 설정 유지",
+        description: "목록 조회 실패나 구버전 앱은 상태를 명확히 표시합니다. 목록에서 확인되지 않은 저장 모델도 유지하며, 자동 선택과 모델 이름 직접 입력을 사용할 수 있습니다.",
+      },
+    ],
+  },
   {
     version: "v1.2.7",
     date: "2026-10-01",

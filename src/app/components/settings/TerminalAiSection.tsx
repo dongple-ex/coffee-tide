@@ -2,25 +2,14 @@
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 import type { CopilotUserConfig } from "@/lib/ai/harness";
-import { cancelTerminalAi, checkTerminalAi, readTerminalAiStatus, subscribeTerminalAi, terminalAiConfig, terminalAiConnected, terminalAiDisconnected, terminalAiAccountInfoSupported, terminalAiAccountInfoUnknown, terminalAiStatus, terminalAiStatusUnavailable, TERMINAL_AI_USAGE, type TerminalAiProvider, type TerminalAiSettings } from "@/lib/ai/desktopAi";
+import { cancelTerminalAi, checkTerminalAi, readTerminalAiModels, readTerminalAiStatus, subscribeTerminalAi, terminalAiConfig, terminalAiConnected, terminalAiDisconnected, terminalAiConnectionVersion, terminalAiConnectionInitialVersion, terminalAiAccountInfoSupported, terminalAiAccountInfoUnknown, terminalAiStatus, terminalAiStatusUnavailable, TERMINAL_AI_USAGE, type TerminalAiProvider, type TerminalAiSettings, type TerminalAiModelCatalog } from "@/lib/ai/desktopAi";
 import styles from "./terminalAiSection.module.css";
 
 const EMPTY: TerminalAiSettings = { executablePath: "", workingDirectory: "", model: "" };
-const MODEL_OPTIONS: Record<TerminalAiProvider, { value: string; label: string }[]> = {
-  claude_cli: [
-    { value: "sonnet", label: "Sonnet" },
-    { value: "opus", label: "Opus" },
-    { value: "haiku", label: "Haiku" },
-  ],
-  codex_cli: [
-    { value: "gpt-6.1-sol", label: "GPT-6.1 Sol" },
-    { value: "gpt-6-astra", label: "GPT-6 Astra" },
-    { value: "gpt-6-sol", label: "GPT-6 Sol" },
-    { value: "gpt-6-luna", label: "GPT-6 Luna" },
-  ],
-};
+const MODEL_UNSUPPORTED = "이 데스크톱 앱은 모델 목록 조회를 지원하지 않습니다. 앱을 업데이트하거나 모델 이름을 직접 입력해 주세요.";
 export function TerminalAiSection({ config, onChangeConfig }: { config: CopilotUserConfig; onChangeConfig: (next: CopilotUserConfig) => void }) {
   const connected = useSyncExternalStore(subscribeTerminalAi, terminalAiConnected, terminalAiDisconnected);
+  const connectionVersion = useSyncExternalStore(subscribeTerminalAi, terminalAiConnectionVersion, terminalAiConnectionInitialVersion);
   const provider = config.aiProvider === "claude_cli" || config.aiProvider === "codex_cli" ? config.aiProvider : null;
   return (
     <div className={styles.section}>
@@ -33,7 +22,7 @@ export function TerminalAiSection({ config, onChangeConfig }: { config: CopilotU
         <option value="claude_cli">Claude Code · 이 PC의 CLI</option>
         <option value="codex_cli">Codex CLI · 이 PC의 CLI</option>
       </select>
-      {provider && <TerminalAiFields key={`${provider}-${connected}`} provider={provider} connected={connected} />}
+      {provider && <TerminalAiFields key={`${provider}-${connectionVersion}`} provider={provider} connected={connected} />}
     </div>
   );
 }
@@ -47,22 +36,46 @@ function TerminalAiFields({ provider, connected }: { provider: TerminalAiProvide
   const [failed, setFailed] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [customModel, setCustomModel] = useState(false);
+  const [catalog, setCatalog] = useState<TerminalAiModelCatalog | null>(null);
+  const [modelMessage, setModelMessage] = useState("모델 목록 확인 대기");
+  const [savedPaths, setSavedPaths] = useState("");
   useEffect(() => {
     let disposed = false;
     if (provider && connected) {
-      void terminalAiConfig(provider).then(result => {
+      void terminalAiConfig(provider).then(async result => {
         if (!disposed) {
           setSettings(result.config);
-          setCustomModel(Boolean(result.config.model) && !MODEL_OPTIONS[provider].some(option => option.value === result.config.model));
+          setSavedPaths(JSON.stringify([result.config.executablePath, result.config.workingDirectory]));
           setLoaded(true);
+          setBusy(true);
         }
-        return readTerminalAiStatus(provider, true);
-      }).catch(error => { if (!disposed) { setMessage(error.message); setFailed(true); } });
+        if (disposed) return;
+        try { await readTerminalAiStatus(provider, true); }
+        catch (error) { if (!disposed) { setMessage(error instanceof Error ? error.message : "계정 확인 실패"); setFailed(true); } }
+        if (disposed) return;
+        setModelMessage("모델 목록 조회 중…");
+        try {
+          const models = await readTerminalAiModels(provider);
+          if (!disposed) { setCatalog(models); setModelMessage(models ? "" : MODEL_UNSUPPORTED); }
+        } catch (error) { if (!disposed) setModelMessage(error instanceof Error ? error.message : "모델 목록을 조회하지 못했습니다."); }
+      }).catch(error => { if (!disposed) { setMessage(error.message); setFailed(true); } })
+        .finally(() => { if (!disposed) setBusy(false); });
     }
     // Read the in-memory snapshot while this menu is open; does not run inference.
     const interval = connected ? setInterval(() => { void readTerminalAiStatus(provider).catch(() => {}); }, 4000) : null;
     return () => { disposed = true; if (interval) clearInterval(interval); };
   }, [provider, connected]);
+
+  const loadModels = async () => {
+    setCatalog(null); setModelMessage("모델 목록 조회 중…");
+    try { const result = await readTerminalAiModels(provider); setCatalog(result); setModelMessage(result ? "" : MODEL_UNSUPPORTED); }
+    catch (error) { setModelMessage(error instanceof Error ? error.message : "모델 목록을 조회하지 못했습니다."); }
+  };
+  const refreshModels = async () => {
+    if (busy || !loaded) return;
+    setBusy(true);
+    try { await loadModels(); } finally { setBusy(false); }
+  };
 
   const save = async (check: boolean) => {
     if (!provider || busy || !loaded) return;
@@ -73,6 +86,8 @@ function TerminalAiFields({ provider, connected }: { provider: TerminalAiProvide
     try {
       const result = await terminalAiConfig(provider, settings);
       setSettings(result.config);
+      const paths = JSON.stringify([result.config.executablePath, result.config.workingDirectory]);
+      if (savedPaths !== paths) { setSavedPaths(paths); await loadModels(); }
       const installed = check ? await checkTerminalAi(provider) : null;
       const accountStatus = check ? await readTerminalAiStatus(provider, true) : null;
       setFailed(false);
@@ -90,6 +105,7 @@ function TerminalAiFields({ provider, connected }: { provider: TerminalAiProvide
   };
   const usage = status?.usage || TERMINAL_AI_USAGE[provider];
   const account = status?.account;
+  const selectedModel = catalog?.models.find(model => model.value === settings.model);
   return (
     <>
         <p>웹의 질문을 이 PC의 바리스타 앱이 받아, 설치하고 로그인한 CLI에 캐릭터 지침·최근 대화와 함께 전달합니다. CLI의 답변을 웹에 표시하며, 제공업체 모델과 해당 계정의 사용 한도를 이용합니다.</p>
@@ -117,15 +133,20 @@ function TerminalAiFields({ provider, connected }: { provider: TerminalAiProvide
             setSettings(previous => ({ ...previous, model: value === "custom" ? "" : value }));
             setFailed(false); setMessage("설정 저장을 누르면 선택한 모델이 다음 질문부터 적용됩니다.");
           }}>
-            <option value="">CLI 기본 모델 · 자동 선택</option>
-            {MODEL_OPTIONS[provider].map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+            <option value="">자동 선택 · 모델 지정 안 함</option>
+            {settings.model && !customModel && !selectedModel && <option value={settings.model}>{settings.model} · 목록에서 확인되지 않음</option>}
+            {catalog?.models.map(option => <option key={option.value} value={option.value}>{option.label}{option.isDefault ? " · 기본 추천" : ""}</option>)}
             <option value="custom">모델 이름 직접 입력</option>
           </select>
           {customModel && <>
             <label htmlFor="terminal-ai-custom-model">직접 사용할 모델 이름</label>
             <input id="terminal-ai-custom-model" value={settings.model} disabled={busy || !loaded} maxLength={100} placeholder={provider === "claude_cli" ? "Claude 모델 ID 또는 별칭" : "Codex 모델 ID"} onChange={event => setSettings(previous => ({ ...previous, model: event.target.value }))} />
           </>}
-          <p id="terminal-ai-model-help">목록은 모델 선택용 후보입니다. 계정과 CLI 버전에 따라 지원 모델이 다르며, 실제 사용 가능 여부는 질문을 보낸 뒤 확인됩니다. 저장 후 다음 질문부터 적용됩니다.</p>
+          <div className={styles.actions}><button type="button" disabled={busy || !loaded} onClick={() => void refreshModels()}>모델 목록 새로고침</button></div>
+          <p role="status">{modelMessage || `${catalog?.models.length}개 모델 조회 · ${catalog?.source === "claude-agent-sdk" ? "Claude SDK" : "Codex App Server"} · ${catalog ? new Date(catalog.checkedAt).toLocaleTimeString("ko-KR") : ""}`}</p>
+          {selectedModel?.description && <p>{selectedModel.description}</p>}
+          <p id="terminal-ai-model-help">저장된 실행 경로·작업 폴더로 조회합니다. 목록은 CLI가 제공한 모델 정보이며, 계정의 실행 권한·잔여 사용량을 보장하지 않습니다. 저장 후 다음 질문부터 적용됩니다.</p>
+          {!settings.model && <p>{provider === "codex_cli" ? "자동 선택은 바리스타의 Codex 실행 기본값을 사용합니다. 개인 config.toml의 모델 설정은 적용하지 않습니다." : "자동 선택은 Claude CLI의 모델 설정을 따릅니다."}</p>}
           <div className={styles.actions}>
             <button type="button" disabled={busy || !loaded} onClick={() => void save(false)}>설정 저장</button>
             <button type="button" disabled={busy || !loaded} onClick={() => void save(true)}>{busy ? "확인 중…" : accountInfoSupported ? "저장·설치·계정 확인" : "저장·설치 확인"}</button>
