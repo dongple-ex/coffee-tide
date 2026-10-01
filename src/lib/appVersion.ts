@@ -2,7 +2,7 @@
  * 사용자에게 표시하는 coffeeTide 버전 — 설정 화면 및 What's New 모달에 노출된다.
  * 릴리스 시 package.json과 함께 갱신할 것. (version.test.ts에서 동기화 검증)
  */
-export const APP_VERSION = "v1.2.6";
+export const APP_VERSION = "v1.2.7";
 
 export const LS_LAST_SEEN_VERSION = "coffeetide_last_seen_version";
 
@@ -21,6 +21,17 @@ export interface ReleaseNote {
 }
 
 export const RELEASE_HISTORY: ReleaseNote[] = [
+  {
+    version: "v1.2.7",
+    date: "2026-10-01",
+    title: "데스크톱 바리스타 직접 대화 연동",
+    summary: "대화창을 지원하는 바리스타 앱에서 보낸 질문을 웹의 기본 AI 또는 선택한 CLI로 처리하고 앱에 답변을 전달합니다. 웹 탭 연결을 유지해 주세요.",
+    items: [{
+      type: "feat",
+      title: "캐릭터 대화창과 웹 AI 연결",
+      description: "대화·업무 모드와 최근 대화 문맥을 전달합니다. 중복 요청은 AI를 다시 실행하지 않고 답변 전달만 재시도합니다. 직접 대화 버튼은 최신 데스크톱 소스에 적용되며 기존 v0.1.1 다운로드에는 포함되지 않습니다.",
+    }],
+  },
   {
     version: "v1.2.6",
     date: "2026-10-01",

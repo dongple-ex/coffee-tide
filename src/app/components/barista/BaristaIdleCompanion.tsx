@@ -25,7 +25,8 @@ export interface BaristaIdleCompanionProps {
   onSendMessage?: (
     message: string,
     previousTurn?: { userText: string; aiText: string },
-    history?: PipChatMessage[]
+    history?: PipChatMessage[],
+    options?: { mode: "talk" | "work"; source: "desktop" },
   ) => Promise<string | undefined> | void;
   enabled?: boolean;
   desktopPipEnabled?: boolean;

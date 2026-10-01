@@ -2482,6 +2482,7 @@ export default function Home() {
       localHistory?: ChromeCanaryConversationTurn[];
       isolatedHistory?: boolean;
       trackGlobalBusy?: boolean;
+      actionChannel?: "desktop";
     }
   ): Promise<string | undefined> {
     const persistToFeed = options?.persistToFeed ?? true;
@@ -2500,7 +2501,7 @@ export default function Home() {
       if (voiceResponseRequested && answer) void speakPersonaVoice(answer, copilotConfig.presetId);
     };
     // 후보는 사용자와 대화 창별로 분리하고, 다른 요청/5분 경과 시 폐기한다.
-    const actionChannel = persistToFeed ? "copilot" : options?.isolatedHistory ? "mini" : "companion";
+    const actionChannel = options?.actionChannel ?? (persistToFeed ? "copilot" : options?.isolatedHistory ? "mini" : "companion");
     const pending = pendingTaskActions.current.get(actionChannel);
     pendingTaskActions.current.delete(actionChannel);
     const conversationHistory: ChromeCanaryConversationTurn[] = options?.isolatedHistory
@@ -3387,9 +3388,10 @@ export default function Home() {
                   composer?.focus();
                 }, 200);
               }}
-              onSendMessage={async (msg, previousTurn, history) => {
+              onSendMessage={async (msg, previousTurn, history, desktopOptions) => {
                 return await askCopilot(msg, {
-                  explicitMode: "talk",
+                  explicitMode: desktopOptions?.mode ?? "talk",
+                  actionChannel: desktopOptions?.source,
                   persistToFeed: false,
                   trackGlobalBusy: false,
                   isolatedHistory: history !== undefined,

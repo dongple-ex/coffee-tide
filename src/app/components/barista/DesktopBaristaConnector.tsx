@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { getPersonaAvatar, getPersonaEffect } from "@/lib/ai/personaEffects";
 import { registerDesktopWindowControl } from "@/lib/ui/desktopWindowControl";
 import { registerTerminalAi } from "@/lib/ai/desktopAi";
+import { createDesktopChatRelay, type DesktopChatRequest } from "@/lib/ai/desktopChat";
 import styles from "./desktopBaristaConnector.module.css";
 
 const BRIDGE_URL = "http://127.0.0.1:47381";
@@ -20,7 +21,9 @@ interface Props {
   onOpenCopilot?: () => void;
   onSendMessage?: (
     message: string,
-    previousTurn?: { userText: string; aiText: string }
+    previousTurn?: { userText: string; aiText: string },
+    history?: DesktopChatRequest["history"],
+    options?: { mode: "talk" | "work"; source: "desktop" },
   ) => Promise<string | undefined> | void;
 }
 
@@ -39,6 +42,7 @@ export function DesktopBaristaConnector({
   const [token, setToken] = useState<string | null>(null);
   const [canControlWindow, setCanControlWindow] = useState(false);
   const [supportsTerminalAi, setSupportsTerminalAi] = useState(false);
+  const [supportsDesktopChat, setSupportsDesktopChat] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const effect = getPersonaEffect(presetId, baristaName);
@@ -67,6 +71,17 @@ export function DesktopBaristaConnector({
     let originalTitle = "";
     let titleObserver: MutationObserver | null = null;
     let commands = Promise.resolve(true);
+    const chatRelay = createDesktopChatRelay(
+      request => sendMessageRef.current?.(request.text, undefined, request.history, { mode: request.mode, source: "desktop" }),
+      async result => {
+        if (disposed) return;
+        const response = await fetch(`${BRIDGE_URL}/chat/result`, {
+          method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify(result), signal: AbortSignal.timeout(5000),
+        });
+        if (!response.ok) throw new Error("데스크톱 답변 전달 실패");
+      },
+    );
     const finishRestore = () => {
       titleObserver?.disconnect();
       titleObserver = null;
@@ -130,12 +145,13 @@ export function DesktopBaristaConnector({
         const response = await fetch(`${BRIDGE_URL}/state`, {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ ...latest.current, webMiniCardControl: canControlWindow }),
+          body: JSON.stringify({ ...latest.current, webMiniCardControl: canControlWindow, desktopChat: Boolean(sendMessageRef.current) }),
           signal: AbortSignal.timeout(3000),
         });
         if (!response.ok) throw new Error("데스크톱 바리스타를 다시 연결해 주세요.");
         const result = await response.json();
         failures = 0;
+        if (!disposed && result.chatRequest) void chatRelay.handle(result.chatRequest).catch(() => {});
         if (!disposed && result.action === "restore-web-main") {
           if (marker && result.actionMarker === marker) finishRestore();
         } else if (!disposed && result.action === "open-copilot") {
@@ -164,6 +180,7 @@ export function DesktopBaristaConnector({
     document.addEventListener("visibilitychange", onVisible);
     return () => {
       disposed = true;
+      chatRelay.dispose();
       titleObserver?.disconnect();
       window.clearInterval(interval);
       document.removeEventListener("visibilitychange", onVisible);
@@ -195,6 +212,7 @@ export function DesktopBaristaConnector({
       if (!response.ok || typeof data.token !== "string") throw new Error(data.error || "연결하지 못했습니다.");
       setCanControlWindow(data.windowControl === true);
       setSupportsTerminalAi(data.terminalAi === true);
+      setSupportsDesktopChat(data.desktopChat === true);
       setToken(data.token); setCode("");
     } catch (cause) {
       setError(cause instanceof TypeError ? "보조 앱에 연결할 수 없습니다. CoffeeTideBarista를 실행해 주세요. 브라우저가 로컬 네트워크 접근을 물으면 허용해야 연결됩니다." : cause instanceof Error ? cause.message : "연결에 실패했습니다.");
@@ -212,7 +230,8 @@ export function DesktopBaristaConnector({
           <div role="status" className={styles.connected}>
             <strong>✓ 이 PC의 바리스타와 연결되었습니다.</strong>
             {canControlWindow && <p>웹 미니카드를 열면 본체를 최소화하고, 왼쪽 Shift 두 번으로 본체를 복원합니다.</p>}
-            <p>웹의 이름·색상·사진·현재 말풍선을 전달합니다. 보조 앱은 대화 이력을 저장하지 않습니다.</p>
+            <p>웹의 이름·색상·사진·현재 말풍선을 전달합니다. 보조 앱은 대화 이력을 디스크에 저장하지 않습니다.</p>
+            {supportsDesktopChat && <p>캐릭터 오른쪽 아래 <b>💬</b> 버튼으로 바로 질문할 수 있습니다. 기본 AI·선택한 CLI와 대화하려면 이 웹 탭의 연결을 유지해 주세요.</p>}
             {supportsTerminalAi && <p>설정 → AI·자동화 → AI 캐릭터의 <b>터미널 AI 연결</b>에서 Claude Code 또는 Codex CLI를 선택할 수 있습니다.</p>}
             <button type="button" onClick={() => setToken(null)}>연결 해제</button>
             <button type="button" onClick={onClose}>완료</button>
