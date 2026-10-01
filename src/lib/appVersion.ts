@@ -2,7 +2,7 @@
  * 사용자에게 표시하는 coffeeTide 버전 — 설정 화면 및 What's New 모달에 노출된다.
  * 릴리스 시 package.json과 함께 갱신할 것. (version.test.ts에서 동기화 검증)
  */
-export const APP_VERSION = "v1.2.4";
+export const APP_VERSION = "v1.2.5";
 
 export const LS_LAST_SEEN_VERSION = "coffeetide_last_seen_version";
 
@@ -21,6 +21,24 @@ export interface ReleaseNote {
 }
 
 export const RELEASE_HISTORY: ReleaseNote[] = [
+  {
+    version: "v1.2.5",
+    date: "2026-10-01",
+    title: "터미널 AI 계정·사용량 안내",
+    summary: "터미널 AI 연결 설정에서 사용 계정과 요금제, 실제 응답 성공 상태 및 사용량 확인 메뉴를 제공합니다. 계정 정보는 연결된 보조 앱이 제공하는 경우 표시됩니다.",
+    items: [
+      {
+        type: "feat",
+        title: "사용 계정과 응답 성공 상태",
+        description: "지원하는 보조 앱에서 로그인 이메일·요금제·계정 조회 시각을 표시합니다. 질문에 실제 답변이 돌아오면 응답 성공 시각을 표시합니다.",
+      },
+      {
+        type: "enhance",
+        title: "사용량 확인 메뉴 안내",
+        description: "Claude Usage와 Codex 터미널의 사용량 메뉴를 안내합니다. 계정 조회를 지원하지 않는 기존 앱에서도 대화와 사용량 안내를 이용할 수 있습니다.",
+      },
+    ],
+  },
   {
     version: "v1.2.4",
     date: "2026-10-01",

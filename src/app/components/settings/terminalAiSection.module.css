@@ -6,3 +6,7 @@
 .actions button { border: 1px solid var(--border, #ddd); border-radius: 8px; padding: 8px 10px; background: var(--bg, #fafafa); color: var(--text, #222); cursor: pointer; }
 .section :disabled { opacity: .5; cursor: not-allowed; }
 .section [role=alert] { color: var(--danger, #c85645); }
+.account { display: grid; gap: 5px; padding: 10px; border: 1px solid var(--border, #ddd); border-radius: 8px; font-size: .8rem; overflow-wrap: anywhere; }
+.account small { color: var(--text-dim, #666); font-size: .72rem; line-height: 1.5; }
+.account a { color: var(--accent, #0891b2); text-decoration: underline; }
+.account button { justify-self: start; border: 1px solid var(--border, #ddd); border-radius: 6px; padding: 5px 8px; background: var(--bg, #fafafa); color: var(--text, #222); cursor: pointer; }

@@ -11,6 +11,7 @@ const BRIDGE_URL = "http://127.0.0.1:47381";
 
 interface Props {
   presetId: string;
+  aiProvider?: string;
   baristaName: string;
   displayTitle: string;
   displayContent: string;
@@ -25,6 +26,7 @@ interface Props {
 
 export function DesktopBaristaConnector({
   presetId,
+  aiProvider = "default",
   baristaName,
   displayTitle,
   displayContent,
@@ -40,18 +42,18 @@ export function DesktopBaristaConnector({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const effect = getPersonaEffect(presetId, baristaName);
-  const latest = useRef({ name: baristaName, presetId, title: displayTitle, speech: displayContent, accent: effect.accent, avatar: getPersonaAvatar(effect, false) });
+  const latest = useRef({ name: baristaName, presetId, aiProvider, title: displayTitle, speech: displayContent, accent: effect.accent, avatar: getPersonaAvatar(effect, false) });
   const openCopilot = useRef(onOpenCopilot);
   const sendMessageRef = useRef(onSendMessage);
   const triggerSendRef = useRef<() => void>(() => {});
 
   useEffect(() => {
-    latest.current = { name: baristaName, presetId, title: displayTitle, speech: displayContent, accent: effect.accent, avatar: getPersonaAvatar(effect, false) };
+    latest.current = { name: baristaName, presetId, aiProvider, title: displayTitle, speech: displayContent, accent: effect.accent, avatar: getPersonaAvatar(effect, false) };
     openCopilot.current = onOpenCopilot;
     sendMessageRef.current = onSendMessage;
     // 대화 내용이나 상태가 바뀌면 지연 없이 즉시 데스크톱으로 전송
     triggerSendRef.current();
-  }, [baristaName, presetId, displayTitle, displayContent, effect, onOpenCopilot, onSendMessage]);
+  }, [baristaName, presetId, aiProvider, displayTitle, displayContent, effect, onOpenCopilot, onSendMessage]);
 
   useEffect(() => {
     if (!token) return;

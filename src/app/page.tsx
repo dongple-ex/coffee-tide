@@ -3377,6 +3377,7 @@ export default function Home() {
             )}
             <BaristaIdleCompanion
               key={userScope ?? "guest"}
+              aiProvider={copilotConfig.aiProvider}
               presetId={copilotConfig.presetId}
               baristaName={copilotConfig.baristaName || "AI 바리스타"}
               onOpenCopilot={() => {

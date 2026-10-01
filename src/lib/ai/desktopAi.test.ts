@@ -1,8 +1,51 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { askTerminalAi, buildTerminalAiPrompt, registerTerminalAi, terminalAiConfig } from "./desktopAi";
+import { askTerminalAi, buildTerminalAiPrompt, readTerminalAiStatus, registerTerminalAi, terminalAiConfig, terminalAiStatus, terminalAiAccountInfoSupported, TERMINAL_AI_USAGE } from "./desktopAi";
 
 afterEach(() => vi.unstubAllGlobals());
 describe("terminal AI connection", () => {
+  it("keeps legacy desktop chat working and probes an unsupported account endpoint only once per connection", async () => {
+    const fetch = vi.fn(async (_url: string, options: RequestInit) => {
+      if (_url.endsWith("/status")) return new Response(JSON.stringify({ error: "not_found" }), { status: 404 });
+      const body = JSON.parse(options.body as string);
+      return new Response(JSON.stringify({ answer: "Mock legacy CLI answer", provider: body.provider, requestId: body.requestId }));
+    });
+    vi.stubGlobal("fetch", fetch);
+    const unregister = registerTerminalAi("test-token", true);
+    try {
+      expect(await readTerminalAiStatus("claude_cli", true)).toBeNull();
+      expect(terminalAiAccountInfoSupported()).toBe(false);
+      expect(await readTerminalAiStatus("codex_cli", true)).toBeNull();
+      expect(fetch).toHaveBeenCalledTimes(1);
+      expect((await askTerminalAi("claude_cli", "Mock question")).answer).toBe("Mock legacy CLI answer");
+      expect(terminalAiStatus("claude_cli")?.verifiedAt).toBeTruthy();
+      expect(terminalAiStatus("claude_cli")?.account.email).toBeUndefined();
+      expect(terminalAiAccountInfoSupported()).toBe(false);
+    } finally { unregister(); }
+    const unregisterNew = registerTerminalAi("new-token", true);
+    expect(terminalAiAccountInfoSupported()).toBe(true);
+    unregisterNew();
+  });
+  it("shows only the selected provider's status and clears accounts on disconnect", async () => {
+    const status = { provider: "claude_cli", account: { loggedIn: true, email: "test@example.invalid" }, checkedAt: new Date().toISOString(), verifiedAt: null, usage: TERMINAL_AI_USAGE.claude_cli };
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ status }))));
+    const unregister = registerTerminalAi("test-token", true);
+    await readTerminalAiStatus("claude_cli", true);
+    expect(terminalAiStatus("claude_cli")?.account.email).toBe("test@example.invalid");
+    expect(terminalAiStatus("codex_cli")).toBeNull();
+    unregister();
+    expect(terminalAiStatus("claude_cli")).toBeNull();
+  });
+  it("rejects another provider or a non-allowlisted usage URL", async () => {
+    const status = { provider: "codex_cli", account: { loggedIn: true }, usage: TERMINAL_AI_USAGE.codex_cli };
+    const fetch = vi.fn(async () => new Response(JSON.stringify({ status })));
+    vi.stubGlobal("fetch", fetch);
+    const unregister = registerTerminalAi("test-token", true);
+    try {
+      await expect(readTerminalAiStatus("claude_cli")).rejects.toThrow("형식");
+      fetch.mockImplementationOnce(async () => new Response(JSON.stringify({ status: { ...status, provider: "claude_cli", usage: { url: "https://untrusted.example" } } })));
+      await expect(readTerminalAiStatus("claude_cli")).rejects.toThrow("형식");
+    } finally { unregister(); }
+  });
   it("requires a supported paired desktop and never calls cloud APIs as a silent fallback", async () => {
     const fetch = vi.fn(); vi.stubGlobal("fetch", fetch);
     await expect(askTerminalAi("claude_cli", "hi")).rejects.toThrow("6자리");

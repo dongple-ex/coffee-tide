@@ -19,6 +19,7 @@ const emptySubscribe = () => () => {};
 export interface BaristaIdleCompanionProps {
   presetId?: string;
   baristaName?: string;
+  aiProvider?: string;
   idleThresholdMs?: number; // 기본: 45초(45,000ms)
   onOpenCopilot?: () => void;
   onSendMessage?: (
@@ -33,6 +34,7 @@ export interface BaristaIdleCompanionProps {
 export function BaristaIdleCompanion({
   presetId = "karina",
   baristaName = "AI 바리스타",
+  aiProvider = "default",
   idleThresholdMs = 45000,
   onOpenCopilot,
   onSendMessage,
@@ -599,6 +601,7 @@ export function BaristaIdleCompanion({
       {/* 연결은 유휴 말풍선이 숨겨져도 유지한다. */}
       {desktopPipEnabled && (
         <DesktopBaristaConnector
+          aiProvider={aiProvider}
           presetId={presetId}
           baristaName={baristaName}
           displayTitle={displayTitle}

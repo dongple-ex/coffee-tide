@@ -2,9 +2,24 @@ import { buildCopilotSystemInstruction, type CopilotUserConfig } from "./harness
 
 export type TerminalAiProvider = "claude_cli" | "codex_cli";
 export interface TerminalAiSettings { executablePath: string; workingDirectory: string; model: string; defaultDirectory?: string }
-export interface TerminalAiReply { answer: string; provider: TerminalAiProvider; model?: string; requestId: string }
+export interface TerminalAiStatus {
+  provider: TerminalAiProvider;
+  account: { loggedIn: boolean | null; email?: string; authMethod?: string; plan?: string; organization?: string };
+  checkedAt: string | null;
+  verifiedAt: string | null;
+  lastError?: string;
+  usage: { label: string; url: string; description: string };
+}
+export interface TerminalAiReply { answer: string; provider: TerminalAiProvider; model?: string; requestId: string; status?: TerminalAiStatus }
+const statuses = new Map<TerminalAiProvider, TerminalAiStatus>();
+export const terminalAiStatus = (provider: TerminalAiProvider) => statuses.get(provider) || null;
+export const terminalAiStatusUnavailable = () => null;
+export const TERMINAL_AI_USAGE = {
+  claude_cli: { label: "Claude 사용량 열기", url: "https://claude.ai/settings/usage", description: "Claude 설정 → Usage 또는 Claude Code에서 /usage로 확인하세요." },
+  codex_cli: { label: "Codex 사용량 안내", url: "https://learn.chatgpt.com/docs/developer-commands#view-account-usage-with-usage", description: "Codex 터미널에서 /status로 한도를, /usage로 활동을 확인하세요. CLI 버전에 따라 메뉴가 다를 수 있습니다." },
+};
 const BRIDGE_URL = "http://127.0.0.1:47381";
-interface TerminalConnection { token: string; supported: boolean }
+interface TerminalConnection { token: string; supported: boolean; accountInfoSupported?: boolean }
 let connection: TerminalConnection | null = null;
 let currentRequest: { id: string; connection: TerminalConnection; abort: AbortController } | null = null;
 const listeners = new Set<() => void>();
@@ -13,17 +28,24 @@ const publish = () => listeners.forEach(listener => listener());
 export function subscribeTerminalAi(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener); }; }
 export function terminalAiConnected() { return Boolean(connection?.supported); }
 export function terminalAiDisconnected() { return false; }
+export function terminalAiAccountInfoSupported() { return connection?.accountInfoSupported !== false; }
+export function terminalAiAccountInfoUnknown() { return true; }
 export function registerTerminalAi(token: string, supported: boolean) {
+  cancelTerminalAi();
   const registered = { token, supported };
+  statuses.clear();
   connection = registered; publish();
   return () => {
     if (connection === registered) {
       cancelTerminalAi();
-      connection = null; publish();
+      connection = null; statuses.clear(); publish();
     }
   };
 }
 
+class TerminalAiBridgeError extends Error {
+  constructor(message: string, readonly status: number) { super(message); }
+}
 async function post<T>(connected: TerminalConnection, route: string, body: unknown, signal: AbortSignal): Promise<T> {
   let response: Response;
   try {
@@ -33,7 +55,7 @@ async function post<T>(connected: TerminalConnection, route: string, body: unkno
     throw new Error("데스크톱 AI에 연결할 수 없습니다. 보조 앱을 실행하고 다시 연결해 주세요.", { cause: error });
   }
   const data = await response.json() as T & { error?: string };
-  if (!response.ok) throw new Error(data.error || "터미널 AI 요청에 실패했습니다.");
+  if (!response.ok) throw new TerminalAiBridgeError(data.error || "터미널 AI 요청에 실패했습니다.", response.status);
   return data;
 }
 
@@ -43,10 +65,39 @@ function requireConnection() {
   return connection;
 }
 export async function terminalAiConfig(provider: TerminalAiProvider, settings?: TerminalAiSettings) {
-  return post<{ config: TerminalAiSettings }>(requireConnection(), "config", { provider, settings }, AbortSignal.timeout(5000));
+  const connected = requireConnection();
+  const result = await post<{ config: TerminalAiSettings; status?: TerminalAiStatus }>(connected, "config", { provider, settings }, AbortSignal.timeout(5000));
+  if (connected !== connection) throw new Error("데스크톱 연결이 변경되었습니다.");
+  if (result.status) { connected.accountInfoSupported = true; storeStatus(provider, result.status); }
+  else if (settings) { statuses.delete(provider); publish(); }
+  return result;
 }
 export async function checkTerminalAi(provider: TerminalAiProvider) {
   return post<{ installed: boolean; version: string; executable: string }>(requireConnection(), "check", { provider }, AbortSignal.timeout(15000));
+}
+function storeStatus(provider: TerminalAiProvider, status: TerminalAiStatus) {
+  const allowedUrls = [TERMINAL_AI_USAGE.claude_cli.url, TERMINAL_AI_USAGE.codex_cli.url, "https://platform.claude.com/usage", "https://platform.openai.com/usage"];
+  if (status?.provider !== provider || !status.account || ![true, false, null].includes(status.account.loggedIn) || !allowedUrls.includes(status.usage?.url)) throw new Error("터미널 AI 계정 정보 형식이 올바르지 않습니다.");
+  statuses.set(provider, status); publish();
+}
+export async function readTerminalAiStatus(provider: TerminalAiProvider, refresh = false) {
+  const connected = requireConnection();
+  if (connected.accountInfoSupported === false) return null;
+  try {
+    const result = await post<{ status: TerminalAiStatus }>(connected, "status", { provider, refresh }, AbortSignal.timeout(refresh ? 20000 : 5000));
+    if (connection !== connected) throw new Error("데스크톱 연결이 변경되었습니다. 다시 확인해 주세요.");
+    storeStatus(provider, result.status);
+    connected.accountInfoSupported = true; publish();
+    return result.status;
+  } catch (error) {
+    if (connection !== connected) throw new Error("데스크톱 연결이 변경되었습니다. 다시 확인해 주세요.");
+    if (error instanceof TerminalAiBridgeError && error.status === 404) {
+      // Released desktop v0.1.1 supports chat but has no account-status endpoint.
+      connected.accountInfoSupported = false; statuses.clear(); publish();
+      return null;
+    }
+    throw error;
+  }
 }
 
 export function buildTerminalAiPrompt(question: string, config: CopilotUserConfig, history: { role: "user" | "assistant"; text: string }[] = [], mode: "talk" | "work" = "work") {
@@ -73,6 +124,8 @@ export async function askTerminalAi(provider: TerminalAiProvider, prompt: string
     const reply = await post<TerminalAiReply>(connected, "chat", { provider, requestId: request.id, prompt }, request.abort.signal);
     if (request.abort.signal.aborted || connection !== connected) throw new Error("연결이 변경되어 터미널 AI 요청을 취소했습니다.");
     if (typeof reply.answer !== "string" || !reply.answer.trim() || reply.provider !== provider || reply.requestId !== request.id) throw new Error("터미널 AI 답변 형식이 올바르지 않습니다.");
+    if (reply.status) { connected.accountInfoSupported = true; storeStatus(provider, reply.status); }
+    else storeStatus(provider, { provider, account: { loggedIn: null }, checkedAt: null, verifiedAt: new Date().toISOString(), usage: TERMINAL_AI_USAGE[provider] });
     return reply;
   } finally {
     clearTimeout(timer);
