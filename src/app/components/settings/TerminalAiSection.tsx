@@ -6,6 +6,19 @@ import { cancelTerminalAi, checkTerminalAi, readTerminalAiStatus, subscribeTermi
 import styles from "./terminalAiSection.module.css";
 
 const EMPTY: TerminalAiSettings = { executablePath: "", workingDirectory: "", model: "" };
+const MODEL_OPTIONS: Record<TerminalAiProvider, { value: string; label: string }[]> = {
+  claude_cli: [
+    { value: "sonnet", label: "Sonnet" },
+    { value: "opus", label: "Opus" },
+    { value: "haiku", label: "Haiku" },
+  ],
+  codex_cli: [
+    { value: "gpt-6.1-sol", label: "GPT-6.1 Sol" },
+    { value: "gpt-6-astra", label: "GPT-6 Astra" },
+    { value: "gpt-6-sol", label: "GPT-6 Sol" },
+    { value: "gpt-6-luna", label: "GPT-6 Luna" },
+  ],
+};
 export function TerminalAiSection({ config, onChangeConfig }: { config: CopilotUserConfig; onChangeConfig: (next: CopilotUserConfig) => void }) {
   const connected = useSyncExternalStore(subscribeTerminalAi, terminalAiConnected, terminalAiDisconnected);
   const provider = config.aiProvider === "claude_cli" || config.aiProvider === "codex_cli" ? config.aiProvider : null;
@@ -33,11 +46,16 @@ function TerminalAiFields({ provider, connected }: { provider: TerminalAiProvide
   const [message, setMessage] = useState("");
   const [failed, setFailed] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [customModel, setCustomModel] = useState(false);
   useEffect(() => {
     let disposed = false;
     if (provider && connected) {
       void terminalAiConfig(provider).then(result => {
-        if (!disposed) { setSettings(result.config); setLoaded(true); }
+        if (!disposed) {
+          setSettings(result.config);
+          setCustomModel(Boolean(result.config.model) && !MODEL_OPTIONS[provider].some(option => option.value === result.config.model));
+          setLoaded(true);
+        }
         return readTerminalAiStatus(provider, true);
       }).catch(error => { if (!disposed) { setMessage(error.message); setFailed(true); } });
     }
@@ -48,6 +66,9 @@ function TerminalAiFields({ provider, connected }: { provider: TerminalAiProvide
 
   const save = async (check: boolean) => {
     if (!provider || busy || !loaded) return;
+    if (customModel && !settings.model.trim()) {
+      setFailed(true); setMessage("직접 사용할 모델 이름을 입력해 주세요."); return;
+    }
     setBusy(true); setMessage("");
     try {
       const result = await terminalAiConfig(provider, settings);
@@ -71,7 +92,7 @@ function TerminalAiFields({ provider, connected }: { provider: TerminalAiProvide
   const account = status?.account;
   return (
     <>
-        <p>설치하고 로그인한 CLI로 캐릭터 지침·최근 대화·질문을 전송합니다. 제공업체의 클라우드 모델과 해당 계정의 사용 한도를 이용합니다.</p>
+        <p>웹의 질문을 이 PC의 바리스타 앱이 받아, 설치하고 로그인한 CLI에 캐릭터 지침·최근 대화와 함께 전달합니다. CLI의 답변을 웹에 표시하며, 제공업체 모델과 해당 계정의 사용 한도를 이용합니다.</p>
         <div className={styles.account} aria-live="polite">
           <strong>{status?.lastError ? "연결 확인 필요" : status?.verifiedAt ? "✓ 실제 응답 연결 확인" : !accountInfoSupported ? "계정 정보 미지원" : account?.loggedIn ? "로그인 확인 · 실제 응답 대기" : account?.loggedIn === false ? "CLI 로그인 필요" : "계정 확인 대기"}</strong>
           <span>사용 계정: {account?.email || (!accountInfoSupported ? "이 보조 앱에서는 계정 정보를 제공하지 않습니다." : account?.loggedIn ? `${account.authMethod || "CLI 인증"} · 이메일 정보 제공 안 됨` : "아직 확인되지 않았습니다.")}</span>
@@ -89,8 +110,22 @@ function TerminalAiFields({ provider, connected }: { provider: TerminalAiProvide
           <input id="terminal-ai-executable" value={settings.executablePath} disabled={busy || !loaded} placeholder="비우면 자동 탐색 · Windows는 .exe 절대 경로" onChange={event => setSettings(previous => ({ ...previous, executablePath: event.target.value }))} />
           <label htmlFor="terminal-ai-directory">작업 폴더</label>
           <input id="terminal-ai-directory" value={settings.workingDirectory} disabled={busy || !loaded} placeholder={settings.defaultDirectory || "비우면 앱 전용 AI 폴더"} onChange={event => setSettings(previous => ({ ...previous, workingDirectory: event.target.value }))} />
-          <label htmlFor="terminal-ai-model">모델 이름 · 선택 사항</label>
-          <input id="terminal-ai-model" value={settings.model} disabled={busy || !loaded} placeholder="비우면 CLI 기본 모델" onChange={event => setSettings(previous => ({ ...previous, model: event.target.value }))} />
+          <label htmlFor="terminal-ai-model">모델 선택</label>
+          <select id="terminal-ai-model" value={customModel ? "custom" : settings.model} disabled={busy || !loaded} aria-describedby="terminal-ai-model-help" onChange={event => {
+            const value = event.target.value;
+            setCustomModel(value === "custom");
+            setSettings(previous => ({ ...previous, model: value === "custom" ? "" : value }));
+            setFailed(false); setMessage("설정 저장을 누르면 선택한 모델이 다음 질문부터 적용됩니다.");
+          }}>
+            <option value="">CLI 기본 모델 · 자동 선택</option>
+            {MODEL_OPTIONS[provider].map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+            <option value="custom">모델 이름 직접 입력</option>
+          </select>
+          {customModel && <>
+            <label htmlFor="terminal-ai-custom-model">직접 사용할 모델 이름</label>
+            <input id="terminal-ai-custom-model" value={settings.model} disabled={busy || !loaded} maxLength={100} placeholder={provider === "claude_cli" ? "Claude 모델 ID 또는 별칭" : "Codex 모델 ID"} onChange={event => setSettings(previous => ({ ...previous, model: event.target.value }))} />
+          </>}
+          <p id="terminal-ai-model-help">목록은 모델 선택용 후보입니다. 계정과 CLI 버전에 따라 지원 모델이 다르며, 실제 사용 가능 여부는 질문을 보낸 뒤 확인됩니다. 저장 후 다음 질문부터 적용됩니다.</p>
           <div className={styles.actions}>
             <button type="button" disabled={busy || !loaded} onClick={() => void save(false)}>설정 저장</button>
             <button type="button" disabled={busy || !loaded} onClick={() => void save(true)}>{busy ? "확인 중…" : accountInfoSupported ? "저장·설치·계정 확인" : "저장·설치 확인"}</button>

@@ -2,7 +2,7 @@
  * 사용자에게 표시하는 coffeeTide 버전 — 설정 화면 및 What's New 모달에 노출된다.
  * 릴리스 시 package.json과 함께 갱신할 것. (version.test.ts에서 동기화 검증)
  */
-export const APP_VERSION = "v1.2.5";
+export const APP_VERSION = "v1.2.6";
 
 export const LS_LAST_SEEN_VERSION = "coffeetide_last_seen_version";
 
@@ -21,6 +21,19 @@ export interface ReleaseNote {
 }
 
 export const RELEASE_HISTORY: ReleaseNote[] = [
+  {
+    version: "v1.2.6",
+    date: "2026-10-01",
+    title: "터미널 AI 모델 선택",
+    summary: "Claude Code와 Codex CLI 연결에서 모델을 목록으로 선택하거나 직접 입력할 수 있습니다. 저장한 모델은 다음 질문부터 적용됩니다.",
+    items: [
+      {
+        type: "enhance",
+        title: "모델 목록과 직접 입력",
+        description: "CLI 기본 모델, 제공자별 모델 후보, 직접 입력 옵션을 제공합니다. 후보 목록은 계정의 사용 가능 모델을 조회한 결과가 아니며, 지원 여부는 계정과 CLI 버전에 따라 다릅니다.",
+      },
+    ],
+  },
   {
     version: "v1.2.5",
     date: "2026-10-01",
