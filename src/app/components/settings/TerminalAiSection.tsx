@@ -4,6 +4,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import type { CopilotUserConfig } from "@/lib/ai/harness";
 import { cancelTerminalAi, checkTerminalAi, readTerminalAiModels, readTerminalAiStatus, subscribeTerminalAi, terminalAiConfig, terminalAiConnected, terminalAiDisconnected, terminalAiConnectionVersion, terminalAiConnectionInitialVersion, terminalAiAccountInfoSupported, terminalAiAccountInfoUnknown, terminalAiStatus, terminalAiStatusUnavailable, TERMINAL_AI_USAGE, type TerminalAiProvider, type TerminalAiSettings, type TerminalAiModelCatalog } from "@/lib/ai/desktopAi";
 import styles from "./terminalAiSection.module.css";
+import { TerminalAiCostInfo } from "./TerminalAiCostInfo";
 
 const EMPTY: TerminalAiSettings = { executablePath: "", workingDirectory: "", model: "" };
 const MODEL_UNSUPPORTED = "이 데스크톱 앱은 모델 목록 조회를 지원하지 않습니다. 앱을 업데이트하거나 모델 이름을 직접 입력해 주세요.";
@@ -145,6 +146,7 @@ function TerminalAiFields({ provider, connected }: { provider: TerminalAiProvide
           <div className={styles.actions}><button type="button" disabled={busy || !loaded} onClick={() => void refreshModels()}>모델 목록 새로고침</button></div>
           <p role="status">{modelMessage || `${catalog?.models.length}개 모델 조회 · ${catalog?.source === "claude-agent-sdk" ? "Claude SDK" : "Codex App Server"} · ${catalog ? new Date(catalog.checkedAt).toLocaleTimeString("ko-KR") : ""}`}</p>
           {selectedModel?.description && <p>{selectedModel.description}</p>}
+          <TerminalAiCostInfo provider={provider} model={settings.model} customModel={customModel} catalog={catalog} status={status} />
           <p id="terminal-ai-model-help">저장된 실행 경로·작업 폴더로 조회합니다. 목록은 CLI가 제공한 모델 정보이며, 계정의 실행 권한·잔여 사용량을 보장하지 않습니다. 저장 후 다음 질문부터 적용됩니다.</p>
           {!settings.model && <p>{provider === "codex_cli" ? "자동 선택은 바리스타의 Codex 실행 기본값을 사용합니다. 개인 config.toml의 모델 설정은 적용하지 않습니다." : "자동 선택은 Claude CLI의 모델 설정을 따릅니다."}</p>}
           <div className={styles.actions}>

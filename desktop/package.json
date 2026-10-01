@@ -1,6 +1,6 @@
 {
   "name": "coffeetide-barista",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "private": true,
   "description": "CoffeeTide transparent desktop companion",
   "main": "main.cjs",

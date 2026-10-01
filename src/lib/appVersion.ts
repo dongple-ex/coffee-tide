@@ -2,7 +2,7 @@
  * 사용자에게 표시하는 coffeeTide 버전 — 설정 화면 및 What's New 모달에 노출된다.
  * 릴리스 시 package.json과 함께 갱신할 것. (version.test.ts에서 동기화 검증)
  */
-export const APP_VERSION = "v1.2.8";
+export const APP_VERSION = "v1.2.9";
 
 export const LS_LAST_SEEN_VERSION = "coffeetide_last_seen_version";
 
@@ -21,6 +21,24 @@ export interface ReleaseNote {
 }
 
 export const RELEASE_HISTORY: ReleaseNote[] = [
+  {
+    version: "v1.2.9",
+    date: "2026-10-02",
+    title: "터미널 AI 추론 수준·비용 안내",
+    summary: "선택한 모델의 지원 추론 단계와 권장 기본값, API·구독 과금 차이와 공식 사용량 메뉴를 안내합니다. 실제 적용값을 확인할 수 없으면 미확인으로 표시합니다.",
+    items: [
+      {
+        type: "enhance",
+        title: "모델별 추론 정보 표시",
+        description: "모델 목록을 지원하는 앱에서 지원 단계를 표시합니다. Codex의 권장 기본값과 바리스타 설정 내 안내는 데스크톱 소스 v0.1.3에 적용했으며 기존 v0.1.1 다운로드에는 포함되지 않습니다. 추론 수준은 앱에서 별도 지정하지 않습니다.",
+      },
+      {
+        type: "enhance",
+        title: "비용과 한도 판단에 필요한 안내",
+        description: "추론 수준·대화 길이에 따른 사용량 영향과 추가 크레딧 사용 조건을 안내합니다. 예상 금액과 잔여 한도는 현재 연결에서 제공하지 않으며, 공식 사용량 메뉴에서 확인할 수 있습니다.",
+      },
+    ],
+  },
   {
     version: "v1.2.8",
     date: "2026-10-02",

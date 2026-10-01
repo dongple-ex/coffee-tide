@@ -17,7 +17,7 @@ module.exports = async function modelSmoke({ win, post, token, cliAi, capture })
     cliAi.configure = (provider, settings) => { savedModel = settings.model; return cliAi.config(provider); };
     cliAi.models = async provider => {
       if (fail) throw new Error('샘플 조회 실패');
-      return { provider, source: 'claude-agent-sdk', checkedAt: new Date().toISOString(), models: [{ value: 'mock-model', label: '샘플 모델 · 실제 모델 아님', description: '', reasoningEfforts: [], isDefault: false }] };
+      return { provider, source: provider === 'claude_cli' ? 'claude-agent-sdk' : 'codex-app-server', checkedAt: new Date().toISOString(), models: [{ value: 'mock-model', label: '샘플 모델 · 실제 모델 아님', description: '', reasoningEfforts: ['low', 'high'], ...(provider === 'codex_cli' ? { defaultReasoningEffort: 'high' } : {}), isDefault: provider === 'codex_cli' }] };
     };
     await post('state', state, token);
     await pause();
@@ -27,18 +27,26 @@ module.exports = async function modelSmoke({ win, post, token, cliAi, capture })
     await win.webContents.executeJavaScript("document.querySelector('#ai-model').value = 'mock-model'; document.querySelector('#ai-model').dispatchEvent(new Event('change')); document.querySelector('#ai-model-save').click()");
     await ready();
     const saved = savedModel === 'mock-model' && await win.webContents.executeJavaScript("document.querySelector('#ai-model-message').textContent.includes('저장했습니다')");
+    const effort = await win.webContents.executeJavaScript("document.querySelector('#ai-reasoning-info').textContent.includes('low · high') && document.querySelector('#ai-reasoning-info').textContent.includes('실제 적용 수준: 미확인') && document.querySelector('#ai-reasoning-info').textContent.includes('권장 기본값: 제공되지 않음') && document.querySelector('#ai-cost-provider').textContent.includes('추가 확인 없이 크레딧')");
     await win.webContents.executeJavaScript("document.querySelector('#ai-model-settings').scrollIntoView({block:'center'})");
     await pause(); await capture('model-settings.png');
+    await win.webContents.executeJavaScript("document.querySelector('#ai-reasoning-info').scrollIntoView({block:'start'})");
+    await pause(); await capture('reasoning-settings.png');
     fail = true;
     await win.webContents.executeJavaScript("document.querySelector('#ai-model-refresh').click()");
     await ready();
     const failure = await win.webContents.executeJavaScript("document.querySelector('#ai-model-message').textContent.includes('샘플 조회 실패') && !document.querySelector('#ai-model').textContent.includes('실제 모델 아님') && document.querySelector('#ai-model').value === 'mock-model'");
+    const effortCleared = await win.webContents.executeJavaScript("!document.querySelector('#ai-reasoning-info').textContent.includes('low · high') && document.querySelector('#ai-reasoning-info').textContent.includes('미지원 여부 미확인')");
     await win.webContents.executeJavaScript("document.querySelector('#ai-model').value='__custom__'; document.querySelector('#ai-model').dispatchEvent(new Event('change')); document.querySelector('#ai-model-custom').value='manual-model'; document.querySelector('#ai-model-custom').dispatchEvent(new Event('input')); document.querySelector('#ai-model-save').click()");
     await ready();
     const manual = savedModel === 'manual-model';
     await post('state', { aiProvider: 'codex_cli' }, token); await pause();
     const cleared = await win.webContents.executeJavaScript("!document.querySelector('#ai-model').textContent.includes('실제 모델 아님')");
+    fail = false;
+    await win.webContents.executeJavaScript("document.querySelector('#ai-model-refresh').click()"); await ready();
+    const reference = await win.webContents.executeJavaScript("document.querySelector('#ai-model').value=''; document.querySelector('#ai-model').dispatchEvent(new Event('change')); document.querySelector('#ai-reasoning-info').textContent.includes('목록 기본 모델(참고)') && document.querySelector('#ai-reasoning-info').textContent.includes('권장 기본값: high') && document.querySelector('#ai-reasoning-info').textContent.includes('실제 적용 수준: 미확인')");
+    const manualCleared = await win.webContents.executeJavaScript("document.querySelector('#ai-model').value='__custom__'; document.querySelector('#ai-model').dispatchEvent(new Event('change')); document.querySelector('#ai-model-custom').value='unknown-model'; document.querySelector('#ai-model-custom').dispatchEvent(new Event('input')); !document.querySelector('#ai-reasoning-info').textContent.includes('low · high') && document.querySelector('#ai-reasoning-info').textContent.includes('unknown-model')");
     await win.webContents.executeJavaScript("document.querySelector('#settings-button').click()");
-    return { modelPickerLoaded: loaded, modelPickerSaved: saved, modelPickerFailure: failure, modelPickerManual: manual, modelPickerProviderReset: cleared };
+    return { modelPickerLoaded: loaded, modelPickerSaved: saved, modelPickerFailure: failure, modelPickerManual: manual, modelPickerProviderReset: cleared, modelPickerEffort: effort, modelPickerEffortCleared: effortCleared, modelPickerDefaultReference: reference, modelPickerManualEffortCleared: manualCleared };
   } finally { Object.assign(cliAi, original); }
 };

@@ -40,6 +40,10 @@ body:has(#settings:not([hidden])) #bubble { display: none; }
 #ai-model-settings select, #ai-model-custom { width: 100%; min-width: 0; padding: 5px; border: 1px solid #ffffff30; border-radius: 6px; background: #191816; color: #ecdfce; font: inherit; -webkit-app-region: no-drag; }
 #ai-model-custom { margin-top: 5px; user-select: text; }
 #ai-model-message { overflow-wrap: anywhere; white-space: pre-line; }
+#ai-reasoning-info { margin-top: 8px; padding: 7px; border: 1px solid #ffffff30; border-radius: 6px; white-space: pre-line; overflow-wrap: anywhere; line-height: 1.5; user-select: text; }
+#ai-cost-details { margin-top: 8px; line-height: 1.5; }
+#ai-cost-details summary { cursor: pointer; }
+#ai-cost-account { white-space: pre-line; }
 #settings hr { border: 0; border-top: 1px solid #ffffff25; margin: 8px 0; }
 #settings { scrollbar-color: #716658 transparent; }
 #settings::-webkit-scrollbar { width: 4px; }

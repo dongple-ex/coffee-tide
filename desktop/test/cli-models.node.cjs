@@ -36,6 +36,16 @@ test('Codex reads every page without a model turn and rejects cursor loops and p
   assert.throws(() => loop.onLine(JSON.stringify({ id: 3, result: { data: [], nextCursor: 'same' } }), stdin));
 });
 
+test('effort defaults are optional catalogue metadata, accepted only from supported Codex levels', () => {
+  const row = { model: 'mock-model', displayName: 'Mock model', supportedReasoningEfforts: [{ reasoningEffort: 'low' }, { reasoningEffort: 'high' }], defaultReasoningEffort: 'high' };
+  assert.equal(normalizeModels('codex_cli', [row])[0].defaultReasoningEffort, 'high');
+  for (const invalid of ['ultra', 'bad\nvalue', 42, undefined]) {
+    assert.equal(normalizeModels('codex_cli', [{ ...row, defaultReasoningEffort: invalid }])[0].defaultReasoningEffort, undefined);
+  }
+  assert.equal(normalizeModels('codex_cli', [{ ...row, supportedReasoningEfforts: {} }])[0].defaultReasoningEffort, undefined);
+  assert.equal(normalizeModels('claude_cli', [{ ...row, value: 'mock-model', supportedEffortLevels: ['high'] }])[0].defaultReasoningEffort, undefined);
+});
+
 function fixture(t, supportedModels, options = {}) {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'coffeetide-model-test-'));
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));

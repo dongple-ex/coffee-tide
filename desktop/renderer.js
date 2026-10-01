@@ -164,6 +164,28 @@ function renderModels() {
   for (const id of ['ai-model', 'ai-model-custom', 'ai-model-refresh', 'ai-model-save']) byId(id).disabled = !selected || aiBusy;
   const auto = !modelState.model ? (current.aiProvider === 'codex_cli' ? '\n자동 선택은 바리스타 실행 기본값이며 개인 config.toml 모델은 적용하지 않습니다.' : '\n자동 선택은 Claude CLI의 모델 설정을 따릅니다.') : '';
   byId('ai-model-message').textContent = `${modelState.message || ''}${auto}`;
+  renderModelInfo();
+}
+function renderModelInfo() {
+  const models = modelState.catalog?.models || [];
+  const model = (modelState.model || '').trim();
+  const selected = models.find(item => item.value === model);
+  const reference = !model && !modelState.custom ? models.find(item => current.aiProvider === 'codex_cli' ? item.isDefault : item.value === 'default') : undefined;
+  const info = selected || reference;
+  byId('ai-reasoning-info').textContent = [
+    '추론 설정: 자동 · 앱에서 별도 지정 안 함',
+    '실제 적용 수준: 미확인',
+    `${reference ? '목록 기본 모델(참고)' : '선택 모델'}: ${info?.label || model || (modelState.custom ? '직접 입력 대기' : '자동 · 실행 모델 미확인')}`,
+    `지원 단계: ${info?.reasoningEfforts.length ? info.reasoningEfforts.join(' · ') : '정보 없음 · 미지원 여부 미확인'}`,
+    `목록의 권장 기본값: ${info?.defaultReasoningEffort || '제공되지 않음'}`,
+    '지원 단계·권장값은 실제 적용값이 아닙니다.',
+  ].join('\n');
+  byId('ai-cost-summary').textContent = '높은 추론 수준은 대체로 시간·토큰 사용량을 늘립니다. 낮은 수준도 사용량을 소모합니다. 예상 요금·잔여 한도는 현재 연결에서 제공하지 않습니다.';
+  const account = current.terminalAi?.account;
+  const auth = account?.loggedIn ? account.authMethod : undefined;
+  const billing = auth === 'API 키' ? 'API 사용량 과금 · 모델 단가와 입력·출력·캐시 토큰에 따라 달라집니다.' : ['Claude 구독', 'ChatGPT'].includes(auth) ? '구독 한도·크레딧 사용 · 추가 결제는 모델·요금제·계정 설정에 따라 달라집니다.' : '과금 방식 미확인 · 제공업체 메뉴에서 확인하세요.';
+  byId('ai-cost-account').textContent = `인증 방식: ${auth || '미확인'}${account?.plan ? ` · ${account.plan}` : ''}\n${billing}`;
+  byId('ai-cost-provider').textContent = current.aiProvider === 'claude_cli' ? 'Claude CLI 설정·환경 변수·조직 정책에 따라 추론 수준이 달라집니다. 일부 모델은 구독 중에도 별도 사용 크레딧을 소모하며, 바리스타 자동 응답에서는 추가 확인 없이 크레딧이 사용될 수 있습니다. 공식 사용량 메뉴에서 지출 한도를 확인하세요.' : '바리스타는 개인 config.toml의 모델·추론 설정을 적용하지 않습니다. 같은 추론 단계여도 모델이 다르면 사용량과 비용이 달라질 수 있습니다.';
 }
 async function refreshModels() {
   if (aiBusy || !current.connected || !['claude_cli', 'codex_cli'].includes(current.aiProvider)) return;
@@ -236,7 +258,8 @@ byId('ai-model').addEventListener('change', event => {
   modelState.model = modelState.custom ? '' : event.target.value;
   modelState.dirty = true; modelState.message = '모델 저장을 누르면 다음 질문부터 적용됩니다.'; renderModels(); reportRegions();
 });
-byId('ai-model-custom').addEventListener('input', event => { modelState.model = event.target.value; modelState.dirty = true; });
+byId('ai-model-custom').addEventListener('input', event => { modelState.model = event.target.value; modelState.dirty = true; renderModelInfo(); });
+byId('ai-cost-details').addEventListener('toggle', reportRegions);
 for (const radio of document.querySelectorAll('[name="appearance"]')) radio.addEventListener('change', () => window.barista.appearance(radio.value));
 byId('avatar').addEventListener('error', () => {
   if (!byId('avatar').src.endsWith('persona_barista_v2.webp')) byId('avatar').src = 'assets/persona_barista_v2.webp';

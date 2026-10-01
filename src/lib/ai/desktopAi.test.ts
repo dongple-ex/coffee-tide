@@ -28,6 +28,16 @@ describe("terminal AI connection", () => {
       expect(fetch).toHaveBeenCalledTimes(1);
     } finally { unregister(); }
   });
+  it("preserves a supported Codex catalogue default without inventing one for older metadata", async () => {
+    const unregister = registerTerminalAi("test-token", true);
+    try {
+      for (const value of ["high", "ultra", null, undefined, 42]) {
+        vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ ...catalog, provider: "codex_cli", source: "codex-app-server", models: [{ ...catalog.models[0], defaultReasoningEffort: value }] }))));
+        const result = await readTerminalAiModels("codex_cli");
+        expect(result?.models[0].defaultReasoningEffort).toBe(value === "high" ? "high" : undefined);
+      }
+    } finally { unregister(); }
+  });
   it("rejects stale, foreign or malformed model catalogs", async () => {
     let reply!: (response: Response) => void;
     const fetch = vi.fn(() => new Promise<Response>(resolve => { reply = resolve; }));

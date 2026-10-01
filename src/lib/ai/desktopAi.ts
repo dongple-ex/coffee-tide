@@ -2,7 +2,7 @@ import { buildCopilotSystemInstruction, type CopilotUserConfig } from "./harness
 
 export type TerminalAiProvider = "claude_cli" | "codex_cli";
 export interface TerminalAiSettings { executablePath: string; workingDirectory: string; model: string; defaultDirectory?: string }
-export interface TerminalAiModel { value: string; label: string; description: string; reasoningEfforts: string[]; isDefault: boolean }
+export interface TerminalAiModel { value: string; label: string; description: string; reasoningEfforts: string[]; defaultReasoningEffort?: string; isDefault: boolean }
 export interface TerminalAiModelCatalog { provider: TerminalAiProvider; models: TerminalAiModel[]; source: "claude-agent-sdk" | "codex-app-server"; checkedAt: string }
 export interface TerminalAiStatus {
   provider: TerminalAiProvider;
@@ -96,7 +96,8 @@ export async function readTerminalAiModels(provider: TerminalAiProvider): Promis
       const models = catalog.models.map(model => {
         if (!model || !text(model.value, 100) || !/^[a-zA-Z0-9_.:/-]+(?:\[[a-zA-Z0-9_-]+\])?$/.test(model.value) || seen.has(model.value) || !text(model.label, 160) || !model.label.trim() || !text(model.description, 500) || typeof model.isDefault !== "boolean" || !Array.isArray(model.reasoningEfforts) || model.reasoningEfforts.length > 16 || !model.reasoningEfforts.every(level => typeof level === "string" && /^[a-z0-9_-]{1,32}$/.test(level))) throw new Error("모델 목록 형식이 올바르지 않습니다.");
         seen.add(model.value);
-        return { value: model.value, label: model.label, description: model.description, reasoningEfforts: model.reasoningEfforts, isDefault: model.isDefault };
+        const defaultReasoningEffort = provider === "codex_cli" && typeof model.defaultReasoningEffort === "string" && model.reasoningEfforts.includes(model.defaultReasoningEffort) ? model.defaultReasoningEffort : undefined;
+        return { value: model.value, label: model.label, description: model.description, reasoningEfforts: model.reasoningEfforts, ...(defaultReasoningEffort ? { defaultReasoningEffort } : {}), isDefault: model.isDefault };
       });
       return { provider, source, checkedAt: catalog.checkedAt, models };
     } catch (error) {

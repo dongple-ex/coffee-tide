@@ -9,10 +9,14 @@ function normalizeModels(provider, rows) {
     const value = safeText(provider === 'claude_cli' ? row.value : row.model, 100);
     const label = safeText(row.displayName, 160);
     if (!value || !MODEL_ID.test(value) || !label) continue;
-    const levels = provider === 'claude_cli' ? row.supportedEffortLevels : row.supportedReasoningEfforts?.map(item => item?.reasoningEffort);
+    const levels = provider === 'claude_cli' ? row.supportedEffortLevels : (Array.isArray(row.supportedReasoningEfforts) ? row.supportedReasoningEfforts.map(item => item?.reasoningEffort) : []);
+    const reasoningEfforts = Array.isArray(levels) ? [...new Set(levels.filter(level => typeof level === 'string' && /^[a-z0-9_-]{1,32}$/.test(level)))].slice(0, 16) : [];
+    // A catalogue recommendation is not the effort used by a subsequent CLI request.
+    const defaultReasoningEffort = provider === 'codex_cli' && reasoningEfforts.includes(row.defaultReasoningEffort) ? row.defaultReasoningEffort : undefined;
     models.set(value, {
       value, label, description: safeText(row.description, 500),
-      reasoningEfforts: Array.isArray(levels) ? [...new Set(levels.filter(level => typeof level === 'string' && /^[a-z0-9_-]{1,32}$/.test(level)))].slice(0, 16) : [],
+      reasoningEfforts,
+      ...(defaultReasoningEffort ? { defaultReasoningEffort } : {}),
       isDefault: provider === 'codex_cli' && row.isDefault === true,
     });
   }
