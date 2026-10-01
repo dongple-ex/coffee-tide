@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import dynamic from "next/dynamic";
 import { AiJobRecovery } from "./components/copilot/AiJobRecovery";
 import { AiJobPendingError, requestAiJob } from "@/lib/ai/jobs/client";
+import { askTerminalAi, buildTerminalAiPrompt, cancelTerminalAi } from "@/lib/ai/desktopAi";
 import { AutomationRule, ProcessedData } from "@/lib/automation/rules";
 import {
   BROWSER_ID_PREFIX,
@@ -322,6 +323,11 @@ export default function Home() {
   const [phase, setPhase] = useState<Phase>("loading");
   const [authUserEmail, setAuthUserEmail] = useState<string>();
   const userScope = useMemo(() => computeUserScope(authUserEmail), [authUserEmail]);
+  const terminalScopeRef = useRef(userScope);
+  useEffect(() => {
+    terminalScopeRef.current = userScope;
+    return () => cancelTerminalAi();
+  }, [userScope]);
   const manualStorageKey = useMemo(
     () => manualItemsStorageKey(userScope ?? "guest"),
     [userScope]
@@ -2516,6 +2522,22 @@ export default function Home() {
       setCopilotMessages((prev) => [...prev, { role: "user", text: question }]);
     }
 
+    if (copilotConfig.aiProvider === "claude_cli" || copilotConfig.aiProvider === "codex_cli") {
+      if (trackGlobalBusy) setCopilotBusy(true);
+      try {
+        const reply = await askTerminalAi(copilotConfig.aiProvider, buildTerminalAiPrompt(question, copilotConfig, conversationHistory, options?.explicitMode));
+        if (terminalScopeRef.current !== userScope) return;
+        if (persistToFeed) setCopilotMessages(previous => [...previous, { role: "ai", text: reply.answer, fallback: false }]);
+        speakVoiceResponse(reply.answer);
+        return reply.answer;
+      } catch (error) {
+        if (terminalScopeRef.current !== userScope) return;
+        const message = error instanceof Error ? error.message : "터미널 AI 요청에 실패했습니다.";
+        if (persistToFeed) setCopilotMessages(previous => [...previous, { role: "ai", text: message }]);
+        return message;
+      } finally { if (trackGlobalBusy) setCopilotBusy(false); }
+    }
+
     // 단어-앱 바로가기 레시피 — 질문 전체가 키워드(또는 @키워드)와 일치할 때만 실행한다.
     // 부분 일치로 잡으면 "노션에 정리한 업무 알려줘" 같은 정상 질문이 실행에 가로채여 답변을 못 받는다.
     const normalizedQuestion = question.trim().toLowerCase().replace(/^@/, "");
@@ -4173,6 +4195,7 @@ export default function Home() {
               onFocus={() => setWelcomeCardCollapsed(true)}
               busy={copilotBusy}
               baristaName={copilotConfig.baristaName || "AI 바리스타"}
+              onCancel={copilotConfig.aiProvider === "claude_cli" || copilotConfig.aiProvider === "codex_cli" ? cancelTerminalAi : undefined}
               presetId={copilotConfig.presetId}
               hasUrgentTasks={workflowItems.some((i) => i.category === "urgent" && i.status !== "completed" && i.status !== "dismissed")}
               taskCount={workflowItems.filter((i) => i.status !== "completed" && i.status !== "dismissed").length}

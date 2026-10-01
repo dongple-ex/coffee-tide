@@ -227,6 +227,7 @@ export const PERSONA_PRESETS: PersonaPreset[] = [
 ];
 
 export interface CopilotUserConfig {
+  aiProvider?: "default" | "claude_cli" | "codex_cli";
   baristaName?: string; // 예: "AI 바리스타", "카리나", "수석 비서", "칼찌장인 채린이"
   presetId?: string; // 선택된 프리셋 ID
   tone?: "friendly" | "formal" | "concise" | "custom";

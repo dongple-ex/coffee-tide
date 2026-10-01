@@ -7,11 +7,17 @@ const { clampPosition, validRegions, hitTest } = require('./geometry.cjs');
 const { openConversation } = require('./navigation.cjs');
 const { startLeftShiftHotkey } = require('./hotkey.cjs');
 const { createMainWindowControl } = require('./main-window.cjs');
+const { createCliAi } = require('./cli-ai.cjs');
 const mainWindowControl = createMainWindowControl();
 
 const smoke = process.argv.includes('--smoke-test');
-const origin = appOrigin(process.env.COFFEETIDE_URL || 'http://localhost:3000');
-if (smoke) app.setPath('userData', path.join(__dirname, 'smoke-output', 'profile'));
+const origin = appOrigin(process.env.COFFEETIDE_URL || (app.isPackaged ? 'https://coffee-tide.dongple.kr' : 'http://localhost:3000'));
+const smokeDirectory = app.isPackaged ? path.join(path.dirname(process.execPath), 'smoke-output') : path.join(__dirname, 'smoke-output');
+if (smoke) {
+  const profile = path.join(smokeDirectory, 'profile');
+  fs.mkdirSync(profile, { recursive: true });
+  app.setPath('userData', profile);
+}
 const WIDTH = 280, HEIGHT = 280;
 let win, tray, bridge, bridgePort, mouseTimer, saveTimer;
 let stopHotkey = () => {};
@@ -82,13 +88,14 @@ const gotLock = app.requestSingleInstanceLock();
 console.log('gotLock result:', gotLock);
 if (!gotLock) {
   console.log('Failed to get lock, quitting');
-  app.quit();
+  if (smoke) app.exit(1); else app.quit();
 } else {
   app.on('second-instance', show);
   app.whenReady().then(async () => {
     try {
       const saved = JSON.parse(fs.readFileSync(prefsPath(), 'utf8'));
       prefs.appearance = saved.appearance;
+      prefs.cliAi = saved.cliAi;
       if (Number.isSafeInteger(saved.position?.x) && Number.isSafeInteger(saved.position?.y)) prefs.position = saved.position;
     } catch {}
     if (!['cup', 'photo'].includes(prefs.appearance)) prefs.appearance = 'cup';
@@ -114,7 +121,13 @@ if (!gotLock) {
     ipcMain.on('barista:hide', (event) => { if (trusted(event)) win.hide(); });
     ipcMain.on('barista:appearance', (event, value) => { if (trusted(event)) setAppearance(value); });
     ipcMain.on('barista:regions', (event, value) => { if (trusted(event)) regions = validRegions(value, WIDTH, HEIGHT); });
+    const cliAi = createCliAi({
+      defaultDirectory: path.join(app.getPath('userData'), 'ai-workspace'),
+      settings: prefs.cliAi,
+      save: (settings) => { prefs.cliAi = settings; savePrefs(); },
+    });
     bridge = createBridge({
+      cliAi,
       origin, port: smoke ? 0 : 47381, windowControl: process.platform === "win32",
       onPair: () => { publish({ connected: true, code: '' }); show(); },
       onState: (snapshot) => publish({ ...snapshot, connected: true, code: '' }),
@@ -154,8 +167,8 @@ if (!gotLock) {
       const report = { fixedSize: !win.isResizable() && !win.isMaximizable(), alwaysOnTop: win.isAlwaysOnTop(), transparentCorner: alphaAtCorner === 0, renderer: await win.webContents.executeJavaScript('({ title: document.title, appearance: document.body.dataset.appearance, codeVisible: document.querySelector("#pair-code").textContent.length === 6 })'), hitRegions: regions.length };
       const inspectDrag = () => win.webContents.executeJavaScript('(() => { const el = document.querySelector("#drag-handle"); const r = el.getBoundingClientRect(); return el instanceof HTMLElement && getComputedStyle(el).getPropertyValue("-webkit-app-region") === "drag" && document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2) === el; })()');
       report.cupDragHandle = await inspectDrag();
-      fs.mkdirSync(path.join(__dirname, 'smoke-output'), { recursive: true });
-      fs.writeFileSync(path.join(__dirname, 'smoke-output', 'cup.png'), image.toPNG());
+      fs.mkdirSync(smokeDirectory, { recursive: true });
+      fs.writeFileSync(path.join(smokeDirectory, 'cup.png'), image.toPNG());
       const post = (route, data, token) => fetch(`http://127.0.0.1:${bridgePort}/${route}`, { method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify(data) });
       const pairing = await (await post('pair', { code: bridge.code })).json();
       win.hide();
@@ -165,10 +178,10 @@ if (!gotLock) {
       await post('state', { name: '테스트 바리스타', speech: '렌더링 검사용 샘플 말풍선입니다. ☕', accent: '#438b72', avatar: '/barista/persona_barista_v2.webp' }, pairing.token);
       await win.webContents.executeJavaScript('document.querySelector("#settings-button").click(); document.querySelector("input[value=photo]").click()');
       await new Promise((resolve) => setTimeout(resolve, 300));
-      fs.writeFileSync(path.join(__dirname, 'smoke-output', 'settings.png'), (await win.webContents.capturePage()).toPNG());
+      fs.writeFileSync(path.join(smokeDirectory, 'settings.png'), (await win.webContents.capturePage()).toPNG());
       await win.webContents.executeJavaScript('document.querySelector("#settings-button").click()');
       await new Promise((resolve) => setTimeout(resolve, 100));
-      fs.writeFileSync(path.join(__dirname, 'smoke-output', 'photo.png'), (await win.webContents.capturePage()).toPNG());
+      fs.writeFileSync(path.join(smokeDirectory, 'photo.png'), (await win.webContents.capturePage()).toPNG());
       report.photoMode = await win.webContents.executeJavaScript('document.body.dataset.appearance === "photo" && document.querySelector("#avatar").naturalWidth > 0');
       report.photoDragHandle = await inspectDrag();
       report.webStateReceived = await win.webContents.executeJavaScript('document.querySelector("#name").textContent === "테스트 바리스타" && document.querySelector("#speech").textContent.includes("샘플") && document.querySelector("#pairing").hidden');
@@ -176,7 +189,7 @@ if (!gotLock) {
       await post('disconnect', {}, pairing.token);
       await new Promise((resolve) => setTimeout(resolve, 100));
       report.disconnectClearedSpeech = state.speech === '' && !state.connected;
-      fs.writeFileSync(path.join(__dirname, 'smoke-output', 'report.json'), JSON.stringify(report, null, 2));
+      fs.writeFileSync(path.join(smokeDirectory, 'report.json'), JSON.stringify(report, null, 2));
       console.log(JSON.stringify(report));
       app.exit(report.hotkeySummon && report.transparentCorner && report.alwaysOnTop && report.photoMode && report.renderer.codeVisible && report.webStateReceived && report.preferenceSaved && report.disconnectClearedSpeech && report.hitRegions > 0 && report.cupDragHandle && report.photoDragHandle ? 0 : 1);
     } else {

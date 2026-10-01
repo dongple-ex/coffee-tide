@@ -1,6 +1,6 @@
 {
   "name": "coffeetide-barista",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "CoffeeTide transparent desktop companion",
   "main": "main.cjs",
@@ -12,7 +12,7 @@
     "start": "electron .",
     "test": "node --test test/*.node.cjs",
     "smoke": "electron . --smoke-test",
-    "package": "electron-packager . CoffeeTideBarista --platform=win32 --arch=x64 --out=dist --overwrite --ignore=\"^/(test|dist|smoke-output)($|/)\""
+    "package": "electron-packager . CoffeeTideBarista --platform=win32 --arch=x64 --out=dist --overwrite --asar.unpackDir=native --ignore=\"^/(test|dist|smoke-output)($|/)\""
   },
   "devDependencies": {
     "electron": "44.3.0",

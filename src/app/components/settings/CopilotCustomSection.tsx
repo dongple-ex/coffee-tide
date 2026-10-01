@@ -5,6 +5,7 @@ import { CopilotUserConfig, PERSONA_PRESETS, PersonaPreset } from "@/lib/ai/harn
 import { getPersonaEffect } from "@/lib/ai/personaEffects";
 import type { CompanionFeatureStatus } from "@/lib/companion/contracts";
 import { UiIcon } from "../UiIcon";
+import { TerminalAiSection } from "./TerminalAiSection";
 import { CompanionMemoryModal } from "@/app/components/companion/CompanionMemoryModal";
 import { CompanionGrowthCard } from "@/app/components/companion/CompanionGrowthCard";
 import styles from "../../page.module.css";
@@ -181,6 +182,7 @@ export function CopilotCustomSection({
       <div className={styles.cardTitle} style={{ marginBottom: "12px" }}>
         🎭 AI 캐릭터 & 페르소나 설정
       </div>
+      <TerminalAiSection config={config} onChangeConfig={onChangeConfig} />
 
       {/* 🏷️ 카테고리 필터 탭 */}
       <div

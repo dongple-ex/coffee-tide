@@ -226,7 +226,7 @@ src/app/components/copilot/    대화·입력·AI 작업 복원
 src/app/components/barista/    페이지 내 컴패니언, DesktopBaristaPip, DesktopBaristaConnector
 src/app/page.tsx               화면 상태와 대화/업무/창 제어 연결
 src/app/api/                   서버 API (각 route.ts가 계약의 정본)
-desktop/                       Electron 브리지·트레이·Windows 키/창 제어
+desktop/                       Electron 브리지·트레이·Windows 키/창 제어·Claude Code/Codex CLI 송수신
 ```
 
 ## 9. 데이터·저장소·AI 지식 아키텍처 (Phase 14 구현 현황)

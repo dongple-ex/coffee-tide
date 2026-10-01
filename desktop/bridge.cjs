@@ -30,16 +30,19 @@ function equalSecret(a, b) {
   return left.length === right.length && timingSafeEqual(left, right);
 }
 
-function createBridge({ origin, port = 47381, onState = () => {}, onPair = () => {}, onDisconnect = () => {}, onWindow = async () => false, windowControl = false }) {
+function createBridge({ origin, port = 47381, onState = () => {}, onPair = () => {}, onDisconnect = () => {}, onWindow = async () => false, windowControl = false, cliAi = null }) {
   origin = appOrigin(origin);
   let code = String(randomInt(100000, 1000000));
   let token = '';
+  let pairedOrigin = '';
   let lastSeen = 0;
   let failures = [];
   let action = null;
   let actionMarker = null;
   const reset = () => {
+    cliAi?.cancel();
     token = '';
+    pairedOrigin = '';
     lastSeen = 0;
     action = null;
     actionMarker = null;
@@ -72,7 +75,7 @@ function createBridge({ origin, port = 47381, onState = () => {}, onPair = () =>
     try {
       for await (const chunk of req) {
         size += chunk.length;
-        if (size > 8192) { reply(413, { error: 'too_large' }); return; }
+        if (size > (req.url === '/ai/chat' ? 65536 : 8192)) { reply(413, { error: 'too_large' }); return; }
         chunks.push(chunk);
       }
       const data = JSON.parse(Buffer.concat(chunks).toString('utf8'));
@@ -82,13 +85,42 @@ function createBridge({ origin, port = 47381, onState = () => {}, onPair = () =>
         if (!equalSecret(data.code, code)) {
           failures.push(Date.now()); reply(401, { error: '연결 코드가 일치하지 않습니다.' }); return;
         }
+        cliAi?.cancel();
         token = randomBytes(32).toString('hex');
+        pairedOrigin = reqOrigin;
         code = String(randomInt(100000, 1000000));
         lastSeen = Date.now();
         onPair();
-        reply(200, { token, windowControl }); return;
+        reply(200, { token, windowControl, terminalAi: Boolean(cliAi) }); return;
       }
       if (!token || !equalSecret(req.headers.authorization, `Bearer ${token}`)) { reply(401, { error: '연결을 다시 설정해 주세요.' }); return; }
+      if (pairedOrigin !== reqOrigin) { reply(403, { error: '페어링한 CoffeeTide 탭에서만 요청할 수 있습니다.' }); return; }
+      if (req.url.startsWith('/ai/')) {
+        if (!cliAi) { reply(503, { error: '터미널 AI를 지원하는 데스크톱 앱으로 업데이트해 주세요.' }); return; }
+        if (Date.now() - lastSeen > 120000) { reset(); reply(401, { error: 'expired' }); return; }
+        lastSeen = Date.now();
+        if (req.url === '/ai/config') {
+          const config = data.settings === undefined ? cliAi.config(data.provider) : cliAi.configure(data.provider, data.settings);
+          reply(200, { config }); return;
+        }
+        if (req.url === '/ai/check') { reply(200, await cliAi.check(data.provider)); return; }
+        if (req.url === '/ai/cancel') {
+          if (typeof data.requestId !== 'string' || !/^[a-f0-9-]{36}$/i.test(data.requestId)) { reply(400, { error: 'invalid_request_id' }); return; }
+          reply(200, { cancelled: cliAi.cancel(data.requestId) }); return;
+        }
+        if (req.url === '/ai/chat') {
+          if (typeof data.requestId !== 'string' || !/^[a-f0-9-]{36}$/i.test(data.requestId)) { reply(400, { error: 'invalid_request_id' }); return; }
+          const sessionToken = token;
+          const disconnected = () => cliAi.cancel(data.requestId);
+          res.once('close', disconnected);
+          try {
+            const result = await cliAi.chat(data);
+            if (token !== sessionToken) { reply(401, { error: '연결이 변경되어 요청을 취소했습니다.' }); return; }
+            reply(200, result);
+          } finally { res.removeListener('close', disconnected); }
+          return;
+        }
+      }
       if (req.url === '/window') {
         if (!['minimize', 'restore'].includes(data.action) ||
             (data.action === 'minimize' && !/^[a-f0-9]{32}$/.test(data.marker || ''))) {
@@ -107,8 +139,8 @@ function createBridge({ origin, port = 47381, onState = () => {}, onPair = () =>
       }
       if (req.url === '/disconnect') { reset(); reply(200, { ok: true }); return; }
       reply(404, { error: 'not_found' });
-    } catch {
-      if (!res.writableEnded) reply(400, { error: 'invalid_request' });
+    } catch (error) {
+      if (!res.writableEnded && !res.destroyed) reply(Number.isInteger(error.status) ? error.status : 400, { error: Number.isInteger(error.status) ? error.message : 'invalid_request' });
     }
   });
   server.requestTimeout = 5000;
@@ -139,7 +171,7 @@ function createBridge({ origin, port = 47381, onState = () => {}, onPair = () =>
       server.once('error', reject);
       server.listen(port, '127.0.0.1', () => resolve(server.address().port));
     }),
-    close: () => new Promise((resolve) => { clearInterval(expiry); server.close(resolve); server.closeAllConnections(); }),
+    close: () => new Promise((resolve) => { clearInterval(expiry); cliAi?.close(); server.close(resolve); server.closeAllConnections(); }),
   };
 }
 

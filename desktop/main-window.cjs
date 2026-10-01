@@ -3,7 +3,7 @@ const path = require('node:path');
 function runNative(action, marker) {
   return new Promise(resolve => {
     const executable = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
-    execFile(executable, ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', path.join(__dirname, 'native', 'main-window.ps1'), '-Action', action, '-Marker', marker], { windowsHide: true, timeout: 8000, maxBuffer: 4096 }, (error, stdout) => {
+    execFile(executable, ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', path.join(__dirname.replace(/app\.asar$/, 'app.asar.unpacked'), 'native', 'main-window.ps1'), '-Action', action, '-Marker', marker], { windowsHide: true, timeout: 8000, maxBuffer: 4096 }, (error, stdout) => {
       try { resolve(!error && JSON.parse(stdout.trim()).ok === true); } catch { resolve(false); }
     });
   });

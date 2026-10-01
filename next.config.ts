@@ -4,6 +4,15 @@ const nextConfig: NextConfig = {
   // 대시보드가 단일 대형 클라이언트 컴포넌트(useState 97개)라 수동 메모이제이션 대신
   // React Compiler의 자동 메모이제이션으로 리렌더링 비용을 줄인다.
   reactCompiler: true,
+  async redirects() {
+    return [
+      {
+        source: "/download/CoffeeTideBarista.zip",
+        destination: "https://github.com/dongple-ex/coffee-tide/releases/download/barista-v0.1.1/CoffeeTideBarista.zip",
+        permanent: false,
+      },
+    ];
+  },
   async headers() {
     return [
       {

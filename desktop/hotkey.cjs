@@ -7,7 +7,7 @@ function startLeftShiftHotkey({ onTrigger, onStatus = () => {}, spawnProcess = s
   let stopped = false;
   let ready = false;
   const executable = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
-  const child = spawnProcess(executable, ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', path.join(__dirname, 'native', 'left-shift.ps1')], {
+  const child = spawnProcess(executable, ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', path.join(__dirname.replace(/app\.asar$/, 'app.asar.unpacked'), 'native', 'left-shift.ps1')], {
     windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'],
   });
   const lines = createInterface({ input: child.stdout });

@@ -1,0 +1,8 @@
+.section { display: grid; gap: 8px; padding: 14px; margin-bottom: 16px; border: 1px solid var(--border, #ddd); border-radius: 12px; }
+.section label { font-size: .82rem; }
+.section p { margin: 0; font-size: .78rem; line-height: 1.6; color: var(--text-dim, #666); }
+.section input, .section select { width: 100%; min-width: 0; border: 1px solid var(--border, #ddd); border-radius: 8px; padding: 9px; background: var(--bg, #fafafa); color: var(--text, #222); }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.actions button { border: 1px solid var(--border, #ddd); border-radius: 8px; padding: 8px 10px; background: var(--bg, #fafafa); color: var(--text, #222); cursor: pointer; }
+.section :disabled { opacity: .5; cursor: not-allowed; }
+.section [role=alert] { color: var(--danger, #c85645); }

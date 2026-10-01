@@ -1,6 +1,6 @@
 # CoffeeTide 데스크톱 바리스타 (Windows)
 
-> 문서 갱신: 2026-09-23, 소스 `ea4bcb5`. 웹 미니카드와의 차이·현재 origin 정책·검증 범위는 [doc/20-desktop-barista-mini-card.md](../doc/20-desktop-barista-mini-card.md)를 참조하세요.
+> 문서 갱신: 2026-10-01, 웹 v1.2.4 · Windows v0.1.1. 웹 미니카드와의 차이·검증 범위는 [doc/20-desktop-barista-mini-card.md](../doc/20-desktop-barista-mini-card.md), CLI 연결은 [22 구현서](../doc/22-terminal-ai-connector-implementation.md)를 참조하세요.
 
 투명 배경·테두리 없는 별도 창으로 캐릭터를 다른 앱 위에 표시합니다.
 캐릭터를 드래그해 이동하고, 빈 배경은 아래 앱을 클릭할 수 있습니다.
@@ -19,7 +19,7 @@ npm run desktop:start
 
 ## 웹과 연결
 
-1. CoffeeTide 웹을 엽니다. 기본 주소는 `http://localhost:3000`입니다.
+1. CoffeeTide 웹을 엽니다. 패키징 앱의 기본 주소는 `https://coffee-tide.dongple.kr`, 소스 실행은 `http://localhost:3000`입니다.
 2. 웹 설정 → AI·자동화 → 실험실에서 데스크톱 바리스타를 켜고 **데스크톱 바리스타 연결**을 누릅니다.
 3. 캐릭터 말풍선에 표시된 6자리 코드를 입력합니다.
 4. 브라우저가 로컬 네트워크 접근 권한을 물으면 허용합니다.
@@ -51,7 +51,7 @@ $env:COFFEETIDE_URL = 'https://your-coffeetide.example'
 npm run desktop:start
 ```
 
-지정한 주소는 기본 웹 origin과 미연결 시 열 주소입니다. 현재 브리지는 이 origin 외에 localhost/127.0.0.1, `.vercel.app`으로 끝나는 origin, `https://coffee-tide.dongple.kr`도 허용합니다. 허용 정책 축소는 백로그 M2의 검토 항목입니다. 사용자 설정 주소는 로컬 HTTP 또는 HTTPS여야 합니다.
+지정한 주소는 기본 웹 origin과 미연결 시 열 주소입니다. 최초 페어링은 이 origin 외에 localhost/127.0.0.1, `.vercel.app`으로 끝나는 origin, `https://coffee-tide.dongple.kr`도 허용합니다. 페어링 후에는 토큰과 연결한 정확한 origin을 모두 검증합니다. 최초 페어링의 허용 정책 축소는 백로그 M2의 검토 항목입니다. 사용자 설정 주소는 로컬 HTTP 또는 HTTPS여야 합니다.
 배포된 HTTPS 사이트에서의 연결은 브라우저의 로컬 네트워크 정책에도 영향을 받으므로 별도 환경 검증이 필요합니다.
 
 ## 로컬 데이터와 보안
@@ -59,10 +59,30 @@ npm run desktop:start
 - 통신 서버는 `127.0.0.1:47381`에만 열립니다.
 - 화면의 일회용 연결 코드와 메모리에만 보관하는 토큰으로 인증합니다.
 - 웹 계정 토큰, API 키, 대화 이력을 데스크톱 앱에 저장하지 않습니다.
-- 저장 파일에는 외형 선택과 창 위치만 들어갑니다.
+- 저장 파일에는 외형 선택·창 위치와 터미널 AI의 실행 경로·작업 폴더·모델 설정이 들어갑니다.
 - 캐릭터 이미지는 앱에 포함된 파일만 사용합니다.
 - Windows 자동 시작 등록은 수행하지 않습니다.
 - 전역 단축키는 숨겨진 Windows PowerShell 프로세스에서 C# 키보드 훅을 실행합니다. 키 입력은 저장하거나 전송하지 않고, 완성된 호출 동작만 Electron에 알립니다. 앱 종료 또는 부모 프로세스 연결 종료 시 감지기도 종료합니다. Windows PowerShell/C# 실행을 제한하는 환경에서는 단축키 사용 불가 상태를 표시합니다.
+
+## Claude Code / Codex CLI 대화 연결
+
+별도 LLM 서버 없이 이 PC의 CLI를 통해 제공업체의 클라우드 모델과 대화합니다. 구현·권한·검증 상세는 [터미널 AI 연결 구현서](../doc/22-terminal-ai-connector-implementation.md)를 참고하세요.
+
+1. 사용할 CLI를 설치하고 일반 터미널에서 `claude` 또는 `codex`로 로그인합니다.
+2. 바리스타 v0.1.1 이상을 실행하고 웹과 페어링합니다. v0.1.0 앱에는 이 기능이 없으므로 새 다운로드 파일로 업데이트해야 합니다.
+3. 웹 설정 → AI·자동화 → AI 캐릭터 → **터미널 AI 연결**에서 공급자를 선택합니다.
+4. 실행 경로와 작업 폴더는 비우면 자동 탐색/앱 전용 폴더를 사용합니다. 직접 지정할 때 Windows에서는 네이티브 `.exe` 절대 경로를 사용합니다. `.cmd`/`.ps1` 명령은 실행하지 않습니다.
+5. **저장·설치 확인** 후 AI 바리스타 채팅이나 미니카드에서 질문합니다. 모델 이름은 선택 사항입니다.
+6. 채팅의 **중지** 또는 설정의 **답변 취소**로 요청을 취소합니다.
+
+캐릭터 지침·최근 대화·질문을 전송하며 업무 데이터 전체를 자동 전송하지 않습니다. 첫 버전은 대화 송수신용이며 MCP·스킬·파일 수정 실행은 후속 범위입니다. CLI 선택 후 연결/로그인 실패 시 다른 모델로 자동 전환하지 않습니다. CLI의 기존 로그인과 계정 한도를 사용하고 인증 토큰을 CoffeeTide에 복사하지 않습니다.
+
+```powershell
+# 설치 검사만 수행 (모델 호출 없음)
+node desktop/scripts/cli-ai-smoke.cjs
+# 명시적으로 실제 계정에 합성 연결 확인 질문을 보냄
+node desktop/scripts/cli-ai-smoke.cjs --live
+```
 
 ## 검증 및 패키징
 
@@ -74,7 +94,11 @@ npm run desktop:package
 
 `smoke-output/`에 두 외형의 PNG 및 검사 결과 JSON이 생성됩니다.
 smoke는 별도 프로필과 임시 포트를 사용하며 실제 사용자 설정을 바꾸지 않습니다.
-패키지는 서명되지 않은 로컬 개발 빌드입니다.
+패키지는 서명되지 않은 개발 빌드입니다. 검증 PC의 Windows 앱 제어 정책에서 배포 EXE 실행을 차단해 패키지 자체의 실행 검증은 미완료입니다. 개발용 Electron 스모크와 패키지 소스·버전·네이티브 파일 대조는 통과했습니다.
+
+Windows v0.1.1 배포 ZIP은 GitHub Release `barista-v0.1.1`에 보관합니다. 웹의 `/download/CoffeeTideBarista.zip`은 해당 릴리스의 파일로 임시 리다이렉트하며, ZIP 자체는 Git/Vercel 소스에 포함하지 않습니다.
+
+PowerShell에서 읽는 `native/` 스크립트는 `app.asar.unpacked/native/`에 배치합니다. ASAR 내부 가상 경로를 외부 프로세스에 넘기지 않습니다.
 
 
 ### 연결된 웹 미니카드의 본체 최소화 (Windows)

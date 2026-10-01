@@ -54,6 +54,7 @@ interface Props {
   onSubmit: () => void;
   onFocus: () => void;
   busy: boolean;
+  onCancel?: () => void;
 
   onRunSlashCommand: (command: string) => void;
   onQuickBriefing: () => void;
@@ -89,6 +90,7 @@ export function CopilotComposer({
   onSubmit,
   onFocus,
   busy,
+  onCancel,
   onRunSlashCommand,
   onQuickBriefing,
   fileInputRef,
@@ -363,6 +365,7 @@ export function CopilotComposer({
         </button>
       )}
 
+      {busy && onCancel && <button type="button" className={styles.btn} onClick={onCancel} title="터미널 AI 답변 취소">중지</button>}
       <button
         className={`${styles.btn} ${styles.btnPrimary}`}
         onClick={onSubmit}

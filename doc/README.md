@@ -5,6 +5,7 @@
 연동이 없어도 manual/paste로 바로 시작할 수 있는, 연결되면 더 강력해지는 시간 관리 비서입니다.
 
 - **기본 서비스 주소**: `https://coffee-tide.dongple.kr`
+- **현재 릴리스 (2026-10-01)**: 웹 **1.2.4** · Windows 바리스타 **0.1.1**. Claude Code·Codex CLI 대화 연결 및 버전별 다운로드를 제공한다. 상세 범위와 검증은 [22 구현서](./22-terminal-ai-connector-implementation.md) 참고.
 - **문서 대조 기준 (2026-09-23)**: 로컬 소스 `ea4bcb5`, 당시 웹 앱 **1.2.2**. 대화형 업무 조작·지식 아카이브·서버 AI 작업 복원·웹 미니카드·Windows 보조 앱·검색/상태 필터·기본 테마 변경을 반영했다. 운영 배포와 실계정·실기기 동작은 별도 검증 대상이다.
 - **UI 명칭**: 화면의 AI 도우미는 **"AI 바리스타"** 입니다 (코드·API는 `copilot`).
 
@@ -34,6 +35,7 @@ doc/
 ├── 19-ai-companion-advanced-evolution-architecture-strategy.md 차세대 AI 컴패니언 고도화 및 아키텍처 진화 전략 (R&D)
 ├── 20-desktop-barista-mini-card.md  웹 미니카드·Windows 보조 앱·단축키·창 제어
 ├── 21-conversational-task-actions.md 대화형 업무 조작 계약과 검증
+├── 22-terminal-ai-connector-implementation.md Claude Code·Codex CLI 대화 연결 구현서
 ├── ai-completion-notifications.md   서버 AI 작업 결과 저장·복귀·푸시 운영 조건
 ├── spec/                            단계별 기능 상세 스펙 (phaseN)
 └── legacy_timepilot/                구 TimePilot 시절 역사 문서
@@ -78,6 +80,7 @@ doc/
 
 - [웹 미니카드·데스크톱 연결·왼쪽 Shift 두 번](./20-desktop-barista-mini-card.md)
 - [대화형 업무 조작·후보 선택·외부 저장 범위](./21-conversational-task-actions.md)
+- [Claude Code·Codex CLI 연결 구현서](./22-terminal-ai-connector-implementation.md)
 - [AI 작업 결과 저장·완료 알림·복귀 복원](./ai-completion-notifications.md)
 - [모바일 세션 연속성](./12-mobile-session-continuity-plan.md), [하이브리드 컴팩트 모드](./13-hybrid-compact-mode-plan.md)
 - [비용 관리·분석](./15-expense-management-analysis-plan.md)

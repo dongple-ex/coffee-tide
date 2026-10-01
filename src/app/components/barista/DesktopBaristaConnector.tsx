@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { getPersonaAvatar, getPersonaEffect } from "@/lib/ai/personaEffects";
 import { registerDesktopWindowControl } from "@/lib/ui/desktopWindowControl";
+import { registerTerminalAi } from "@/lib/ai/desktopAi";
 import styles from "./desktopBaristaConnector.module.css";
 
 const BRIDGE_URL = "http://127.0.0.1:47381";
@@ -35,6 +36,7 @@ export function DesktopBaristaConnector({
   const [code, setCode] = useState("");
   const [token, setToken] = useState<string | null>(null);
   const [canControlWindow, setCanControlWindow] = useState(false);
+  const [supportsTerminalAi, setSupportsTerminalAi] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const effect = getPersonaEffect(presetId, baristaName);
@@ -50,6 +52,11 @@ export function DesktopBaristaConnector({
     // 대화 내용이나 상태가 바뀌면 지연 없이 즉시 데스크톱으로 전송
     triggerSendRef.current();
   }, [baristaName, presetId, displayTitle, displayContent, effect, onOpenCopilot, onSendMessage]);
+
+  useEffect(() => {
+    if (!token) return;
+    return registerTerminalAi(token, supportsTerminalAi);
+  }, [token, supportsTerminalAi]);
 
   useEffect(() => {
     if (!token) return;
@@ -185,6 +192,7 @@ export function DesktopBaristaConnector({
       const data = await response.json();
       if (!response.ok || typeof data.token !== "string") throw new Error(data.error || "연결하지 못했습니다.");
       setCanControlWindow(data.windowControl === true);
+      setSupportsTerminalAi(data.terminalAi === true);
       setToken(data.token); setCode("");
     } catch (cause) {
       setError(cause instanceof TypeError ? "보조 앱에 연결할 수 없습니다. CoffeeTideBarista를 실행해 주세요. 브라우저가 로컬 네트워크 접근을 물으면 허용해야 연결됩니다." : cause instanceof Error ? cause.message : "연결에 실패했습니다.");
@@ -196,12 +204,14 @@ export function DesktopBaristaConnector({
     <div className={styles.backdrop} onClick={(event) => { event.stopPropagation(); onClose(); }}>
       <section className={styles.dialog} role="dialog" aria-modal="true" aria-labelledby="desktop-barista-title" onClick={(event) => event.stopPropagation()}>
         <header><h2 id="desktop-barista-title">데스크톱 바리스타 연결</h2><button type="button" onClick={onClose} aria-label="데스크톱 연결 닫기">✕</button></header>
-        <p>테두리 없는 캐릭터가 다른 앱 위에 머무릅니다. <a href="/download/CoffeeTideBarista.zip" download style={{ textDecoration: "underline", color: "var(--accent, #0891b2)" }}>CoffeeTideBarista 보조 앱 다운로드</a> 후 먼저 실행해 주세요.</p>
+        <p>테두리 없는 캐릭터가 다른 앱 위에 머무릅니다. <a href="/download/CoffeeTideBarista.zip" download style={{ textDecoration: "underline", color: "var(--accent, #0891b2)" }}>CoffeeTideBarista Windows v0.1.1 다운로드</a> 후 먼저 실행해 주세요.</p>
+        <p className={styles.note}>서명 없는 Windows 개발 빌드입니다. Windows 보안 정책에 따라 실행이 차단될 수 있습니다.</p>
         {token ? (
           <div role="status" className={styles.connected}>
             <strong>✓ 이 PC의 바리스타와 연결되었습니다.</strong>
             {canControlWindow && <p>웹 미니카드를 열면 본체를 최소화하고, 왼쪽 Shift 두 번으로 본체를 복원합니다.</p>}
-            <p>웹의 이름·색상·사진·현재 말풍선을 전달합니다. 대화 내용은 보조 앱에 저장하지 않습니다.</p>
+            <p>웹의 이름·색상·사진·현재 말풍선을 전달합니다. 보조 앱은 대화 이력을 저장하지 않습니다.</p>
+            {supportsTerminalAi && <p>설정 → AI·자동화 → AI 캐릭터의 <b>터미널 AI 연결</b>에서 Claude Code 또는 Codex CLI를 선택할 수 있습니다.</p>}
             <button type="button" onClick={() => setToken(null)}>연결 해제</button>
             <button type="button" onClick={onClose}>완료</button>
           </div>

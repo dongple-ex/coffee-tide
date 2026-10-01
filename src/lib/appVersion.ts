@@ -2,7 +2,7 @@
  * 사용자에게 표시하는 coffeeTide 버전 — 설정 화면 및 What's New 모달에 노출된다.
  * 릴리스 시 package.json과 함께 갱신할 것. (version.test.ts에서 동기화 검증)
  */
-export const APP_VERSION = "v1.2.3";
+export const APP_VERSION = "v1.2.4";
 
 export const LS_LAST_SEEN_VERSION = "coffeetide_last_seen_version";
 
@@ -21,6 +21,29 @@ export interface ReleaseNote {
 }
 
 export const RELEASE_HISTORY: ReleaseNote[] = [
+  {
+    version: "v1.2.4",
+    date: "2026-10-01",
+    title: "Claude Code·Codex CLI 대화 연결",
+    summary: "데스크톱 바리스타 v0.1.1과 연결해 Claude Code 또는 Codex CLI로 대화할 수 있습니다. 캐릭터 지침과 최근 대화를 전달하며, 공급자 선택·설치 확인·답변 취소를 지원합니다.",
+    items: [
+      {
+        type: "feat",
+        title: "터미널 AI 선택 및 대화",
+        description: "설정에서 Claude Code 또는 Codex CLI를 선택하고, PC의 기존 로그인으로 AI 바리스타 채팅과 미니카드에서 대화합니다. 연결·로그인 실패 시 오류를 표시합니다.",
+      },
+      {
+        type: "enhance",
+        title: "실행 설정·설치 확인·답변 취소",
+        description: "실행 파일과 작업 폴더·모델을 설정하고, 설치 버전을 확인하거나 진행 중인 답변을 취소할 수 있습니다. 현재는 대화 송수신을 지원하며 전문 스킬·MCP 실행은 후속 단계입니다.",
+      },
+      {
+        type: "fix",
+        title: "Windows 앱 다운로드 갱신",
+        description: "CLI 연결 기능이 포함된 바리스타 v0.1.1을 GitHub Releases에서 제공합니다. 새 앱 실행 후 웹과 다시 연결해 주세요.",
+      },
+    ],
+  },
   {
     version: "v1.2.3",
     date: "2026-09-27",

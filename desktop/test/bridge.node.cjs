@@ -39,6 +39,28 @@ async function fixture(t, options = {}) {
   return { bridge, port, post };
 }
 
+test('AI execution is bound to the paired origin and token, and resets cancel active work', async (t) => {
+  const calls = [];
+  const cliAi = {
+    config: provider => ({ provider }),
+    chat: async data => { calls.push(data); return { answer: 'Mock CLI 답변', requestId: data.requestId }; },
+    cancel: () => { calls.push('cancel'); return true; },
+    close: () => {},
+  };
+  const { bridge, post } = await fixture(t, { cliAi });
+  const request = { provider: 'claude_cli', requestId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', prompt: 'Mock 질문' };
+  assert.equal((await post('ai/chat', request)).status, 401);
+  const paired = await (await post('pair', { code: bridge.code })).json();
+  assert.equal(paired.terminalAi, true);
+  assert.equal((await post('ai/chat', request, paired.token, 'http://localhost:3001')).status, 403);
+  assert.equal((await post('ai/chat', request, paired.token, 'https://other.vercel.app')).status, 403);
+  assert.equal((await post('ai/chat', request, paired.token)).status, 200);
+  assert.deepEqual(calls[1], request);
+  await post('disconnect', {}, paired.token);
+  assert.equal(calls.at(-1), 'cancel');
+  assert.equal((await post('ai/config', {}, paired.token)).status, 401);
+});
+
 test('only configured origins and safe local assets are accepted', () => {
   assert.equal(appOrigin('https://example.com/path'), 'https://example.com');
   for (const url of ['http://example.com', 'file:///secret', 'https://user:pass@example.com']) assert.throws(() => appOrigin(url));
