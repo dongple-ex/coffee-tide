@@ -95,7 +95,7 @@ export function ContextualRecStrip({ onNotify, userScope }: ContextualRecStripPr
   const handleSelectVideo = (video: YouTubeVideo) => {
     setInitialSeekTime(0);
     setInitialDraft("");
-    setInitialIsMini(false);
+    setInitialIsMini(undefined);
     setSelectedVideo(video);
   };
 

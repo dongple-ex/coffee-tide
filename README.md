@@ -5,7 +5,7 @@
 coffeeTide는 직접 입력과 붙여넣기만으로 바로 시작할 수 있고, 필요할 때 Google·Outlook·Notion·Obsidian 같은 외부 서비스를 연결해 확장하는 Next.js 기반 업무 대시보드입니다.
 
 - 기본 운영 도메인: `https://coffee-tide.dongple.kr`
-- 앱 버전: `1.2.4` · Windows 바리스타: `0.1.1`
+- 앱 버전: `1.2.10` · Windows 바리스타 다운로드: `0.1.1`
 - 문서 대조 기준: 2026-09-23, 로컬 `ea4bcb5` (당시 앱 1.2.2)
 - 기술 스택: Next.js 16.3 · React 19 · TypeScript · Supabase · Vitest
 
@@ -21,6 +21,8 @@ coffeeTide는 직접 입력과 붙여넣기만으로 바로 시작할 수 있고
 - **서버 AI 작업 복원**: 결과 저장·복귀 조회·조건부 완료 알림
 - **AI 캔버스**: 답변을 별도 작업 공간에서 다듬고 팝업 창이나 분할 레이아웃으로 사용
 - **생산성 도구**: 자동화 규칙, 팔로업, 퇴근 핸드오프, 타이머, 계산기, 날씨, 출퇴근, 바로가기
+- **휴식·소식 번들**: 폴더별 도구 탐색과 X·Instagram·Threads·사이트 소식 모아보기. 인증 설정과 지원 범위는 [소식 번들 안내](doc/social-news-bundles.md) 참고
+- **영상 보기 모드**: 듣기·축소·PiP·전체 보기, 재생 위치의 YouTube 원본 이동. 모바일 축소 보기와 PiP 실패 복원 지원
 - **데이터 확장**: Google·Outlook·Notion·Obsidian·로컬 문서·LLM 산출물, Supabase 기반 동기화와 지식 검색
 
 ## 데이터 표시 원칙

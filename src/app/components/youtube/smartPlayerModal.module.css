@@ -177,6 +177,7 @@
 .iframeWrapper {
   position: relative;
   width: 100%;
+  min-height: 200px;
   padding-bottom: 56.25%; /* 16:9 Aspect Ratio */
   background: #000;
   border-radius: 10px;
@@ -393,7 +394,7 @@
   bottom: 24px;
   right: 24px;
   width: 380px;
-  max-width: calc(100vw - 48px);
+  max-width: calc(100% - 48px);
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius, 12px);
@@ -406,7 +407,7 @@
 }
 
 .miniAudioContainer {
-  border-radius: 999px;
+  border-radius: 12px;
   background: var(--card-hover);
 }
 
@@ -453,8 +454,9 @@
 
 @media (max-width: 500px) {
   .miniContainer {
-    width: calc(100vw - 24px);
+    width: auto;
     max-width: none;
+    left: 12px;
     right: 12px;
     bottom: max(12px, env(safe-area-inset-bottom));
   }
@@ -631,6 +633,115 @@
   border-radius: 8px;
   font-size: 0.76rem;
   flex-wrap: wrap;
+}
+
+.modeToolbar {
+  display: flex;
+  gap: 5px;
+  padding: 8px 12px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--border);
+  background: var(--card);
+}
+
+.modeToolbar button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 36px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--card-hover);
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.modeToolbar button[aria-pressed="true"] {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.modeToolbar button:focus-visible,
+.ctrlBtn:focus-visible,
+.speedSelect:focus-visible,
+.headerActionBtn:focus-visible,
+.closeBtn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.miniContainer {
+  max-height: calc(100dvh - 24px);
+  overflow-y: auto;
+}
+
+.miniContainer .playerControlsStrip {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 0;
+  border-radius: 0;
+  justify-content: flex-start;
+  gap: 4px;
+  padding: 8px;
+}
+
+.ctrlBtn { min-height: 34px; }
+.ctrlBtn:disabled { opacity: 0.45; cursor: default; }
+.speedSelect {
+  min-height: 34px;
+  max-width: 70px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px;
+  background: var(--card);
+  color: var(--text);
+  font-size: 0.75rem;
+}
+
+.elapsed { font-size: 0.7rem; color: var(--text-dim); white-space: nowrap; }
+.miniContainer .elapsed { margin-left: auto; }
+.miniAudioContainer .audioModeCard {
+  border-radius: 0;
+  padding: 10px 12px;
+  gap: 8px;
+}
+.audioModeInfo strong { font-size: 0.8rem; }
+.audioModeInfo span { font-size: 0.75rem; color: var(--text-dim); }
+.headerActions { flex-shrink: 0; }
+.headerActionBtn, .closeBtn { width: 34px; height: 34px; text-decoration: none; }
+.modalTitle { min-width: 0; flex: 1; max-width: none; margin-right: 12px; }
+.modalTitle span { overflow: hidden; text-overflow: ellipsis; }
+.miniBrandButton span { display: none; }
+.miniHeader { gap: 5px; }
+.playerError { font-size: 0.78rem; padding: 8px; color: var(--text); }
+.debugPanel { padding: 6px 10px; color: var(--text-dim); font-size: 0.7rem; }
+.debugPanel summary { cursor: pointer; }
+.debugPanel output { display: block; padding: 6px 0; line-height: 1.6; }
+
+.modalContent:fullscreen {
+  width: 100vw;
+  max-width: none;
+  height: 100dvh;
+  max-height: none;
+  border-radius: 0;
+  background: var(--card);
+}
+
+@media (max-width: 500px) {
+  .modalBackdrop { padding: 6px; }
+  .modalContent { max-height: calc(100dvh - 12px); }
+  .modalHeader { padding: 8px 10px; }
+  .modalTitle { font-size: 0.82rem; }
+  .modeToolbar { padding: 7px 8px; gap: 4px; }
+  .modeToolbar button { flex: 1; padding: 6px 5px; }
+  .videoSection { padding: 8px; }
+  .ctrlBtn { min-height: 38px; }
+  .speedSelect { min-height: 38px; }
 }
 
 .controlsLeft,
@@ -915,11 +1026,51 @@
   background: #000;
   position: relative;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.pipVideoHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 38px;
+  padding: 0 8px;
+  color: #fff;
+  background: #17191f;
+  font-size: 12px;
+}
+
+.pipVideoHeader span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pipVideoHeader a,
+.pipVideoHeader button {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 6px;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+
+.pipVideoHeader a:focus-visible,
+.pipVideoHeader button:focus-visible {
+  outline: 2px solid #bca7ff;
 }
 
 .pipIframe {
   width: 100%;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   border: none;
   display: block;
 }

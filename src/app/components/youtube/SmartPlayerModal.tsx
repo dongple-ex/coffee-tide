@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import { YouTubeVideo, YouTubeChapter, YouTubeContinuityOwner } from "@/lib/types/youtube";
 import { loadLS, saveLS, LS_YOUTUBE_HISTORY } from "@/lib/localStore";
 import { saveYouTubeContinuitySession, clearYouTubeContinuitySession } from "@/lib/youtube/continuity";
+import { youtubeEmbedUrl, youtubePiPUrl, youtubePlayerMessage, youtubeWatchUrl, YOUTUBE_EMBED_ORIGIN, type YouTubePlaybackSnapshot } from "@/lib/youtube/embed";
 import { UiIcon } from "../UiIcon";
 import styles from "./smartPlayerModal.module.css";
 
@@ -30,12 +31,6 @@ interface SmartPlayerModalProps {
   activeWidgetId?: string | null;
   userScope?: string;
 }
-
-const ALLOWED_ORIGINS = new Set([
-  "https://www.youtube.com",
-  "https://www.youtube-nocookie.com",
-]);
-const YOUTUBE_EMBED_ORIGIN = "https://www.youtube-nocookie.com";
 
 interface DocumentPictureInPictureOptions {
   width?: number;
@@ -91,6 +86,7 @@ export function SmartPlayerModal({
     () => false
   );
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const pipIframeRef = useRef<HTMLIFrameElement>(null);
   const modalContainerRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const minimizeButtonRef = useRef<HTMLButtonElement>(null);
@@ -102,15 +98,22 @@ export function SmartPlayerModal({
   const isMiniRef = useRef(false);
   const audioOnlyRef = useRef(false);
   const modeMountedRef = useRef(false);
+  const previousVideoMiniRef = useRef(false);
+  const durationRef = useRef(0);
+  const [elapsed, setElapsed] = useState(initialSeekTime || 0);
+  const [playerReady, setPlayerReady] = useState(false);
+  const [playerError, setPlayerError] = useState("");
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // 재생 모드 및 상태 확장
   const [audioOnly, setAudioOnly] = useState(false);
   const [playbackRate, setPlaybackRate] = useState<number>(1.0);
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [isPiPActive, setIsPiPActive] = useState<boolean>(false);
+  const [nativePiPUnavailable, setNativePiPUnavailable] = useState(false);
   const [pipType, setPipType] = useState<"audio" | "video">("audio");
   const [pipWindow, setPipWindow] = useState<Window | null>(null);
-  const [pipStartTime, setPipStartTime] = useState<number>(0);
+  const [pipPlayback, setPipPlayback] = useState<YouTubePlaybackSnapshot>({ start: 0, autoplay: false, muted: false, rate: 1 });
   const pipWindowRef = useRef<Window | null>(null);
   const [isAudioCollapsed, setIsAudioCollapsed] = useState(false);
 
@@ -130,6 +133,7 @@ export function SmartPlayerModal({
 
   // 재생 위치 및 상태 추적용 Ref
   const currentTimeRef = useRef<number>(initialSeekTime || 0);
+  const [mainPlayback, setMainPlayback] = useState({ start: initialSeekTime || 0, autoplay: shouldAutoplay });
   const initialRenderedPlayerState: PlayerState =
     initialPlayerState || (shouldAutoplay ? "playing" : "paused");
   const [playerState, setPlayerState] = useState<PlayerState>(initialRenderedPlayerState);
@@ -176,8 +180,7 @@ export function SmartPlayerModal({
     }
     return typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches;
   });
-  const [isMobileViewport, setIsMobileViewport] = useState(isMini);
-  const isMobileViewportRef = useRef(isMini);
+  const [isMobileViewport, setIsMobileViewport] = useState(() => typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches);
 
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     { role: "model", content: "이 영상에 대해 궁금한 점을 질문해 보세요." },
@@ -198,10 +201,12 @@ export function SmartPlayerModal({
 
   // IFrame 명령 전송 헬퍼
   const postIframeCommand = useCallback((func: string, args: unknown[] = []) => {
-    if (iframeRef.current?.contentWindow) {
-      iframeRef.current.contentWindow.postMessage(
+    const pipPlayer = pipIframeRef.current?.contentWindow;
+    const player = pipPlayer ?? iframeRef.current?.contentWindow;
+    if (player) {
+      player.postMessage(
         JSON.stringify({ event: "command", func, args }),
-        YOUTUBE_EMBED_ORIGIN
+        pipPlayer ? window.location.origin : YOUTUBE_EMBED_ORIGIN
       );
     }
   }, []);
@@ -211,11 +216,19 @@ export function SmartPlayerModal({
     setPlayerState(nextState);
   }, []);
 
+  const pauseForOriginal = useCallback(() => {
+    wasPlayingRef.current = false;
+    postIframeCommand("pauseVideo");
+    updatePlayerState("paused");
+  }, [postIframeCommand, updatePlayerState]);
+
   // IFrame 내부 특정 초로 이동 및 자동 재생
-  const seekTo = useCallback((seconds: number) => {
-    postIframeCommand("seekTo", [seconds, true]);
-    postIframeCommand("playVideo");
-    currentTimeRef.current = seconds;
+  const seekTo = useCallback((seconds: number, autoplay = true) => {
+    const position = Math.max(0, Math.min(seconds, durationRef.current || Infinity));
+    postIframeCommand("seekTo", [position, true]);
+    postIframeCommand(autoplay ? "playVideo" : "pauseVideo");
+    currentTimeRef.current = position;
+    setElapsed(Math.floor(position));
     onNotify?.(`⏱️ ${Math.floor(seconds / 60)}분 ${Math.floor(seconds % 60)}초 시점으로 이동했습니다.`);
   }, [postIframeCommand, onNotify]);
 
@@ -237,18 +250,16 @@ export function SmartPlayerModal({
   // 앞뒤 시간 스킵
   const skipSeconds = useCallback((delta: number) => {
     const nextTime = Math.max(0, currentTimeRef.current + delta);
-    seekTo(nextTime);
+    seekTo(nextTime, wasPlayingRef.current);
   }, [seekTo]);
 
   // 음소거 토글
   const toggleMute = useCallback(() => {
-    setIsMuted((prev) => {
-      const next = !prev;
-      postIframeCommand(next ? "mute" : "unMute");
-      onNotify?.(next ? "🔇 음소거되었습니다." : "🔊 음소거가 해제되었습니다.");
-      return next;
-    });
-  }, [postIframeCommand, onNotify]);
+    const next = !isMuted;
+    setIsMuted(next);
+    postIframeCommand(next ? "mute" : "unMute");
+    onNotify?.(next ? "🔇 음소거되었습니다." : "🔊 음소거가 해제되었습니다.");
+  }, [isMuted, postIframeCommand, onNotify]);
 
   // 배속 변경
   const changePlaybackRate = useCallback((rate: number) => {
@@ -260,14 +271,65 @@ export function SmartPlayerModal({
 
   const closeDocumentPiP = useCallback(() => {
     const activeWindow = pipWindowRef.current;
+    if (activeWindow && pipIframeRef.current) {
+      setPlayerReady(false);
+      setMainPlayback({ start: currentTimeRef.current, autoplay: wasPlayingRef.current });
+    }
     pipWindowRef.current = null;
     setPipWindow(null);
     setIsPiPActive(false);
     if (activeWindow && !activeWindow.closed) activeWindow.close();
-    if (wasPlayingRef.current && iframeRef.current?.contentWindow) {
-      postIframeCommand("playVideo");
+  }, []);
+
+  const restoreFullView = useCallback(() => {
+    closeDocumentPiP();
+    setIsAudioCollapsed(false);
+    setAudioOnly(false);
+    setIsMini(false);
+  }, [closeDocumentPiP]);
+
+  const showMiniView = useCallback(() => {
+    closeDocumentPiP();
+    if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+    setIsAudioCollapsed(false);
+    setAudioOnly(false);
+    setIsMini(true);
+  }, [closeDocumentPiP]);
+
+  const toggleListening = useCallback(() => {
+    closeDocumentPiP();
+    if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+    setIsAudioCollapsed(false);
+    if (audioOnlyRef.current) {
+      setAudioOnly(false);
+      setIsMini(previousVideoMiniRef.current);
+    } else {
+      previousVideoMiniRef.current = isMiniRef.current;
+      setAudioOnly(true);
+      setIsMini(true);
     }
-  }, [postIframeCommand]);
+  }, [closeDocumentPiP]);
+
+  const toggleFullscreen = useCallback(async () => {
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else if (modalContainerRef.current?.requestFullscreen && document.fullscreenEnabled) {
+        restoreFullView();
+        await modalContainerRef.current.requestFullscreen();
+      } else {
+        restoreFullView();
+        onNotify?.("전체 보기로 전환했습니다. 브라우저 전체화면은 영상 안의 전체화면 버튼이나 YouTube 원본에서 사용할 수 있습니다.");
+      }
+    } catch {
+      onNotify?.("브라우저 전체화면을 열지 못했습니다. 영상 안의 전체화면 버튼을 이용해 주세요.");
+    }
+  }, [restoreFullView, onNotify]);
+
+  useEffect(() => {
+    const sync = () => setIsFullscreen(document.fullscreenElement === modalContainerRef.current);
+    document.addEventListener("fullscreenchange", sync);
+    return () => document.removeEventListener("fullscreenchange", sync);
+  }, []);
 
   // 비디오 화면 전체를 OS 항상-위 Document PiP로 분리한다.
   const handleOpenVideoPiP = useCallback(async () => {
@@ -279,18 +341,20 @@ export function SmartPlayerModal({
       return;
     }
 
-    if (window.documentPictureInPicture && typeof window.documentPictureInPicture.requestWindow === "function") {
+    if (!nativePiPUnavailable && window.documentPictureInPicture && typeof window.documentPictureInPicture.requestWindow === "function") {
       try {
+        const snapshot = { start: currentTimeRef.current, autoplay: wasPlayingRef.current, muted: isMuted, rate: playbackRate };
         const width = 640;
         const height = 360;
         const pipWin = await window.documentPictureInPicture.requestWindow({
           width,
           height,
         });
+        if (pipWin.closed) throw new Error("PiP window closed before initialization");
         pipWindowRef.current = pipWin;
+        const openedAt = performance.now();
 
-        // 부모 창 iframe 일시정지 (소리 중복 방지)
-        postIframeCommand("pauseVideo");
+        // 본문 플레이어는 PiP 표시 시 언마운트된다. pause 이벤트로 재생 의도를 덮어쓰지 않는다.
 
         // 스타일 및 CSS 복사
         Array.from(document.styleSheets).forEach((sheet) => {
@@ -316,30 +380,40 @@ export function SmartPlayerModal({
         pipWin.document.title = video?.title || "화면속 화면 (PiP)";
 
         setPipType("video");
-        setPipStartTime(Math.floor(currentTimeRef.current));
+        setPlayerReady(false);
+        setPipPlayback(snapshot);
         setPipWindow(pipWin);
         setIsPiPActive(true);
-        onNotify?.("🎬 동영상이 OS 항상 위 화면속 화면(PiP) 창으로 분리되었습니다.");
+        onNotify?.("동영상 PiP 창을 열었습니다.");
 
         pipWin.addEventListener("pagehide", () => {
           if (pipWindowRef.current === pipWin) {
+            setPlayerReady(false);
+            setMainPlayback({ start: currentTimeRef.current, autoplay: wasPlayingRef.current });
             pipWindowRef.current = null;
             setPipWindow(null);
             setIsPiPActive(false);
-            if (wasPlayingRef.current && iframeRef.current?.contentWindow) {
-              postIframeCommand("playVideo");
+            if (performance.now() - openedAt < 500) {
+              setNativePiPUnavailable(true);
+              setAudioOnly(false);
+              setIsMini(true);
+              onNotify?.("브라우저가 PiP 창을 바로 닫아 축소 보기로 복원했습니다. YouTube 원본에서 브라우저 자체 PiP를 이용할 수 있습니다.");
             }
           }
         });
         return;
       } catch (e) {
         console.warn("Document PiP failed:", e);
+        setNativePiPUnavailable(true);
       }
     }
 
     // 미지원 브라우저 안내
-    onNotify?.("현재 브라우저는 OS 항상 위 PiP(Document PiP)를 지원하지 않습니다. Chrome 또는 Edge 브라우저를 이용해 주세요.");
-  }, [video, onNotify, closeDocumentPiP, postIframeCommand]);
+    closeDocumentPiP();
+    setAudioOnly(false);
+    setIsMini(true);
+    onNotify?.("앱 안의 축소 보기로 전환했습니다. OS PiP는 지원 브라우저에서, 브라우저 자체 PiP는 YouTube 원본의 영상 메뉴에서 이용할 수 있습니다.");
+  }, [video, onNotify, closeDocumentPiP, isMuted, playbackRate, nativePiPUnavailable]);
 
   // OS 항상 위 Document PiP에 오디오 조작 막대만 분리한다.
   const handleToggleDocumentPiP = useCallback(async () => {
@@ -354,13 +428,14 @@ export function SmartPlayerModal({
     setAudioOnly(true);
     setIsMini(true);
 
-    if (window.documentPictureInPicture && typeof window.documentPictureInPicture.requestWindow === "function") {
+    if (!nativePiPUnavailable && window.documentPictureInPicture && typeof window.documentPictureInPicture.requestWindow === "function") {
       try {
         const pipWin = await window.documentPictureInPicture.requestWindow({
           width: 420,
           height: 58,
         });
         pipWindowRef.current = pipWin;
+        const openedAt = performance.now();
 
         // 스타일 복사
         Array.from(document.styleSheets).forEach((sheet) => {
@@ -402,15 +477,20 @@ export function SmartPlayerModal({
             pipWindowRef.current = null;
             setPipWindow(null);
             setIsPiPActive(false);
+            if (performance.now() - openedAt < 500) {
+              setNativePiPUnavailable(true);
+              onNotify?.("브라우저가 PiP 창을 바로 닫아 듣기 막대로 복원했습니다.");
+            }
           }
         });
       } catch {
+        setNativePiPUnavailable(true);
         onNotify?.("이 브라우저에서는 작은 항상-위 오디오 창을 열 수 없습니다.");
       }
     } else {
       onNotify?.("오디오 막대로 전환했습니다. 이 브라우저에서는 항상-위 분리를 지원하지 않습니다.");
     }
-  }, [video, onNotify, closeDocumentPiP]);
+  }, [video, onNotify, closeDocumentPiP, nativePiPUnavailable]);
 
   // 현재 세션 즉시 저장 유틸
   const saveCurrentSession = useCallback(() => {
@@ -448,6 +528,7 @@ export function SmartPlayerModal({
   // 사용자가 명시적으로 플레이어를 닫는 경우 세션 삭제
   const handleExplicitClose = useCallback(() => {
     closeDocumentPiP();
+    if (document.fullscreenElement === modalContainerRef.current) void document.exitFullscreen().catch(() => {});
     clearYouTubeContinuitySession();
     onCloseRef.current();
   }, [closeDocumentPiP]);
@@ -538,39 +619,43 @@ export function SmartPlayerModal({
   // YouTube IFrame postMessage 리스너 & listening 등록
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
-      const origin = event.origin || "";
-      if (!ALLOWED_ORIGINS.has(origin)) {
-        return;
-      }
-      if (iframeRef.current && event.source !== iframeRef.current.contentWindow) {
-        return;
-      }
+      const data = youtubePlayerMessage(event, window.location.origin, iframeRef.current?.contentWindow ?? null, pipIframeRef.current?.contentWindow ?? null);
+      if (!data) return;
       try {
-        let data = event.data;
-        if (typeof data === "string") {
-          data = JSON.parse(data);
-        }
-        if (!data || typeof data !== "object") return;
-
         if (data.event === "onReady") {
+          setPlayerReady(true);
+          setPlayerError("");
           iframeRef.current?.contentWindow?.postMessage(
             JSON.stringify({ event: "listening", id: 1 }),
             YOUTUBE_EMBED_ORIGIN
           );
-          if (initialSeekTime && initialSeekTime > 0) {
-            postIframeCommand("seekTo", [initialSeekTime, true]);
-          }
-          if (shouldAutoplay) {
-            postIframeCommand("playVideo");
-          }
+          // start는 iframe URL로 복원한다. 준비 직후 seekTo는 멈춘 영상을 재생시킬 수 있다.
+          postIframeCommand("setPlaybackRate", [playbackRate]);
+          postIframeCommand(isMuted ? "mute" : "unMute");
+          postIframeCommand(wasPlayingRef.current ? "playVideo" : "pauseVideo");
         }
 
-        if (data.event === "infoDelivery" && data.info) {
-          if (typeof data.info.currentTime === "number") {
-            currentTimeRef.current = data.info.currentTime;
+        if (data.event === "onError") {
+          updatePlayerState("unknown");
+          setPlayerReady(false);
+          const message = `YouTube 재생 오류 ${data.info ?? ""}. YouTube 원본에서 재생 가능 여부를 확인해 주세요.`;
+          setPlayerError(message);
+          onNotify?.(message);
+        }
+        if (data.event === "onAutoplayBlocked") onNotify?.("PiP 창의 재생 버튼을 눌러 영상을 시작해 주세요.");
+
+        if (data.event === "infoDelivery" && data.info && typeof data.info === "object") {
+          const info = data.info as Record<string, unknown>;
+          if (typeof info.duration === "number" && Number.isFinite(info.duration)) durationRef.current = info.duration;
+          if (typeof info.muted === "boolean") setIsMuted(info.muted);
+          if (typeof info.playbackRate === "number") setPlaybackRate(info.playbackRate);
+          if (typeof info.currentTime === "number" && Number.isFinite(info.currentTime) && info.playerState !== -1 && info.playerState !== 5) {
+            setPlayerReady(true);
+            currentTimeRef.current = info.currentTime;
+            setElapsed(Math.floor(info.currentTime));
           }
-          if (typeof data.info.playerState !== "undefined") {
-            const stateCode = data.info.playerState;
+          if (typeof info.playerState !== "undefined") {
+            const stateCode = info.playerState;
             let nextState: PlayerState = "unknown";
             if (stateCode === 1) nextState = "playing";
             else if (stateCode === 2) nextState = "paused";
@@ -612,7 +697,7 @@ export function SmartPlayerModal({
       window.clearTimeout(t1);
       window.clearTimeout(t2);
     };
-  }, [initialSeekTime, shouldAutoplay, postIframeCommand, updatePlayerState]);
+  }, [postIframeCommand, updatePlayerState, playbackRate, isMuted, onNotify, pipWindow]);
 
   useEffect(() => {
     isMiniRef.current = isMini;
@@ -629,7 +714,6 @@ export function SmartPlayerModal({
   useEffect(() => {
     const mediaQuery = window.matchMedia("(max-width: 768px)");
     const syncViewport = () => {
-      isMobileViewportRef.current = mediaQuery.matches;
       setIsMobileViewport(mediaQuery.matches);
     };
     syncViewport();
@@ -639,25 +723,38 @@ export function SmartPlayerModal({
 
   // 글로벌 키보드 핫키 컨트롤
   useEffect(() => {
+    mountedRef.current = true;
     previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     window.requestAnimationFrame(() => {
       if (isMiniRef.current) miniRestoreButtonRef.current?.focus();
       else closeButtonRef.current?.focus();
     });
+    return () => {
+      mountedRef.current = false;
+      chatRequestRef.current?.abort();
+      previousFocusRef.current?.focus();
+    };
+  }, []);
 
+  useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
       if (event.key === "Escape") {
+        if (document.fullscreenElement) return;
         event.preventDefault();
-        if (isMiniRef.current) setIsMini(false);
+        if (pipWindowRef.current) closeDocumentPiP();
+        else if (audioOnlyRef.current) toggleListening();
+        else if (isMiniRef.current) restoreFullView();
         else handleExplicitClose();
         return;
       }
 
       // 입력창 포커스 중에는 단축키 비활성화
-      const activeTag = (document.activeElement?.tagName || "").toLowerCase();
-      if (activeTag === "input" || activeTag === "textarea" || (document.activeElement as HTMLElement)?.isContentEditable) {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest?.("input, textarea, select, [contenteditable='true']")) {
         return;
       }
+      if (isMiniRef.current && !pipWindowRef.current && !modalContainerRef.current?.contains(target)) return;
 
       if (event.code === "Space") {
         event.preventDefault();
@@ -673,25 +770,26 @@ export function SmartPlayerModal({
         toggleMute();
       } else if (event.key === "p" || event.key === "P") {
         event.preventDefault();
-        void handleToggleDocumentPiP();
+        if (audioOnlyRef.current) void handleToggleDocumentPiP();
+        else void handleOpenVideoPiP();
       } else if (event.key === ">" || (event.shiftKey && event.key === ".")) {
         event.preventDefault();
-        const rates = [0.75, 1.0, 1.25, 1.5, 2.0];
+        const rates = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
         const next = rates.find((r) => r > playbackRate) || rates[rates.length - 1];
         changePlaybackRate(next);
       } else if (event.key === "<" || (event.shiftKey && event.key === ",")) {
         event.preventDefault();
-        const rates = [0.75, 1.0, 1.25, 1.5, 2.0];
+        const rates = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
         const prev = [...rates].reverse().find((r) => r < playbackRate) || rates[0];
         changePlaybackRate(prev);
       } else if (
         event.key === "Tab" &&
         modalContainerRef.current &&
-        (!isMiniRef.current || (!isMobileViewportRef.current && !audioOnlyRef.current))
+        !isMiniRef.current && !pipWindowRef.current
       ) {
         const focusable = Array.from(
           modalContainerRef.current.querySelectorAll<HTMLElement>(
-            'button:not([disabled]), input:not([disabled]), iframe, [href], [tabindex]:not([tabindex="-1"])'
+            'button:not([disabled]), input:not([disabled]), select:not([disabled]), summary, iframe, [href], [tabindex]:not([tabindex="-1"])'
           )
         ).filter((element) => element.offsetParent !== null);
         if (focusable.length === 0) return;
@@ -707,22 +805,21 @@ export function SmartPlayerModal({
       }
     };
     window.addEventListener("keydown", handleKeyDown);
+    pipWindow?.addEventListener("keydown", handleKeyDown);
     return () => {
-      mountedRef.current = false;
       window.removeEventListener("keydown", handleKeyDown);
-      chatRequestRef.current?.abort();
-      previousFocusRef.current?.focus();
+      pipWindow?.removeEventListener("keydown", handleKeyDown);
     };
-  }, [handleExplicitClose, togglePlayPause, skipSeconds, toggleMute, handleToggleDocumentPiP, changePlaybackRate, playbackRate]);
+  }, [handleExplicitClose, togglePlayPause, skipSeconds, toggleMute, handleToggleDocumentPiP, handleOpenVideoPiP, changePlaybackRate, playbackRate, closeDocumentPiP, toggleListening, restoreFullView, pipWindow]);
 
   useEffect(() => {
-    if (isMini && (isMobileViewport || audioOnly)) return;
+    if (isMini || isPiPActive) return;
     const previousBodyOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = previousBodyOverflow;
     };
-  }, [audioOnly, isMini, isMobileViewport]);
+  }, [isMini, isPiPActive]);
 
   useEffect(() => {
     if (!video) return;
@@ -864,44 +961,40 @@ export function SmartPlayerModal({
     }
   };
 
-  const isMobileFloating = isMini && isMobileViewport;
-  const isNonModalFloating = isMini && (isMobileViewport || audioOnly);
+  const isCompact = isMini || isPiPActive;
+  const isNonModalFloating = isCompact;
 
   if (!isClientMounted || typeof document === "undefined") {
     return null;
   }
+  const nativePiPSupported = !nativePiPUnavailable && Boolean(window.documentPictureInPicture?.requestWindow);
 
   return createPortal(
     <>
-      {isMini && !isMobileFloating && !audioOnly && !isPiPActive && !isAudioButtonCollapsed && (
-        <div className={styles.focusBackdrop} aria-hidden="true" />
-      )}
       <div
-        className={isMini ? styles.miniLayer : styles.modalBackdrop}
-        onClick={isMini ? undefined : handleExplicitClose}
+        className={isCompact ? styles.miniLayer : styles.modalBackdrop}
+        onClick={isCompact ? undefined : handleExplicitClose}
       >
         <div
           ref={modalContainerRef}
-          className={`${isMini ? styles.miniContainer : styles.modalContent} ${
-            isMini && audioOnly ? styles.miniAudioContainer : ""
-          } ${isAudioButtonCollapsed ? styles.miniAudioCollapsedContainer : ""} ${
-            isPiPActive ? styles.pipSourceContainer : ""
-          }`}
+          className={`${isCompact ? styles.miniContainer : styles.modalContent} ${
+            isCompact && audioOnly ? styles.miniAudioContainer : ""
+          } ${isAudioButtonCollapsed ? styles.miniAudioCollapsedContainer : ""}`}
           onClick={(event) => event.stopPropagation()}
           role={isAudioButtonCollapsed ? undefined : isNonModalFloating ? "region" : "dialog"}
           aria-modal={isAudioButtonCollapsed || isNonModalFloating ? undefined : true}
           aria-hidden={isAudioButtonCollapsed ? "true" : undefined}
-          aria-labelledby={isAudioButtonCollapsed ? undefined : isMini ? miniTitleId : titleId}
+          aria-labelledby={isAudioButtonCollapsed ? undefined : isCompact ? miniTitleId : titleId}
           tabIndex={isAudioButtonCollapsed ? undefined : -1}
         >
-          {!(isMini && audioOnly) && <div className={isMini ? styles.miniHeader : styles.modalHeader}>
-            {isMini ? (
+          <div className={isCompact ? styles.miniHeader : styles.modalHeader}>
+            {isCompact ? (
               <>
                 <button
                   ref={miniRestoreButtonRef}
                   type="button"
                   className={styles.miniBrandButton}
-                  onClick={() => setIsMini(false)}
+                  onClick={restoreFullView}
                   title="CoffeeTide 화면 복원"
                   aria-label="CoffeeTide 화면 복원"
                 >
@@ -920,61 +1013,11 @@ export function SmartPlayerModal({
             )}
 
             <div className={styles.headerActions}>
-              <button
-                type="button"
-                className={`${styles.headerActionBtn} ${audioOnly ? styles.headerActionBtnActive : ""}`}
-                onClick={() => {
-                  setIsAudioCollapsed(false);
-                  setAudioOnly((prev) => !prev);
-                  onNotify?.(!audioOnly ? "🎧 오디오 전용 집중 모드로 전환되었습니다." : "🎬 비디오 모드로 전환되었습니다.");
-                }}
-                data-tooltip={audioOnly ? "비디오 모드로 복귀" : "오디오 전용 모드"}
-                aria-label={audioOnly ? "비디오 모드로 복귀" : "오디오 전용 모드"}
-              >
-                <UiIcon name="headphones" size={16} />
-              </button>
-
-              {/* OS 항상 위 Document PiP 창 (주소창/헤더 없는 브라우저 네이티브 PiP) */}
-              <button
-                type="button"
-                className={`${styles.headerActionBtn} ${isPiPActive ? styles.headerActionBtnActive : ""}`}
-                onClick={() => {
-                  if (audioOnly) {
-                    void handleToggleDocumentPiP();
-                  } else {
-                    void handleOpenVideoPiP();
-                  }
-                }}
-                data-coffeetide-focus-control="true"
-                data-tooltip={isPiPActive ? "OS PiP 창 닫기" : "OS 항상 위 PiP 분리"}
-                aria-label={isPiPActive ? "OS PiP 창 닫기" : "OS 항상 위 PiP 분리"}
-              >
-                <UiIcon name={isPiPActive ? "pip-restore" : "pip"} size={16} />
-              </button>
-
-              {/* 인앱 미니 플레이어 (웹 내부 우하단 고정) */}
-              {isMini ? (
-                <button
-                  type="button"
-                  className={styles.headerActionBtn}
-                  onClick={() => setIsMini(false)}
-                  data-tooltip="플레이어 원래 크기로 복원"
-                  aria-label="플레이어 원래 크기로 복원"
-                >
-                  <UiIcon name="expand" size={16} />
-                </button>
-              ) : (
-                <button
-                  ref={minimizeButtonRef}
-                  type="button"
-                  className={styles.headerActionBtn}
-                  onClick={() => setIsMini(true)}
-                  data-tooltip="인앱 미니 플레이어 (우하단 고정)"
-                  aria-label="인앱 미니 플레이어 (우하단 고정)"
-                >
-                  <UiIcon name="minimize" size={16} />
-                </button>
-              )}
+              <a className={styles.headerActionBtn} href={youtubeWatchUrl(ytVideoId, elapsed)} target="_blank" rel="noopener noreferrer" aria-label="YouTube 원본 보기" title="현재 위치의 YouTube 원본 보기" onClick={(event) => {
+                event.currentTarget.href = youtubeWatchUrl(ytVideoId, currentTimeRef.current);
+                pauseForOriginal();
+              }}><UiIcon name="external-link" size={16} /></a>
+              <button type="button" className={styles.headerActionBtn} onClick={() => void toggleFullscreen()} aria-label={isFullscreen ? "브라우저 전체화면 종료" : "브라우저 전체화면"} data-tooltip={isFullscreen ? "브라우저 전체화면 종료" : "브라우저 전체화면"}><UiIcon name="expand" size={16} /></button>
 
               {/* 닫기 */}
               <button
@@ -988,7 +1031,13 @@ export function SmartPlayerModal({
                 <UiIcon name="close" size={16} />
               </button>
             </div>
-          </div>}
+          </div>
+          <div className={styles.modeToolbar} role="group" aria-label="플레이어 보기 모드">
+            <button type="button" aria-pressed={audioOnly} onClick={toggleListening} aria-label={audioOnly ? "영상 보기로 돌아가기" : "듣기 모드"}><UiIcon name="headphones" size={14} />{audioOnly ? "영상 복귀" : "듣기"}</button>
+            <button ref={minimizeButtonRef} type="button" aria-pressed={isMini && !audioOnly && !isPiPActive} onClick={showMiniView} aria-label="축소 보기"><UiIcon name="minimize" size={14} />작게</button>
+            <button type="button" aria-pressed={isPiPActive} onClick={() => void (audioOnly ? handleToggleDocumentPiP() : handleOpenVideoPiP())} aria-label={isPiPActive ? "PiP에서 돌아가기" : "PiP 보기"} title={nativePiPSupported ? "브라우저의 항상 위 PiP 창" : "앱 축소 보기 · 브라우저 자체 PiP는 YouTube 원본에서 지원"}><UiIcon name="pip" size={14} />{isPiPActive ? "PiP 복귀" : nativePiPSupported ? "PiP" : "PiP · 앱"}</button>
+            <button type="button" aria-pressed={!isMini && !audioOnly && !isPiPActive} onClick={restoreFullView} aria-label="전체 보기"><UiIcon name="pip-restore" size={14} />전체 보기</button>
+          </div>
 
           {showResumeNotice && initialSeekTime >= 3 && (
             <div className={styles.resumeNotice}>
@@ -1020,124 +1069,34 @@ export function SmartPlayerModal({
             </div>
           )}
 
-          <div className={isMini ? styles.miniBody : styles.modalBody}>
+          <div className={isCompact ? styles.miniBody : styles.modalBody}>
             <div
-              className={`${isMini ? styles.miniVideoSection : styles.videoSection} ${
+              className={`${isCompact ? styles.miniVideoSection : styles.videoSection} ${
                 audioOnly ? styles.audioModeActive : ""
               }`}
             >
-              {audioOnly ? (
-                isAudioButtonCollapsed ? (
-                  null
-                ) : <div className={styles.audioModeCard}>
-                  <div className={styles.audioModeLead} aria-hidden="true">
-                    <UiIcon name="headphones" size={14} />
-                  </div>
-                  <div id={isMini ? miniTitleId : undefined} className={styles.audioModeInfo} title={video.title}>
-                    <span className={styles.audioModeState}>
-                      {playerState === "playing" ? "재생 중" : "일시정지"} · 오디오 집중 모드
-                    </span>
-                    <span className={styles.audioTitle}>{video.title}</span>
-                  </div>
-                  <button
-                    type="button"
-                    className={styles.audioModeAction}
-                    onClick={togglePlayPause}
-                    aria-label={playerState === "playing" ? "오디오 일시정지" : "오디오 재생"}
-                    title={playerState === "playing" ? "일시정지" : "재생"}
-                  >
-                    <UiIcon name={playerState === "playing" ? "pause" : "play"} size={14} />
-                  </button>
-                  <button
-                    type="button"
-                    className={styles.audioModeAction}
-                    onClick={toggleMute}
-                    aria-label={isMuted ? "오디오 음소거 해제" : "오디오 음소거"}
-                    title={isMuted ? "음소거 해제" : "음소거"}
-                  >
-                    <UiIcon name={isMuted ? "volume-x" : "volume-2"} size={15} />
-                  </button>
-                  <button
-                    type="button"
-                    className={styles.audioModeAction}
-                    onClick={() => void handleToggleDocumentPiP()}
-                    data-coffeetide-audio-focus-control="true"
-                    aria-label="오디오 막대만 항상 위에 남기기"
-                    title="오디오 막대만 항상 위에 남기기"
-                  >
-                    <UiIcon name="pip" size={15} />
-                  </button>
-                  <button
-                    type="button"
-                    className={styles.audioModeAction}
-                    onClick={() => {
-                      setIsAudioCollapsed(false);
-                      setAudioOnly(false);
-                      onNotify?.("🎬 비디오 모드로 전환되었습니다.");
-                    }}
-                    aria-label="비디오 모드로 복귀"
-                    title="비디오 모드로 복귀"
-                  >
-                    <UiIcon name="video" size={15} />
-                  </button>
-                  {isMini && (
-                    <button
-                      type="button"
-                      className={styles.audioModeAction}
-                      onClick={() => setIsAudioCollapsed(true)}
-                      aria-label="오디오 조작 막대 최소화"
-                      title="최소화"
-                    >
-                      <UiIcon name="minimize" size={15} />
-                    </button>
-                  )}
-                  {isMini && (
-                    <button
-                      ref={closeButtonRef}
-                      type="button"
-                      className={styles.audioModeAction}
-                      onClick={handleExplicitClose}
-                      aria-label="플레이어 닫기"
-                      title="플레이어 닫기"
-                    >
-                      <UiIcon name="close" size={15} />
-                    </button>
-                  )}
-                </div>
-              ) : null}
-
+              {audioOnly && !isAudioButtonCollapsed && <div className={styles.audioModeCard}>
+                <UiIcon name="headphones" size={18} />
+                <div className={styles.audioModeInfo}><strong>듣기 모드</strong><span>{playerState === "playing" ? "재생 중" : playerState === "buffering" ? "버퍼링 중" : playerState === "unknown" ? "연결 확인 중" : "일시정지"}</span></div>
+                <button type="button" className={styles.audioModeAction} onClick={() => setIsAudioCollapsed(true)} aria-label="듣기 막대 숨기기" title="듣기 막대 숨기기"><UiIcon name="minimize" size={14} /></button>
+              </div>}
               <div
                 className={
-                  audioOnly ? styles.audioOnlyIframeSlot : isMini ? styles.miniIframeWrapper : styles.iframeWrapper
+                  audioOnly ? styles.audioOnlyIframeSlot : isCompact ? styles.miniIframeWrapper : styles.iframeWrapper
                 }
                 aria-hidden={audioOnly ? "true" : undefined}
               >
-                {!audioOnly && !isMini && !isPiPActive && (
-                  <button
-                    type="button"
-                    className={styles.videoTopPipBtn}
-                    onClick={() => void handleOpenVideoPiP()}
-                    title="화면속 화면(PiP)으로 보기"
-                    aria-label="화면속 화면(PiP)으로 보기"
-                  >
-                    <UiIcon name="pip" size={14} />
-                    <span>화면속 화면</span>
-                  </button>
-                )}
                 {isPiPActive && pipType === "video" ? (
                   <div className={styles.pipPlaceholder}>
                     <UiIcon name="pip" size={36} />
-                    <div className={styles.pipPlaceholderTitle}>화면속 화면(PiP) 모드에서 재생 중</div>
+                    <div className={styles.pipPlaceholderTitle}>브라우저 PiP 창에서 {playerState === "playing" ? "재생 중" : "영상 확인 중"}</div>
                     <div className={styles.pipPlaceholderDesc}>
-                      동영상이 브라우저 바깥 항상 위(OS PiP) 창에서 재생 중입니다.
+                      영상은 항상 위 창에 있습니다. 아래 조작 버튼을 그대로 사용할 수 있습니다.
                     </div>
                     <button
                       type="button"
                       className={styles.pipPlaceholderBtn}
-                      onClick={() => {
-                        closeDocumentPiP();
-                        window.focus();
-                      }}
+                      onClick={restoreFullView}
                     >
                       <UiIcon name="pip-restore" size={14} />
                       <span>CoffeeTide 화면으로 복귀</span>
@@ -1146,76 +1105,27 @@ export function SmartPlayerModal({
                 ) : (
                   <iframe
                     ref={iframeRef}
-                    src={`https://www.youtube-nocookie.com/embed/${ytVideoId}?enablejsapi=1&autoplay=${shouldAutoplay ? 1 : 0}&rel=0&iv_load_policy=3&modestbranding=1&playsinline=1${
-                      initialSeekTime && initialSeekTime > 0 ? `&start=${Math.floor(initialSeekTime)}` : ""
-                    }`}
+                    src={youtubeEmbedUrl(ytVideoId, window.location.origin, mainPlayback)}
                     title={video.title}
+                    referrerPolicy="strict-origin-when-cross-origin"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                     allowFullScreen
                   />
                 )}
               </div>
 
-              {/* 하단 통합 플레이어 컨트롤 스트립 (배속, 스킵, 음소거, 핫키 안내) */}
-              {!isMini && (
-                <div className={styles.playerControlsStrip}>
-                  <div className={styles.controlsLeft}>
-                    <button
-                      type="button"
-                      className={styles.ctrlBtn}
-                      onClick={togglePlayPause}
-                      title="재생 / 일시정지 (Space)"
-                    >
-                      <UiIcon name={playerState === "playing" ? "pause" : "play"} size={14} />
-                      <span>{playerState === "playing" ? "일시정지" : "재생"}</span>
-                    </button>
-                    <button
-                      type="button"
-                      className={styles.ctrlBtn}
-                      onClick={() => skipSeconds(-10)}
-                      title="10초 뒤로 (J)"
-                    >
-                      <span>-10초</span>
-                    </button>
-                    <button
-                      type="button"
-                      className={styles.ctrlBtn}
-                      onClick={() => skipSeconds(10)}
-                      title="10초 앞으로 (L)"
-                    >
-                      <span>+10초</span>
-                    </button>
-                    <button
-                      type="button"
-                      className={styles.ctrlBtn}
-                      onClick={toggleMute}
-                      title="음소거 토글 (M)"
-                    >
-                      <UiIcon name={isMuted ? "volume-x" : "volume-2"} size={14} />
-                    </button>
-                    <div className={styles.speedChipGroup} title="재생 속도 조절 (<, >)">
-                      <UiIcon name="zap" size={13} style={{ marginLeft: 3, color: "var(--accent)" }} />
-                      {[0.75, 1.0, 1.25, 1.5, 2.0].map((rate) => (
-                        <button
-                          key={rate}
-                          type="button"
-                          className={`${styles.speedChip} ${playbackRate === rate ? styles.speedChipActive : ""}`}
-                          onClick={() => changePlaybackRate(rate)}
-                        >
-                          {rate}x
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div className={styles.controlsRight}>
-                    <span className={styles.hotkeyHint} title="키보드 단축키">
-                      ⌨️ Space: 재생 · J/L: 10초 · M: 음소거 · P: PiP
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              {!isMini && chapters.length > 0 && (
+              <div className={styles.playerControlsStrip} role="group" aria-label="재생 조작">
+                <button type="button" className={styles.ctrlBtn} onClick={togglePlayPause} disabled={!playerReady} aria-label={playerState === "playing" ? "일시정지" : "재생"} title="Space"><UiIcon name={playerState === "playing" ? "pause" : "play"} size={14} /><span>{playerState === "playing" ? "일시정지" : "재생"}</span></button>
+                <button type="button" className={styles.ctrlBtn} onClick={() => skipSeconds(-10)} disabled={!playerReady} aria-label="10초 뒤로" title="J">−10초</button>
+                <button type="button" className={styles.ctrlBtn} onClick={() => skipSeconds(10)} disabled={!playerReady} aria-label="10초 앞으로" title="L">+10초</button>
+                <button type="button" className={styles.ctrlBtn} onClick={toggleMute} disabled={!playerReady} aria-label={isMuted ? "음소거 해제" : "음소거"} aria-pressed={isMuted} title="M"><UiIcon name={isMuted ? "volume-x" : "volume-2"} size={14} /></button>
+                <select className={styles.speedSelect} aria-label="재생 속도" value={playbackRate} disabled={!playerReady} onChange={(e) => changePlaybackRate(Number(e.target.value))}>{[0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2].map((rate) => <option key={rate} value={rate}>{rate}×</option>)}</select>
+                <output className={styles.elapsed} aria-label="재생 위치">{formatSecondsToMinute(elapsed)}</output>
+                {!isCompact && <span className={styles.hotkeyHint}>Space 재생 · J/L 10초 · M 음소거 · P PiP</span>}
+              </div>
+              {playerError && <p className={styles.playerError} role="alert">{playerError}</p>}
+              {process.env.NODE_ENV !== "production" && <details className={styles.debugPanel}><summary>재생 진단 · 개발 모드</summary><output aria-label="재생 진단">보기: {isPiPActive ? "OS PiP" : audioOnly ? "듣기" : isCompact ? "축소" : "전체"} · 기기: {isMobileViewport ? "모바일" : "PC"} · 상태: {playerState} · 위치: {elapsed}초 · 배속: {playbackRate} · OS PiP: {nativePiPSupported ? "지원" : "미지원"} · 전체화면: {isFullscreen ? "켜짐" : "꺼짐"}</output></details>}
+              {!isCompact && !audioOnly && chapters.length > 0 && (
                 <div className={styles.chapterSection}>
                   <div className={styles.sectionHeading}>
                     <UiIcon name="chapters" size={16} />
@@ -1238,7 +1148,7 @@ export function SmartPlayerModal({
               )}
             </div>
 
-            {!isMini && (
+            {!isCompact && !audioOnly && (
               <div className={styles.aiSection}>
                 <div className={styles.summaryBox}>
                   <div className={styles.sectionHeading}>
@@ -1325,9 +1235,16 @@ export function SmartPlayerModal({
       {pipWindow && createPortal(
         pipType === "video" ? (
           <div className={styles.pipVideoContainer}>
+            <div className={styles.pipVideoHeader}>
+              <span title={video.title}>{video.title}</span>
+              <a href={youtubeWatchUrl(ytVideoId, elapsed)} target="_blank" rel="noopener noreferrer" aria-label="YouTube 원본 보기" title="YouTube 원본 보기" onClick={pauseForOriginal}><UiIcon name="external-link" size={16} /></a>
+              <button type="button" onClick={restoreFullView} aria-label="CoffeeTide 화면으로 돌아가기" title="CoffeeTide 화면으로 돌아가기"><UiIcon name="pip-restore" size={16} /></button>
+            </div>
             <iframe
-              src={`https://www.youtube-nocookie.com/embed/${ytVideoId}?enablejsapi=1&autoplay=1&rel=0&iv_load_policy=3&modestbranding=1&playsinline=1&start=${pipStartTime}`}
+              ref={pipIframeRef}
+              src={youtubePiPUrl(ytVideoId, pipPlayback)}
               title={video.title}
+              referrerPolicy="strict-origin-when-cross-origin"
               className={styles.pipIframe}
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
               allowFullScreen
@@ -1362,6 +1279,16 @@ export function SmartPlayerModal({
             >
               <UiIcon name={isMuted ? "volume-x" : "volume-2"} size={15} />
             </button>
+            <button
+              type="button"
+              className={styles.audioModeAction}
+              onClick={() => {
+                pauseForOriginal();
+                window.open(youtubeWatchUrl(ytVideoId, currentTimeRef.current), "_blank", "noopener,noreferrer");
+              }}
+              aria-label="YouTube 원본 보기"
+              title="YouTube 원본 보기"
+            ><UiIcon name="external-link" size={15} /></button>
             <button
               type="button"
               className={styles.audioModeAction}

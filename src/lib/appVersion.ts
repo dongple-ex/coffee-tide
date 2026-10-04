@@ -2,7 +2,7 @@
  * 사용자에게 표시하는 coffeeTide 버전 — 설정 화면 및 What's New 모달에 노출된다.
  * 릴리스 시 package.json과 함께 갱신할 것. (version.test.ts에서 동기화 검증)
  */
-export const APP_VERSION = "v1.2.9";
+export const APP_VERSION = "v1.2.10";
 
 export const LS_LAST_SEEN_VERSION = "coffeetide_last_seen_version";
 
@@ -21,6 +21,34 @@ export interface ReleaseNote {
 }
 
 export const RELEASE_HISTORY: ReleaseNote[] = [
+  {
+    version: "v1.2.10",
+    date: "2026-10-04",
+    title: "소식 번들·도구 폴더와 영상 보기 모드",
+    summary: "X·Instagram 등 관심 소식을 번들로 모으고, 휴식 도구를 폴더에서 찾습니다. 영상 플레이어의 듣기·축소·PiP·전체 보기와 원본 이동을 개선했습니다.",
+    items: [
+      {
+        type: "feat",
+        title: "관심 소식을 한 번들에 모으기",
+        description: "X 계정·검색, Instagram 공개 프로 계정, Threads와 사이트·RSS를 주제별로 묶습니다. 읽음·저장·서비스 필터를 지원하며 X·Instagram은 서버 인증 설정이 필요합니다. 연결하지 않은 소스는 연결 필요로 표시합니다.",
+      },
+      {
+        type: "enhance",
+        title: "휴식·도구 폴더 탐색",
+        description: "도구와 사이트를 종류별 폴더로 정리하고 이름·주소 검색을 제공합니다. 같은 주소의 중복 표시를 줄이고 폴더 펼침 상태를 저장합니다.",
+      },
+      {
+        type: "enhance",
+        title: "듣기·축소·전체 보기와 영상 복귀",
+        description: "보기 모드를 한곳에서 전환하며 모바일은 축소 보기로 시작합니다. 재생 위치·일시정지·배속을 유지하고 현재 위치의 YouTube 원본과 브라우저 전체화면을 제공합니다.",
+      },
+      {
+        type: "fix",
+        title: "PiP 재생 전환과 음소거 안정화",
+        description: "PiP의 YouTube 오류 153에 대응하는 재생 경로를 적용했습니다. PiP를 사용할 수 없거나 창이 즉시 닫히면 축소 보기로 복원하고 음소거 조작 오류를 수정했습니다.",
+      },
+    ],
+  },
   {
     version: "v1.2.9",
     date: "2026-10-02",

@@ -89,6 +89,7 @@ import {
 } from "@/lib/ai/chromeCanaryAi";
 import type { CustomWidgetConfig } from "./components/CustomNewsWidget";
 import { ContextualRecStrip } from "./components/youtube/ContextualRecStrip";
+import { WidgetLibrary } from "./components/widgets/WidgetLibrary";
 import {
   addAffectionExp,
   calculateLevelInfo,
@@ -117,6 +118,7 @@ const ShortcutsWidget = dynamic(() => import("./components/ShortcutsWidget").the
 const FinanceWidget = dynamic(() => import("./components/FinanceWidget").then((m) => m.FinanceWidget), { ssr: false });
 const CustomNewsWidget = dynamic(() => import("./components/CustomNewsWidget").then((m) => m.CustomNewsWidget), { ssr: false });
 const YouTubeBundleWidget = dynamic(() => import("./components/youtube/YouTubeBundleWidget").then((m) => m.YouTubeBundleWidget), { ssr: false });
+const SocialBundleWidget = dynamic(() => import("./components/social/SocialBundleWidget").then((m) => m.SocialBundleWidget), { ssr: false });
 const ThreadsBundleWidget = dynamic(() => import("./components/threads/ThreadsBundleWidget").then((m) => m.ThreadsBundleWidget), { ssr: false });
 import type { CanvasDocument, CanvasDocType, CanvasExtractedTask } from "@/lib/canvas/types";
 import { loadCanvasDocsFromLS, saveCanvasDocsToLS } from "@/lib/ai/canvasAi";
@@ -385,7 +387,6 @@ export default function Home() {
   const [fetchFailed, setFetchFailed] = useState(false);
   const [sessionExpired, setSessionExpired] = useState(false);
   // 빠른 위젯 도구함 한눈에 전체보기 토글 state
-  const [isWidgetDrawerExpanded, setIsWidgetDrawerExpanded] = useState(false);
   const [rules, setRules] = useState<AutomationRule[]>(() =>
     loadLS<AutomationRule[]>(LS_RULES, [])
   );
@@ -3472,138 +3473,14 @@ export default function Home() {
 
           {/* 🧩 확장형 빠른 위젯 바 (Widget Toolbar) */}
           <div className={styles.widgetBarSection}>
-            <div className={styles.widgetBarHeader}>
-              <button
-                type="button"
-                className={styles.widgetBarTitleBtn}
-                onClick={() => setIsWidgetDrawerExpanded((prev) => !prev)}
-                title={isWidgetDrawerExpanded ? "한줄로 접기" : "모든 위젯 칩 한눈에 넓게 보기"}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="3" width="7" height="7"></rect>
-                  <rect x="14" y="3" width="7" height="7"></rect>
-                  <rect x="14" y="14" width="7" height="7"></rect>
-                  <rect x="3" y="14" width="7" height="7"></rect>
-                </svg>
-                휴식·도구 모음
-                <span className={styles.drawerToggleBadge}>
-                  {isWidgetDrawerExpanded ? "⌃ 접기" : "⫶⫶ 한눈에 보기 ⌄"}
-                </span>
-              </button>
-            </div>
-            <div
-              className={`${styles.widgetList} ${isWidgetDrawerExpanded ? styles.widgetListExpanded : ""}`}
-            >
-              <button
-                type="button"
-                data-widget-id="weather"
-                className={`${styles.widgetChip} ${activeWidget === "weather" ? styles.widgetChipActive : ""}`}
-                onClick={() => handleSelectWidget("weather")}
-                title="실시간 날씨 정보 및 브리핑 열기/닫기"
-              >
-                <UiIcon name="weather" size={16} />
-                <span>실시간 날씨</span>
-              </button>
-              <button
-                type="button"
-                data-widget-id="finance"
-                className={`${styles.widgetChip} ${activeWidget === "finance" ? styles.widgetChipActive : ""}`}
-                onClick={() => handleSelectWidget("finance")}
-                title="공식 환율 및 한국은행 기준금리 열기/닫기"
-              >
-                <UiIcon name="finance" size={16} />
-                <span>환율·금리</span>
-              </button>
-              {commuteConfig.enabled && (
-                <button
-                  type="button"
-                  data-widget-id="commute"
-                  className={`${styles.widgetChip} ${activeWidget === "commute" ? styles.widgetChipActive : ""}`}
-                  onClick={() => handleSelectWidget("commute")}
-                  title="출퇴근 길찾기 위젯 열기/닫기"
-                >
-                  <UiIcon name="route" size={16} />
-                  <span>스마트 길찾기</span>
-                </button>
-              )}
-              <button
-                type="button"
-                data-widget-id="timer"
-                className={`${styles.widgetChip} ${activeWidget === "timer" ? styles.widgetChipActive : ""}`}
-                onClick={() => handleSelectWidget("timer")}
-                title="집중 몰입 타이머 열기/닫기"
-              >
-                <UiIcon name="timer" size={16} />
-                <span>몰입 타이머</span>
-              </button>
-              <button
-                type="button"
-                data-widget-id="calc"
-                className={`${styles.widgetChip} ${activeWidget === "calc" ? styles.widgetChipActive : ""}`}
-                onClick={() => handleSelectWidget("calc")}
-                title="빠른 수치 계산기 열기/닫기"
-              >
-                <UiIcon name="calculator" size={16} />
-                <span>빠른 계산기</span>
-              </button>
-              <button
-                type="button"
-                data-widget-id="shortcuts"
-                className={`${styles.widgetChip} ${activeWidget === "shortcuts" ? styles.widgetChipActive : ""}`}
-                onClick={() => handleSelectWidget("shortcuts")}
-                title="앱/레시피 바로가기 즐겨찾기 열기/닫기"
-              >
-                <UiIcon name="bookmark" size={16} />
-                <span>바로가기 즐겨찾기</span>
-              </button>
-              <button
-                type="button"
-                data-widget-id="youtube"
-                className={`${styles.widgetChip} ${activeWidget === "youtube" ? styles.widgetChipActive : ""}`}
-                onClick={() => handleSelectWidget("youtube")}
-                title="테마별 유튜브 스마트 번들 피드 열기/닫기"
-              >
-                <UiIcon name="video" size={16} />
-                <span>유튜브 번들</span>
-              </button>
-              <button
-                type="button"
-                data-widget-id="threads"
-                className={`${styles.widgetChip} ${activeWidget === "threads" ? styles.widgetChipActive : ""}`}
-                onClick={() => handleSelectWidget("threads")}
-                title="Threads 실시간 최신 피드 열기/닫기"
-              >
-                <span aria-hidden="true" style={{ fontSize: "1rem" }}>🧵</span>
-                <span>Threads 피드</span>
-              </button>
-              {/* 사용자가 동적으로 등록한 커스텀 위젯 칩들 */}
-              {customWidgets.map((w) => (
-                <button
-                  key={w.id}
-                  type="button"
-                  data-widget-id={w.id}
-                  className={`${styles.widgetChip} ${activeWidget === w.id ? styles.widgetChipActive : ""}`}
-                  onClick={() => handleSelectWidget(w.id)}
-                  title={`${w.name} 최신 글 핵심 브리핑 보기`}
-                >
-                  <span className={styles.customWidgetMark} aria-hidden="true">{w.name.slice(0, 1)}</span>
-                  <span>{w.name}</span>
-                </button>
-              ))}
-              {/* 사이트 추가 칩 */}
-              <button
-                type="button"
-                data-widget-id="add-custom"
-                className={styles.widgetChip}
-                onClick={() => handleSelectWidget("add-custom")}
-                title="새로운 뉴스/블로그 사이트 URL을 등록하여 나만의 위젯 칩 추가"
-                style={{ borderStyle: "dashed" }}
-              >
-                <UiIcon name="plus" size={16} />
-                <span>사이트 추가</span>
-              </button>
-            </div>
-
+            <WidgetLibrary
+              key={userScope ?? "guest"}
+              activeWidget={activeWidget}
+              customWidgets={customWidgets}
+              commuteEnabled={commuteConfig.enabled}
+              userScope={userScope}
+              onSelect={handleSelectWidget}
+            />
             {activeWidget === "weather" && (
               <div className={styles.widgetPanel}>
                 <WeatherWidget
@@ -3686,6 +3563,11 @@ export default function Home() {
             {activeWidget === "youtube" && (
               <div className={styles.widgetPanel}>
                 <YouTubeBundleWidget onNotify={notifyFromWidget} userScope={userScope} />
+              </div>
+            )}
+            {activeWidget === "social" && (
+              <div className={styles.widgetPanel}>
+                <SocialBundleWidget key={userScope ?? "guest"} userScope={userScope} customWidgets={customWidgets} onNotify={notifyFromWidget} />
               </div>
             )}
             {activeWidget === "threads" && (

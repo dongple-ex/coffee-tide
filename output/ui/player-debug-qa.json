@@ -1,0 +1,33 @@
+{
+  "date": "2026-10-04",
+  "releaseVersion": "v1.2.10",
+  "url": "http://localhost:4175/",
+  "browser": "Codex in-app browser",
+  "videoSource": "Actual YouTube embeds, no simulated playback",
+  "testedWidths": [1280, 390, 320],
+  "verified": [
+    "Desktop full view and browser fullscreen entry/exit",
+    "Listening view and return preserve playback position and speed",
+    "Paused playback remains paused after PiP failure and seek",
+    "PiP window closed immediately by the browser falls back to mini view",
+    "Resume from 900 seconds after PiP fallback actually played from that position",
+    "New mobile video opens in mini view",
+    "Mobile play/pause, seek, mute/unmute and playback speed controls",
+    "No new React render-update error after mute/unmute fix",
+    "Original YouTube links include current playback position",
+    "320px listening/full view: no horizontal player overflow",
+    "320px full view: iframe height at least 200px"
+  ],
+  "limits": [
+    "OS Document PiP window closes immediately in the in-app browser; sustained native-window playback and controls require Chrome/Edge verification",
+    "Mobile checks use viewport sizing; physical phone/system PiP not verified",
+    "No production deployment"
+  ],
+  "automatedChecks": {
+    "vitest": "82 files, 444 tests passed",
+    "typecheck": "passed",
+    "changedFilesEslint": "passed",
+    "repositoryEslint": "Three pre-existing errors in unchanged BaristaIdleCompanion.tsx; not modified in this release",
+    "productionBuild": "passed; two existing Obsidian filesystem tracing warnings"
+  }
+}

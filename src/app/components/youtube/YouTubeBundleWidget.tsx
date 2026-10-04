@@ -312,7 +312,7 @@ export function YouTubeBundleWidget({ onNotify, userScope }: YouTubeBundleWidget
               onClick={() => {
                 setInitialSeekTime(0);
                 setInitialDraft("");
-                setInitialIsMini(false);
+                setInitialIsMini(undefined);
                 setSelectedVideo(video);
               }}
               title={`${video.title} - 스마트 플레이어로 시청`}
