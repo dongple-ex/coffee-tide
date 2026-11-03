@@ -6,6 +6,18 @@ interface BrandIconProps {
   size?: number;
 }
 
+export function TelegramIcon({ size = 18 }: BrandIconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" role="img" aria-label="Telegram">
+      <circle cx="12" cy="12" r="12" fill="#26A5E4" />
+      <path
+        fill="#FFFFFF"
+        d="M5.2 11.6 18.5 6.5c.6-.2 1 .2.8.9l-2.2 10.2c-.1.7-.6.9-1.2.5l-3.4-2.5-1.7 1.6c-.2.2-.4.4-.7.4l.3-3.5 6.4-5.8c.3-.2-.1-.4-.4-.2l-7.9 5-3.4-1.1c-.7-.2-.7-.7.1-.9Z"
+      />
+    </svg>
+  );
+}
+
 export function OutlookIcon({ size = 18 }: BrandIconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" role="img" aria-label="Microsoft Outlook">

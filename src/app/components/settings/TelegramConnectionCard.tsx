@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { TelegramIcon } from "../brandIcons";
 import styles from "../../page.module.css";
 
 interface LinkStatus {
@@ -62,7 +63,7 @@ export function TelegramConnectionCard() {
   }
 
   return <div className={styles.connCard}>
-    <div className={styles.connHead}>Telegram
+    <div className={styles.connHead}><TelegramIcon /> Telegram
       <span className={`${styles.connStatus} ${status?.connected ? styles.connOn : ""}`}>
         {status?.connected ? "연결됨" : status?.configured ? "미연결" : "준비 필요"}
       </span>
