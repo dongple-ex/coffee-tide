@@ -5,6 +5,7 @@ import { BrowserFolderInfo, BrowserFolderKind } from "@/lib/browser/localFolders
 import { ConnectionState, MailsResponse } from "@/lib/types/unified";
 import { GoogleIcon, NotionIcon, ObsidianIcon, OutlookIcon } from "../brandIcons";
 import styles from "../../page.module.css";
+import { TelegramConnectionCard } from "./TelegramConnectionCard";
 
 interface Props {
   connections: ConnectionState | null;
@@ -107,6 +108,7 @@ export function ConnectionsSection({
       )}
 
       <div className={styles.connGrid}>
+        <TelegramConnectionCard />
         <div className={styles.connCard}>
           <div className={styles.connHead}>
             <OutlookIcon /> Outlook

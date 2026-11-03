@@ -25,6 +25,7 @@ const PUBLIC_PATHS = [
   "/auth/callback",
   "/api/briefing/daily", // 외부 크론 트리거 (CRON_SECRET으로 자체 인증)
   "/api/spark/ingest", // Gemini Spark 수신 Webhook
+  "/api/telegram/webhook",
 ];
 
 export default async function proxy(request: NextRequest) {

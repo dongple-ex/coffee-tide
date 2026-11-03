@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { askCopilot, extractCalendarEventDraft } from "@/lib/ai/gemini";
+import { extractCalendarEventDraft } from "@/lib/ai/gemini";
+import { generateCopilotReply } from "@/lib/ai/copilotService";
 import { buildSparkAutonomousBriefing } from "@/lib/ai/fallbackEngine";
 import { CopilotUserConfig } from "@/lib/ai/harness";
 import { unauthorized } from "@/lib/auth/cookies";
@@ -20,7 +21,6 @@ import { filterItemsByExecutionPolicy } from "@/lib/knowledge/policy";
 import { mapItemRelationFromDb, mapUnifiedItemFromDb } from "@/lib/data/mappers";
 import type { ItemRelation, WorkspaceItem } from "@/lib/data/contracts";
 import { buildCompanionContextPackage, formatCompanionContextPrompt } from "@/lib/companion/promptContext";
-import { parseCompanionResponse } from "@/lib/companion/episodeSummarizer";
 import { getCompanionFeatureAccess, isCompanionGrowthActive } from "@/lib/companion/featureAccess";
 import { SupabaseCompanionRepository } from "@/lib/companion/repositories/supabase";
 import {
@@ -29,7 +29,6 @@ import {
   type ConversationHistoryTurn,
 } from "@/lib/ai/conversation";
 import { resolveHangulTypoIfNeeded } from "@/lib/ai/hangulTypo";
-import { sanitizeAiResponse } from "@/lib/ai/sanitizeResponse";
 import { getConversationFeatureAccess } from "@/lib/ai/conversationFeatureAccess";
 import { acceptAiJob } from "@/lib/ai/jobs/server";
 import {
@@ -327,7 +326,7 @@ export async function POST(request: NextRequest) {
   // 인사·잡담·감정 표현·대화 복구는 업무 신뢰 경계 밖에서 처리한다.
   // Spark, 클라이언트 업무, 서버 지식 검색, Cloud Tool을 전혀 조회하거나 전달하지 않는다.
   if (!conversationRoute.needsWorkContext) {
-    const { answer, aiUsed } = await askCopilot(
+    const { answer, aiUsed, narration, suggestions, providerUsed, fallbackReason } = await generateCopilotReply(
       question,
       [],
       body.timezone || "Asia/Seoul",
@@ -340,15 +339,15 @@ export async function POST(request: NextRequest) {
         companionContext,
       }
     );
-    const companionParsed = parseCompanionResponse(answer);
-    const cleanAnswer = sanitizeAiResponse(companionParsed.message || answer);
     return NextResponse.json({
-      answer: cleanAnswer,
-      narration: companionParsed.narration,
-      suggestions: companionParsed.suggestions,
+      answer,
+      narration,
+      suggestions,
       mode: conversationRoute.mode,
       conversation_feature_active: true,
       ai_fallback: !aiUsed,
+      providerUsed,
+      ai_error_code: fallbackReason,
     });
   }
 
@@ -499,7 +498,7 @@ export async function POST(request: NextRequest) {
     evidences = [];
   }
 
-    const { answer, aiUsed, cloudToolExecution, cloudToolDraft } = await askCopilot(
+    const { answer, aiUsed, cloudToolExecution, cloudToolDraft, narration, suggestions, providerUsed, fallbackReason, contextItemIds, contextLimited } = await generateCopilotReply(
       question,
       allowedItems,
       body.timezone || "Asia/Seoul",
@@ -513,17 +512,19 @@ export async function POST(request: NextRequest) {
       }
     );
 
-    const companionParsed = parseCompanionResponse(answer);
-    const cleanAnswer = sanitizeAiResponse(companionParsed.message || answer);
 
     return NextResponse.json({
-      answer: cleanAnswer,
-      narration: companionParsed.narration,
-      suggestions: companionParsed.suggestions,
+      answer,
+      narration,
+      suggestions,
       mode: conversationRoute.mode,
       conversation_feature_active: conversationAccess.active,
       ai_fallback: !aiUsed,
-      evidences: evidences.length > 0 ? evidences : undefined,
+      providerUsed,
+      ai_error_code: fallbackReason,
+      context_limited: contextLimited,
+      evidences: contextItemIds ? evidences.filter((evidence) => contextItemIds.includes(evidence.itemId))
+        : evidences.length > 0 ? evidences : undefined,
       ...(cloudToolExecution ? { cloud_tool_execution: cloudToolExecution } : {}),
       ...(cloudToolDraft ? { cloud_tool_draft: cloudToolDraft } : {}),
     });
