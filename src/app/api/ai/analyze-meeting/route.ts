@@ -61,13 +61,10 @@ ${transcript}
     // 공용 진입점 사용 — 헤더 인증·429 쿼터 쿨다운을 gemini.ts가 일괄 관리
     let geminiData: GeminiGenerateResponse;
     try {
-      geminiData = await generateGeminiContent(
-        {
-          contents: [{ parts: [{ text: promptText }] }],
-          generationConfig: { responseMimeType: "application/json" },
-        },
-        { model: "gemini-2.5-flash" }
-      );
+      geminiData = await generateGeminiContent({
+        contents: [{ parts: [{ text: promptText }] }],
+        generationConfig: { responseMimeType: "application/json" },
+      });
     } catch {
       return NextResponse.json(
         { error: "AI 처리 중 오류가 발생했습니다." },

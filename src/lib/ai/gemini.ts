@@ -32,6 +32,7 @@ import { generateId } from "../ids";
 import { sanitizeAiResponse } from "./sanitizeResponse";
 
 const MODEL = "gemini-flash-latest";
+const FALLBACK_MODELS = ["gemini-3.5-flash-lite", "gemini-flash-lite-latest"] as const;
 const COOLDOWN_MS = 1 * 60 * 1000; // 1분 쿨다운 (구글 429 Retry 시간 기준)
 
 let quotaCooldownUntil = 0;
@@ -43,6 +44,10 @@ export function resetGeminiCooldown(): void {
 
 function apiKey(): string | undefined {
   return process.env.GEMINI_API_KEY || undefined;
+}
+
+function defaultModel(): string {
+  return process.env.GEMINI_MODEL?.trim() || MODEL;
 }
 
 export function cloudToolAgentDisabled(): boolean {
@@ -100,32 +105,54 @@ export interface GeminiCallOptions {
  */
 export async function generateGeminiContent(
   body: Record<string, unknown>,
-  { model = MODEL, ignoreCooldown = false, signal }: GeminiCallOptions = {}
+  { model, ignoreCooldown = false, signal }: GeminiCallOptions = {}
 ): Promise<GeminiGenerateResponse> {
   const key = apiKey();
   if (!key) throw new Error("GEMINI_API_KEY not set");
   if (!ignoreCooldown && Date.now() < quotaCooldownUntil) throw new Error("quota cooldown active");
 
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-goog-api-key": key },
-      body: JSON.stringify(body),
-      signal,
+  const primaryModel = model?.trim() || defaultModel();
+  const candidateModels = [
+    primaryModel,
+    ...FALLBACK_MODELS.filter((candidate) => candidate !== primaryModel),
+  ];
+
+  let lastError: Error | null = null;
+  for (let index = 0; index < candidateModels.length; index++) {
+    const targetModel = candidateModels[index];
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+        body: JSON.stringify(body),
+        signal,
+      }
+    );
+    if (res.status === 429) {
+      quotaCooldownUntil = Date.now() + COOLDOWN_MS;
+      console.warn("[coffeeTide] Gemini 쿼터 초과 — 1분간 로컬 FallbackEngine으로 대체");
+      throw new Error("quota exceeded");
     }
-  );
-  if (res.status === 429) {
-    quotaCooldownUntil = Date.now() + COOLDOWN_MS;
-    console.warn("[coffeeTide] Gemini 쿼터 초과 — 1분간 로컬 FallbackEngine으로 대체");
-    throw new Error("quota exceeded");
+    if (res.ok) {
+      // 성공 시 쿨다운 즉시 해제
+      quotaCooldownUntil = 0;
+      return (await res.json()) as GeminiGenerateResponse;
+    }
+
+    const errorBody = await res.text();
+    lastError = new Error(`Gemini ${res.status}: ${errorBody}`);
+    // Fall back to secondary Gemini models on transient model demand spikes (503) or deprecated model IDs (404).
+    if ((res.status === 503 || res.status === 404) && index < candidateModels.length - 1) {
+      console.warn(
+        `[coffeeTide] Gemini model ${targetModel} unavailable (${res.status}), retrying with ${candidateModels[index + 1]}`
+      );
+      continue;
+    }
+    throw lastError;
   }
-  if (!res.ok) throw new Error(`Gemini ${res.status}: ${await res.text()}`);
 
-  // 성공 시 쿨다운 즉시 해제
-  quotaCooldownUntil = 0;
-
-  return (await res.json()) as GeminiGenerateResponse;
+  throw lastError ?? new Error("Gemini request failed");
 }
 
 async function generateGemini(

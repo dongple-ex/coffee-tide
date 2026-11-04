@@ -105,8 +105,7 @@ export async function POST(req: NextRequest) {
             },
           ],
           generationConfig: mode === "meeting" ? { responseMimeType: "application/json" } : undefined,
-        },
-        { model: "gemini-2.5-flash" }
+        }
       );
     } catch {
       // 보안: 내부 API 키나 원문 오류 내용을 외부에 노출하지 않음
