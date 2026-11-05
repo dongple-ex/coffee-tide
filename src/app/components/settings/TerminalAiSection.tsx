@@ -14,16 +14,40 @@ export function TerminalAiSection({ config, onChangeConfig }: { config: CopilotU
   const provider = config.aiProvider === "claude_cli" || config.aiProvider === "codex_cli" ? config.aiProvider : null;
   return (
     <div className={styles.section}>
-      <label htmlFor="terminal-ai-provider"><strong>터미널 AI 연결</strong></label>
+      <label htmlFor="terminal-ai-provider"><strong>AI 사용 방식</strong></label>
       <select id="terminal-ai-provider" value={provider || "default"} onChange={event => {
         cancelTerminalAi();
         onChangeConfig({ ...config, aiProvider: event.target.value as CopilotUserConfig["aiProvider"] });
       }}>
-        <option value="default">기본 AI</option>
-        <option value="claude_cli">Claude Code · 이 PC의 CLI</option>
-        <option value="codex_cli">Codex CLI · 이 PC의 CLI</option>
+        <option value="default">기본 AI · 데스크톱 앱 없이 사용</option>
+        <option value="claude_cli">데스크톱 AI (선택) · Claude Code</option>
+        <option value="codex_cli">데스크톱 AI (선택) · Codex CLI</option>
       </select>
+      <p>기본 AI는 데스크톱 앱 설치나 연결 없이 사용할 수 있습니다. 이 PC의 CLI를 사용할 때만 데스크톱 AI를 선택하세요. CLI 연결이 모델의 로컬 실행을 의미하지는 않습니다.</p>
       {provider && <TerminalAiFields key={`${provider}-${connectionVersion}`} provider={provider} connected={connected} />}
+    </div>
+  );
+}
+
+export function AiProviderNotice({ config, onChangeConfig, busy = false }: { config: CopilotUserConfig; onChangeConfig: (next: CopilotUserConfig) => void; busy?: boolean }) {
+  const connected = useSyncExternalStore(subscribeTerminalAi, terminalAiConnected, terminalAiDisconnected);
+  const provider = config.aiProvider === "claude_cli" || config.aiProvider === "codex_cli" ? config.aiProvider : null;
+  return (
+    <div className={styles.section} aria-label="현재 AI 사용 방식">
+      <p role="status">{provider
+        ? `선택한 데스크톱 AI: ${provider === "claude_cli" ? "Claude Code" : "Codex CLI"} · ${connected ? "앱 연결됨" : "앱 연결 안 됨"}`
+        : "기본 AI 사용 중 · 데스크톱 앱 없이 질문할 수 있습니다."}</p>
+      {provider && <>
+        <p>데스크톱 AI는 선택 기능입니다. 앱 없이 사용하려면 기본 AI로 전환하세요. 기본 AI는 질문과 필요한 대화·업무 맥락을 서버에서 처리합니다.</p>
+        <div className={styles.actions}>
+          <button type="button" disabled={busy} onClick={() => {
+            if (busy) { return; }
+            cancelTerminalAi();
+            onChangeConfig({ ...config, aiProvider: "default" });
+          }}>기본 AI로 전환</button>
+        </div>
+        <p>전환 후 질문을 보내 주세요. 이전 질문은 자동으로 다시 전송하지 않습니다.</p>
+      </>}
     </div>
   );
 }
@@ -122,7 +146,7 @@ function TerminalAiFields({ provider, connected }: { provider: TerminalAiProvide
           <p>{usage.description} 브라우저의 로그인 계정도 확인해 주세요.</p>
           <small>계정 조회는 모델을 호출하지 않습니다. 잔여량·청구 금액은 제공업체 메뉴에서 확인하세요.</small>
         </div>
-        {!connected ? <p role="status">데스크톱 AI 바리스타를 실행하고 6자리 코드로 연결해 주세요. 계정 정보는 보조 앱이 제공하는 경우 표시됩니다.</p> : <>
+        {!connected ? <p role="status">선택한 데스크톱 AI를 사용하려면 바리스타 앱을 연결해 주세요. 앱 없이 질문하려면 위에서 기본 AI를 선택하세요.</p> : <>
           <label htmlFor="terminal-ai-executable">실행 파일 경로</label>
           <input id="terminal-ai-executable" value={settings.executablePath} disabled={busy || !loaded} placeholder="비우면 자동 탐색 · Windows는 .exe 절대 경로" onChange={event => setSettings(previous => ({ ...previous, executablePath: event.target.value }))} />
           <label htmlFor="terminal-ai-directory">작업 폴더</label>

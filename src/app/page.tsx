@@ -9,7 +9,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import dynamic from "next/dynamic";
 import { AiJobRecovery } from "./components/copilot/AiJobRecovery";
 import { AiJobPendingError, requestAiJob } from "@/lib/ai/jobs/client";
-import { askTerminalAi, buildTerminalAiPrompt, cancelTerminalAi } from "@/lib/ai/desktopAi";
+import { askTerminalAi, buildTerminalAiPrompt, cancelTerminalAi, terminalAiConnected } from "@/lib/ai/desktopAi";
+import { AiProviderNotice } from "./components/settings/TerminalAiSection";
 import { AutomationRule, ProcessedData } from "@/lib/automation/rules";
 import {
   BROWSER_ID_PREFIX,
@@ -2519,6 +2520,12 @@ export default function Home() {
       return;
     }
 
+    if ((copilotConfig.aiProvider === "claude_cli" || copilotConfig.aiProvider === "codex_cli") && !terminalAiConnected()) {
+      const message = "선택한 데스크톱 AI가 연결되지 않았습니다. 앱 없이 사용하려면 대화창의 '기본 AI로 전환' 버튼이나 설정 → AI·자동화에서 기본 AI를 선택해 주세요.";
+      showToast(message);
+      return message;
+    }
+
     if (persistToFeed) {
       setCopilotInput("");
       setCopilotMessages((prev) => [...prev, { role: "user", text: question }]);
@@ -4072,6 +4079,7 @@ export default function Home() {
                 }}
               />
             )}
+            <AiProviderNotice config={copilotConfig} onChangeConfig={setCopilotConfig} busy={copilotBusy} />
             <CopilotComposer
               focusRequest={copilotFocusTick}
               value={copilotInput}
