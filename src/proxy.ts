@@ -32,6 +32,7 @@ export default async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   let response = NextResponse.next({ request });
+  if (pathname === "/api/integrations/trading/notifications") { return response; }
   let hasSupabaseUser = false;
   const config = getSupabasePublicConfig();
   if (config) {
