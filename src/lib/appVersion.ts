@@ -2,7 +2,7 @@
  * 사용자에게 표시하는 coffeeTide 버전 — 설정 화면 및 What's New 모달에 노출된다.
  * 릴리스 시 package.json과 함께 갱신할 것. (version.test.ts에서 동기화 검증)
  */
-export const APP_VERSION = "v1.2.10";
+export const APP_VERSION = "v1.2.11";
 
 export const LS_LAST_SEEN_VERSION = "coffeetide_last_seen_version";
 
@@ -21,6 +21,29 @@ export interface ReleaseNote {
 }
 
 export const RELEASE_HISTORY: ReleaseNote[] = [
+  {
+    version: "v1.2.11",
+    date: "2026-11-10",
+    title: "기기 간 계정 동기화 및 오늘 완료 집계 보정",
+    summary: "PC와 모바일에서 같은 계정으로 접속할 때 업무·설정 동기화가 누락되던 문제를 수정하고, 오늘 완료 건수를 당일 완료 기준으로 정확히 집계합니다.",
+    items: [
+      {
+        type: "fix",
+        title: "PC·모바일 기기 간 클라우드 계정 동기화 정상화",
+        description: "초기 진입 시 게스트 스코프에서 클라우드 하이드레이션이 잠기거나 대기 중인 로컬 업무 변경사항이 서버로 즉시 전송되지 않던 현상을 수정했습니다. 화면 복귀 및 새로고침 시에도 클라우드 데이터를 함께 갱신합니다.",
+      },
+      {
+        type: "fix",
+        title: "오늘 완료 건수 당일 기준 집계",
+        description: "과거 누적 완료 항목까지 합산되던 오늘 완료 배지와 상태 요약, 일일 회고 대상을 완료 시각(completedAt) 기준 오늘 완료한 업무만 집계하도록 보정했습니다.",
+      },
+      {
+        type: "fix",
+        title: "AI 모델 지연(503) 자동 폴백 적용",
+        description: "웹 및 텔레그램 연동에서 기본 Gemini 모델이 일시적 과부하(HTTP 503) 상태일 때 경량 모델로 자동 전환하여 끊김 없이 응답합니다.",
+      },
+    ],
+  },
   {
     version: "v1.2.10",
     date: "2026-10-04",
