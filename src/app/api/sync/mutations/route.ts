@@ -98,6 +98,7 @@ export async function POST(req: NextRequest) {
           subTasks: payload?.subTasks,
           rawContent: payload?.rawContent,
           driveUrl: payload?.driveUrl,
+          completedAt: payload?.completedAt,
 
           itemType: payload?.itemType || "task",
           sourceRef: payload?.sourceRef,
@@ -166,7 +167,18 @@ export async function POST(req: NextRequest) {
         if (payload?.itemType !== undefined) updatePayload.item_type = payload.itemType;
         if (payload?.sourceRef !== undefined) updatePayload.source_ref = payload.sourceRef;
         if (payload?.occurredAt !== undefined) updatePayload.occurred_at = payload.occurredAt;
-        if (payload?.attributes !== undefined) updatePayload.attributes = payload.attributes;
+        if (payload?.attributes !== undefined || payload?.completedAt !== undefined) {
+          const nextAttributes: Record<string, unknown> =
+            payload?.attributes && typeof payload.attributes === "object" && !Array.isArray(payload.attributes)
+              ? { ...payload.attributes }
+              : {};
+          if (payload?.completedAt) {
+            nextAttributes.completedAt = payload.completedAt;
+          } else if (payload?.status && payload.status !== "completed" && "completedAt" in nextAttributes) {
+            delete nextAttributes.completedAt;
+          }
+          updatePayload.attributes = nextAttributes;
+        }
         if (payload?.privacyScope !== undefined) updatePayload.privacy_scope = payload.privacyScope;
         if (payload?.aiPolicy !== undefined) updatePayload.ai_policy = payload.aiPolicy;
         // 삭제 충돌에서 사용자가 '내 변경 유지'를 선택하면 동일 ID를 복원할 수 있습니다.

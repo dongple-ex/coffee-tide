@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { UnifiedData } from "../types/unified";
 import type { WorkspaceItem } from "./contracts";
-import { isWorkflowTask } from "./itemTypes";
+import { isCompletedToday, isWorkflowTask } from "./itemTypes";
 
 const legacyItem: UnifiedData = {
   id: "legacy",
@@ -36,5 +36,44 @@ describe("isWorkflowTask", () => {
     expect(isWorkflowTask(workspaceItem("expense"))).toBe(false);
     expect(isWorkflowTask(workspaceItem("voice"))).toBe(false);
     expect(isWorkflowTask(workspaceItem("document"))).toBe(false);
+  });
+
+  it("오늘 완료 판별(isCompletedToday)은 당일 완료 항목만 집계하고 과거 완료 항목은 제외한다", () => {
+    const nowMs = new Date("2026-11-10T12:00:00+09:00").getTime();
+
+    const completedTodayWithTimestamp: UnifiedData = {
+      ...legacyItem,
+      id: "done-today-1",
+      created_at: "2026-11-05T09:00:00+09:00",
+      status: "completed",
+      completedAt: "2026-11-10T10:30:00+09:00",
+    };
+
+    const completedYesterdayWithTimestamp: UnifiedData = {
+      ...legacyItem,
+      id: "done-yesterday-1",
+      created_at: "2026-11-08T09:00:00+09:00",
+      status: "completed",
+      completedAt: "2026-11-09T18:00:00+09:00",
+    };
+
+    const legacyCompletedOld: UnifiedData = {
+      ...legacyItem,
+      id: "legacy-old-done",
+      created_at: "2026-10-01T09:00:00+09:00",
+      status: "completed",
+    };
+
+    const legacyCompletedToday: UnifiedData = {
+      ...legacyItem,
+      id: "legacy-today-done",
+      created_at: "2026-11-10T08:15:00+09:00",
+      status: "completed",
+    };
+
+    expect(isCompletedToday(completedTodayWithTimestamp, nowMs)).toBe(true);
+    expect(isCompletedToday(completedYesterdayWithTimestamp, nowMs)).toBe(false);
+    expect(isCompletedToday(legacyCompletedOld, nowMs)).toBe(false);
+    expect(isCompletedToday(legacyCompletedToday, nowMs)).toBe(true);
   });
 });

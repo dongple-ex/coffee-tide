@@ -125,14 +125,15 @@ export function useManualItems(options: UseManualItemsOptions = {}) {
   // 수동/로컬 업무 상태 변경
   const setLocalStatus = useCallback(
     (id: string, status: UnifiedData["status"], fallbackItems: UnifiedData[] = []) => {
+      const completedAt = status === "completed" ? new Date().toISOString() : undefined;
       setManualItems((prev) => {
         const exists = prev.some((i) => i.id === id);
         if (exists) {
-          return prev.map((i) => (i.id === id ? { ...i, status } : i));
+          return prev.map((i) => (i.id === id ? { ...i, status, completedAt } : i));
         }
         const target = fallbackItems.find((i) => i.id === id);
         if (target) {
-          return [{ ...target, status }, ...prev];
+          return [{ ...target, status, completedAt }, ...prev];
         }
         return prev;
       });

@@ -52,6 +52,7 @@ export interface UnifiedData {
   subTasks?: SubTask[];
   rawContent?: string; // 사용자가 입력/붙여넣은 원문 텍스트 전체
   driveUrl?: string; // Google Drive 일자별 저장 파일 링크
+  completedAt?: string; // 완료 처리된 시각 (ISO 8601, 오늘 완료 집계용)
 }
 
 export interface ConnectionState {

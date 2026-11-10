@@ -36,10 +36,19 @@ const EMPTY_FLUSH_RESULT: FlushResult = {
 
 function toWorkspaceItem(item: UnifiedData | WorkspaceItem): WorkspaceItem {
   const candidate = item as Partial<WorkspaceItem>;
+  const baseAttributes =
+    candidate.attributes && typeof candidate.attributes === "object" && !Array.isArray(candidate.attributes)
+      ? { ...candidate.attributes }
+      : {};
+  if (item.completedAt) {
+    baseAttributes.completedAt = item.completedAt;
+  } else if (item.status && item.status !== "completed" && "completedAt" in baseAttributes) {
+    delete baseAttributes.completedAt;
+  }
   return {
     ...item,
     itemType: candidate.itemType ?? "task",
-    attributes: candidate.attributes ?? {},
+    attributes: baseAttributes,
     version: candidate.version ?? 1,
     privacyScope: candidate.privacyScope ?? "cloud_private",
     aiPolicy: candidate.aiPolicy ?? "cloud_allowed",
@@ -67,6 +76,7 @@ function hasItemChanged(previous: WorkspaceItem, next: WorkspaceItem): boolean {
     title: item.title,
     content: item.content,
     status: item.status,
+    completedAt: item.completedAt,
     category: item.category,
     actionDirective: item.actionDirective,
     workNote: item.workNote,
@@ -92,6 +102,7 @@ function mergeByKey<T>(cloud: T[], local: T[], getKey: (item: T) => string): T[]
 export function useCloudSync(ownerScope: string = "guest") {
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("idle");
   const [provider, setProvider] = useState<"supabase" | "guest">("guest");
+  const providerRef = useRef<"supabase" | "guest">("guest");
   const [lastSyncedAt, setLastSyncedAt] = useState<string>();
   const [pendingCount, setPendingCount] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string>();
@@ -101,6 +112,11 @@ export function useCloudSync(ownerScope: string = "guest") {
   const settingsTimerRef = useRef<NodeJS.Timeout | null>(null);
   const latestSettingsRef = useRef<UserCloudState | null>(null);
 
+  const updateProvider = useCallback((next: "supabase" | "guest") => {
+    providerRef.current = next;
+    setProvider(next);
+  }, []);
+
   const refreshLocalSyncState = useCallback(async () => {
     const [mutations, storedConflicts] = await Promise.all([
       idbGetMutations(ownerScope),
@@ -109,6 +125,31 @@ export function useCloudSync(ownerScope: string = "guest") {
     setPendingCount(mutations.length);
     setConflicts(storedConflicts.filter((conflict) => !conflict.resolved));
   }, [ownerScope]);
+
+  const flushQueue = useCallback(async (currentItems: WorkspaceItem[]): Promise<FlushResult> => {
+    const activeProvider = providerRef.current;
+    if (!navigator.onLine || activeProvider !== "supabase") {
+      setSyncStatus(activeProvider === "guest" ? "guest" : "offline");
+      await refreshLocalSyncState();
+      return EMPTY_FLUSH_RESULT;
+    }
+
+    setSyncStatus("syncing");
+    const result = await flushMutationQueue(ownerScope, currentItems);
+    await refreshLocalSyncState();
+    if (result.rejectedCount > 0 && result.appliedCount === 0) {
+      setSyncStatus("error");
+      setErrorMessage("일부 변경사항 전송이 거부되었습니다.");
+    } else if (result.conflictCount > 0) {
+      setSyncStatus("error");
+      setErrorMessage("다른 기기와 충돌한 변경사항을 확인해 주세요.");
+    } else {
+      setSyncStatus("synced");
+      setLastSyncedAt(new Date().toISOString());
+      setErrorMessage(undefined);
+    }
+    return result;
+  }, [ownerScope, refreshLocalSyncState]);
 
   const pullChanges = useCallback(async (currentLocalItems: WorkspaceItem[]): Promise<WorkspaceItem[]> => {
     if (!navigator.onLine) {
@@ -127,7 +168,7 @@ export function useCloudSync(ownerScope: string = "guest") {
         if (cursor) params.set("cursor", cursor);
         const res = await fetch(`/api/sync/changes?${params.toString()}`);
         if (res.status === 401) {
-          setProvider("guest");
+          updateProvider("guest");
           setSyncStatus("guest");
           return currentLocalItems;
         }
@@ -140,7 +181,7 @@ export function useCloudSync(ownerScope: string = "guest") {
         cursor = page.nextCursor || "";
       }
 
-      setProvider("supabase");
+      updateProvider("supabase");
       const pending = await idbGetMutations(ownerScope);
       const pendingIds = new Set(pending.map((mutation) => mutation.itemId));
       const pendingByItem = new Map<string, typeof pending>();
@@ -153,6 +194,7 @@ export function useCloudSync(ownerScope: string = "guest") {
       const serverMap = new Map(serverItems.map((item) => [item.id, item]));
       const mergedMap = new Map<string, WorkspaceItem>();
       const newConflicts: SyncConflict[] = [];
+      let queuedDuringPull = false;
 
       for (const localItem of currentLocalItems) {
         const tombstone = tombstoneMap.get(localItem.id);
@@ -182,6 +224,7 @@ export function useCloudSync(ownerScope: string = "guest") {
           mergedMap.set(localItem.id, localItem);
           if (!pendingIds.has(localItem.id)) {
             await queueMutation(ownerScope, localItem.id, "create", undefined, localItem);
+            queuedDuringPull = true;
           }
           continue;
         }
@@ -236,7 +279,11 @@ export function useCloudSync(ownerScope: string = "guest") {
 
       const mergedItems = Array.from(mergedMap.values());
       await idbReplaceItems(ownerScope, mergedItems);
-      await refreshLocalSyncState();
+      if (queuedDuringPull || pending.length > 0) {
+        await flushQueue(mergedItems);
+      } else {
+        await refreshLocalSyncState();
+      }
       if (newConflicts.length > 0) {
         setConflicts((previous) => mergeByKey(previous, newConflicts, (conflict) => conflict.itemId));
       }
@@ -249,31 +296,7 @@ export function useCloudSync(ownerScope: string = "guest") {
       setErrorMessage(error instanceof Error ? error.message : "동기화에 실패했습니다.");
       return currentLocalItems;
     }
-  }, [ownerScope, refreshLocalSyncState]);
-
-  const flushQueue = useCallback(async (currentItems: WorkspaceItem[]): Promise<FlushResult> => {
-    if (!navigator.onLine || provider !== "supabase") {
-      setSyncStatus(provider === "guest" ? "guest" : "offline");
-      await refreshLocalSyncState();
-      return EMPTY_FLUSH_RESULT;
-    }
-
-    setSyncStatus("syncing");
-    const result = await flushMutationQueue(ownerScope, currentItems);
-    await refreshLocalSyncState();
-    if (result.rejectedCount > 0 && result.appliedCount === 0) {
-      setSyncStatus("error");
-      setErrorMessage("일부 변경사항 전송이 거부되었습니다.");
-    } else if (result.conflictCount > 0) {
-      setSyncStatus("error");
-      setErrorMessage("다른 기기와 충돌한 변경사항을 확인해 주세요.");
-    } else {
-      setSyncStatus("synced");
-      setLastSyncedAt(new Date().toISOString());
-      setErrorMessage(undefined);
-    }
-    return result;
-  }, [ownerScope, provider, refreshLocalSyncState]);
+  }, [flushQueue, ownerScope, refreshLocalSyncState, updateProvider]);
 
   const recordMutation = useCallback(async (
     itemId: string,

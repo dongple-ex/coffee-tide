@@ -28,6 +28,12 @@ export function mapUnifiedItemFromDb(row: DbRow): WorkspaceItem {
     row.attributes && typeof row.attributes === "object" && !Array.isArray(row.attributes)
       ? (row.attributes as Record<string, unknown>)
       : {};
+  const completedAt =
+    typeof row.completed_at === "string"
+      ? row.completed_at
+      : typeof attributes.completedAt === "string"
+      ? attributes.completedAt
+      : undefined;
 
   return {
     id: String(row.id),
@@ -45,6 +51,7 @@ export function mapUnifiedItemFromDb(row: DbRow): WorkspaceItem {
     subTasks,
     rawContent: row.raw_content ? String(row.raw_content) : undefined,
     driveUrl: row.drive_url ? String(row.drive_url) : undefined,
+    completedAt,
 
     // Phase 14-02 확장 필드
     itemType: (row.item_type as WorkspaceItemType) || "task",
@@ -68,6 +75,15 @@ export function mapUnifiedItemToDbRow(
 ): Record<string, unknown> {
   const wsItem = item as Partial<WorkspaceItem>;
   const nowIso = new Date().toISOString();
+  const baseAttributes =
+    wsItem.attributes && typeof wsItem.attributes === "object" && !Array.isArray(wsItem.attributes)
+      ? { ...wsItem.attributes }
+      : {};
+  if (item.completedAt) {
+    baseAttributes.completedAt = item.completedAt;
+  } else if (item.status && item.status !== "completed" && "completedAt" in baseAttributes) {
+    delete baseAttributes.completedAt;
+  }
 
   return {
     user_id: userId,
@@ -91,7 +107,7 @@ export function mapUnifiedItemToDbRow(
     item_type: wsItem.itemType ?? "task",
     source_ref: wsItem.sourceRef ?? null,
     occurred_at: wsItem.occurredAt ?? null,
-    attributes: wsItem.attributes ?? {},
+    attributes: baseAttributes,
     version: wsItem.version ?? 1,
     privacy_scope: wsItem.privacyScope ?? "cloud_private",
     ai_policy: wsItem.aiPolicy ?? "cloud_allowed",

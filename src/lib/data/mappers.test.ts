@@ -86,6 +86,34 @@ describe("Phase 14-02: DB ↔ 애플리케이션 양방향 매퍼 테스트", ()
     expect(restoredItem.attributes).toEqual(originalItem.attributes);
   });
 
+  it("completedAt 시각이 attributes.completedAt을 통해 DB 왕복 시 보존된다", () => {
+    const completedItem: WorkspaceItem = {
+      id: "task-done-1",
+      source: "manual",
+      title: "오늘 완료한 업무",
+      content: "내용",
+      created_at: "2026-11-01T09:00:00.000Z",
+      author: { name: "User" },
+      url: "",
+      status: "completed",
+      completedAt: "2026-11-10T11:20:00.000Z",
+      itemType: "task",
+      attributes: {},
+      version: 2,
+      privacyScope: "cloud_private",
+      aiPolicy: "cloud_allowed",
+      updatedAt: "2026-11-10T11:20:00.000Z",
+    };
+
+    const dbRow = mapUnifiedItemToDbRow(completedItem, testUserId);
+    expect((dbRow.attributes as { completedAt?: string }).completedAt).toBe(
+      "2026-11-10T11:20:00.000Z"
+    );
+
+    const restored = mapUnifiedItemFromDb(dbRow);
+    expect(restored.completedAt).toBe("2026-11-10T11:20:00.000Z");
+  });
+
   it("비용 항목(ExpenseEntry) DB 왕복 매핑", () => {
     const expense = {
       itemId: "item-100",

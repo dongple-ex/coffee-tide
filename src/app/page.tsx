@@ -34,7 +34,7 @@ import {
   UnifiedData,
 } from "@/lib/types/unified";
 import type { KnowledgeEvidence } from "@/lib/knowledge/contracts";
-import { isWorkflowTask } from "@/lib/data/itemTypes";
+import { isCompletedToday, isWorkflowTask } from "@/lib/data/itemTypes";
 import { ACTION_LABEL, ERROR_SOURCE_LABELS, FIELD_LABEL } from "@/lib/labels";
 import {
   isWithinCollectWindow,
@@ -405,9 +405,10 @@ export default function Home() {
     resolveConflict,
     dismissConflict,
   } = useCloudSync(userScope ?? "guest");
-  const cloudHydratedRef = useRef(false);
+  const activeHydrationScope = userScope ?? "guest";
+  const cloudHydratedScopeRef = useRef<string | null>(null);
   // 하이드레이션 요청의 단일 비행 보장 (StrictMode 이중 실행·리렌더 재발사 방지)
-  const cloudHydrationStartedRef = useRef(false);
+  const cloudHydrationStartedScopeRef = useRef<string | null>(null);
   const [followupHours, setFollowupHours] = useState(() => loadLS<number>(LS_FOLLOWUP, 24));
   const [viewWindow, setViewWindow] = useState<ViewWindowSetting>(() =>
     normalizeViewWindow(loadLS<unknown>(LS_VIEW_WINDOW, "auto"))
@@ -1754,9 +1755,68 @@ export default function Home() {
     cloudLocalStateRef.current = { manualItems, customWidgets, rules, dismissed, workNotes, subTasksMap };
   }, [manualItems, customWidgets, rules, dismissed, workNotes, subTasksMap]);
 
+  const applyCloudState = useCallback(
+    (
+      cloudState: {
+        items: UnifiedData[];
+        widgets: CustomWidgetConfig[];
+        rules: AutomationRule[];
+        dismissedIds: string[];
+      },
+      baseWorkNotes: Record<string, string>,
+      baseSubTasks: Record<string, SubTask[]>
+    ) => {
+      setManualItems(cloudState.items);
+      setCustomWidgets(cloudState.widgets);
+      setRules(cloudState.rules);
+      setDismissed(cloudState.dismissedIds);
+      const restoredWorkNotes = { ...baseWorkNotes };
+      const restoredSubTasks = { ...baseSubTasks };
+      for (const item of cloudState.items) {
+        if (item.workNote) restoredWorkNotes[item.id] = item.workNote;
+        if (item.subTasks?.length) restoredSubTasks[item.id] = item.subTasks;
+      }
+      setWorkNotes(restoredWorkNotes);
+      setSubTasksMap(restoredSubTasks);
+      saveLS(manualStorageKey, cloudState.items);
+      saveLS(LS_CUSTOM_WIDGETS, cloudState.widgets);
+      saveLS(LS_RULES, cloudState.rules);
+      saveLS(LS_DISMISSED, cloudState.dismissedIds);
+      saveLS(LS_WORK_NOTES, restoredWorkNotes);
+      saveLS(LS_SUB_TASKS, restoredSubTasks);
+    },
+    [manualStorageKey, setCustomWidgets, setManualItems]
+  );
+
+  const pullAndApplyCloudData = useCallback(async () => {
+    const snapshot = cloudLocalStateRef.current;
+    const localItemsWithDetails = snapshot.manualItems.map((item) => ({
+      ...item,
+      workNote: item.workNote ?? snapshot.workNotes[item.id],
+      subTasks: item.subTasks ?? snapshot.subTasksMap[item.id],
+    }));
+    const cloudState = await fetchUserData({
+      items: localItemsWithDetails,
+      widgets: snapshot.customWidgets,
+      rules: snapshot.rules,
+      dismissedIds: snapshot.dismissed,
+    });
+    if (cloudState) {
+      applyCloudState(cloudState, snapshot.workNotes, snapshot.subTasksMap);
+    }
+    return cloudState;
+  }, [applyCloudState, fetchUserData]);
+
   useEffect(() => {
-    if (phase !== "ready" || cloudHydratedRef.current || cloudHydrationStartedRef.current) return;
-    cloudHydrationStartedRef.current = true;
+    if (
+      phase !== "ready" ||
+      cloudHydratedScopeRef.current === activeHydrationScope ||
+      cloudHydrationStartedScopeRef.current === activeHydrationScope
+    ) {
+      return;
+    }
+    const targetScope = activeHydrationScope;
+    cloudHydrationStartedScopeRef.current = targetScope;
     let cancelled = false;
 
     // 단일 비행(single-flight) 하이드레이션: 요청이 나는 동안 로컬 편집이 있었으면 그 응답은
@@ -1790,33 +1850,16 @@ export default function Home() {
           return;
         }
         if (cloudState) {
-          setManualItems(cloudState.items);
-          setCustomWidgets(cloudState.widgets);
-          setRules(cloudState.rules);
-          setDismissed(cloudState.dismissedIds);
-          const restoredWorkNotes = { ...snapshot.workNotes };
-          const restoredSubTasks = { ...snapshot.subTasksMap };
-          for (const item of cloudState.items) {
-            if (item.workNote) restoredWorkNotes[item.id] = item.workNote;
-            if (item.subTasks?.length) restoredSubTasks[item.id] = item.subTasks;
-          }
-          setWorkNotes(restoredWorkNotes);
-          setSubTasksMap(restoredSubTasks);
-          saveLS(manualStorageKey, cloudState.items);
-          saveLS(LS_CUSTOM_WIDGETS, cloudState.widgets);
-          saveLS(LS_RULES, cloudState.rules);
-          saveLS(LS_DISMISSED, cloudState.dismissedIds);
-          saveLS(LS_WORK_NOTES, restoredWorkNotes);
-          saveLS(LS_SUB_TASKS, restoredSubTasks);
+          applyCloudState(cloudState, snapshot.workNotes, snapshot.subTasksMap);
         } else {
           syncUserData({
-            items: snapshot.manualItems,
+            items: localItemsWithDetails,
             widgets: snapshot.customWidgets,
             rules: snapshot.rules,
             dismissedIds: snapshot.dismissed,
           });
         }
-        cloudHydratedRef.current = true;
+        cloudHydratedScopeRef.current = targetScope;
       });
     };
 
@@ -1824,15 +1867,22 @@ export default function Home() {
 
     return () => {
       cancelled = true;
-      // 완료 전에 이펙트가 정리되면(로그아웃 등) 다음 ready 진입 시 다시 시도할 수 있게 되돌린다
-      if (!cloudHydratedRef.current) cloudHydrationStartedRef.current = false;
+      // 완료 전에 이펙트가 정리되면(로그아웃·스코프 전환 등) 다시 시도할 수 있게 되돌린다
+      if (cloudHydratedScopeRef.current !== targetScope) {
+        cloudHydrationStartedScopeRef.current = null;
+      }
     };
-  }, [phase, fetchUserData, manualStorageKey, setManualItems, syncUserData]);
+  }, [activeHydrationScope, applyCloudState, phase, fetchUserData, syncUserData]);
 
   useEffect(() => {
-    if (phase !== "ready" || !cloudHydratedRef.current) return;
-    syncUserData({ items: manualItems, widgets: customWidgets, rules, dismissedIds: dismissed });
-  }, [phase, manualItems, customWidgets, rules, dismissed, syncUserData]);
+    if (phase !== "ready" || cloudHydratedScopeRef.current !== activeHydrationScope) return;
+    const itemsWithDetails = manualItems.map((item) => ({
+      ...item,
+      workNote: item.workNote ?? workNotes[item.id],
+      subTasks: item.subTasks ?? subTasksMap[item.id],
+    }));
+    syncUserData({ items: itemsWithDetails, widgets: customWidgets, rules, dismissedIds: dismissed });
+  }, [activeHydrationScope, phase, manualItems, customWidgets, rules, dismissed, workNotes, subTasksMap, syncUserData]);
 
   const [isDataRefreshing, setIsDataRefreshing] = useState(false);
 
@@ -1842,7 +1892,7 @@ export default function Home() {
     try {
       // 사용자가 새로고침 버튼을 누르면 AI 쿨다운을 즉시 리셋 후 재시도
       await fetch("/api/util/reset-ai-cooldown", { method: "POST" }).catch(() => {});
-      const data = await fetchMails(true);
+      const [data] = await Promise.all([fetchMails(true), pullAndApplyCloudData()]);
       void scanBrowser();
 
       if (weatherEnabled && weatherCoords) {
@@ -1871,7 +1921,7 @@ export default function Home() {
     } finally {
       setIsDataRefreshing(false);
     }
-  }, [isDataRefreshing, fetchMails, scanBrowser, weatherEnabled, weatherCoords, fetchWeatherData, setWeatherData, showToast]);
+  }, [isDataRefreshing, fetchMails, pullAndApplyCloudData, scanBrowser, weatherEnabled, weatherCoords, fetchWeatherData, setWeatherData, showToast]);
 
   // 브라우저 폴더 연동 복원 — FSA 지원 감지 + 저장 핸들 스캔 (권한 상태 포함)
   useEffect(() => {
@@ -1999,6 +2049,7 @@ export default function Home() {
     const onVisible = () => {
       if (!document.hidden) {
         void fetchMails(true);
+        void pullAndApplyCloudData();
         void scanBrowser();
       }
     };
@@ -2007,7 +2058,7 @@ export default function Home() {
       clearInterval(interval);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [phase, fetchMails, scanBrowser]);
+  }, [phase, fetchMails, pullAndApplyCloudData, scanBrowser]);
 
   // 1분 틱 타이머 — 새로고침 없이 팔로업 초과 판정·시간 텍스트·긴급 알림·대기/긴급 카운트를
   // 1분마다 자동 갱신한다. 백그라운드 탭에서는 중단하고 복귀 시 즉시 따라잡는다.
@@ -2159,9 +2210,9 @@ export default function Home() {
       urgentCount: workflowItems.filter(
         (i) => i.category === "urgent" && i.status !== "completed"
       ).length,
-      doneCount: manualItems.filter((i) => isWorkflowTask(i) && i.status === "completed").length,
+      doneCount: manualItems.filter((i) => isCompletedToday(i, nowTick)).length,
     };
-  }, [workflowItems, manualItems]);
+  }, [workflowItems, manualItems, nowTick]);
 
   // 🔍 검색어 및 상태 필터가 적용된 파생 목록
   const { filteredTodoItems, filteredRestItems } = useMemo(() => {
@@ -2392,7 +2443,7 @@ export default function Home() {
       setCopilotInput("");
       const activeCount = workflowItems.filter((i) => i.status !== "completed").length;
       const urgentCount = workflowItems.filter((i) => i.category === "urgent" && i.status !== "completed").length;
-      const doneCount = manualItems.filter((i) => isWorkflowTask(i) && i.status === "completed").length;
+      const doneCount = manualItems.filter((i) => isCompletedToday(i, nowTick)).length;
       const text = `**현재 업무 처리 상태**:\n\n- 대기 및 진행 중: **${activeCount}건**\n- 긴급 처리 필요: **${urgentCount}건**\n- 오늘 처리 완료: **${doneCount}건**\n\n언제든 질문이나 추가 지시를 말씀해주세요.`;
       setCopilotMessages((prev) => [...prev, { role: "ai", text }]);
       return true;
@@ -4129,8 +4180,8 @@ export default function Home() {
               await fetch("/api/auth/signout", { method: "POST" });
             } catch {}
             setAuthUserEmail(undefined);
-            cloudHydratedRef.current = false;
-            cloudHydrationStartedRef.current = false;
+            cloudHydratedScopeRef.current = null;
+            cloudHydrationStartedScopeRef.current = null;
             setPhase("landing");
           }}
           accountEmail={authUserEmail}
@@ -4162,8 +4213,8 @@ export default function Home() {
             if (!response.ok) throw new Error(result.error || "계정을 삭제하지 못했습니다.");
             await createBrowserSupabaseClient().auth.signOut({ scope: "local" }).catch(() => undefined);
             setAuthUserEmail(undefined);
-            cloudHydratedRef.current = false;
-            cloudHydrationStartedRef.current = false;
+            cloudHydratedScopeRef.current = null;
+            cloudHydrationStartedScopeRef.current = null;
             window.location.replace("/");
           }}
           rules={rules}
@@ -4532,7 +4583,7 @@ export default function Home() {
           personaId={copilotConfig.presetId || "karina"}
           baristaName={copilotConfig.baristaName || "AI 바리스타"}
           completedTasks={merged
-            .filter((i) => i.status === "completed")
+            .filter((i) => isCompletedToday(i, nowTick))
             .map((i) => ({ title: i.title, category: i.category, source: i.source }))}
           pendingTasks={workflowItems
             .filter((i) => i.status !== "completed")
